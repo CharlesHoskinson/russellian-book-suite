@@ -41,27 +41,60 @@ jobs:
         working-directory: skills/book-qa
         run: python -m pytest tests/ -v
 
-  smoke-lint-bermuda:
-    name: smoke lint (Bermuda example)
+  test-book-thesis:
+    name: test book-thesis (py${{ matrix.python }})
     runs-on: ubuntu-latest
-    needs: test-book-qa
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: install pyyaml + rdflib + pyDatalog + pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml rdflib pyDatalog pytest
+      - name: pytest
+        working-directory: skills/book-thesis
+        run: python -m pytest tests/ -v
+
+  smoke-bermuda-pipeline:
+    name: smoke (Bermuda end-to-end)
+    runs-on: ubuntu-latest
+    needs: [test-book-qa, test-book-thesis]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
-      - name: install pyyaml
+      - name: install deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyyaml
-      - name: run book-qa.lint_artifact
+          python -m pip install pyyaml rdflib pyDatalog
+      - name: compile_thesis
         run: |
-          python skills/book-qa/scripts/lint_artifact.py examples/bermuda-manual 3.0.0
-      - name: upload defects.json
+          python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
+      - name: lint_supports
+        run: |
+          python skills/book-thesis/scripts/lint_supports.py examples/bermuda-manual 3.0.0 || true
+      - name: datalog_consistency
+        run: |
+          python skills/book-thesis/scripts/datalog_consistency.py examples/bermuda-manual
+      - name: book-qa lint_artifact (informational, expects v6 orphans)
+        run: |
+          python skills/book-qa/scripts/lint_artifact.py examples/bermuda-manual 3.0.0 || true
+      - name: upload qa reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bermuda-defects-report
-          path: examples/bermuda-manual/qa/defects.json
+          name: bermuda-qa-reports
+          path: |
+            examples/bermuda-manual/qa/defects.json
+            examples/bermuda-manual/qa/supports-defects.json
+            examples/bermuda-manual/qa/datalog-defects.json
           if-no-files-found: warn

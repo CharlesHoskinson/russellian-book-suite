@@ -48,7 +48,9 @@ examples/bermuda-manual/.knowledge/
 examples/bermuda-manual/chapters/drafts/
 examples/bermuda-manual/chapters/releases/
 examples/bermuda-manual/chapters/assets/
-examples/bermuda-manual/book/
+
+# Per-run linter scratch (regenerates on every lint_artifact invocation)
+examples/bermuda-manual/qa/defects.json
 
 # Skill-local caches
 **/.cache/

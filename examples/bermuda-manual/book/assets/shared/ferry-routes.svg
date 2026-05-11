@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">
+<rect x="0" y="0" width="720" height="280" fill="#EAF0F4"/>
+<circle cx="120" cy="140" r="11" fill="#5B7C99" stroke="white" stroke-width="2"/>
+<text x="120" y="170" text-anchor="middle" fill="#222" font-weight="bold">Hamilton</text>
+<line x1="135" y1="140" x2="625" y2="60" stroke="#5B7C99" stroke-width="2.5" stroke-dasharray="6 3"/>
+<circle cx="640" cy="60" r="8" fill="#5B7C99" stroke="white" stroke-width="2"/>
+<text x="654" y="65" fill="#222">Dockyard</text>
+<text x="654" y="79" fill="#222">(West End)</text>
+<text x="387.5" y="94.0" text-anchor="middle" fill="#5B7C99" font-size="11" font-style="italic">Blue</text>
+<line x1="135" y1="140" x2="625" y2="160" stroke="#7E96AE" stroke-width="2.5" stroke-dasharray="6 3"/>
+<circle cx="640" cy="160" r="8" fill="#7E96AE" stroke="white" stroke-width="2"/>
+<text x="654" y="165" fill="#222">Rockaway</text>
+<text x="387.5" y="144.0" text-anchor="middle" fill="#7E96AE" font-size="11" font-style="italic">Pink</text>
+<line x1="135" y1="140" x2="405" y2="200" stroke="#C9A875" stroke-width="2.5" stroke-dasharray="6 3"/>
+<circle cx="420" cy="200" r="8" fill="#C9A875" stroke="white" stroke-width="2"/>
+<text x="434" y="205" fill="#222">Hinson's / Salt Kettle</text>
+<text x="277.5" y="164.0" text-anchor="middle" fill="#C9A875" font-size="11" font-style="italic">Green</text>
+<line x1="135" y1="140" x2="625" y2="240" stroke="#3E5970" stroke-width="2.5" stroke-dasharray="6 3"/>
+<circle cx="640" cy="240" r="8" fill="#3E5970" stroke="white" stroke-width="2"/>
+<text x="654" y="245" fill="#222">St George's</text>
+<text x="654" y="259" fill="#222">(East End)</text>
+<text x="387.5" y="184.0" text-anchor="middle" fill="#3E5970" font-size="11" font-style="italic">Orange</text>
+<text x="360" y="270" text-anchor="middle" fill="#666" font-size="10">Schematic; not to scale.</text>
+</svg>

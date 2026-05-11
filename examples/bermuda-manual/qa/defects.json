@@ -2,7 +2,7 @@
   "summary": {
     "release": "3.0.0",
     "manuscript_md_bytes": 227591,
-    "manuscript_html_bytes": 800366,
+    "manuscript_html_bytes": 0,
     "total_defects": 3,
     "by_class": {
       "D5": 1,

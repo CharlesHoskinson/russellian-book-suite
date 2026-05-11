@@ -11,113 +11,89 @@ metadata:
 
 # book-knowledge
 
-You are the epistemic compiler for a book project. You turn local source materials (PDFs, markdown) into a typed, provenance-rich, validated knowledge base. All processing is local — no external APIs.
+The epistemic compiler for a book workspace. Turns local sources into a typed, provenance-rich, SHACL-validated knowledge base that downstream skills read as ground truth.
 
-## Operating doctrine
+## What it owns
 
-These rules are non-negotiable.
+- `raw/` — immutable source files and manifests
+- `wiki/` — cumulative synthesis pages, append-only log, current-status
+- `claims/` — append-only claim ledger and conflict records
+- `graph/` — projected RDF dataset, SHACL shapes, validation and query reports
 
-1. **Raw is immutable.** Files in `raw/` are never edited.
-2. **Wiki is cumulative.** Append to `wiki/` deltas, never rewrite history.
-3. **Nothing publishable without provenance.** Verified claims must derive from source spans.
-4. **SHACL gates are non-negotiable.** A workspace with non-conforming SHACL cannot ship a chapter.
-5. **Quarantine before promotion.** Every claim enters as `proposed`. Verification promotes to `verified`. Conflicts demote to `disputed`. Replacement marks the old claim `superseded`.
-6. **On validation failure, repair don't suppress.** Add the missing edge, fix the typing, or supersede the bad claim. Never weaken the shapes to make a draft pass.
-7. **No external APIs.** Never call out to remote services from inside this skill.
+## What it does NOT own
 
-## Sub-workflow routing
+- `chapters/` — written by book-compose; read-only here
+- Prose style, persona review, Q&A — delegated to siblings
+- Network I/O — this skill never reaches off-machine
 
-Classify the user's request into one of four sub-workflows. Read the corresponding reference file, then act.
+## Components
 
-### Ingest a source
-Trigger phrases: "ingest this paper", "add this PDF", "load this markdown".
-1. Read `references/ingest-playbook.md`.
-2. Determine source kind (PDF or markdown) by extension.
-3. Locate or create the workspace.
-4. Call `scripts/ingest_pdf.py` or `scripts/ingest_markdown.py` with the source path and workspace root.
-5. Append a log entry. Regenerate `wiki/index.md` via `scripts/wiki_index_regen.py`.
+Deterministic helpers in `scripts/`. Invoke via `.venv\Scripts\python.exe -m scripts.<name>`, or import directly.
 
-### Synthesize across sources
-Trigger phrases: "update the book wiki", "synthesize across sources", "merge concept pages".
-1. Read `references/wiki-operating-model.md`.
-2. Identify concept and entity pages that need updates given recent source ingests.
-3. Edit pages in `wiki/concepts/` or `wiki/entities/` directly.
-4. Append a log entry.
-5. Regenerate `wiki/index.md`.
+Workspace and ingest:
+- `workspace.py` — `init_workspace`, `find_workspace_root`, `WorkspaceLayout`
+- `ingest_pdf.py`, `ingest_markdown.py`, `ingest_common.py` — pdfplumber and markdown-it-py source ingest
+- `source_manifest.py` — sha256, doc_id, manifest schema
 
-### Extract or revise claims
-Trigger phrases: "extract claims from this section", "verify these claims", "supersede this claim".
-1. Read `references/claims-and-provenance.md`.
-2. Read the relevant wiki pages or source content.
-3. Compose claim records as JSON objects following the schema in `assets/claim-record.schema.json`.
-4. Append via `scripts/ledger.py` (`append_claim`).
-5. Run `scripts/verify_claim.py` on each new claim to promote proposed → verified.
-6. Run `scripts/detect_conflicts.py` to find contradictions in the verified set.
+Claim ledger:
+- `claim_validator.py` — schema plus state machine (proposed → verified → disputed → superseded)
+- `ledger.py` — append-only claim ledger
+- `verify_claim.py` — locator-text cross-check; promotes proposed to verified
+- `detect_conflicts.py` — antonym-pair contradiction scan
 
-### Audit the graph
-Trigger phrases: "audit the knowledge graph", "run the release gate", "find unsupported claims".
-1. Read `references/graph-audit-playbook.md`.
-2. Run `scripts/project_graph.py` to refresh `graph/dataset.trig` from the latest claim ledger.
-3. Run `scripts/validate_shacl.py` — produces `graph/reports/shacl-latest.txt`.
-4. Run `scripts/run_competency_queries.py` — produces `graph/reports/competency-<timestamp>.md`.
-5. Run `scripts/audit_taxonomy.py` for OntoClean-style review.
-6. Surface any violations and propose repairs.
-
-## Release gate
-
-A workspace passes the release gate iff:
-1. SHACL conforms.
-2. `unsupported_claims` query returns 0 rows.
-3. `contradiction_scan` query returns 0 rows for chapters under release.
-4. Each chapter contract under release has evidence coverage ≥ its `minimum_verified_claims`.
-
-If any condition fails, write a remediation queue to `graph/reports/release-gate-<run>.md` and stop. Do not lower the bar.
-
-## References (progressive disclosure)
-
-Load these only when the corresponding sub-workflow requires them.
-
-- `references/ingest-playbook.md` — local PDF/markdown ingest rules
-- `references/wiki-operating-model.md` — Karpathy synthesis pattern, page conventions
-- `references/claims-and-provenance.md` — claim state machine, JSON Schema, verification
-- `references/graph-audit-playbook.md` — RDF projection, SHACL shapes, SPARQL queries, release-gate semantics
-- `references/ontology-philosophy.md` — BFO/SKOS/OWL RL/OntoClean. Read when extending the schema.
-- `references/worked-example.md` — end-to-end PDF → wiki → claims → graph → audit walkthrough.
-
-## Scripts
-
-Deterministic helpers in `scripts/`. Invoke via `.venv\Scripts\python.exe -m scripts.<name>` from the skill directory, OR import their public functions directly.
-
-Workspace management:
-- `scripts/workspace.py` — `init_workspace`, `find_workspace_root`, `WorkspaceLayout`
-
-Ingest:
-- `scripts/ingest_pdf.py` — pdfplumber-based PDF ingest
-- `scripts/ingest_markdown.py` — markdown-it-py heading-tree ingest
-- `scripts/source_manifest.py` — sha256, doc_id, manifest JSON Schema validation
-
-Claims:
-- `scripts/claim_validator.py` — JSON Schema + state-machine transition rules
-- `scripts/ledger.py` — append-only claim ledger
-- `scripts/verify_claim.py` — locator-text cross-check
-- `scripts/detect_conflicts.py` — antonym-pair contradiction scan
-
-Graph:
-- `scripts/project_graph.py` — claim ledger → TriG dataset with PROV-O
-- `scripts/validate_shacl.py` — pyshacl wrapper
-- `scripts/run_competency_queries.py` — runs all SPARQL queries in `assets/queries/`
-- `scripts/audit_taxonomy.py` — OntoClean role-as-subclass detector
+RDF graph, SHACL, SPARQL:
+- `project_graph.py` — ledger to TriG with PROV-O
+- `validate_shacl.py` — pyshacl wrapper; writes `graph/reports/shacl-latest.txt`
+- `audit_taxonomy.py` — OntoClean role-as-subclass detector
+- `run_competency_queries.py` — runs every query in `assets/queries/`
 
 Wiki:
-- `scripts/wiki_index_regen.py` — rebuilds `wiki/index.md`
+- `wiki_index_regen.py` — rebuilds `wiki/index.md` from page front-matter
 
-## Local-only guarantee
+Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclosure docs in `references/`: `ingest-playbook.md`, `wiki-operating-model.md`, `claims-and-provenance.md`, `graph-audit-playbook.md`, `ontology-philosophy.md`, `worked-example.md`.
 
-This skill never makes outbound network calls. All processing happens against local files via:
-- pdfplumber (local PDF parsing)
-- markdown-it-py (local markdown parsing)
-- rdflib (local RDF dataset)
-- pyshacl (local SHACL validation)
-- jsonschema (local schema validation)
+## Workspace layout
 
-No HTTP libraries are imported. No cloud SDKs are loaded. The conversational reasoning happens in Claude itself; the scripts are deterministic.
+```
+<workspace>/
+  CLAUDE.md                    # workspace marker
+  raw/{pdf,markdown,manifests}/
+  wiki/
+    index.md  log.md  current-status.md
+    sources/  concepts/  entities/  chapters/
+  claims/
+    ledger.jsonl  conflicts.jsonl  verification/
+  graph/
+    dataset.trig  shapes.ttl
+    imports/  reports/
+  chapters/{contracts,drafts,releases}/    # owned by book-compose
+  reports/
+```
+
+## Composes with
+
+- **russellian-style** — invoked by book-compose on drafted prose; never from here
+- **book-compose** — consumes verified claims and SHACL reports to draft chapters
+- **book-review** — runs persona passes against drafted chapters
+- **book-qa** — final mechanical and editorial gate over built artefacts
+
+## Usage
+
+```bash
+.venv\Scripts\python.exe -m scripts.workspace init <workspace>
+.venv\Scripts\python.exe -m scripts.ingest_pdf <source.pdf> <workspace>
+.venv\Scripts\python.exe -m scripts.verify_claim <workspace>
+.venv\Scripts\python.exe -m scripts.project_graph <workspace>
+.venv\Scripts\python.exe -m scripts.validate_shacl <workspace>
+.venv\Scripts\python.exe -m scripts.run_competency_queries <workspace>
+```
+
+Release gate: SHACL conforms, `unsupported_claims` returns zero, `contradiction_scan` returns zero for chapters under release, and each contract meets its `minimum_verified_claims`. On failure, write `graph/reports/release-gate-<run>.md` and stop.
+
+## Tests
+
+```bash
+.venv\Scripts\python.exe -m pytest tests/
+```
+
+`tests/` covers every script plus integration, Anthropic compliance, and trigger calibration. Smoke results in `tests/smoke-results.md`.

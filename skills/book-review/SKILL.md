@@ -11,69 +11,63 @@ metadata:
 
 # book-review
 
-You orchestrate multi-persona editorial reviews on chapter drafts in a book-knowledge workspace.
+Qualitative editorial review for chapter drafts. Dispatches five persona subagents in parallel, aggregates severity-tagged findings, soft-gates release on `persona_critical_count == 0`.
 
-## Operating doctrine
+## What it owns
 
-1. **Personas comment; they do not rewrite.** Revisions go through book-compose's drafting workflow, not through this skill.
-2. **Five personas, five lenses.** Each is documented in `personas/<id>.md`. Read the persona before invoking it.
-3. **Soft-gating only.** Chapter release fails iff any persona returns `severity=critical`. Important and minor findings are advisory.
-4. **Local only.** Persona dispatch uses Claude itself via subagent. No external API calls.
-5. **Never auto-trigger.** Reviews run only on explicit invocation.
+- Persona definitions in `personas/*.md` and conventions for new ones.
+- Dispatch-packet construction, subagent prompting, review parsing.
+- Aggregation into `<workspace>/chapters/drafts/<chapter_id>/persona-review.md`.
+- Soft-gate semantics: critical blocks; important and minor are advisory.
 
-## Workflow
+## What it does NOT own
 
-### Stage 1: Preparation
-1. Verify the chapter has a draft at `<workspace>/chapters/drafts/<chapter_id>/draft.md`.
-2. Read the chapter contract at `<workspace>/chapters/contracts/<chapter_id>.yaml` for context (title, purpose, audience).
-3. Read the relevant persona definitions in `personas/`.
-
-### Stage 2: Dispatch packets
-Call `scripts/review_pass.py:prepare_dispatch_packets(workspace, chapter_id)`. Returns one `DispatchPacket` per persona, each with a fully-rendered prompt.
-
-### Stage 3: Subagent dispatch
-For each packet (parallel-safe):
-1. Issue a Task-tool call with `description="Persona review: <persona_display_name>"` and `prompt=packet.prompt`.
-2. The subagent reads the persona body as its own role, reads the chapter prose, and writes its review to `packet.output_path`.
-
-### Stage 4: Aggregation
-Call `scripts/aggregate_reviews.py:aggregate_reviews(workspace, chapter_id)`. Produces:
-- `<workspace>/chapters/drafts/<chapter_id>/persona-review.md` — aggregated report
-- Severity counts (critical, important, minor)
-- Per-persona verdicts table
-
-### Stage 5: Surface findings
-1. Display the aggregated severity counts.
-2. If `critical > 0`, list the critical findings and stop. The chapter does not pass review.
-3. Surface important and minor findings as advisory.
-
-## Severity rubric
-
-- **Critical** findings BLOCK chapter release. Reserved for what the persona's lens marks as critical (see each persona's definition).
-- **Important** findings should be addressed before publication; do not block.
-- **Minor** findings are advisory polish.
-
-## References
-
-- `references/persona-design.md` — how to write a new persona
-- `references/severity-rubric.md` — what counts as critical for each persona
-- `references/worked-example.md` — end-to-end review of a chapter that has a listicle abstract
-
-## Scripts
-
-- `scripts/persona_loader.py` — load persona definitions from `personas/*.md`
-- `scripts/dispatch_review.py` — render dispatch prompts; parse review reports
-- `scripts/aggregate_reviews.py` — merge per-persona reports into `persona-review.md`
-- `scripts/review_pass.py` — orchestrator: prepare_dispatch_packets, run_review_pass
+- Mechanical defect-gating on built artefacts — owned by `book-qa`.
+- Sentence-grain prose discipline — owned by `russellian-style`.
+- Claim verification, wiki synthesis, SHACL gates — owned by `book-knowledge`.
+- Chapter drafting, release bundles, book builds — owned by `book-compose`.
+- Persona rewrites. Personas comment; revisions go back through `book-compose`.
 
 ## Personas
 
-- `personas/gottlieb.md` — Robert Gottlieb, legendary editor (cadence, AI-sloppy patterns)
-- `personas/lay-reader.md` — intelligent generalist (accessibility)
-- `personas/domain-expert.md` — skeptical specialist (factual accuracy)
-- `personas/copyeditor.md` — mechanics + cross-chapter consistency
-- `personas/enjoyment-reader.md` — pleasure reader (engagement)
+- **Robert Gottlieb** (`personas/gottlieb.md`) — voice, cadence, AI-sloppy patterns.
+- **Lay Reader** (`personas/lay-reader.md`) — accessibility, unexplained jumps.
+- **Domain Expert** (`personas/domain-expert.md`) — factual accuracy against the claim ledger.
+- **Copyeditor** (`personas/copyeditor.md`) — cross-chapter consistency, mechanics.
+- **Enjoyment Reader** (`personas/enjoyment-reader.md`) — momentum, where the reader stops.
 
-## Local-only guarantee
+A sixth narrative-craft persona is planned for v4.
 
-This skill never makes outbound network calls. Persona dispatch happens via Claude's Task tool against the same local Claude. No HTTP libraries are imported. No cloud SDKs are loaded.
+## Severity rubric
+
+A finding is `critical` iff the persona believes the chapter must not ship as written.
+
+- **Critical** — blocks release. Reserved for patterns each persona marks as critical. Prefer `important` if uncertain.
+- **Important** — fix before publication; counted but non-gating.
+- **Minor** — advisory polish.
+
+The aggregator takes severity at face value. See `references/severity-rubric.md` for per-persona patterns and dispatch order.
+
+## Workflow
+
+1. **Prepare.** Verify the draft exists; load the chapter contract.
+2. **Dispatch.** `scripts/review_pass.py:prepare_dispatch_packets` returns one packet per persona. Issue parallel Task-tool calls; each subagent writes to `packet.output_path`.
+3. **Aggregate.** `scripts/aggregate_reviews.py:aggregate_reviews` merges reports into `persona-review.md` with counts, verdict table, substring-deduplicated findings.
+4. **Soft-gate.** If `critical > 0`, surface the critical findings and stop. Otherwise surface important and minor as advisory.
+
+## Composes with
+
+- `book-compose` — invokes this skill in Stage 4; gates on `persona_critical_count == 0`.
+- `russellian-style` — runs before review so personas see compliant prose.
+- `book-knowledge` — Domain Expert reads the claim ledger and raw sources.
+- `book-qa` — runs after on the built manuscript; orthogonal mechanical scope.
+
+## Usage
+
+- "Review chapter X with personas" — full five-persona pass.
+- "Gottlieb pass on this chapter" — single-persona dispatch.
+- "Is chapter X ready for review?" — preflight check.
+
+## Tests
+
+Five suites in `tests/`: `test_persona_loader`, `test_dispatch_review`, `test_aggregate_reviews`, `test_review_pass`, `test_sibling_skills`. Run `pytest` from the skill root. Synthetic reports in `tests/fixtures/synthetic_reviews/`.

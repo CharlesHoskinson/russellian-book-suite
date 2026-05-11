@@ -4,79 +4,112 @@ A family of five Claude Code skills that produces non-fiction books from a local
 
 ## What this is
 
-Five skills that compose into a book pipeline.
+Five skills that compose into a book pipeline. Data flows top-to-bottom; every
+arrow is labelled with what crosses the stage boundary.
 
 ```
-   chapter contracts (.yaml)
-            │
-            ▼                                            ┌──────────────────────────────────┐
-   ┌─────────────────┐                                   │  Composes-with:                  │
-   │  book-knowledge │  ◄──  sources (PDFs, .md, .txt)   │   - russellian-style (prose)     │
-   │  claim ledger   │       SHACL + PROV-O + SPARQL     │   - book-knowledge (claims)      │
-   └────────┬────────┘                                   │   - book-compose (orchestrator)  │
-            │                                            │   - book-review (5 personas)     │
-            ▼                                            │   - book-qa (defect gate)        │
-   ┌─────────────────┐                                   └──────────────────────────────────┘
-   │ chapter draft   │  ◄──  Russell-style prose +
-   │   (markdown)    │       McPhee/Bryson scene craft
-   └────────┬────────┘
-            │
-            ▼
-   ┌──────────────────────────┐    ┌────────────────────────┐
-   │  russellian-style        │    │  book-craft (planned)  │
-   │  hedges, passive, signal │    │  scenes, transitions,  │
-   │  density, parallel,      │    │  structural variety,   │
-   │  listicle, rhythm        │    │  visuals manifest      │
-   └────────┬─────────────────┘    └────────────┬───────────┘
-            │                                   │
-            └──────────────┬────────────────────┘
-                           ▼
-                  ┌──────────────────────┐
-                  │  book-review         │
-                  │  5+1 personas        │
-                  │  (Gottlieb, Lay      │
-                  │  Reader, Domain      │
-                  │  Expert, Copyeditor, │
-                  │  Enjoyment Reader,   │
-                  │  Narrative-Craft)    │
-                  └────────┬─────────────┘
-                           ▼
-                  ┌──────────────────────┐
-                  │  book-compose        │
-                  │  build_book →        │
-                  │   manuscript.md      │
-                  │   manuscript.html    │
-                  │   manuscript.pdf     │
-                  └────────┬─────────────┘
-                           ▼
-                  ┌──────────────────────┐
-                  │  book-qa             │
-                  │  Stage-1: D1–D8      │
-                  │  Stage-2: 15-item    │
-                  │           swarm      │
-                  │  Stage-3: Sentinel   │
-                  │  Stage-4: Healer     │
-                  └────────┬─────────────┘
-                           ▼
-                  ┌──────────────────────┐
-                  │  release bundle      │
-                  │  manuscript.pdf      │
-                  │  manuscript.html     │
-                  │  manuscript.md       │
-                  │  chapter-bundles/    │
-                  │  claims-bibliography │
-                  └──────────────────────┘
+  sources (PDFs, .md, .txt, .pdf)         chapter contracts (.yaml)
+            │                                       │
+            │ raw text + provenance                 │ topics, evidence,
+            ▼                                       │ acceptance tests
+  ┌──────────────────────┐                          │
+  │ 1. INGEST            │                          │
+  │   book-knowledge     │                          │
+  │   SHACL · PROV-O     │                          │
+  └──────────┬───────────┘                          │
+             │ claim-ledger.jsonl                   │
+             │ (claims + spans + status)            │
+             ▼                                      ▼
+            ┌──────────────────────────────────────────┐
+            │ 2. AUTHOR + STYLE                        │
+            │    russellian-style                      │
+            │    hedges · passive · modifier budget    │
+            │    listicle · rhythm · humanizer pass    │
+            └──────────────────┬───────────────────────┘
+                               │ chapter-NN.md
+                               │ (Russell-clean prose)
+                               ▼
+            ┌──────────────────────────────────────────┐
+            │ 3. REVIEW                                │
+            │    book-review                           │
+            │    Gottlieb · Lay · Domain · Copy ·      │
+            │    Enjoyment  (5 personas)               │
+            │    soft-gate: critical_count == 0        │
+            └──────────────────┬───────────────────────┘
+                               │ persona-findings.json
+                               │ + revised chapter-NN.md
+                               ▼
+            ┌──────────────────────────────────────────┐
+            │ 4. COMPILE                               │
+            │    book-compose                          │
+            │    manuscript.md → React/Tailwind HTML   │
+            │                  → Playwright PDF         │
+            └──────────────────┬───────────────────────┘
+                               │ manuscript.{md,html,pdf}
+                               │ + book-manifest.yaml
+                               ▼
+            ┌──────────────────────────────────────────┐
+            │ 5. RELEASE GATE                          │
+            │    book-qa                               │
+            │    Stage-1 D1–D8 (deterministic)         │
+            │    Stage-2 C1–C15 swarm (per chapter)    │
+            │    Stage-3 Sentinel · Stage-4 Healer     │
+            │    hard-gate: D1–D8 == 0                 │
+            └──────────────────┬───────────────────────┘
+                               │ release/ bundle
+                               ▼
+                       manuscript.pdf
+                       manuscript.html
+                       manuscript.md
+                       chapter-bundles/
+                       claims-bibliography.md
+                       qa/swarm-findings.md
 ```
+
+## Lifecycle stages
+
+**1. Ingest — [book-knowledge](skills/book-knowledge/SKILL.md).** Inputs: source
+documents (PDFs, markdown, transcripts) plus chapter contracts. The skill
+extracts claims, attaches PROV-O provenance, validates the graph with SHACL, and
+emits a JSONL claim ledger. No hard gate; SHACL violations surface as warnings.
+
+**2. Author + Style — [russellian-style](skills/russellian-style/SKILL.md).**
+Inputs: a chapter draft in markdown plus the claim ledger slice for that
+chapter. The skill enforces sentence-grain analytic prose: zero hedges,
+modifier budget, no passive without cause, parallel structure on lists, rhythm
+variance, listicle abstraction, citation-token hygiene, plus a humanizer pass
+for AI-fingerprint removal. Output: a Russell-clean `chapter-NN.md`. Soft gate
+on configured thresholds.
+
+**3. Review — [book-review](skills/book-review/SKILL.md).** Inputs: the styled
+chapter and the chapter contract. Five personas (Robert Gottlieb, Lay Reader,
+Domain Expert, Copyeditor, Enjoyment Reader) read independently and return
+severity-tagged findings. Output: `persona-findings.json` and a revised chapter
+draft. Soft-gates chapter release on `persona_critical_count == 0`.
+
+**4. Compile — [book-compose](skills/book-compose/SKILL.md).** Inputs: the
+reviewed chapter set, the book-manifest, and the claim bibliography. The
+orchestrator assembles `manuscript.md`, renders a React/Tailwind/shadcn HTML
+browser view, and prints the canonical PDF via Playwright's bundled Chromium.
+Output: `manuscript.{md,html,pdf}` plus per-chapter bundles. No gate here; the
+gate runs in stage 5.
+
+**5. Release gate — [book-qa](skills/book-qa/SKILL.md).** Inputs: the compiled
+manuscript bundle. Stage-1 runs the deterministic D1–D8 linter (orphan citation
+tokens, heading leakage, etc.). Stage-2 dispatches a per-chapter C1–C15 LLM
+swarm. Stage-3 (Sentinel) triages findings; Stage-4 (Healer) optionally patches.
+**Hard gate**: D1–D8 must be zero before "ship." Output: the final
+`release/` bundle.
 
 ## The five skills
 
 | Skill | One-line purpose | Lifecycle stage |
 |---|---|---|
-| **`russellian-style`** | Enforce sentence-grain analytic prose (hedges, passive, modifier budget, listicle, rhythm) | pre-compile |
-| **`book-knowledge`** | Ingest sources, maintain claim ledger with provenance, RDF graph, SHACL validation | pre-compile |
-| **`book-compose`** | Orchestrator. Read chapter contract → claim slice → draft → bundle → book release (Markdown + React/Tailwind HTML + Playwright PDF) | compile |
-| **`book-review`** | Five-persona qualitative editorial review (Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader) — soft-gates chapter release | review |
-| **`book-qa`** | Post-build defect gate: deterministic Stage-1 linter (D1–D8) + per-chapter swarm (C1–C15) + Sentinel-Healer loop | release |
+| **[`russellian-style`](skills/russellian-style/SKILL.md)** | Enforce sentence-grain analytic prose (hedges, passive, modifier budget, listicle, rhythm) | 2 — author + style |
+| **[`book-knowledge`](skills/book-knowledge/SKILL.md)** | Ingest sources, maintain claim ledger with provenance, RDF graph, SHACL validation | 1 — ingest |
+| **[`book-compose`](skills/book-compose/SKILL.md)** | Orchestrator. Read chapter contract → claim slice → draft → bundle → book release (Markdown + React/Tailwind HTML + Playwright PDF) | 4 — compile |
+| **[`book-review`](skills/book-review/SKILL.md)** | Five-persona qualitative editorial review (Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader) — soft-gates chapter release | 3 — review |
+| **[`book-qa`](skills/book-qa/SKILL.md)** | Post-build defect gate: deterministic Stage-1 linter (D1–D8) + per-chapter swarm (C1–C15) + Sentinel-Healer loop | 5 — release gate |
 
 Skill source: `skills/<skill>/`. Each skill is a self-contained directory with `SKILL.md`, `scripts/`, `tests/`, and (where applicable) `personas/`, `checklists/`, `references/`, `assets/`.
 
@@ -140,11 +173,11 @@ russellian-book-suite/
 
 A book is produced in roughly five passes:
 
-1. **Ingest** sources via `book-knowledge` — extract claims into a JSONL ledger with provenance, status, source spans.
+1. **Ingest** sources via [`book-knowledge`](skills/book-knowledge/SKILL.md) — extract claims into a JSONL ledger with provenance, status, source spans.
 2. **Author** chapter drafts in markdown. Each chapter has a `contract.yaml` that lists must-include topics, must-not-do constraints, evidence requirements, and acceptance tests (linter thresholds).
-3. **Style** with `russellian-style` — every chapter linted for atomic sentences, no hedges, modifier budget, parallel structure, listicle abstraction, sentence rhythm, citation-token leakage, plus AI-fingerprint detection via the `humanizer` skill.
-4. **Review** with `book-review` — five-persona LLM editorial swarm. Soft-gates on `persona_critical_count == 0`.
-5. **Compile + Release** with `book-compose` — assemble manuscript markdown, render React/Tailwind/shadcn HTML browser, print PDF via Playwright. Then `book-qa` runs a final post-build defect sweep (D1–D8 deterministic + C1–C15 chapter swarm) before "ship."
+3. **Style** with [`russellian-style`](skills/russellian-style/SKILL.md) — every chapter linted for atomic sentences, no hedges, modifier budget, parallel structure, listicle abstraction, sentence rhythm, citation-token leakage, plus AI-fingerprint detection via the `humanizer` skill.
+4. **Review** with [`book-review`](skills/book-review/SKILL.md) — five-persona LLM editorial swarm. Soft-gates on `persona_critical_count == 0`.
+5. **Compile + Release** with [`book-compose`](skills/book-compose/SKILL.md) — assemble manuscript markdown, render React/Tailwind/shadcn HTML browser, print PDF via Playwright. Then [`book-qa`](skills/book-qa/SKILL.md) runs a final post-build defect sweep (D1–D8 deterministic + C1–C15 chapter swarm) before "ship."
 
 ## Local-only constraint
 

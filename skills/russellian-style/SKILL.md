@@ -10,81 +10,53 @@ metadata:
 
 # russellian-style
 
-You enforce Bertrand Russell's analytic prose discipline on technical writing. You are a structural realignment of token generation, not a stylistic veneer.
+Rewrites technical prose in Bertrand Russell's analytic style and audits markdown for hedging, passive voice, modifier bloat, and rhythm defects. For authors of the book suite and anyone enforcing signal density on accuracy-bearing text.
 
-## Operating doctrine
+## What it owns
 
-These seven rules are non-negotiable.
+- Sentence- and paragraph-level prose discipline.
+- The 26-principle Russellian style catalog and rule registry.
+- Deterministic linters for hedges, passive voice, signal density, parallel structure, rhythm, and listicle abstraction.
+- The `style-pass-report.md` artifact and its acceptance metrics.
+- Refusal protocol for non-accuracy genres.
 
-1. **No hedging.** Replace every "might / could / seems / generally / typically / usually" with a deterministic threshold or remove it.
-2. **Active voice.** Every sentence has an explicit actor performing an explicit action.
-3. **Lexical economy.** The shortest precise word displaces the long Latinate one. Modifiers are earned, not assumed.
-4. **Atomic propositions.** Decouple every complex conditional into stacked atomic facts.
-5. **Axiomatic flow.** The opening states the thesis. Every section is a derivation from prior sections. No forward references.
-6. **Code as proof, not illustration.** The prose explains why the code is the optimal resolution. It never narrates what the code does.
-7. **Parallel grammatical structure.** All items in a list share their grammatical opening type.
+## What it does NOT own
 
-## Workflow
+- Source ingestion, claim ledgers, wiki synthesis — owned by `book-knowledge`.
+- Chapter drafting, release bundles, PDF/EPUB rendering — owned by `book-compose`.
+- Editorial persona reviews — owned by `book-review`.
+- Question answering against a drafted manuscript — owned by `book-qa`.
+- Generic AI-writing tells (em-dash overuse, rule-of-three, AI vocabulary) — owned by `humanizer`.
 
-### When invoked on a passage or file
+## Linters
 
-1. Read the input passage. If a file path was given, read the file.
-2. Read `references/russellian-style-guide.md` for the full 26-principle catalog.
-3. Read `references/how-i-write-maxims.md` before sentence-level edits.
-4. Read `references/logical-atomism-for-writers.md` if the input contains nested conditionals or tangled multi-variable sentences.
-5. Read `references/before-after-examples.md` if you are uncertain whether the passage is already compliant.
-6. Run all four linters via the deterministic scripts (preferred over manual detection):
-   ```bash
-   python -m scripts.lint_hedges <input.md>
-   python -m scripts.lint_passive_voice <input.md>
-   python -m scripts.lint_signal_density <input.md>
-   python -m scripts.lint_parallel_structure <input.md>
-   ```
-7. Apply the 5-domain pass to produce the rewritten prose.
-8. Generate `style-pass-report.md` via `scripts/style_pass_report.py <input.md> <report.md>`.
+- `scripts/lint_hedges.py` — hedge vocabulary detection against the rule registry.
+- `scripts/lint_passive_voice.py` — passive constructions via spaCy dependency parse.
+- `scripts/lint_signal_density.py` — adjective and adverb ratio per sentence against budget.
+- `scripts/lint_parallel_structure.py` — grammatical-opening parity across bullet lists.
+- `scripts/lint_sentence_rhythm.py` — sentence-length variance and cadence defects.
+- `scripts/lint_listicle_abstract.py` — abstract-noun listicles masquerading as content.
 
-### Output contract
+## Style guide
 
-Two artifacts are always produced:
-1. **Rewritten prose** — the passage with all violations corrected.
-2. **`style-pass-report.md`** — auditable record of every rule that fired, with line numbers and before/after fragments.
+`references/russellian-style-guide.md` is the authoritative catalog: 26 principles across 5 domains (vocabulary, voice, atomicity, flow, structure).
 
-The report is non-optional. It is what makes the rewrite reviewable.
+## Composes with
 
-## Refusal protocol
+- `book-knowledge` — ingests sources whose claims this skill later polishes.
+- `book-compose` — calls this skill as the prose-polish stage of chapter drafting.
+- `book-review` — runs persona reviews on prose already compliant with this skill.
+- `book-qa` — queries chapters drafted under this style.
+- `humanizer` — strips residual AI-writing tells after this skill runs.
+- `book-craft` (planned) — orchestrates the full pipeline.
 
-Refuse activation for marketing copy, launch announcements, fiction, op-eds, persuasive essays, casual messages, sales pitches, taglines, resumes, and cover letters. See `references/negative-triggers.md` for the full list and the standard refusal template.
+## Usage
 
-If the user is unsure of genre, ask: "Is the goal accuracy or engagement?" Activate for accuracy. Refuse for engagement.
+- `/russellian-style` — invoke on the current selection or supplied path.
+- "Apply Russell style to this paragraph" — single-passage rewrite.
+- "Run the linters on chapter 3" — lint-only pass, no rewrite.
+- "Russell pass on `draft.md`" — full pass with `style-pass-report.md`.
 
-## References (progressive disclosure)
+## Tests
 
-Load these files only when the corresponding workflow step requires them.
-
-- `references/russellian-style-guide.md` — 26 principles, 5 domains. The authoritative catalog.
-- `references/how-i-write-maxims.md` — Russell's seven sentence-craft maxims plus the 62→25 word example.
-- `references/logical-atomism-for-writers.md` — IF / AND IF / THEN refactor pattern for nested conditionals.
-- `references/before-after-examples.md` — 10 paired transformations across common failure modes.
-- `references/negative-triggers.md` — categorical refusals and the refusal template.
-
-## Scripts
-
-Deterministic linters are the trustworthy substrate of this skill.
-
-- `scripts/lint_hedges.py` — hedge vocabulary detection
-- `scripts/lint_passive_voice.py` — passive-construction detection (spaCy dependency parse)
-- `scripts/lint_signal_density.py` — adjective+adverb ratio per sentence vs configured budget
-- `scripts/lint_parallel_structure.py` — bullet-list grammatical-opening parity
-- `scripts/style_pass_report.py` — aggregator that produces `style-pass-report.md`
-
-Rule registry: `assets/russellian-rules.json` (vocabulary, thresholds).
-
-## Acceptance metrics
-
-A passage is Russellian-compliant when its style-pass-report shows:
-- `hedge_count: 0`
-- `passive_voice_ratio < 0.05`
-- `modifier_budget_violations: 0`
-- `parallel_structure_violations: 0`
-
-These same metrics are the acceptance tests for any chapter contract that inherits this style.
+59 tests across 11 files in `tests/`. Run with `pytest` from the skill root. Fixtures in `tests/fixtures/`; trigger calibration in `tests/trigger_tests.yaml`.

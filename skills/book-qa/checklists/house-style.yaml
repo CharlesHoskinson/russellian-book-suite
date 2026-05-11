@@ -1,0 +1,28 @@
+canonical_terms:
+  - "Bermuda cedar"          # not "Bermuda juniper"
+  - "Bermudian status"       # capital B, lowercase s
+  - "Hamilton"               # the City
+  - "Hamilton Parish"        # distinct from the City
+  - "City of Hamilton"       # explicit when ambiguous
+  - "Town of St. George"     # the municipal corporation
+  - "St. George's Parish"    # the parish
+  - "L. F. Wade International Airport"
+  - "Standard Hospital Benefit"
+  - "Bermuda Hospitals Board"
+  - "King Edward VII Memorial Hospital"
+  - "Mid-Atlantic Wellness Institute"
+  - "Annual Rental Value"
+  - "Constitution Order 1968"
+  - "Sea Venture"
+  - "Cup Match"
+  - "the Crown"
+
+drift_pairs:
+  - canonical: "Bermuda cedar"
+    bad: ["Bermuda juniper", "juniper cedar"]
+  - canonical: "Hamilton Parish"
+    bad: ["Hamilton parish"]
+  - canonical: "St. George's"
+    bad: ["St Georges", "Saint George's"]
+  - canonical: "L. F. Wade International Airport"
+    bad: ["LF Wade", "L F Wade", "Wade International"]

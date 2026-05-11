@@ -1,0 +1,65 @@
+{
+  "chapter": "ch-06",
+  "tickets": [
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 5",
+      "detail": "'around 30%' on customs-duty revenue share."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 15",
+      "detail": "'approximately 94%' on living-expense differential."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 39",
+      "detail": "Hedges 'between roughly two and four times' / 'by inspection'."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 69",
+      "detail": "'roughly $750' on family utility estimate."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 91",
+      "detail": "'roughly $70 per month' transit cost."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 15",
+      "detail": "94%/185% rent claims without source."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 73",
+      "detail": "Rainfall 1453.8mm unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 101",
+      "detail": "JBM Realty 2025 $3,300 rent unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 108",
+      "detail": "8%/6% licence fee and stamp duty unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "multiple",
+      "detail": "Hero-table + table rows >120 chars."
+    }
+  ]
+}

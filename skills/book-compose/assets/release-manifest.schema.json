@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "release-manifest",
+  "type": "object",
+  "required": ["chapter_id", "version", "built_at", "outputs", "sources_included", "claim_slice_count"],
+  "properties": {
+    "chapter_id":         {"type": "string"},
+    "version":            {"type": "string"},
+    "built_at":           {"type": "string", "format": "date-time"},
+    "outputs":            {"type": "array", "items": {"type": "string"}},
+    "sources_included":   {"type": "array", "items": {"type": "string"}},
+    "claim_slice_count":  {"type": "integer", "minimum": 0},
+    "shacl_conforms":     {"type": "boolean"},
+    "competency_clean":   {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

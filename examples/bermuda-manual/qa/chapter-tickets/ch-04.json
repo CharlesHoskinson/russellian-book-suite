@@ -1,0 +1,47 @@
+{
+  "chapter": "ch-04",
+  "tickets": [
+    {
+      "check": "C6",
+      "severity": "important",
+      "where": "line 57",
+      "detail": "'L.F. Wade' missing space between initials."
+    },
+    {
+      "check": "C9",
+      "severity": "minor",
+      "where": "line 20",
+      "detail": "'Share of GDP' column not right-aligned."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 49",
+      "detail": "Boardroom scene reinsurance numerics unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 67",
+      "detail": "$2.586 billion debt + 340% ratio unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 65",
+      "detail": "FY18/19 payroll tax $467M without source."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 77",
+      "detail": "CIT receipt figures lack specific source."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "multiple",
+      "detail": "Long lines on 17+ paragraphs."
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "chapter": "ch-07",
+  "tickets": [
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 38",
+      "detail": "ARV bracket sidebar 4 sentences."
+    },
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 110",
+      "detail": "Bermudian status sidebar 5 sentences."
+    },
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 124",
+      "detail": "Six-year permit cycle sidebar 4 sentences."
+    },
+    {
+      "check": "C10",
+      "severity": "important",
+      "where": "line 5",
+      "detail": "Opening Devonshire scene ~250 words on single line."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 9",
+      "detail": "'roughly 185 percent' / 'about 2.85 times'."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 5",
+      "detail": "'some years ago' dodges date."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 30",
+      "detail": "Dateless 'some years ago' repeats."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 30",
+      "detail": "Per-sqft prices and $1M median unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 26",
+      "detail": "Premium-tier rent ranges unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 130",
+      "detail": "320 youth 2025 unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "lines 5,116",
+      "detail": "Single-line paragraphs >120 chars."
+    }
+  ]
+}

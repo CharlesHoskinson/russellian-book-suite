@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chapter-contract",
+  "type": "object",
+  "required": ["chapter_id", "title", "purpose", "audience", "chapter_type",
+               "evidence_requirements", "acceptance_tests", "output_formats"],
+  "properties": {
+    "chapter_id":   {"type": "string", "pattern": "^ch-[0-9]{2,3}$"},
+    "title":        {"type": "string", "minLength": 1},
+    "purpose":      {"type": "string", "minLength": 10},
+    "audience":     {"enum": ["senior-engineer", "researcher", "manager", "developer"]},
+    "chapter_type": {"enum": ["tutorial", "reference", "synthesis", "argument"]},
+    "must_include": {"type": "array", "items": {"type": "string"}},
+    "must_not_do":  {"type": "array", "items": {"type": "string"}},
+    "evidence_requirements": {
+      "type": "object",
+      "required": ["minimum_verified_claims", "max_unresolved_conflicts"],
+      "properties": {
+        "minimum_verified_claims":  {"type": "integer", "minimum": 0},
+        "max_unresolved_conflicts": {"type": "integer", "minimum": 0},
+        "required_sources":         {"type": "array", "items": {"type": "string"}},
+        "evidence_density_target":  {"type": "number", "minimum": 0}
+      }
+    },
+    "acceptance_tests": {"type": "array", "items": {"type": "string"}},
+    "style": {
+      "type": "object",
+      "properties": {
+        "inherit":   {"type": "string"},
+        "overrides": {"type": "object"}
+      }
+    },
+    "output_formats": {
+      "type": "array",
+      "items": {"enum": ["markdown", "pdf", "epub", "latex"]},
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false
+}

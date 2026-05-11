@@ -1,0 +1,31 @@
+chapter_id: ch-05
+title: Demographics and Society
+purpose: Profile Bermuda's population composition, language, religion, and the cultural traditions that distinguish daily life on the archipelago.
+audience: senior-engineer
+chapter_type: synthesis
+must_include:
+  - total population and density
+  - ethnic composition
+  - religion and dominant denominations
+  - language and Bermudian English
+  - cultural traditions (Gombey dancers, Cup Match)
+must_not_do:
+  - flatten cultural complexity
+  - speculate beyond verified claims
+evidence_requirements:
+  minimum_verified_claims: 22
+  max_unresolved_conflicts: 0
+  required_sources: [demographics, culture]
+  evidence_density_target: 4
+acceptance_tests:
+  - hedge_count == 0
+  - passive_voice_ratio < 0.10
+  - modifier_budget_violations == 0
+  - listicle_abstract_count == 0
+  - rhythm_violations == 0
+  - persona_critical_count == 0
+  - persona_reviews_complete == True
+style:
+  inherit: russellian-style
+  overrides: {}
+output_formats: [markdown]

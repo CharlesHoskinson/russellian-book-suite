@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "book-knowledge"
+version = "0.1.0"
+description = "Local-only epistemic compiler for the book-knowledge Claude Code skill"
+requires-python = ">=3.11"
+dependencies = [
+    "pdfplumber>=0.11",
+    "markdown-it-py>=3.0",
+    "rdflib>=7.0",
+    "pyshacl>=0.26",
+    "pyyaml>=6.0",
+    "jsonschema>=4.21",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "reportlab>=4.0",
+]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"

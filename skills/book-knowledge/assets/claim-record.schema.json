@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim-record",
+  "type": "object",
+  "required": ["claim_id", "canonical_text", "status", "claim_type",
+               "confidence", "source_spans", "created_at"],
+  "properties": {
+    "claim_id":        {"type": "string", "pattern": "^clm-[0-9]{4}-[0-9]{6}$"},
+    "canonical_text":  {"type": "string", "minLength": 4},
+    "status":          {"enum": ["proposed", "verified", "disputed", "superseded"]},
+    "claim_type":      {"enum": ["fact", "definition", "design_decision", "method", "result", "open_question"]},
+    "semantic_class":  {"type": "string"},
+    "confidence":      {"type": "number", "minimum": 0.0, "maximum": 1.0},
+    "source_spans":    {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["doc_id", "locator_text"],
+        "properties": {
+          "doc_id":       {"type": "string"},
+          "node_id":      {"type": "string"},
+          "page_index":   {"type": "integer", "minimum": 1},
+          "locator_text": {"type": "string", "minLength": 4}
+        },
+        "additionalProperties": false
+      }
+    },
+    "derived_from":      {"type": "array", "items": {"type": "string"}},
+    "supports_chapters": {"type": "array", "items": {"type": "string"}},
+    "conflicts_with":    {"type": "array", "items": {"type": "string"}},
+    "supersedes":        {"type": "string"},
+    "created_at":        {"type": "string", "format": "date-time"},
+    "last_verified_at":  {"type": "string", "format": "date-time"},
+    "generated_by_run":  {"type": "string"},
+    "review_notes":      {"type": "string"}
+  },
+  "additionalProperties": false
+}

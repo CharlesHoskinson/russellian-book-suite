@@ -1,0 +1,39 @@
+{
+  "summary": {
+    "release": "3.0.0",
+    "manuscript_md_bytes": 227591,
+    "manuscript_html_bytes": 800366,
+    "total_defects": 3,
+    "by_class": {
+      "D5": 1,
+      "D6": 2
+    },
+    "by_severity": {
+      "critical": 0,
+      "minor": 3
+    }
+  },
+  "defects": [
+    {
+      "severity": "minor",
+      "where": "ch-05",
+      "detail": "footnote ref count 2 outside [3, 12]",
+      "fix_hint": "add or trim footnotes",
+      "class": "D5"
+    },
+    {
+      "severity": "minor",
+      "where": "ch-02",
+      "detail": "paragraph-length coefficient-of-variation 0.40 outside [0.4, 1.2]",
+      "fix_hint": "vary paragraph length more (low cv) or normalise outliers (high cv)",
+      "class": "D6"
+    },
+    {
+      "severity": "minor",
+      "where": "ch-09",
+      "detail": "paragraph-length coefficient-of-variation 0.38 outside [0.4, 1.2]",
+      "fix_hint": "vary paragraph length more (low cv) or normalise outliers (high cv)",
+      "class": "D6"
+    }
+  ]
+}

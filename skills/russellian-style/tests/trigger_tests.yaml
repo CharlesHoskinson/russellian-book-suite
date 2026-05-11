@@ -1,0 +1,23 @@
+should_trigger:
+  - "Apply Russell style to this passage."
+  - "Rewrite in Russellian style."
+  - "Tighten the prose in chapter 3."
+  - "Do a Russell pass on this draft."
+  - "Atomize this paragraph."
+  - "Remove the hedging from this section."
+  - "Enforce signal density on this README."
+  - "Russellian rewrite please."
+  - "Make this technically rigorous, no hedging."
+  - "Strip the modifiers and rewrite in active voice."
+
+should_not_trigger:
+  - "Write a launch announcement for our new feature."
+  - "Draft a casual Slack update to the team."
+  - "Help me write a poem about the deployment."
+  - "Compose a persuasive op-ed about open source."
+  - "Make this sound more conversational and friendly."
+  - "Write marketing copy for the landing page."
+  - "Draft a sales pitch for this product."
+  - "Compose a tweet announcing the release."
+  - "Write a resume bullet point for this project."
+  - "Make this sound exciting and engaging."

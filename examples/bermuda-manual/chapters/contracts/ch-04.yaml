@@ -1,0 +1,31 @@
+chapter_id: ch-04
+title: Economy
+purpose: Explain how Bermuda's GDP per capita reaches one of the world's highest figures through a two-pillar economy of international financial services and tourism.
+audience: senior-engineer
+chapter_type: synthesis
+must_include:
+  - GDP per capita and global ranking
+  - international business and reinsurance pillar
+  - tourism pillar and visitor sources
+  - currency arrangement (BMD pegged to USD)
+  - corporate income tax developments and OECD Pillar Two
+must_not_do:
+  - speculate about future market conditions
+  - speculate beyond verified claims
+evidence_requirements:
+  minimum_verified_claims: 16
+  max_unresolved_conflicts: 0
+  required_sources: [economy, recent-developments]
+  evidence_density_target: 4
+acceptance_tests:
+  - hedge_count == 0
+  - passive_voice_ratio < 0.10
+  - modifier_budget_violations == 0
+  - listicle_abstract_count == 0
+  - rhythm_violations == 0
+  - persona_critical_count == 0
+  - persona_reviews_complete == True
+style:
+  inherit: russellian-style
+  overrides: {}
+output_formats: [markdown]

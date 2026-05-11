@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "russellian-style"
+version = "0.1.0"
+description = "Russell-style linters for the russellian-style Claude Code skill"
+requires-python = ">=3.11"
+dependencies = [
+    "spacy>=3.7",
+    "markdown-it-py>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+    "jsonschema>=4.21",
+]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"

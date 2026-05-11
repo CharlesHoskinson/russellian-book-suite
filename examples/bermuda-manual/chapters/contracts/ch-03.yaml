@@ -1,0 +1,31 @@
+chapter_id: ch-03
+title: Government and Legal System
+purpose: Describe Bermuda's status as a British Overseas Territory, its parliamentary structure, the role of the Governor, and the legal system.
+audience: senior-engineer
+chapter_type: reference
+must_include:
+  - British Overseas Territory status
+  - Parliament composition (House of Assembly and Senate)
+  - the Governor's role and reserved powers
+  - judicial system and English common law foundation
+  - main political parties
+must_not_do:
+  - speculate beyond verified claims
+  - take a political position on independence
+evidence_requirements:
+  minimum_verified_claims: 14
+  max_unresolved_conflicts: 0
+  required_sources: [government]
+  evidence_density_target: 4
+acceptance_tests:
+  - hedge_count == 0
+  - passive_voice_ratio < 0.10
+  - modifier_budget_violations == 0
+  - listicle_abstract_count == 0
+  - rhythm_violations == 0
+  - persona_critical_count == 0
+  - persona_reviews_complete == True
+style:
+  inherit: russellian-style
+  overrides: {}
+output_formats: [markdown]

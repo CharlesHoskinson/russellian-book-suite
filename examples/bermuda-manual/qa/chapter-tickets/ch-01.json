@@ -1,0 +1,77 @@
+{
+  "chapter": "ch-01",
+  "tickets": [
+    {
+      "check": "C6",
+      "severity": "important",
+      "where": "line 107",
+      "detail": "Footnote refers to 'L. F. Bermuda Airport'; canonical 'L. F. Wade International Airport'."
+    },
+    {
+      "check": "C9",
+      "severity": "important",
+      "where": "line 24",
+      "detail": "Parish table separator fails to right-align numeric columns."
+    },
+    {
+      "check": "C9",
+      "severity": "important",
+      "where": "line 50",
+      "detail": "Climate table separator not right-aligned."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 7",
+      "detail": "Hedge 'roughly' twice on land-use percentages."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 15",
+      "detail": "Hedge 'roughly' on built-vs-rural split."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 80",
+      "detail": "Hedges 'around 1,000 hectares' / 'roughly 20 percent' on forest cover."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 98",
+      "detail": "Hedge 'about 8,000 to 1' on fishing-zone ratio."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 15",
+      "detail": "Land-use percentages without source."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 43",
+      "detail": "Record temperatures and annual rainfall unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 80",
+      "detail": "Flora counts (165/14/25) unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 98",
+      "detail": "Exclusive fishing zone area unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "multiple",
+      "detail": "Pervasive >120 char lines."
+    }
+  ]
+}

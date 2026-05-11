@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{book_title}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* Minimal print fallback so the skeleton renders even if the React app fails. */
+body { font-family: ui-serif, Georgia, serif; max-width: 42em; margin: 2em auto; line-height: 1.6; padding: 0 1em; }
+h1, h2, h3 { font-family: ui-sans-serif, system-ui, sans-serif; }
+.skeleton-notice { background: #fff3cd; padding: 1em; border-left: 4px solid #ffc107; margin: 1em 0; }
+@media print {
+  .skeleton-notice, nav.toc-sidebar, .search-bar, .theme-toggle, .download-buttons { display: none !important; }
+  h1 { page-break-before: always; }
+  h1:first-of-type { page-break-before: avoid; }
+}
+</style>
+</head>
+<body>
+<div id="book-app-root">
+<!-- BOOK_APP_INSERTION_POINT -->
+<div class="skeleton-notice">
+This file holds the deterministic book payload below. The interactive React+Tailwind+shadcn browser is rendered into <code>#book-app-root</code> by the <code>web-artifacts-builder-anthropic</code> skill during book build. Until that step runs, this skeleton page shows a static fallback.
+</div>
+<h1>{{book_title}}</h1>
+<p>Static fallback rendering. See the embedded <code>book-payload</code> script tag for the structured book data.</p>
+</div>
+<script id="book-payload" type="application/json">
+{{book_payload_json}}
+</script>
+<script id="book-manuscript" type="text/markdown">
+{{manuscript_md}}
+</script>
+</body>
+</html>

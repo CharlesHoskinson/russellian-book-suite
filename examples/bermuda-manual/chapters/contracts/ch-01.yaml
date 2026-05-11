@@ -1,0 +1,30 @@
+chapter_id: ch-01
+title: Introduction and Geography
+purpose: Locate Bermuda physically and orient the reader to the archipelago's scale, climate, and natural setting before the political and economic chapters that follow.
+audience: senior-engineer
+chapter_type: reference
+must_include:
+  - location and distance from the US East Coast
+  - archipelago composition and total land area
+  - climate and the absence of freshwater rivers
+  - native ecology and the cedar
+must_not_do:
+  - speculate beyond verified claims
+  - introduce political or economic content
+evidence_requirements:
+  minimum_verified_claims: 12
+  max_unresolved_conflicts: 0
+  required_sources: [overview, geography]
+  evidence_density_target: 4
+acceptance_tests:
+  - hedge_count == 0
+  - passive_voice_ratio < 0.10
+  - modifier_budget_violations == 0
+  - listicle_abstract_count == 0
+  - rhythm_violations == 0
+  - persona_critical_count == 0
+  - persona_reviews_complete == True
+style:
+  inherit: russellian-style
+  overrides: {}
+output_formats: [markdown]

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Placeholder CSL.
+Replace with chicago-author-date.csl from
+https://github.com/citation-style-language/styles
+when generating publications. Pandoc's default style is used until then.
+-->
+<style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
+  <info>
+    <title>Placeholder</title>
+    <id>https://example.org/book-compose/placeholder</id>
+    <updated>2026-05-09T00:00:00Z</updated>
+  </info>
+  <citation>
+    <layout><text variable="citation-number"/></layout>
+  </citation>
+  <bibliography>
+    <layout><text variable="title"/></layout>
+  </bibliography>
+</style>

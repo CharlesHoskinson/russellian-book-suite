@@ -1,0 +1,53 @@
+{
+  "chapter": "ch-10",
+  "tickets": [
+    {
+      "check": "C4",
+      "severity": "important",
+      "where": "line 38",
+      "detail": "'the most recent figure in the source ledger' leaks pipeline jargon."
+    },
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 9",
+      "detail": "Twizy sidebar 4 sentences."
+    },
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 17",
+      "detail": "Cash-zone fare sidebar 5 sentences."
+    },
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 66",
+      "detail": "Crown and Anchor sidebar 4 sentences."
+    },
+    {
+      "check": "C9",
+      "severity": "minor",
+      "where": "line 28",
+      "detail": "Ferry route Journey time column not right-aligned."
+    },
+    {
+      "check": "C11",
+      "severity": "important",
+      "where": "lines 7,21,44",
+      "detail": "'roughly'/'about' on multiple numeric claims."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "multiple",
+      "detail": "1946/1948 ban / 447km / $69 pass / 770,683 arrivals / 593 rooms unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "important",
+      "where": "multiple",
+      "detail": "29 lines >120 chars."
+    }
+  ]
+}

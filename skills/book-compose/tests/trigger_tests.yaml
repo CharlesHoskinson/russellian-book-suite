@@ -1,0 +1,21 @@
+should_trigger:
+  - "Draft chapter 3 from the verified claims."
+  - "Compile chapter ch-03 from contract."
+  - "Generate outline for chapter 4."
+  - "Build release bundle for chapter 5."
+  - "Render chapter 2 to PDF."
+  - "Publish chapter ch-07."
+  - "Create the draft for chapter 1."
+  - "Run the chapter contract check on draft.md."
+  - "Make a release bundle for ch-03 version 0.2.0."
+  - "Compose the chapter from the seeded workspace."
+
+should_not_trigger:
+  - "Ingest this paper into the book."
+  - "Audit the knowledge graph."
+  - "Find contradictions in the wiki."
+  - "Rewrite this passage in Russell style."
+  - "Tighten the prose in this section."
+  - "What does this paper say in plain English?"
+  - "Summarize this section for me."
+  - "Validate the claims in the wiki."

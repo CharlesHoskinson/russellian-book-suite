@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source-manifest",
+  "type": "object",
+  "required": ["doc_name", "doc_id", "source_kind", "sha256", "ingested_at", "node_count"],
+  "properties": {
+    "doc_name":    {"type": "string", "minLength": 1},
+    "doc_id":      {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "source_kind": {"enum": ["pdf", "markdown"]},
+    "sha256":      {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "byte_size":   {"type": "integer", "minimum": 0},
+    "ingested_at": {"type": "string", "format": "date-time"},
+    "ingested_by_run": {"type": "string"},
+    "page_count":  {"type": "integer", "minimum": 0},
+    "node_count":  {"type": "integer", "minimum": 0},
+    "tree_root":   {"type": "string"}
+  },
+  "additionalProperties": false
+}

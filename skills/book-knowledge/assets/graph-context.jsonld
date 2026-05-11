@@ -1,0 +1,19 @@
+{
+  "@context": {
+    "tbf":   "https://example.org/book-knowledge#",
+    "prov":  "http://www.w3.org/ns/prov#",
+    "skos":  "http://www.w3.org/2004/02/skos/core#",
+    "schema": "https://schema.org/",
+    "xsd":   "http://www.w3.org/2001/XMLSchema#",
+    "claim_id":      "@id",
+    "canonical_text": "schema:text",
+    "status":     "tbf:status",
+    "confidence": {"@id": "tbf:confidence", "@type": "xsd:decimal"},
+    "source_spans":      "tbf:hasSourceSpan",
+    "supports_chapters": "tbf:supportsChapter",
+    "derived_from":      "prov:wasDerivedFrom",
+    "generated_by_run":  "prov:wasGeneratedBy",
+    "created_at":        {"@id": "schema:dateCreated", "@type": "xsd:dateTime"},
+    "last_verified_at":  {"@id": "tbf:lastVerifiedAt", "@type": "xsd:dateTime"}
+  }
+}

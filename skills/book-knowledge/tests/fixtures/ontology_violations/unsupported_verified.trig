@@ -1,0 +1,13 @@
+@prefix tbf:  <https://example.org/book-knowledge#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix schema: <https://schema.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://example.org/book-knowledge/graphs/claims/bad> {
+  <https://example.org/book-knowledge/claims/bad>
+    a tbf:Claim, prov:Entity ;
+    schema:text "verified claim with no provenance" ;
+    tbf:status "verified" ;
+    tbf:confidence "0.9"^^xsd:decimal ;
+    schema:dateCreated "2026-05-09T00:00:00Z"^^xsd:dateTime .
+}

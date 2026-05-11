@@ -1,0 +1,47 @@
+{
+  "chapter": "ch-02",
+  "tickets": [
+    {
+      "check": "C9",
+      "severity": "minor",
+      "where": "line 78",
+      "detail": "Governor years-served column not right-aligned."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 25",
+      "detail": "1721 population figures without source."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 35",
+      "detail": "Salt-pan vessel counts without attribution."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 49",
+      "detail": "Boer-POW count without source."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 55",
+      "detail": "BSC staff count without source."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 57",
+      "detail": "580 hectares reclaimed land unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "multiple",
+      "detail": "Pervasive >120 char lines."
+    }
+  ]
+}

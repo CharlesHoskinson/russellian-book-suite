@@ -1,0 +1,29 @@
+{
+  "chapter": "ch-08",
+  "tickets": [
+    {
+      "check": "C2",
+      "severity": "minor",
+      "where": "lines 98-100",
+      "detail": "Empty Notes section with stray ---; no footnotes."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "lines 54,68",
+      "detail": "'roughly sixty' / 'roughly half the price' hedges."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "lines 60,62,66,88,90",
+      "detail": "663 students / 37 instructors / 35,000 vols / 320 / 500 unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "multiple",
+      "detail": "33 lines >120 chars."
+    }
+  ]
+}

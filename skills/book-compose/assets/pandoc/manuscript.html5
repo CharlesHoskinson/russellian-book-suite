@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>$title$</title>
+<style>
+body { font-family: serif; max-width: 38em; margin: 2em auto; line-height: 1.5; }
+code, pre { font-family: ui-monospace, monospace; }
+pre { background: #f4f4f4; padding: 1em; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>$title$</h1>
+$body$
+</body>
+</html>

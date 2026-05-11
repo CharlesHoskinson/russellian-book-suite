@@ -1,0 +1,10 @@
+chapter_id: chapter-3
+title: Bad
+purpose: too short
+audience: alien
+chapter_type: invalid
+evidence_requirements:
+  minimum_verified_claims: -1
+  max_unresolved_conflicts: 0
+acceptance_tests: []
+output_formats: []

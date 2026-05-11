@@ -1,0 +1,19 @@
+should_trigger:
+  - "Ingest this paper into the book."
+  - "Add this PDF as a source."
+  - "Update the book wiki with the latest source."
+  - "Extract claims from this section."
+  - "Audit the knowledge graph."
+  - "Find contradictions in the wiki."
+  - "Validate claims for chapter 3."
+  - "Check what's stale in the workspace."
+  - "Refresh sources for the chapter."
+  - "Run the release gate on this workspace."
+
+should_not_trigger:
+  - "Draft chapter 3 from the verified claims."
+  - "Rewrite this passage in Russell style."
+  - "Tighten the prose in chapter 2."
+  - "What does this paper say in plain English?"
+  - "Summarize this section for me."
+  - "Make this README sound exciting."

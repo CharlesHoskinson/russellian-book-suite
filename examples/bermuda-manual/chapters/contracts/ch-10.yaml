@@ -1,0 +1,31 @@
+chapter_id: ch-10
+title: Transportation, Recreation, and Tourism
+purpose: Cover how people move around Bermuda, the recreational opportunities the islands offer, and the tourism economy that sustains a third of the workforce.
+audience: developer
+chapter_type: synthesis
+must_include:
+  - the rental-car restriction and reliance on scooters, buses, and ferries
+  - L F Wade International Airport
+  - main beaches and recreational sites
+  - cruise tourism
+  - golf, sailing, and water sports
+must_not_do:
+  - read like marketing copy
+  - speculate beyond verified claims
+evidence_requirements:
+  minimum_verified_claims: 24
+  max_unresolved_conflicts: 0
+  required_sources: [transportation, tourism, culture]
+  evidence_density_target: 4
+acceptance_tests:
+  - hedge_count == 0
+  - passive_voice_ratio < 0.10
+  - modifier_budget_violations == 0
+  - listicle_abstract_count == 0
+  - rhythm_violations == 0
+  - persona_critical_count == 0
+  - persona_reviews_complete == True
+style:
+  inherit: russellian-style
+  overrides: {}
+output_formats: [markdown]

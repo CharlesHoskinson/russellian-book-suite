@@ -1,0 +1,18 @@
+# Book Workspace
+
+This is a book-knowledge workspace. Edit the sections below to configure this book project.
+
+## Project name
+
+(set me)
+
+## Style
+
+inherit: russellian-style
+
+## Notes for Claude
+
+- All sources live in `raw/`. Never edit raw files.
+- All synthesis lives in `wiki/`. Append, don't rewrite.
+- Claims promotion requires `verify_claim.py` to confirm source-span existence.
+- Graph audit must pass before any chapter compiles.

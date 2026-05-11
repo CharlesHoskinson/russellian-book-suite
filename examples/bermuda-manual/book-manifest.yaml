@@ -1,0 +1,48 @@
+book_id: bermuda-manual
+built_at: '2026-05-11T17:29:42+00:00'
+chapter_versions:
+  ch-01: v3-final
+  ch-02: v3-final
+  ch-03: v3-final
+  ch-04: v3-final
+  ch-05: v3-final
+  ch-06: v3-final
+  ch-07: v3-final
+  ch-08: v3-final
+  ch-09: v3-final
+  ch-10: v3-final
+chapters_included:
+- ch-01
+- ch-02
+- ch-03
+- ch-04
+- ch-05
+- ch-06
+- ch-07
+- ch-08
+- ch-09
+- ch-10
+competency_clean: true
+outputs:
+- manuscript.md
+- manuscript.html
+- manuscript.pdf
+shacl_conforms: true
+sources_bibliography:
+- cost-of-living
+- culture
+- demographics
+- economy
+- education
+- geography
+- government
+- healthcare
+- history
+- overview
+- recent-developments
+- tourism
+- transportation
+title: Life in Bermuda
+total_claim_count: 222
+total_word_count: 33416
+version: 3.0.0

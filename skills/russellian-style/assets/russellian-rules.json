@@ -1,0 +1,40 @@
+{
+  "version": "0.1.0",
+  "hedge_terms": [
+    "might", "may", "could", "seems", "appears", "perhaps", "possibly",
+    "generally", "often", "usually", "typically", "frequently", "sometimes",
+    "somewhat", "rather", "quite", "fairly", "relatively",
+    "arguably", "presumably", "supposedly", "ostensibly",
+    "tend to", "tends to", "tended to",
+    "in some cases", "in many cases", "for the most part",
+    "should probably", "would likely", "could potentially"
+  ],
+  "passive_auxiliaries": ["be", "is", "am", "are", "was", "were", "been", "being"],
+  "modifier_budget_ratio": 0.25,
+  "max_sentence_word_count": 30,
+  "parallel_structure_anchors": ["imperative_verb", "gerund", "noun_phrase", "interrogative"],
+  "negative_trigger_keywords": [
+    "marketing", "launch announcement", "pitch", "tagline",
+    "fiction", "novel", "story", "poem",
+    "casual", "slack message", "DM", "tweet",
+    "persuasive essay", "op-ed"
+  ],
+  "listicle_patterns": [
+    "rests on \\d+ premise",
+    "rests on \\d+ premises",
+    "rests on \\w+ premises",
+    "consists of \\d+ component",
+    "consists of \\w+ components",
+    "has \\d+ elements",
+    "has \\w+ elements",
+    "the following \\d+",
+    "the following \\w+ reasons",
+    "in this chapter we (will )?(examine|cover|discuss|address) \\d+",
+    "in this chapter we (will )?(examine|cover|discuss|address) \\w+ \\w+",
+    "(\\d+) (key |main |central |core )?(premises|principles|reasons|points|themes|takeaways)"
+  ],
+  "listicle_anaphora_min_repeats": 3,
+  "listicle_anaphora_window_lines": 6,
+  "rhythm_run_min_length": 4,
+  "rhythm_word_count_tolerance": 3
+}

@@ -1,0 +1,47 @@
+{
+  "chapter": "ch-09",
+  "tickets": [
+    {
+      "check": "C6",
+      "severity": "important",
+      "where": "line 3",
+      "detail": "'L. F. Wade International' missing 'Airport'."
+    },
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 9",
+      "detail": "BHB sidebar 4 sentences."
+    },
+    {
+      "check": "C8",
+      "severity": "minor",
+      "where": "line 47",
+      "detail": "HIP/FutureCare sidebar 4 sentences."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 19",
+      "detail": "'roughly half the island' dodges precise claim."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 23",
+      "detail": "Patient-safety numerics 2011-15 unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 120",
+      "detail": "Life-expectancy 81 / 20.42% over-65 unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "multiple",
+      "detail": "Many lines + hero-table block >120 chars."
+    }
+  ]
+}

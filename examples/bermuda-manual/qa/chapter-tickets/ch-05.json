@@ -1,0 +1,59 @@
+{
+  "chapter": "ch-05",
+  "tickets": [
+    {
+      "check": "C9",
+      "severity": "minor",
+      "where": "line 24",
+      "detail": "Ethnic composition Share column not right-aligned."
+    },
+    {
+      "check": "C9",
+      "severity": "minor",
+      "where": "line 58",
+      "detail": "Denomination Share column not right-aligned."
+    },
+    {
+      "check": "C11",
+      "severity": "important",
+      "where": "line 33",
+      "detail": "'roughly twenty-one thousand' dodges figure derivable from cited numbers."
+    },
+    {
+      "check": "C11",
+      "severity": "minor",
+      "where": "line 55",
+      "detail": "'roughly 14 percent' on census figure."
+    },
+    {
+      "check": "C11",
+      "severity": "important",
+      "where": "line 99",
+      "detail": "Em-dashes used as commas around 'welcoming arms' gloss."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 15",
+      "detail": "Fertility rate 1.222 unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "minor",
+      "where": "line 37",
+      "detail": "'About 10,000 emigrated' unattributed."
+    },
+    {
+      "check": "C13",
+      "severity": "important",
+      "where": "line 119",
+      "detail": "Empty ## Notes heading at chapter end."
+    },
+    {
+      "check": "C15",
+      "severity": "minor",
+      "where": "multiple",
+      "detail": "32 lines >120 chars (longest 983)."
+    }
+  ]
+}

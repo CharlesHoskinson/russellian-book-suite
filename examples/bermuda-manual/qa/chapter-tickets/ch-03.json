@@ -1,0 +1,29 @@
+{
+  "chapter": "ch-03",
+  "tickets": [
+    {
+      "check": "C6",
+      "severity": "minor",
+      "where": "line 80",
+      "detail": "'Town of St. George's' vs canonical 'Town of St. George'."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 9",
+      "detail": "1995 referendum 73 percent unattributed."
+    },
+    {
+      "check": "C12",
+      "severity": "important",
+      "where": "line 45",
+      "detail": "2017 election specifics unattributed."
+    },
+    {
+      "check": "C15",
+      "severity": "important",
+      "where": "multiple",
+      "detail": "Pervasive >120 char lines (longest 873 chars)."
+    }
+  ]
+}

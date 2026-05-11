@@ -1,0 +1,29 @@
+# Thesis spec schema
+# Each book has one such YAML at thesis/<book-id>.yaml
+
+book_id: <slug>            # short id matching the workspace book
+
+thesis:
+  statement: <one-paragraph statement of the book's core claim>
+  polarity: <descriptive|prescriptive|narrative|analytical>
+  scope: <one-line scope qualifier — e.g. "contemporary Bermuda, 2020-2026">
+
+# Sub-arguments decompose the thesis. Each is a node in the tree.
+# Every paragraph in the manuscript must transitively support :Thesis
+# via one of these nodes.
+sub_arguments:
+  - id: <slug>
+    parent: <thesis|other_sub_argument_id>
+    statement: <one-sentence claim>
+    polarity: <inherited from parent unless overridden>
+    required_evidence:
+      - <claim_id or source_doc_id>
+    advanced_by_chapters:
+      - <chapter_id>
+
+# Optional: cross-chapter invariants — things the book must NOT contradict.
+# Compiled to Datalog rules.
+invariants:
+  - id: <slug>
+    rule: <natural-language description>
+    formal: <datalog clause>

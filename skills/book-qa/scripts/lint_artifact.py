@@ -11,11 +11,19 @@ D6  paragraph-length variance               (within-chapter cv outside [0.4, 1.1
 D7  CSS reset clobber                       (Tailwind preflight + no h1 override in final HTML)
 D8  asset 404s                              (every <img src> resolves to a real file)
 
+Plus the v6 metabook reasoning defects, read from JSON side-files produced by
+the book-thesis tools (missing files are skipped, not an error):
+
+D9  paragraph-orphan         (from qa/supports-defects.json, class=D9; critical)
+D10 transitive-contradiction (from qa/datalog-defects.json,  class=D10; critical)
+D11 failed-entailment        (from qa/entailment-results.json verdicts; critical)
+D12 unadvanced-sub-argument  (from qa/supports-defects.json summary; important)
+
 Usage:
     python lint_artifact.py <workspace> <release-version>
 
 Emits JSON to <workspace>/qa/defects.json with structured tickets,
-exits 0 if no D1-D8 defects, exit 1 otherwise.
+exits 0 if no critical defects, exit 1 otherwise.
 """
 from __future__ import annotations
 
@@ -29,14 +37,15 @@ from pathlib import Path
 
 @dataclass
 class Defect:
-    class_: str        # "D1" .. "D8"
-    severity: str      # "critical" | "minor"
+    class_: str        # "D1" .. "D12"
+    severity: str      # "critical" | "important" | "minor"
     where: str         # human-readable location
     detail: str        # one-line description
     fix_hint: str = ""
 
 
 CRITICAL = "critical"
+IMPORTANT = "important"
 MINOR = "minor"
 
 
@@ -319,6 +328,107 @@ def lint_d8_asset_404s(md: str, html: str, release_dir: Path) -> list[Defect]:
     return out
 
 
+# ----------------------------------------------------------------- D9-D12
+
+def _load_json_if_exists(path: Path) -> dict | list | None:
+    """Read a JSON side-file from the workspace; return None when absent.
+
+    Malformed JSON is treated like a missing file so the linter never hard-fails
+    on a stale or half-written artefact from the book-thesis pipeline.
+    """
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def lint_d9_d12(workspace: Path) -> list[Defect]:
+    """Read book-thesis side-files and emit D9-D12 defects.
+
+    Missing files are skipped silently — the linter must keep working for books
+    that haven't adopted the v6 thesis substrate yet.
+    """
+    out: list[Defect] = []
+    qa_dir = workspace / "qa"
+
+    supports = _load_json_if_exists(qa_dir / "supports-defects.json")
+    if isinstance(supports, dict):
+        # D9: explicit orphan-paragraph defects
+        for entry in supports.get("defects", []) or []:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("class") != "D9":
+                continue
+            out.append(Defect(
+                "D9",
+                entry.get("severity", CRITICAL),
+                entry.get("where", "paragraph"),
+                entry.get("detail", "orphan paragraph: no supports-node reaches :Thesis"),
+                entry.get("fix_hint",
+                          "add a `supports:` frontmatter pointing at a thesis sub-argument node"),
+            ))
+        # D12: unadvanced sub-arguments from the summary block
+        summary = supports.get("summary") or {}
+        for sub in summary.get("unadvanced_sub_arguments", []) or []:
+            if isinstance(sub, dict):
+                node = sub.get("id") or sub.get("node") or "<unknown>"
+                detail = sub.get("detail", f"sub-argument {node!r} is advanced by no paragraph")
+                where = sub.get("where", f"thesis:{node}")
+                fix_hint = sub.get("fix_hint",
+                                   "add a paragraph with supports=<node> or remove the sub-argument")
+            else:
+                node = str(sub)
+                detail = f"sub-argument {node!r} is advanced by no paragraph"
+                where = f"thesis:{node}"
+                fix_hint = "add a paragraph with supports=<node> or remove the sub-argument"
+            out.append(Defect("D12", IMPORTANT, where, detail, fix_hint))
+
+    datalog = _load_json_if_exists(qa_dir / "datalog-defects.json")
+    if isinstance(datalog, dict):
+        for entry in datalog.get("defects", []) or []:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("class") != "D10":
+                continue
+            out.append(Defect(
+                "D10",
+                entry.get("severity", CRITICAL),
+                entry.get("where", "datalog"),
+                entry.get("detail", "transitive contradiction derived by datalog ruleset"),
+                entry.get("fix_hint",
+                          "reconcile the conflicting claims or revise the thesis tree"),
+            ))
+
+    entail = _load_json_if_exists(qa_dir / "entailment-results.json")
+    entail_entries: list = []
+    if isinstance(entail, list):
+        entail_entries = entail
+    elif isinstance(entail, dict):
+        # accept either {"results": [...]} or {"verdicts": [...]} top-level shapes
+        entail_entries = entail.get("results") or entail.get("verdicts") or []
+    for entry in entail_entries:
+        if not isinstance(entry, dict):
+            continue
+        verdict = (entry.get("verdict") or "").lower()
+        if verdict not in {"contradicts", "unrelated"}:
+            continue
+        where = entry.get("where") or entry.get("paragraph_id") or "paragraph"
+        node = entry.get("supports") or entry.get("supports_node") or "<node>"
+        detail = entry.get(
+            "detail",
+            f"entailment critic returned {verdict!r} for paragraph vs supports={node!r}",
+        )
+        fix_hint = entry.get(
+            "fix_hint",
+            "rewrite the paragraph so it entails the declared supports-node, or repoint supports",
+        )
+        out.append(Defect("D11", CRITICAL, str(where), detail, fix_hint))
+
+    return out
+
+
 # ----------------------------------------------------------------- main
 
 def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
@@ -339,6 +449,7 @@ def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
     defects += lint_d6_paragraph_variance(md)
     defects += lint_d7_css_reset(html)
     defects += lint_d8_asset_404s(md, html, release_dir)
+    defects += lint_d9_d12(workspace)
 
     summary = {
         "release": version,
@@ -346,11 +457,11 @@ def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
         "manuscript_html_bytes": len(html),
         "total_defects": len(defects),
         "by_class": {},
-        "by_severity": {CRITICAL: 0, MINOR: 0},
+        "by_severity": {CRITICAL: 0, IMPORTANT: 0, MINOR: 0},
     }
     for d in defects:
         summary["by_class"][d.class_] = summary["by_class"].get(d.class_, 0) + 1
-        summary["by_severity"][d.severity] += 1
+        summary["by_severity"][d.severity] = summary["by_severity"].get(d.severity, 0) + 1
 
     return defects, summary
 
@@ -376,7 +487,12 @@ def main(argv: list[str]) -> int:
     # Console summary
     print(f"Linted {workspace.name} @ {version}")
     print(f"  md: {summary['manuscript_md_bytes']:,} bytes; html: {summary['manuscript_html_bytes']:,} bytes")
-    print(f"  defects: {summary['total_defects']} ({summary['by_severity'][CRITICAL]} critical, {summary['by_severity'][MINOR]} minor)")
+    print(
+        f"  defects: {summary['total_defects']} "
+        f"({summary['by_severity'].get(CRITICAL, 0)} critical, "
+        f"{summary['by_severity'].get(IMPORTANT, 0)} important, "
+        f"{summary['by_severity'].get(MINOR, 0)} minor)"
+    )
     for cls in sorted(summary["by_class"]):
         print(f"    {cls}: {summary['by_class'][cls]}")
     print(f"  full report: {out_path}")

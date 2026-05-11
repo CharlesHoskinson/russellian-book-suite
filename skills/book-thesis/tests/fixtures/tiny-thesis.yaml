@@ -1,0 +1,31 @@
+book_id: tiny
+
+thesis:
+  statement: A tiny book has a tiny thesis but still needs a tree.
+  polarity: descriptive
+  scope: testing only
+
+sub_arguments:
+  - id: first-leg
+    parent: thesis
+    statement: The first sub-argument carries half the weight.
+    polarity: descriptive
+    required_evidence:
+      - source-alpha
+      - source-beta
+    advanced_by_chapters: [ch-01]
+
+  - id: second-leg
+    parent: thesis
+    statement: The second sub-argument carries the other half.
+    polarity: descriptive
+    required_evidence:
+      - source-gamma
+    advanced_by_chapters: [ch-02]
+
+invariants:
+  - id: tiny-invariant
+    rule: A tiny invariant must hold across both legs.
+    formal: |
+      contradicts(P, tiny_canonical) :-
+        claims(P, tiny_fact, V), V != true.

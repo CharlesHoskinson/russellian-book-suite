@@ -1,0 +1,17 @@
+@prefix : <https://russellian.book/thesis/> .
+
+:Thesis a :ThesisNode ;
+    :statement "Tiny thesis." ;
+    :polarity "descriptive" .
+
+:first-leg a :SubArgument ;
+    :supports :Thesis ;
+    :statement "First leg." ;
+    :requiresEvidence :source-alpha ;
+    :advancedBy :ch-01 .
+
+:second-leg a :SubArgument ;
+    :supports :Thesis ;
+    :statement "Second leg." ;
+    :requiresEvidence :source-beta ;
+    :advancedBy :ch-02 .

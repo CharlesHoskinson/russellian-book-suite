@@ -1,2414 +1,2052 @@
 {
   "summary": {
-    "release": "3.0.0",
-    "manuscript_md_bytes": 227591,
-    "manuscript_html_bytes": 0,
-    "total_defects": 342,
-    "by_class": {
-      "D5": 1,
-      "D6": 2,
-      "D9": 333,
-      "D12": 6
-    },
-    "by_severity": {
-      "critical": 333,
-      "important": 6,
-      "minor": 3
-    }
+    "total_paragraphs": 333,
+    "supported": 0,
+    "orphan_no_support": 333,
+    "orphan_broken_supports": 0,
+    "orphan_unreachable": 0,
+    "unadvanced_sub_arguments": [
+      "cost-of-living",
+      "demographics-and-culture",
+      "geography-shapes-economy",
+      "history-shapes-government",
+      "institutions",
+      "who-can-live-there"
+    ]
   },
   "defects": [
     {
-      "severity": "minor",
-      "where": "ch-05",
-      "detail": "footnote ref count 2 outside [3, 12]",
-      "fix_hint": "add or trim footnotes",
-      "class": "D5"
-    },
-    {
-      "severity": "minor",
-      "where": "ch-02",
-      "detail": "paragraph-length coefficient-of-variation 0.40 outside [0.4, 1.2]",
-      "fix_hint": "vary paragraph length more (low cv) or normalise outliers (high cv)",
-      "class": "D6"
-    },
-    {
-      "severity": "minor",
-      "where": "ch-09",
-      "detail": "paragraph-length coefficient-of-variation 0.38 outside [0.4, 1.2]",
-      "fix_hint": "vary paragraph length more (low cv) or normalise outliers (high cv)",
-      "class": "D6"
-    },
-    {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "line 3",
       "detail": "paragraph has no supports declaration: '_Compiled 2026-05-11_'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "line 9",
       "detail": "paragraph has no supports declaration: '1. Introduction and Geography\\n2. History\\n3. Government and Legal System\\n4. Econo'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "line 24",
       "detail": "paragraph has no supports declaration: 'This manual gives a working picture of contemporary Bermuda for the reader who n'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "line 26",
       "detail": "paragraph has no supports declaration: 'The chapters are written as argument-bearing prose anchored in concrete scenes. '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "line 28",
       "detail": "paragraph has no supports declaration: 'Numeric claims trace to the sources collected at the back. Where two sources dis'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "line 30",
       "detail": "paragraph has no supports declaration: 'The manual is short by design. A reader should be able to finish it in an evenin'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "line 34",
       "detail": "paragraph has no supports declaration: 'The first three chapters set the frame: the islands themselves, the history that'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 40",
       "detail": "paragraph has no supports declaration: 'You stand on Nonsuch Island at dusk in late October, fifteen acres of limestone '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 49",
       "detail": "paragraph has no supports declaration: 'A bird that the colony declared extinct in the seventeenth century turned up nes'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 56",
       "detail": "paragraph has no supports declaration: 'For the record: the territory sits at 32 degrees 18 minutes north and 64 degrees'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 63",
       "detail": "paragraph has no supports declaration: 'No mountain, no river, no lake of any size exists on Bermuda. Town Hill, on the '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 69",
       "detail": "paragraph has no supports declaration: 'The territory comprises 181 named islands and rocks. A second contemporary surve'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 75",
       "detail": "paragraph has no supports declaration: 'The territory holds nine traditional parishes. Settlers from the Virginia Compan'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 84",
       "detail": "paragraph has no supports declaration: \"![Bermuda's nine traditional parishes.](../../assets/shared/parish-map.png)\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 86",
       "detail": "paragraph has no supports declaration: 'The parishes run in a chain from west to east along the fish-hook of the archipe'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 101",
       "detail": "paragraph has no supports declaration: 'Pembroke carries the City of Hamilton and the densest concentration of people. S'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 106",
       "detail": "paragraph has no supports declaration: 'The territory holds the highest-latitude tropical climate on Earth. K\u00f6ppen class'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 116",
       "detail": "paragraph has no supports declaration: 'Winter temperatures from January through March average 18 degrees Celsius; summe'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 121",
       "detail": "paragraph has no supports declaration: '![Monthly temperature and rainfall in Bermuda.](../../assets/shared/climate-char'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 123",
       "detail": "paragraph has no supports declaration: 'The monthly distribution holds the seasonal shape of the archipelago.'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 140",
       "detail": "paragraph has no supports declaration: 'October carries the highest mean rainfall; April and May the lowest. The summer '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 147",
       "detail": "paragraph has no supports declaration: 'The Bermuda-Azores High governs the seasonal pattern. Convective showers and tro'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 152",
       "detail": "paragraph has no supports declaration: \"Morgan's Cloud earns its own paragraph. The phenomenon is local and convective: \"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 156",
       "detail": "paragraph has no supports declaration: 'The hardiness zone runs from 11b to 12a, among the warmest categories the system'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 162",
       "detail": "paragraph has no supports declaration: 'No river, no lake, and no aquifer of consequence exists on Bermuda. Every drop o'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 173",
       "detail": "paragraph has no supports declaration: 'Forest covers 1,000 hectares of land, 20 percent of the surface. The flora today'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 183",
       "detail": "paragraph has no supports declaration: 'Centuries of cutting for shipbuilding and houses thinned the cedar, but the popu'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 191",
       "detail": "paragraph has no supports declaration: 'The native non-flying terrestrial vertebrate fauna of Bermuda begins and ends wi'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 197",
       "detail": "paragraph has no supports declaration: 'The cahow is the best-known endemic. Settlers and their livestock drove the petr'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 203",
       "detail": "paragraph has no supports declaration: 'In 1962 Wingate took up residence on Nonsuch Island, a stripped fifteen-acre lim'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 214",
       "detail": "paragraph has no supports declaration: 'The pink-sand beaches draw their colour from the calcium-carbonate skeletons of '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 223",
       "detail": "paragraph has no supports declaration: 'Bermuda claims a territorial sea of 12 nautical miles from shore and an exclusiv'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-01 line 227",
       "detail": "paragraph has no supports declaration: 'Bermuda is 53.3 square kilometres of land, 1,040 kilometres from any continent, '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 256",
       "detail": "paragraph has no supports declaration: 'On the afternoon of 28 July 1609, the *Sea Venture* came apart on the outer reef'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 264",
       "detail": "paragraph has no supports declaration: 'The reefs around Bermuda ate ships. Spanish pilots called the place \"Demoniorum '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 273",
       "detail": "paragraph has no supports declaration: 'On 2 June 1609, Sir George Somers sailed the flagship *Sea Venture* from England'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 278",
       "detail": "paragraph has no supports declaration: 'The castaways spent nine months on the island. They drank rainwater and ate palm'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 288",
       "detail": "paragraph has no supports declaration: 'In 1612, the Virginia Company extended its Royal Charter to include Bermuda. The'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 293",
       "detail": "paragraph has no supports declaration: 'The Somers Isles Company formed in 1615 under the same shareholders who controll'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 302",
       "detail": "paragraph has no supports declaration: 'In August 1616, enslaved Africans and Native Americans arrived in Bermuda, makin'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 309",
       "detail": "paragraph has no supports declaration: 'By 1721, enslaved persons numbered 3,517 of a population of 8,366.<sup class=\"fo'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 315",
       "detail": "paragraph has no supports declaration: 'Mary Prince changed the argument. Born enslaved in Bermuda, she dictated *The Hi'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 323",
       "detail": "paragraph has no supports declaration: 'Royal administration began under Charles II in 1683 and company control ended in'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 329",
       "detail": "paragraph has no supports declaration: 'Bermuda cedar supplied the timber. In 1691 Governor Isaac Richier described it a'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 335",
       "detail": "paragraph has no supports declaration: 'Bermudians had raked sea salt across the Caribbean since the 1630s. Salt Cay and'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 339",
       "detail": "paragraph has no supports declaration: 'Henry May had wrecked on the same reefs a century before the trade matured. By t'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 346",
       "detail": "paragraph has no supports declaration: 'Then the trade unraveled. The colonial government of the Bahamas, which claimed '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 351",
       "detail": "paragraph has no supports declaration: 'The same war revealed what Bermudian sloops could do as commerce raiders. Bermud'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 357",
       "detail": "paragraph has no supports declaration: 'After the American Revolution, Britain lost all its continental naval bases betw'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 363",
       "detail": "paragraph has no supports declaration: 'From Bermuda, the Royal Navy planned and launched the 1814 attacks on Washington'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 368",
       "detail": "paragraph has no supports declaration: 'During the Anglo-Boer War of 1899 to 1902, Bermuda housed 5,000 Boer prisoners o'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 376",
       "detail": "paragraph has no supports declaration: \"The colony's economy diversified into tourism and the air, and pulled away from \"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 383",
       "detail": "paragraph has no supports declaration: 'Bermudians fought in both World Wars. In World War II, the Ireland Island dockya'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 388",
       "detail": "paragraph has no supports declaration: 'In 1941, the destroyers-for-bases deal gave the US ninety-nine-year leases on ba'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 396",
       "detail": "paragraph has no supports declaration: 'Through the 1967 Constitution, universal adult suffrage entered Bermuda law. Bef'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 403",
       "detail": "paragraph has no supports declaration: '![The chain of authority from Crown to Cabinet.](../../assets/shared/government-'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 405",
       "detail": "paragraph has no supports declaration: 'The Constitution Order set the architecture that still governs the colony.'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 424",
       "detail": "paragraph has no supports declaration: 'The same constitutional architecture put a Crown-appointed governor at the head '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 427",
       "detail": "paragraph has no supports declaration: 'On 10 March 1973, local Black Power militants assassinated Governor Richard Shar'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 444",
       "detail": "paragraph has no supports declaration: 'In 1948, scheduled commercial airline service began at Kindley Field, now L. F. '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 453",
       "detail": "paragraph has no supports declaration: 'Hurricane Fabian struck Bermuda in 2003, took out a span of the Causeway, and ki'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-02 line 457",
       "detail": "paragraph has no supports declaration: \"Then, on a course nobody had charted, Flora Duffy won the women's triathlon at t\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 480",
       "detail": "paragraph has no supports declaration: 'A judge crosses Court Street in Hamilton at nine in the morning, horsehair wig i'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 492",
       "detail": "paragraph has no supports declaration: 'Bermuda is the oldest British Overseas Territory. Colonial government on the isl'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 501",
       "detail": "paragraph has no supports declaration: 'In 1995 voters answered an independence referendum and over 73 percent rejected '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 507",
       "detail": "paragraph has no supports declaration: 'King Charles III is head of state and has held the throne since 8 September 2022'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 513",
       "detail": "paragraph has no supports declaration: 'Colonial government in Bermuda began in 1612 under the Virginia Company. The Hou'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 520",
       "detail": "paragraph has no supports declaration: 'The Parliament of Bermuda dates from 1620 and ranks third in the world for conti'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 523",
       "detail": "paragraph has no supports declaration: 'The House of Assembly seats 36 members. Voters elect each member from a single-s'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 527",
       "detail": "paragraph has no supports declaration: 'The Senate is the revising chamber: it scrutinises and amends bills sent up from'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 535",
       "detail": "paragraph has no supports declaration: \"The Monarch appoints the Governor on the British Government's advice. Andrew Mur\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 538",
       "detail": "paragraph has no supports declaration: 'Reserved powers fall to the Governor across four domains: external affairs, defe'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 544",
       "detail": "paragraph has no supports declaration: 'The Premier leads the majority party in the House of Assembly and is head of gov'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 548",
       "detail": "paragraph has no supports declaration: 'Fourteen members sit in the cabinet, drawn from the two chambers of Parliament. '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 557",
       "detail": "paragraph has no supports declaration: 'The 1968 general election was the first vote in Bermuda to proceed under univers'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 562",
       "detail": "paragraph has no supports declaration: 'Two parties dominate elections. Founded in February 1963 with predominantly Blac'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 566",
       "detail": "paragraph has no supports declaration: 'Out of the merger of the Bermuda Democratic Alliance and members of the United B'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 571",
       "detail": "paragraph has no supports declaration: 'The 2017 result delivered 24 seats and 58.89 percent of the vote to the PLP, aga'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 577",
       "detail": "paragraph has no supports declaration: 'The judiciary sits as a four-tier structure with London at the top. The base hea'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 584",
       "detail": "paragraph has no supports declaration: \"At the base of the system, the Magistrates' Court hears claims of low value, reg\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 597",
       "detail": "paragraph has no supports declaration: \"![Bermuda's court hierarchy.](../../assets/shared/court-hierarchy.svg)\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 599",
       "detail": "paragraph has no supports declaration: 'A Bermudian barrister who argues at the Privy Council walks back from the hearin'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 618",
       "detail": "paragraph has no supports declaration: 'The common law of England forms the foundation of the legal system that Bermuda '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 626",
       "detail": "paragraph has no supports declaration: 'A Crown Prosecutor at a money-laundering trial in the Supreme Court works under '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 648",
       "detail": "paragraph has no supports declaration: 'Bermuda recognises two municipal corporations. The City of Hamilton serves as th'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 652",
       "detail": "paragraph has no supports declaration: 'Nine traditional parishes carry historical and cartographic weight: Sandys, Sout'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 659",
       "detail": "paragraph has no supports declaration: 'Bermuda claims a territorial sea that extends 12 nautical miles from the baselin'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-03 line 666",
       "detail": "paragraph has no supports declaration: 'Reserved Crown powers and an elected legislature share the work of governing Ber'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 691",
       "detail": "paragraph has no supports declaration: 'The Paget ferry docks at the foot of Queen Street and unloads its underwriters i'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 702",
       "detail": "paragraph has no supports declaration: 'Sixty-three thousand people on twenty-one square miles of mid-Atlantic limestone'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 709",
       "detail": "paragraph has no supports declaration: 'Wages and price stability complete the picture. Average gross salary stands at $'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 714",
       "detail": "paragraph has no supports declaration: 'Services produce 91.5% of output.<sup class=\"footnote-ref\" id=\"fnref-ch04-gdp-co'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 718",
       "detail": "paragraph has no supports declaration: '![Bermuda GDP composition by sector.](../../assets/shared/gdp-pie.png)'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 720",
       "detail": "paragraph has no supports declaration: 'The sector breakdown points to two activities and only two. International busine'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 735",
       "detail": "paragraph has no supports declaration: 'Two terms carry the rest of this section, and both deserve precise definition be'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 746",
       "detail": "paragraph has no supports declaration: 'Bermuda is the world\\'s second-largest captive insurance domicile<sup class=\"foot'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 751",
       "detail": "paragraph has no supports declaration: 'Reinsurance writers headquartered on the island underwrite property catastrophe '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 761",
       "detail": "paragraph has no supports declaration: 'The BMA operates a Solvency II\u2013equivalent regime for commercial reinsurers (Clas'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 767",
       "detail": "paragraph has no supports declaration: 'Over 12,500 foreign companies register on the island, and US owners control most'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 775",
       "detail": "paragraph has no supports declaration: 'The reinsurance cluster concentrates capacity for catastrophe lines that the glo'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 782",
       "detail": "paragraph has no supports declaration: 'Katrina, Rita, and Wilma had landed inside fourteen weeks. Insured losses for th'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 795",
       "detail": "paragraph has no supports declaration: 'The Fairmont Southampton, the largest hotel on the island at 593 rooms, closed i'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 803",
       "detail": "paragraph has no supports declaration: 'A Hospitality Sub-Committee formed in 2025 to address staffing demand from the s'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 807",
       "detail": "paragraph has no supports declaration: \"Event tourism punctuates the calendar. The America's Cup of 2017, the Newport-to\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 816",
       "detail": "paragraph has no supports declaration: 'Bermudian dollars (BMD) circulate alongside US dollars at a one-to-one peg, and '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 823",
       "detail": "paragraph has no supports declaration: 'Bermuda imposes no personal income tax, no capital-gains tax, and no inheritance'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 829",
       "detail": "paragraph has no supports declaration: 'Net government borrowing reached $2.586 billion by 2020. The debt-to-revenue rat'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 837",
       "detail": "paragraph has no supports declaration: 'The reversal in the fiscal accounts followed a regulatory change pushed from out'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 845",
       "detail": "paragraph has no supports declaration: 'The rule was designed to constrain the use of zero-tax jurisdictions for profit '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 849",
       "detail": "paragraph has no supports declaration: 'The Royal Gazette called the 2026/27 budget a \"defining moment as CIT takes hold'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 858",
       "detail": "paragraph has no supports declaration: 'Premier David Burt of the Progressive Labour Party leads the government after th'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 862",
       "detail": "paragraph has no supports declaration: 'The National Workforce Development Advisory Board, established in 2024, aligns w'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 867",
       "detail": "paragraph has no supports declaration: 'The Youth Employment Strategy supported more than 320 young people aged 18 to 26'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 871",
       "detail": "paragraph has no supports declaration: 'The National Certification and Apprenticeship Board re-launched to expand appren'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 878",
       "detail": "paragraph has no supports declaration: 'The Economic Development Department backs digital capability through the Video G'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 887",
       "detail": "paragraph has no supports declaration: 'The reinsurance cluster still dominates the global market for catastrophe capaci'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-04 line 895",
       "detail": "paragraph has no supports declaration: 'For the first time, a Bermudian government will repay a $605 million obligation '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 914",
       "detail": "paragraph has no supports declaration: \"The Somerset ground sits between the South Road and Mangrove Bay. By ten o'clock\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 928",
       "detail": "paragraph has no supports declaration: 'A Sunday morning in Hamilton runs short on space. The pews fill, the coffee shop'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 932",
       "detail": "paragraph has no supports declaration: 'The 2016 census recorded 63,779 residents. The mid-year estimate for 2021 reache'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 936",
       "detail": "paragraph has no supports declaration: '![Bermuda population, 1950 to 2026.](../../assets/shared/population-line.png)'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 938",
       "detail": "paragraph has no supports declaration: 'The trajectory across the chart is the trajectory of the labour market. Numbers '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 942",
       "detail": "paragraph has no supports declaration: 'The age structure tilts toward older cohorts. In 2016, children under fourteen m'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 955",
       "detail": "paragraph has no supports declaration: 'The 2016 census put Black Bermudians at 52.3 percent of the population, White Be'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 967",
       "detail": "paragraph has no supports declaration: 'Bermuda was the first English colony to bring enslaved Africans into its labour '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 972",
       "detail": "paragraph has no supports declaration: 'White Bermudians trace ancestry to settlers from England and to arrivals from Po'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 983",
       "detail": "paragraph has no supports declaration: 'Bermudians left the islands in numbers across the 17th and 18th centuries. About'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 989",
       "detail": "paragraph has no supports declaration: 'Portuguese immigration reshaped the islands after 1849. The first Portuguese imm'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 994",
       "detail": "paragraph has no supports declaration: 'The Festa do Senhor Santo Cristo runs every May at the Vasco da Gama Club in Ham'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1005",
       "detail": "paragraph has no supports declaration: 'Bermudian English is the language of the territory. It blends features from the '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1010",
       "detail": "paragraph has no supports declaration: 'Bermudians of Portuguese descent speak Portuguese at home. Immigration from the '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1016",
       "detail": "paragraph has no supports declaration: 'In the early 1800s, Methodist preaching reached enslaved and free Black communit'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1025",
       "detail": "paragraph has no supports declaration: 'The 2010 census recorded a Christian majority. Protestants made up 46.2 percent '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1042",
       "detail": "paragraph has no supports declaration: 'The 8:30 service at the AME church on Court Street in Hamilton runs to a packed '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1055",
       "detail": "paragraph has no supports declaration: 'The Gombey dance forms the central thread in the heritage of Black Bermudians.'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1062",
       "detail": "paragraph has no supports declaration: 'The Bermudian version uses the snare drum of the British military. The drum ente'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1069",
       "detail": "paragraph has no supports declaration: 'Cup Match defines the Bermudian summer. The fixture runs as a two-day cricket ho'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1077",
       "detail": "paragraph has no supports declaration: 'Bermuda Day opens the summer season. The holiday, set on 24 May, brings parades,'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1083",
       "detail": "paragraph has no supports declaration: 'Sailing also drives the calendar at the level of elite sport. Bermuda hosted the'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1089",
       "detail": "paragraph has no supports declaration: 'Bermudian cooking borrows from the kitchens of West Africa, Britain, Portugal, a'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1095",
       "detail": "paragraph has no supports declaration: 'Cassava pie marks Christmas. Cooks grate cassava, sweeten the mixture, and bake '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1104",
       "detail": "paragraph has no supports declaration: 'Bermudian architecture follows one rule that the climate enforces. The white lim'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1109",
       "detail": "paragraph has no supports declaration: 'The roof works as plumbing, not as decoration. Bermuda has no rivers and no larg'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1117",
       "detail": "paragraph has no supports declaration: 'Bermudians treat etiquette as a serious matter. A request for directions without'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1130",
       "detail": "paragraph has no supports declaration: 'The Bermudiana stands for the same trait that the limestone roof and the Gombey '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1136",
       "detail": "paragraph has no supports declaration: 'Bermudian literature carries one document of weight in the history of the empire'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-05 line 1142",
       "detail": "paragraph has no supports declaration: 'David B. Wingate, the conservationist, belongs in any sketch of Bermudian societ'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1157",
       "detail": "paragraph has no supports declaration: 'It is six in the evening on a Friday in March and the MarketPlace on Church Stre'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1167",
       "detail": "paragraph has no supports declaration: 'The answer to that question lives in this chapter. A loaf of white bread costs e'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1175",
       "detail": "paragraph has no supports declaration: 'The Bermudian dollar trades at par with the United States dollar, a statutory cu'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1186",
       "detail": "paragraph has no supports declaration: \"Numbeo's March 2026 snapshot puts ex-rent monthly costs at $2,164.20 for a singl\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1191",
       "detail": "paragraph has no supports declaration: 'Living expenses run approximately 94% above United States levels. Rent climbs to'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1195",
       "detail": "paragraph has no supports declaration: '![Bermuda monthly cost of living, single resident vs. OECD\\nmedian.](../../assets'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1198",
       "detail": "paragraph has no supports declaration: 'The trade is plain enough. Bermuda imposes no income tax, no capital gains tax, '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1206",
       "detail": "paragraph has no supports declaration: 'Supermarket prices reflect the import chain in full. The shopper pays the wholes'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1211",
       "detail": "paragraph has no supports declaration: 'Shelf prices in Hamilton supermarkets, March 2026:'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1213",
       "detail": "paragraph has no supports declaration: '- Milk, 1 liter: $5.24\\n- White bread, 1 lb: $8.00\\n- Eggs, 12 large: $8.18\\n- Chic'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1225",
       "detail": "paragraph has no supports declaration: 'The figures run between roughly two and four times US shelf prices for the same '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1231",
       "detail": "paragraph has no supports declaration: 'The restaurant trade serves a mixed clientele of expatriate professionals, cruis'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1235",
       "detail": "paragraph has no supports declaration: 'A dinner for two at a mid-range restaurant equals the cost of a week of grocerie'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1237",
       "detail": "paragraph has no supports declaration: 'Meal prices in Hamilton, March 2026:'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1239",
       "detail": "paragraph has no supports declaration: '- Inexpensive restaurant meal: $55.00\\n- Mid-range dinner for two, three courses:'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1247",
       "detail": "paragraph has no supports declaration: \"Bermuda's electricity comes almost entirely from diesel burned at the BELCO Pemb\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1257",
       "detail": "paragraph has no supports declaration: 'Picture the BELCO control room at three in the morning during a Category 2 hurri'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1264",
       "detail": "paragraph has no supports declaration: 'Utility costs in Bermuda, March 2026:'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1266",
       "detail": "paragraph has no supports declaration: '- Basic utilities for a 915-sq-ft apartment (electricity, heating, cooling, wate'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1270",
       "detail": "paragraph has no supports declaration: 'Combined utility, mobile, and broadband spend therefore runs about $553.54 per m'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1281",
       "detail": "paragraph has no supports declaration: 'The rainfall that feeds the cistern averages 1,453.8 millimeters a year, distrib'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1289",
       "detail": "paragraph has no supports declaration: 'The Easter weekend is the other instructive interval. A pipe under a Paget house'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1297",
       "detail": "paragraph has no supports declaration: 'The law caps household car ownership at one vehicle and regulates engine size. T'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1300",
       "detail": "paragraph has no supports declaration: 'Transport costs in Bermuda, March 2026:'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1302",
       "detail": "paragraph has no supports declaration: '- One-way public transport ticket: $4.75\\n- Monthly transit pass: $69.00\\n- Taxi s'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1310",
       "detail": "paragraph has no supports declaration: 'A monthly transit pass costs $69.00 and covers unlimited bus and ferry travel wi'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1318",
       "detail": "paragraph has no supports declaration: 'Health insurance is mandatory in Bermuda and splits between employer and employe'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1323",
       "detail": "paragraph has no supports declaration: 'A two-earner household plans for $1,400 to $3,000 per month of combined premium.'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1328",
       "detail": "paragraph has no supports declaration: 'Rent forms the largest line item of any household budget in Bermuda. JBM Realty '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1332",
       "detail": "paragraph has no supports declaration: '- 1-bedroom in city center: $3,741.43 / month\\n- 1-bedroom outside center: $2,450'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1337",
       "detail": "paragraph has no supports declaration: 'Median single-family home prices have historically exceeded one million United S'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1349",
       "detail": "paragraph has no supports declaration: 'Between the license fee, the ARV gate, and the limited inventory, expatriate own'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1354",
       "detail": "paragraph has no supports declaration: 'Consider a single resident \u2014 an underwriter at a reinsurer in Hamilton, say \u2014 wh'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1428",
       "detail": "paragraph has no supports declaration: 'Rent alone consumes half of it. Strip the rent and the remainder still exceeds t'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1433",
       "detail": "paragraph has no supports declaration: 'A family with two children, a 3-bedroom outside Hamilton, one car, and full-cove'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1506",
       "detail": "paragraph has no supports declaration: 'Set the two budgets side by side and the geometry is visible. The single residen'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-06 line 1512",
       "detail": "paragraph has no supports declaration: 'The high cost of living in Bermuda follows directly from the geography of Chapte'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1535",
       "detail": "paragraph has no supports declaration: 'The agent pulled the car off Middle Road and turned up a lane in Devonshire. A t'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1549",
       "detail": "paragraph has no supports declaration: 'A one-bedroom flat in central Hamilton rents for about $3,750 a month. An ocean-'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1556",
       "detail": "paragraph has no supports declaration: 'The market splits along two axes. Hamilton commands a premium over the parishes '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1563",
       "detail": "paragraph has no supports declaration: 'Numbeo reported the following monthly rents for March 2026:'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1565",
       "detail": "paragraph has no supports declaration: '- One-bedroom in central Hamilton: $3,741.43\\n- One-bedroom outside the centre: $'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1570",
       "detail": "paragraph has no supports declaration: 'JBM Realty, one Bermuda brokerage, published its own 2025 averages at slightly l'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1575",
       "detail": "paragraph has no supports declaration: '![Median rent by parish, 1-bedroom and 3-bedroom.](../../assets/shared/rent-bars'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1577",
       "detail": "paragraph has no supports declaration: 'The premium tier sits well above these figures. The flow of listings runs thin a'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1585",
       "detail": "paragraph has no supports declaration: 'Apartments in central Hamilton sell for $1,360.70 per square foot. Apartments ou'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1589",
       "detail": "paragraph has no supports declaration: 'Land ownership in Bermuda is concentrated and turnover is slow. Supply is finite'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1596",
       "detail": "paragraph has no supports declaration: 'The Annual Rental Value (ARV) is a tax-assessed valuation that doubles as an imm'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1606",
       "detail": "paragraph has no supports declaration: 'A licence from the Minister of Home Affairs authorises every non-Bermudian acqui'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1612",
       "detail": "paragraph has no supports declaration: 'A status holder faces none of these restrictions. Status holders pay no licence '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1615",
       "detail": "paragraph has no supports declaration: 'The table below sets out the access regime by buyer category:'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1688",
       "detail": "paragraph has no supports declaration: 'The Permanent Resident Certificate confers indefinite leave to remain and the ri'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1695",
       "detail": "paragraph has no supports declaration: 'The HR director at a Hamilton reinsurance firm kept the work-permit calendar on '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1710",
       "detail": "paragraph has no supports declaration: 'Every non-Bermudian worker requires a permit issued by the Department of Immigra'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1733",
       "detail": "paragraph has no supports declaration: 'The Incentives for Job Makers Policy gained a scoring framework. A firm with und'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1737",
       "detail": "paragraph has no supports declaration: 'The Department of Workforce Development scaled vocational and youth programmes t'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1742",
       "detail": "paragraph has no supports declaration: 'Debate over work permit policy and pathways to Bermudian status continues. The d'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-07 line 1749",
       "detail": "paragraph has no supports declaration: 'Rental costs in Bermuda absorb a heavy slice of the salary that the resident rec'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1773",
       "detail": "paragraph has no supports declaration: 'At ten past five in the afternoon, the eighteen-year-old stands at the L. F. Wad'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1783",
       "detail": "paragraph has no supports declaration: \"A Bermudian who wants a bachelor's degree boards a plane. The territory runs one\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1790",
       "detail": "paragraph has no supports declaration: \"![Bermuda's education pipeline from primary to\\ntertiary.](../../assets/shared/ed\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1793",
       "detail": "paragraph has no supports declaration: 'The pipeline runs in five layers from pre-primary at age four to tertiary at age'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1807",
       "detail": "paragraph has no supports declaration: 'The first seven layers sit inside Bermuda. The eighth sits abroad. The system is'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1812",
       "detail": "paragraph has no supports declaration: 'Bermuda law makes school attendance mandatory for children aged 5 through 16. Th'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1817",
       "detail": "paragraph has no supports declaration: 'The system runs four tiers above a pre-primary year that admits children at age '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1824",
       "detail": "paragraph has no supports declaration: 'The four-tier division above is the one the Department of Education uses; the sc'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1831",
       "detail": "paragraph has no supports declaration: 'The middle school curriculum sets nine subject areas: English, Mathematics, Soci'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1837",
       "detail": "paragraph has no supports declaration: 'Two senior institutions, The Berkeley Institute and CedarBridge Academy, serve s'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1849",
       "detail": "paragraph has no supports declaration: \"Berkeley's lineage matters to the shape of the system. Through the first half of\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1856",
       "detail": "paragraph has no supports declaration: 'Students complete secondary education with the Bermuda School Certificate. The C'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1864",
       "detail": "paragraph has no supports declaration: 'Graduates of the Certificate qualify for direct enrolment at Bermuda College and'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1869",
       "detail": "paragraph has no supports declaration: 'Bermuda College is the only tertiary institution on the island, located in Paget'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1878",
       "detail": "paragraph has no supports declaration: 'The college runs four divisions \u2014 Applied Science and Technology, Business Admin'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1888",
       "detail": "paragraph has no supports declaration: 'The associate degree is therefore not a terminal qualification for most students'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1891",
       "detail": "paragraph has no supports declaration: 'It is half past six on a Wednesday evening, and the lights are on in a CASE clas'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1900",
       "detail": "paragraph has no supports declaration: 'Between 2016 and 2022, Bermuda College averaged 663 students per year.<sup class'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1904",
       "detail": "paragraph has no supports declaration: 'The college library holds more than 35,000 volumes and 1,315 microfilm reels.<su'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1911",
       "detail": "paragraph has no supports declaration: 'Bermuda College has signed transfer agreements with ten Canadian universities ac'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1917",
       "detail": "paragraph has no supports declaration: 'The transfer regime is the cost-control mechanism of the system. Two years in Pa'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1923",
       "detail": "paragraph has no supports declaration: 'Private schools operate alongside the public system, following British, IB (Inte'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1935",
       "detail": "paragraph has no supports declaration: 'It is a Friday morning in late June, and the senior school of Saltus Grammar wal'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1943",
       "detail": "paragraph has no supports declaration: 'These schools prepare students for admission to UK, Canadian, and US universitie'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1955",
       "detail": "paragraph has no supports declaration: \"A Bermudian who wants a bachelor's degree leaves the island. Students travel to \"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1960",
       "detail": "paragraph has no supports declaration: 'The transfer routes through Bermuda College reduce the cost barrier but do not r'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1969",
       "detail": "paragraph has no supports declaration: 'Government education extends beyond the standard cycle of school and college. Th'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1974",
       "detail": "paragraph has no supports declaration: 'A second initiative, the Bermuda Coders Initiative, trains residents in software'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1983",
       "detail": "paragraph has no supports declaration: 'A relocating developer must decide where to place children and how to plan a pat'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-08 line 1988",
       "detail": "paragraph has no supports declaration: 'A computer-science degree requires overseas study. Bermuda College awards associ'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2010",
       "detail": "paragraph has no supports declaration: 'A Saturday night at King Edward VII Memorial Hospital. The emergency department '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2023",
       "detail": "paragraph has no supports declaration: 'The Bermuda Hospitals Board operates the public hospital system.<sup class=\"foot'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2035",
       "detail": "paragraph has no supports declaration: 'The Board governs one acute hospital, one psychiatric institute, and one urgent '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2043",
       "detail": "paragraph has no supports declaration: 'Dr Michael Richmond holds the chief of staff post at the Board. The Board affili'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2052",
       "detail": "paragraph has no supports declaration: 'KEMH sits in Paget Parish on the central spine of the island. The hospital deliv'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2057",
       "detail": "paragraph has no supports declaration: 'Patient throughput in 2017, the most recent full-year figure on the public recor'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2065",
       "detail": "paragraph has no supports declaration: 'In October 2022 the Board switched to PEARL, an electronic medical records syste'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2073",
       "detail": "paragraph has no supports declaration: 'Fourteen patients died of causes the Board classed as unexpected. Five patients '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2081",
       "detail": "paragraph has no supports declaration: 'The Mid-Atlantic Wellness Institute sits in Devonshire Parish, on land set aside'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2092",
       "detail": "paragraph has no supports declaration: \"Seven o'clock on the intellectual-disability ward, shift change. The outgoing nu\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2103",
       "detail": "paragraph has no supports declaration: 'Premiums on the island rank among the highest in the world. Comprehensive plans '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2108",
       "detail": "paragraph has no supports declaration: 'Bermuda runs a health insurance system that mixes public payers and private paye'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2114",
       "detail": "paragraph has no supports declaration: '![Bermuda healthcare insurance flow.](../../assets/shared/healthcare-flow.svg)'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2116",
       "detail": "paragraph has no supports declaration: 'The Standard Hospital Benefit forms the legal floor of the insurance market \u2014 th'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2128",
       "detail": "paragraph has no supports declaration: 'The Health Insurance Department administers two public plans on behalf of popula'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2140",
       "detail": "paragraph has no supports declaration: 'Premium day at the Health Insurance Department in Hamilton. A HIP enrolment cler'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2147",
       "detail": "paragraph has no supports declaration: 'The product comparison below sets the three principal coverage routes against on'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2210",
       "detail": "paragraph has no supports declaration: \"A range of specialty procedures falls outside the island's clinical reach. Trans\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2217",
       "detail": "paragraph has no supports declaration: 'The referral pathway carries direct cost consequences for the insurance pool. Ea'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2229",
       "detail": "paragraph has no supports declaration: 'Bermudians live, on average, to 81.<sup class=\"footnote-ref\" id=\"fnref-ch09-demo'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2235",
       "detail": "paragraph has no supports declaration: 'The age structure adds further load on the system. By 2021 residents aged 65 or '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-09 line 2244",
       "detail": "paragraph has no supports declaration: 'One operator runs the public hospital system. One acute hospital carries the loa'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2268",
       "detail": "paragraph has no supports declaration: 'At seven in the morning on the Middle Road, a pink-and-blue scooter weaves out o'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2277",
       "detail": "paragraph has no supports declaration: 'The road network reflects the policy. Bermuda holds 447 kilometres of paved road'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2289",
       "detail": "paragraph has no supports declaration: 'The state runs the buses. A government service replaced the Bermuda Railway in 1'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2293",
       "detail": "paragraph has no supports declaration: 'Cash fares scale with distance and are paid in tokens scaled to fare zones. A mo'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2304",
       "detail": "paragraph has no supports declaration: 'Water cuts the islands into segments, so the ferry carries the load that a bridg'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2311",
       "detail": "paragraph has no supports declaration: '![Bermuda ferry routes from Hamilton.](../../assets/shared/ferry-routes.png)'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2313",
       "detail": "paragraph has no supports declaration: 'The route names map onto the geography. The table below lists each colour code a'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2323",
       "detail": "paragraph has no supports declaration: 'The Blue and Pink routes carry most of the daily commute. The Orange route links'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2332",
       "detail": "paragraph has no supports declaration: 'L. F. Wade International Airport International Airport International Airport sit'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2338",
       "detail": "paragraph has no supports declaration: 'The first airplane reached Bermuda in 1930: a Stinson Detroiter seaplane out of '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2344",
       "detail": "paragraph has no supports declaration: 'The Bermuda Railway operated from 1931 to 1948 and connected the Town of St. Geo'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2353",
       "detail": "paragraph has no supports declaration: \"The south shore carries the headline beaches. Bermuda's pink-sand beaches derive\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2361",
       "detail": "paragraph has no supports declaration: 'The chain offers beaches across a range of conditions. Church Bay draws snorkell'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2367",
       "detail": "paragraph has no supports declaration: \"The reef and the wreck count drive the dive industry. Bermuda's waters host more\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2372",
       "detail": "paragraph has no supports declaration: 'Sailing carries the same weight in the calendar. The Newport-to-Bermuda Race has'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2389",
       "detail": "paragraph has no supports declaration: 'Golf occupies a large share of the recreation footprint. Bermuda has one of the '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2394",
       "detail": "paragraph has no supports declaration: 'Cricket carries the cultural weight that golf does not. Cup Match is a two-day c'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2410",
       "detail": "paragraph has no supports declaration: 'Historic towns anchor the visitor circuit. The Town of St. George at the East En'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2417",
       "detail": "paragraph has no supports declaration: 'At the West End, the Royal Naval Dockyard closes the historical bracket. The nin'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2425",
       "detail": "paragraph has no supports declaration: 'Bermuda fish chowder with black rum and sherry pepper sauce is the national dish'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2431",
       "detail": "paragraph has no supports declaration: 'Visitors who attend formal events find a dress code that reverses Atlantic norms'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2437",
       "detail": "paragraph has no supports declaration: \"The Bermuda Tourism Authority is the island's official destination marketing org\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2442",
       "detail": "paragraph has no supports declaration: '![Cruise and air arrivals, 2015 to 2024.](../../assets/shared/tourism-line.png)'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2444",
       "detail": "paragraph has no supports declaration: \"Tourism contributes 28% of GDP under the BTA's total economic-impact measure, wh\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2449",
       "detail": "paragraph has no supports declaration: \"The hotel inventory took a hit at the start of the decade. Bermuda's largest hot\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2455",
       "detail": "paragraph has no supports declaration: 'Bermuda has won one Olympic gold medal in its history. At the 2020 Summer Olympi'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2463",
       "detail": "paragraph has no supports declaration: 'Late afternoon at Horseshoe Bay, the pink at the water line is at its deepest. A'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2484",
       "detail": "paragraph has no supports declaration: 'This is a manual for somebody who wants to understand Bermuda, not a brochure fo'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2486",
       "detail": "paragraph has no supports declaration: 'If you are deciding whether to move there, start with Chapter 7 (Housing and Imm'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2488",
       "detail": "paragraph has no supports declaration: 'If you are reading the manual as background for a business or investment decisio'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2490",
       "detail": "paragraph has no supports declaration: 'If you are reading for general curiosity, start with Chapter 1 (Introduction and'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2494",
       "detail": "paragraph has no supports declaration: 'The manual cites numbers conservatively. Where sources disagreed, the prose foll'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2496",
       "detail": "paragraph has no supports declaration: 'Currency figures are quoted in Bermuda dollars, which trade at parity with the U'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2500",
       "detail": "paragraph has no supports declaration: 'The manual does not attempt to be a tourist guide, a travel writing essay, a pol'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2502",
       "detail": "paragraph has no supports declaration: 'It does not offer recommendations on where to stay, what to eat, which beach to '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2509",
       "detail": "paragraph has no supports declaration: '**AC50.** A class of foiling fifty-foot catamarans designed for the 2017 America'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2511",
       "detail": "paragraph has no supports declaration: '**African Methodist Episcopal Church (AME).** Historically Black denomination pr'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2513",
       "detail": "paragraph has no supports declaration: '**Annual Rental Value (ARV).** The notional annual rent of a property, used as t'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2515",
       "detail": "paragraph has no supports declaration: '**Bermuda cedar.** *Juniperus bermudiana*, a juniper endemic to Bermuda, called '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2517",
       "detail": "paragraph has no supports declaration: \"**Bermuda dollar (BMD).** Bermuda's currency, pegged at parity with the US dolla\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2519",
       "detail": "paragraph has no supports declaration: '**Bermuda Hospitals Board (BHB).** The statutory body that runs King Edward VII '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2521",
       "detail": "paragraph has no supports declaration: '**Bermuda Monetary Authority (BMA).** The financial regulator and currency autho'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2523",
       "detail": "paragraph has no supports declaration: '**Bermudian status.** The legal category of full Bermudian citizenship, which ca'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2525",
       "detail": "paragraph has no supports declaration: '**British Overseas Territory.** Constitutional status of Bermuda since 2002 (for'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2527",
       "detail": "paragraph has no supports declaration: '**Captive insurer.** An insurance company set up to insure the risks of its pare'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2529",
       "detail": "paragraph has no supports declaration: '**Cistern.** Underground rainwater storage required for every Bermuda house.'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2531",
       "detail": "paragraph has no supports declaration: '**Common law.** The English-inherited body of judge-made law that, alongside Ber'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2533",
       "detail": "paragraph has no supports declaration: \"**Constitution Order 1968.** The instrument that established Bermuda's current c\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2535",
       "detail": "paragraph has no supports declaration: \"**Cup Match.** The two-day cricket holiday between the Somerset and St. George's\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2537",
       "detail": "paragraph has no supports declaration: \"**FutureCare.** Bermuda's public health insurance plan for residents aged 65 and\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2539",
       "detail": "paragraph has no supports declaration: '**HIP (Health Insurance Plan).** The basic public health insurance product admin'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2541",
       "detail": "paragraph has no supports declaration: \"**KEMH.** King Edward VII Memorial Hospital, the islands' main acute-care hospit\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2543",
       "detail": "paragraph has no supports declaration: \"**L. F. Wade International Airport.** Bermuda's only commercial airport, on St. \"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2545",
       "detail": "paragraph has no supports declaration: \"**Mid-Atlantic Wellness Institute (MWI).** Bermuda's psychiatric and intellectua\"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2547",
       "detail": "paragraph has no supports declaration: '**OECD Pillar Two.** The international agreement imposing a 15 per cent minimum '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2549",
       "detail": "paragraph has no supports declaration: '**Privy Council.** The Judicial Committee of the Privy Council in London, the fi'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2551",
       "detail": "paragraph has no supports declaration: '**Reinsurance.** Insurance for insurers; the dominant export industry of Bermuda'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2553",
       "detail": "paragraph has no supports declaration: \"**Sea Venture.** The English ship wrecked on Bermuda's outer reef in July 1609, \"",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2561",
       "detail": "paragraph has no supports declaration: 'This manual draws on a collection of primary source documents prepared during re'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2563",
       "detail": "paragraph has no supports declaration: '1. **cost-of-living** \u2014 Numbeo aggregate cost-of-living survey for Bermuda (retr'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2577",
       "detail": "paragraph has no supports declaration: 'The parish map is rendered from OpenStreetMap administrative boundaries (\u00a9 OpenS'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2584",
       "detail": "paragraph has no supports declaration: 'The works below informed the manual but are not directly footnoted in it. A read'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2588",
       "detail": "paragraph has no supports declaration: '**Henry C. Wilkinson.** *Bermuda in the Old Empire* (Oxford University Press, 19'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2590",
       "detail": "paragraph has no supports declaration: '**William S. Zuill.** *The Story of Bermuda and Her People* (Macmillan, 1999, th'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2592",
       "detail": "paragraph has no supports declaration: '**Cyril O. Packwood.** *Chained on the Rock* (Eliseo Torres, 1975). The first su'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2596",
       "detail": "paragraph has no supports declaration: '**Mary Prince.** *The History of Mary Prince, a West Indian Slave* (London, 1831'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2598",
       "detail": "paragraph has no supports declaration: '**William Strachey.** *A True Reportory of the Wreck and Redemption of Sir Thoma'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2600",
       "detail": "paragraph has no supports declaration: '**Mark Twain.** *Some Rambling Notes of an Idle Excursion* (*Atlantic Monthly*, '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2604",
       "detail": "paragraph has no supports declaration: '**Bermuda Monetary Authority.** *Annual Report* (current year; bma.bm). The auth'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2606",
       "detail": "paragraph has no supports declaration: '**Government of Bermuda.** *Bermuda Constitution Order 1968* (HMSO; reprinted by'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2608",
       "detail": "paragraph has no supports declaration: '**Catherine Duffy.** *Held Captive: A History of International Insurance in Berm'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2612",
       "detail": "paragraph has no supports declaration: '**Quito Swan.** *Black Power in Bermuda: The Struggle for Decolonization* (Palgr'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2614",
       "detail": "paragraph has no supports declaration: '**Walton Brown Jr.** *Bermuda and the Struggle for Reform* (Cahow Press, 2011). '",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2618",
       "detail": "paragraph has no supports declaration: '**Bermuda National Library.** *Bermudiana Collection* and the *Royal Gazette* di'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2620",
       "detail": "paragraph has no supports declaration: '**Bernews** (bernews.com). The daily-news archive (2008 to present), with reliab'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "critical",
+      "kind": "no-support",
       "where": "ch-10 line 2622",
       "detail": "paragraph has no supports declaration: '**The Bermudian** (thebermudian.com). The longest-running magazine on the island'",
-      "fix_hint": "add a `supports:` frontmatter pointing at a thesis sub-argument node",
       "class": "D9"
     },
     {
-      "severity": "important",
-      "where": "thesis:cost-of-living",
-      "detail": "sub-argument 'cost-of-living' is advanced by no paragraph",
-      "fix_hint": "add a paragraph with supports=<node> or remove the sub-argument",
+      "kind": "unadvanced",
+      "where": "cost-of-living",
+      "detail": "sub-argument 'cost-of-living' is named by no paragraph's supports",
       "class": "D12"
     },
     {
-      "severity": "important",
-      "where": "thesis:demographics-and-culture",
-      "detail": "sub-argument 'demographics-and-culture' is advanced by no paragraph",
-      "fix_hint": "add a paragraph with supports=<node> or remove the sub-argument",
+      "kind": "unadvanced",
+      "where": "demographics-and-culture",
+      "detail": "sub-argument 'demographics-and-culture' is named by no paragraph's supports",
       "class": "D12"
     },
     {
-      "severity": "important",
-      "where": "thesis:geography-shapes-economy",
-      "detail": "sub-argument 'geography-shapes-economy' is advanced by no paragraph",
-      "fix_hint": "add a paragraph with supports=<node> or remove the sub-argument",
+      "kind": "unadvanced",
+      "where": "geography-shapes-economy",
+      "detail": "sub-argument 'geography-shapes-economy' is named by no paragraph's supports",
       "class": "D12"
     },
     {
-      "severity": "important",
-      "where": "thesis:history-shapes-government",
-      "detail": "sub-argument 'history-shapes-government' is advanced by no paragraph",
-      "fix_hint": "add a paragraph with supports=<node> or remove the sub-argument",
+      "kind": "unadvanced",
+      "where": "history-shapes-government",
+      "detail": "sub-argument 'history-shapes-government' is named by no paragraph's supports",
       "class": "D12"
     },
     {
-      "severity": "important",
-      "where": "thesis:institutions",
-      "detail": "sub-argument 'institutions' is advanced by no paragraph",
-      "fix_hint": "add a paragraph with supports=<node> or remove the sub-argument",
+      "kind": "unadvanced",
+      "where": "institutions",
+      "detail": "sub-argument 'institutions' is named by no paragraph's supports",
       "class": "D12"
     },
     {
-      "severity": "important",
-      "where": "thesis:who-can-live-there",
-      "detail": "sub-argument 'who-can-live-there' is advanced by no paragraph",
-      "fix_hint": "add a paragraph with supports=<node> or remove the sub-argument",
+      "kind": "unadvanced",
+      "where": "who-can-live-there",
+      "detail": "sub-argument 'who-can-live-there' is named by no paragraph's supports",
       "class": "D12"
     }
   ]

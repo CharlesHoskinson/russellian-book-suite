@@ -1,4 +1,4 @@
-"""Fixture-based tests for `book-qa.lint_artifact` covering defect classes D1-D8.
+"""Fixture-based tests for `book-qa.lint_artifact` covering defect classes D1-D12.
 
 Each test stages a tiny workspace into ``tmp_path`` with a chosen fixture
 markdown (and optional HTML / asset files), runs ``lint_artifact`` end-to-end,
@@ -9,9 +9,14 @@ The clean fixtures may still emit *other* defect classes (e.g. a short D1
 clean fixture under-runs the D5 word-count band). The smoke test at the end
 of the file exercises a fully-clean manuscript designed to satisfy every
 band simultaneously and expects zero defects in total.
+
+D9-D12 defects come from JSON side-files emitted by the `book-thesis`
+pipeline; the linter just reads them. The tests stage a minimal manuscript
+and drop a small fixture JSON into `<workspace>/qa/` to verify each pickup.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -194,3 +199,111 @@ def test_dirty_fixtures_emit_expected_class(stage_release, dirty_md, expected_cl
         f"{dirty_md!r} did not surface {expected_class}; "
         f"classes seen: {sorted(_classes(defects))}"
     )
+
+
+# --------------------------------------------------------------------- D9-D12
+
+
+def _write_qa_json(workspace: Path, name: str, payload: dict | list) -> None:
+    qa_dir = workspace / "qa"
+    qa_dir.mkdir(parents=True, exist_ok=True)
+    (qa_dir / name).write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_d9_orphan_paragraph_picked_up_from_supports_defects_json(stage_release):
+    workspace, version = stage_release("smoke_clean.md", "smoke_clean.html")
+    _write_qa_json(workspace, "supports-defects.json", {
+        "summary": {"orphan_count": 1, "unadvanced_sub_arguments": []},
+        "defects": [
+            {
+                "class": "D9",
+                "severity": "critical",
+                "where": "ch-03 paragraph 7",
+                "detail": "paragraph has no supports: frontmatter and does not reach :Thesis",
+                "fix_hint": "add `supports:` pointing at a thesis sub-argument node",
+            },
+        ],
+    })
+    defects, summary = lint_artifact(workspace, version)
+    d9 = [d for d in defects if d.class_ == "D9"]
+    assert d9, f"expected D9 in defects; got {sorted(_classes(defects))}"
+    assert d9[0].severity == "critical"
+    assert "ch-03" in d9[0].where
+    assert summary["by_class"].get("D9") == 1
+
+
+def test_d10_transitive_contradiction_picked_up_from_datalog_defects_json(stage_release):
+    workspace, version = stage_release("smoke_clean.md", "smoke_clean.html")
+    _write_qa_json(workspace, "datalog-defects.json", {
+        "defects": [
+            {
+                "class": "D10",
+                "severity": "critical",
+                "where": "ch-02 vs ch-07",
+                "detail": "transitive contradiction: A->B in ch-02 conflicts with B->!A in ch-07",
+                "fix_hint": "reconcile the conflicting claims or revise the thesis tree",
+            },
+            # noise: non-D10 entries must be ignored
+            {"class": "D99", "severity": "minor", "where": "elsewhere", "detail": "ignored"},
+        ],
+    })
+    defects, summary = lint_artifact(workspace, version)
+    d10 = [d for d in defects if d.class_ == "D10"]
+    assert d10, f"expected D10 in defects; got {sorted(_classes(defects))}"
+    assert d10[0].severity == "critical"
+    assert summary["by_class"].get("D10") == 1
+
+
+def test_d11_failed_entailment_picked_up_from_entailment_results_json(stage_release):
+    workspace, version = stage_release("smoke_clean.md", "smoke_clean.html")
+    _write_qa_json(workspace, "entailment-results.json", {
+        "results": [
+            {
+                "paragraph_id": "ch-05-p12",
+                "supports": "history-shapes-government",
+                "verdict": "contradicts",
+            },
+            {
+                "paragraph_id": "ch-05-p18",
+                "supports": "geography-shapes-economy",
+                "verdict": "unrelated",
+            },
+            # entailed verdicts must NOT produce defects
+            {
+                "paragraph_id": "ch-05-p20",
+                "supports": "geography-shapes-economy",
+                "verdict": "entailed",
+            },
+        ],
+    })
+    defects, summary = lint_artifact(workspace, version)
+    d11 = [d for d in defects if d.class_ == "D11"]
+    assert len(d11) == 2, f"expected 2 D11 defects; got {len(d11)}"
+    verdicts_in_detail = " ".join(d.detail for d in d11)
+    assert "contradicts" in verdicts_in_detail
+    assert "unrelated" in verdicts_in_detail
+    assert all(d.severity == "critical" for d in d11)
+    assert summary["by_class"].get("D11") == 2
+
+
+def test_d12_unadvanced_sub_argument_picked_up(stage_release):
+    workspace, version = stage_release("smoke_clean.md", "smoke_clean.html")
+    _write_qa_json(workspace, "supports-defects.json", {
+        "summary": {
+            "orphan_count": 0,
+            "unadvanced_sub_arguments": [
+                {"id": "geography-shapes-economy"},
+                {"id": "history-shapes-government"},
+            ],
+        },
+        "defects": [],
+    })
+    defects, summary = lint_artifact(workspace, version)
+    d12 = [d for d in defects if d.class_ == "D12"]
+    assert len(d12) == 2, f"expected 2 D12 defects; got {len(d12)}"
+    assert all(d.severity == "important" for d in d12)
+    nodes = " ".join(d.detail for d in d12)
+    assert "geography-shapes-economy" in nodes
+    assert "history-shapes-government" in nodes
+    assert summary["by_class"].get("D12") == 2
+    assert summary["by_severity"].get("important") == 2

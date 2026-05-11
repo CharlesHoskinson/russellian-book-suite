@@ -61,6 +61,10 @@ Mechanical (`lint_artifact.py`, deterministic):
 - D6 paragraph-length variance outside [0.4, 1.2]
 - D7 CSS reset clobber (Tailwind preflight overriding heading sizes)
 - D8 asset 404s
+- D9 paragraph-orphan (critical; from `book-thesis` `qa/supports-defects.json`)
+- D10 transitive-contradiction (critical; from `book-thesis` `qa/datalog-defects.json`)
+- D11 failed-entailment (critical; from `qa/entailment-results.json` verdicts `contradicts`/`unrelated`)
+- D12 unadvanced-sub-argument (important; from `book-thesis` supports-defects summary)
 
 Editorial (Stage-2 swarm, per chapter):
 

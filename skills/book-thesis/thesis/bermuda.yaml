@@ -1,0 +1,121 @@
+book_id: bermuda-manual
+
+thesis:
+  statement: |
+    Contemporary Bermuda is a self-governing British Overseas Territory whose
+    economy, society, and institutions are shaped by two persistent forces:
+    its geography (an isolated mid-Atlantic island chain with no arable scale
+    and a reef shelter that produced the early salvage and salt economies)
+    and its history (slavery, the 1834 emancipation, and the 1968
+    constitutional settlement that put a Black-majority population in
+    political control of an internationally-exposed financial centre).
+  polarity: descriptive
+  scope: contemporary Bermuda, 2020-2026
+
+sub_arguments:
+  - id: geography-shapes-economy
+    parent: thesis
+    statement: >
+      Bermuda's mid-Atlantic position, lack of arable land, reef shelter, and
+      tropical climate together explain the economic structure of the islands —
+      from the seventeenth-century salt trade through tourism to today's
+      reinsurance sector.
+    polarity: descriptive
+    required_evidence:
+      - geography
+      - economy
+      - history
+    advanced_by_chapters: [ch-01, ch-04]
+
+  - id: history-shapes-government
+    parent: thesis
+    statement: >
+      The 1968 Constitution Order is the founding instrument of contemporary
+      self-government; the political settlement that produced it traces back
+      through the 1834 emancipation, the slavery period, and the colonial era.
+    polarity: descriptive
+    required_evidence:
+      - history
+      - government
+    advanced_by_chapters: [ch-02, ch-03]
+
+  - id: demographics-and-culture
+    parent: thesis
+    statement: >
+      Bermuda's demographic structure — Black majority since the nineteenth
+      century, Portuguese-Bermudian minority, declining fertility — produced
+      the cultural institutions (AME church, Cup Match, Gombey troupes) that
+      define contemporary Bermudian life.
+    polarity: descriptive
+    required_evidence:
+      - demographics
+      - culture
+    advanced_by_chapters: [ch-05]
+
+  - id: cost-of-living
+    parent: thesis
+    statement: >
+      The same geography that produced the economy also produces the cost
+      structure: import-everything supply chains, expensive housing, and
+      utilities pricing that explain why a single resident's monthly outlay
+      exceeds OECD medians by roughly three times.
+    polarity: descriptive
+    required_evidence:
+      - cost-of-living
+      - economy
+    advanced_by_chapters: [ch-06]
+
+  - id: who-can-live-there
+    parent: thesis
+    statement: >
+      The Bermudian-status / Permanent Resident Certificate / work-permit
+      framework determines who may live and work on the islands, and that
+      framework is shaped by the same labour-market pressures the rest of the
+      book traces.
+    polarity: descriptive
+    required_evidence:
+      - cost-of-living
+      - recent-developments
+      - government
+    advanced_by_chapters: [ch-07]
+
+  - id: institutions
+    parent: thesis
+    statement: >
+      The education, healthcare, and transportation institutions — Bermuda
+      College, KEMH, MWI, the ferry/scooter mobility regime — are the
+      lived-experience surface of the deeper economic and constitutional
+      structures.
+    polarity: descriptive
+    required_evidence:
+      - education
+      - healthcare
+      - transportation
+      - tourism
+    advanced_by_chapters: [ch-08, ch-09, ch-10]
+
+invariants:
+  - id: parish-count
+    rule: |
+      Bermuda has nine traditional parishes including St. George's. Any chapter
+      that names a different count contradicts the manual's canonical fact.
+    formal: |
+      contradicts(P, parish_count_canonical) :-
+        claims(P, parish_count, N), N != 9.
+
+  - id: bmd-peg
+    rule: |
+      The Bermudian dollar is pegged at parity with the US dollar. Any chapter
+      that implies otherwise contradicts the manual.
+    formal: |
+      contradicts(P, bmd_peg_canonical) :-
+        claims(P, bmd_usd_rate, R), R != 1.0.
+
+  - id: airport-location
+    rule: |
+      L. F. Wade International Airport sits on St. David's Island in St.
+      George's Parish. Any chapter that places it elsewhere contradicts the
+      canonical-facts document.
+    formal: |
+      contradicts(P, airport_location_canonical) :-
+        claims(P, airport_parish, X), X != "St. George's".

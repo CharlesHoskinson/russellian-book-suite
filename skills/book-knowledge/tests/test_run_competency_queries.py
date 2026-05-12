@@ -65,3 +65,85 @@ def test_runner_writes_report_file(tmp_path):
     run_competency_queries(layout)
     reports = list(layout.graph_reports.glob("competency-*.md"))
     assert reports, "no competency report written"
+
+
+def test_discover_queries_picks_up_subdirs():
+    from scripts.run_competency_queries import discover_queries
+    ASSETS = Path(__file__).resolve().parent.parent / "assets"
+    found = discover_queries(ASSETS)
+    classes = {c for c, _, _ in found}
+    assert "coverage" in classes
+    assert "consistency" in classes
+    names_in_coverage = {n for c, n, _ in found if c == "coverage"}
+    assert "chapter_evidence_coverage" in names_in_coverage
+    names_in_consistency = {n for c, n, _ in found if c == "consistency"}
+    assert "contradiction_scan" in names_in_consistency
+
+
+def test_defeasible_meta_yaml_loads():
+    import yaml
+    from pathlib import Path
+    p = Path(__file__).resolve().parent.parent / "assets" / "queries" / "defeasible" / "_meta.yaml"
+    data = yaml.safe_load(p.read_text(encoding="utf-8"))
+    assert "rebuttal-presence" in data
+    assert data["rebuttal-presence"]["severity"] in ("critical", "important", "minor")
+
+
+def test_defeasible_queries_parse():
+    from pathlib import Path
+    from rdflib.plugins.sparql import prepareQuery
+    qdir = Path(__file__).resolve().parent.parent / "assets" / "queries" / "defeasible"
+    for q in qdir.glob("*.rq"):
+        prepareQuery(q.read_text(encoding="utf-8"))  # raises on syntax error
+
+
+def test_defeasible_query_emits_warning_not_failure(tmp_path):
+    import json
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    from scripts.run_competency_queries import run_competency_queries
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Bermuda fact.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.8,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "created_at": "2026-05-11T00:00:00Z",
+        "load_bearing": True, "supports_chapters": ["ch07"]
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+    result = run_competency_queries(layout)
+    # result is a dict with keys "findings" and "warnings"
+    assert "warnings" in result, "run_competency_queries must return a dict with 'warnings'"
+    warnings = result["warnings"]
+    names = {w["query"] for w in warnings}
+    assert "rebuttal-presence" in names, f"expected rebuttal-presence in warnings; got {names}"
+    # Hard-fail must NOT occur: no exception raised and result produced means pass
+
+
+def test_defeasible_exception_queries_guard(tmp_path, monkeypatch):
+    """Non-empty exception_queries must raise NotImplementedError until implemented."""
+    import json
+    import scripts.run_competency_queries as mod
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    import pytest
+
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    # Seed a load-bearing claim that would fire rebuttal-presence.
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Bermuda fact.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.8,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "created_at": "2026-05-11T00:00:00Z",
+        "load_bearing": True, "supports_chapters": ["ch07"],
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+
+    # _load_defeasible_meta takes assets_root: Path; monkeypatch ignores it.
+    monkeypatch.setattr(mod, "_load_defeasible_meta", lambda assets_root: {
+        "rebuttal-presence": {"severity": "critical",
+                              "default_satisfied": True,
+                              "exception_queries": ["some-other-query"]},
+    })
+    with pytest.raises(NotImplementedError, match="exception_queries"):
+        mod.run_competency_queries(layout)

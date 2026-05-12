@@ -120,8 +120,12 @@ def _load_stage2(workspace: Path) -> list[Ticket]:
     return out
 
 
-def aggregate(workspace: Path) -> SentinelReport:
-    """Merge Stage-1 and Stage-2 tickets into a single ``SentinelReport``."""
+def aggregate(workspace: Path, version: str | None = None) -> SentinelReport:
+    """Merge Stage-1 and Stage-2 tickets into a single ``SentinelReport``.
+
+    When *version* is supplied, ``propose_writeback`` is called after
+    aggregation so that writeback artefacts land alongside QA outputs.
+    """
     tickets = _load_stage1(workspace) + _load_stage2(workspace)
     by_class: dict[str, int] = {}
     by_chapter: dict[str, int] = {}
@@ -132,7 +136,7 @@ def aggregate(workspace: Path) -> SentinelReport:
         by_chapter[t.chapter] = by_chapter.get(t.chapter, 0) + 1
         by_severity[t.severity] = by_severity.get(t.severity, 0) + 1
         (hard if t.hard_fail else soft).append(_serialise(t))
-    return SentinelReport(
+    report = SentinelReport(
         total=len(tickets),
         hard_fail_count=len(hard),
         by_class=by_class,
@@ -142,6 +146,13 @@ def aggregate(workspace: Path) -> SentinelReport:
         soft_gate_tickets=soft,
         all_tickets=[_serialise(t) for t in tickets],
     )
+    if version is not None:
+        try:
+            from .propose_writeback import propose_writeback  # noqa: PLC0415
+            propose_writeback(workspace, version=version)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[sentinel] propose_writeback failed (non-fatal): {exc}", file=sys.stderr)
+    return report
 
 
 def _serialise(t: Ticket) -> dict[str, Any]:

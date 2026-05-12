@@ -22,6 +22,20 @@
         "evidence_density_target":  {"type": "number", "minimum": 0}
       }
     },
+    "claims": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^clm-[0-9]{4}-[0-9]{6}$"},
+      "description": "Claim IDs this chapter cites; used to surface open counter-claims."
+    },
+    "force_include_refuted": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Claim IDs with refuted status that must still appear in the chapter slice."
+    },
+    "accept_disputed": {
+      "type": "boolean",
+      "description": "When true, disputed claims are included in the chapter slice (default false)."
+    },
     "acceptance_tests": {"type": "array", "items": {"type": "string"}},
     "style": {
       "type": "object",

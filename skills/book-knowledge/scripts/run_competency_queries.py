@@ -5,11 +5,35 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
 from rdflib import Dataset
 
 from .workspace import WorkspaceLayout
 
-ASSETS = Path(__file__).resolve().parent.parent / "assets" / "queries"
+_ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
+
+QUERY_CLASSES = ("coverage", "consistency", "defeasible")
+
+# When False, defeasible query fires are recorded as warnings but never escalate
+# to failure.  Flip to True in Phase 4 to make severity=critical defeasible
+# fires a hard gate.
+BLOCKING_DEFEASIBLE = False
+
+
+def discover_queries(assets_root: Path) -> list[tuple[str, str, Path]]:
+    """Returns (class, name, path) for every .rq under assets/queries/."""
+    base = assets_root / "queries"
+    out: list[tuple[str, str, Path]] = []
+    for cls in QUERY_CLASSES:
+        cls_dir = base / cls
+        if not cls_dir.exists():
+            continue
+        for f in sorted(cls_dir.glob("*.rq")):
+            out.append((cls, f.stem, f))
+    # Back-compat: flat .rq files at the top of queries/.
+    for f in sorted(base.glob("*.rq")):
+        out.append(("coverage", f.stem, f))
+    return out
 
 
 def _load_dataset(layout: WorkspaceLayout) -> Dataset:
@@ -19,13 +43,63 @@ def _load_dataset(layout: WorkspaceLayout) -> Dataset:
     return ds
 
 
+def _load_defeasible_meta(assets_root: Path) -> dict:
+    """Return the parsed _meta.yaml for defeasible queries, or {} if absent."""
+    meta_path = assets_root / "queries" / "defeasible" / "_meta.yaml"
+    if not meta_path.exists():
+        return {}
+    return yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+
+
 def run_competency_queries(layout: WorkspaceLayout) -> dict:
+    """Execute all competency queries and return results.
+
+    Return shape
+    ------------
+    A dict with one key per query name (list of row tuples) plus a
+    ``"warnings"`` key holding a list of defeasible-fire dicts::
+
+        {
+            "unsupported_claims": [...],
+            "rebuttal-presence": [...],   # still present for back-compat
+            ...
+            "warnings": [
+                {"query": "rebuttal-presence", "severity": "critical", "bindings": [...]},
+                ...
+            ],
+        }
+
+    Defeasible fires are non-blocking by default (``BLOCKING_DEFEASIBLE = False``).
+    When ``BLOCKING_DEFEASIBLE`` is ``True`` and a defeasible query with
+    ``severity == "critical"`` returns rows, the function raises ``RuntimeError``.
+    """
     ds = _load_dataset(layout)
+    meta = _load_defeasible_meta(_ASSETS_ROOT)
+
     findings: dict[str, list[tuple]] = {}
-    for query_path in sorted(ASSETS.glob("*.rq")):
-        name = query_path.stem
-        rows = list(ds.query(query_path.read_text(encoding="utf-8")))
-        findings[name] = [tuple(str(v) if v is not None else "" for v in row) for row in rows]
+    warnings: list[dict] = []
+    hard_failures: list[dict] = []
+
+    for cls, name, query_path in discover_queries(_ASSETS_ROOT):
+        rows = [
+            tuple(str(v) if v is not None else "" for v in row)
+            for row in ds.query(query_path.read_text(encoding="utf-8"))
+        ]
+        findings[name] = rows
+
+        if cls == "defeasible" and rows:
+            severity = (meta.get(name) or {}).get("severity", "minor")
+            exc = (meta.get(name) or {}).get("exception_queries", [])
+            if exc:
+                raise NotImplementedError(
+                    f"Defeasible query {name!r} declares exception_queries={exc} but the "
+                    f"exception-evaluation mechanism is not yet implemented. Set exception_queries: [] "
+                    f"or implement the loop in run_competency_queries.py."
+                )
+            entry = {"query": name, "severity": severity, "bindings": rows}
+            warnings.append(entry)
+            if BLOCKING_DEFEASIBLE and severity == "critical":
+                hard_failures.append(entry)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report_path = layout.graph_reports / f"competency-{timestamp}.md"
@@ -39,7 +113,20 @@ def run_competency_queries(layout: WorkspaceLayout) -> dict:
         else:
             lines.append("_(no rows)_")
         lines.append("")
+    if warnings:
+        lines.append("## Defeasible Warnings\n")
+        for w in warnings:
+            lines.append(f"- [{w['severity']}] {w['query']}: {len(w['bindings'])} row(s)")
+        lines.append("")
     report_path.write_text("\n".join(lines), encoding="utf-8")
+
+    findings["warnings"] = warnings  # type: ignore[assignment]
+
+    if hard_failures:
+        names = ", ".join(f["query"] for f in hard_failures)
+        raise RuntimeError(
+            f"Defeasible queries with severity=critical fired: {names}"
+        )
 
     return findings
 
@@ -51,7 +138,10 @@ def main(argv: list[str]) -> int:
     layout = WorkspaceLayout(Path(argv[1]))
     findings = run_competency_queries(layout)
     for name, rows in findings.items():
-        print(f"{name}: {len(rows)} rows")
+        if name == "warnings":
+            print(f"warnings: {len(rows)} defeasible fire(s)")
+        else:
+            print(f"{name}: {len(rows)} rows")
     return 0
 
 

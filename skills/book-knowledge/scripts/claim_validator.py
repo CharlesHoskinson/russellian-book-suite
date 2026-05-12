@@ -10,10 +10,11 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 SCHEMA = json.loads((ASSETS / "claim-record.schema.json").read_text(encoding="utf-8"))
 
 VALID_TRANSITIONS = {
-    "proposed": {"verified", "disputed", "superseded"},
-    "verified": {"disputed", "superseded"},
-    "disputed": {"verified", "superseded"},
+    "proposed":   {"verified", "disputed", "superseded"},
+    "verified":   {"disputed", "superseded"},
+    "disputed":   {"verified", "superseded", "refuted"},
     "superseded": set(),
+    "refuted":    set(),
 }
 
 

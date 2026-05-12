@@ -8,6 +8,7 @@ from urllib.parse import quote
 from rdflib import Dataset, Literal, Namespace, URIRef, XSD
 from rdflib.namespace import RDF
 
+from .counter_claims import read_counter_claims
 from .ledger import read_claims
 from .workspace import WorkspaceLayout
 
@@ -71,6 +72,20 @@ def project_graph(layout: WorkspaceLayout) -> Path:
         for t in triples:
             cg.add(t)
             default.add(t)
+
+        if "p_posterior" in claim:
+            cg.add((c_uri, TBF.pPosterior, Literal(float(claim["p_posterior"]), datatype=XSD.decimal)))
+            default.add((c_uri, TBF.pPosterior, Literal(float(claim["p_posterior"]), datatype=XSD.decimal)))
+
+        if claim.get("load_bearing"):
+            cg.add((c_uri, TBF.loadBearing, Literal(True)))
+            default.add((c_uri, TBF.loadBearing, Literal(True)))
+
+    for cc in read_counter_claims(layout.root):
+        cc_uri = URIRef(f"{BASE}counter-claims/{quote(cc['id'])}")
+        default.add((cc_uri, RDF.type, TBF.CounterClaim))
+        default.add((cc_uri, TBF.rebuts, _claim_uri(cc["target_claim_id"])))
+        default.add((cc_uri, TBF.ccStatus, Literal(cc["status"])))
 
     layout.dataset.parent.mkdir(parents=True, exist_ok=True)
     ds.serialize(destination=str(layout.dataset), format="trig")

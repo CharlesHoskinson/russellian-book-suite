@@ -40,12 +40,18 @@ Claim ledger:
 - `ledger.py` — append-only claim ledger
 - `verify_claim.py` — locator-text cross-check; promotes proposed to verified
 - `detect_conflicts.py` — antonym-pair contradiction scan
+- `propagate_belief.py` — Bayesian belief propagation over PROV-O; writes p_posterior records, snapshot, report
+- `counter_claims.py` — schema + I/O for counter-claims.jsonl
+- `generate_counter_claims.py` — abductive counter-claim generator (LLM-call parameterized)
+- `promote_addressed.py` — promote counter-claims to addressed after chapter draft check
+- `apply_writeback.py` — applies QA-proposed ledger transitions; default propose-only, --auto-apply for critical D11 (unsupported_claim) tickets
+- `events_log.py` — append-only state-transition log (claims/events.jsonl)
 
 RDF graph, SHACL, SPARQL:
 - `project_graph.py` — ledger to TriG with PROV-O
 - `validate_shacl.py` — pyshacl wrapper; writes `graph/reports/shacl-latest.txt`
 - `audit_taxonomy.py` — OntoClean role-as-subclass detector
-- `run_competency_queries.py` — runs every query in `assets/queries/`
+- `run_competency_queries.py` — runs queries from coverage/, consistency/, and defeasible/ (defeasible queries emit warnings; gated by BLOCKING_DEFEASIBLE for hard-gate promotion)
 
 Wiki:
 - `wiki_index_regen.py` — rebuilds `wiki/index.md` from page front-matter
@@ -63,6 +69,11 @@ Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclos
     sources/  concepts/  entities/  chapters/
   claims/
     ledger.jsonl  conflicts.jsonl  verification/
+    snapshots/                                # NEW — Bundle C
+    counter-claims.jsonl                      # NEW — Bundle C
+    address-checks/                           # NEW — Bundle C
+    proposed-transitions.jsonl                # NEW — Bundle C
+    events.jsonl                              # NEW — Bundle C
   graph/
     dataset.trig  shapes.ttl
     imports/  reports/
@@ -86,9 +97,17 @@ Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclos
 .venv\Scripts\python.exe -m scripts.project_graph <workspace>
 .venv\Scripts\python.exe -m scripts.validate_shacl <workspace>
 .venv\Scripts\python.exe -m scripts.run_competency_queries <workspace>
+.venv\Scripts\python.exe -m scripts.propagate_belief <workspace>
+.venv\Scripts\python.exe -m scripts.generate_counter_claims <workspace>
 ```
 
 Release gate: SHACL conforms, `unsupported_claims` returns zero, `contradiction_scan` returns zero for chapters under release, and each contract meets its `minimum_verified_claims`. On failure, write `graph/reports/release-gate-<run>.md` and stop.
+
+After writeback proposals from book-qa, run:
+```
+.venv\Scripts\python.exe -m scripts.apply_writeback <workspace> --auto-apply
+```
+to commit deterministic critical transitions; review qa/ledger-writeback-<version>.md before applying others.
 
 ## Tests
 

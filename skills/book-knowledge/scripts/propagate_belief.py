@@ -1,9 +1,13 @@
 """Bayesian belief propagation over the claim ledger's derivation graph."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterable
+import shutil
 
 from .belief_graph import BeliefGraph, prior_for_status
+from .workspace import WorkspaceLayout
 
 POSTERIOR_FLOOR = 0.05
 POSTERIOR_CEIL = 0.95
@@ -60,3 +64,17 @@ def propagate(graph: BeliefGraph, trust: dict[str, float],
         if delta < CONVERGENCE_EPSILON:
             break
     return p
+
+
+def write_snapshot(workspace_root: Path) -> Path:
+    """Write a timestamped snapshot of the claim ledger to claims/snapshots."""
+    layout = WorkspaceLayout(workspace_root)
+    snap_dir = layout.root / "claims" / "snapshots"
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dest = snap_dir / f"{stamp}.jsonl"
+    if layout.ledger.exists():
+        shutil.copy2(layout.ledger, dest)
+    else:
+        dest.write_text("", encoding="utf-8")
+    return dest

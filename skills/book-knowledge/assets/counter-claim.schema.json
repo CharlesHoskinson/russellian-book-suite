@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "counter-claim",
+  "type": "object",
+  "required": ["id", "target_claim_id", "text", "disagreement_vector",
+               "status", "provenance", "created_at"],
+  "properties": {
+    "id":                    {"type": "string", "pattern": "^cc-[0-9]{4}-[0-9a-f]{6}$"},
+    "target_claim_id":       {"type": "string", "pattern": "^clm-[0-9]{4}-[0-9]{6}$"},
+    "text":                  {"type": "string", "minLength": 12},
+    "disagreement_vector":   {"enum": ["mechanism", "measurement", "scope", "time_period", "population"]},
+    "status":                {"enum": ["open", "addressed", "dismissed"]},
+    "provenance":            {
+      "type": "object",
+      "required": ["generator", "prompt_sha256"],
+      "properties": {
+        "generator":     {"type": "string"},
+        "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "created_at":            {"type": "string", "format": "date-time"},
+    "addressed_in_chapter":  {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

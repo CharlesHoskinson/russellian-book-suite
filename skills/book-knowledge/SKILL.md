@@ -40,6 +40,7 @@ Claim ledger:
 - `ledger.py` — append-only claim ledger
 - `verify_claim.py` — locator-text cross-check; promotes proposed to verified
 - `detect_conflicts.py` — antonym-pair contradiction scan
+- `propagate_belief.py` — Bayesian belief propagation over PROV-O; writes p_posterior records, snapshot, report
 
 RDF graph, SHACL, SPARQL:
 - `project_graph.py` — ledger to TriG with PROV-O
@@ -63,6 +64,11 @@ Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclos
     sources/  concepts/  entities/  chapters/
   claims/
     ledger.jsonl  conflicts.jsonl  verification/
+    snapshots/                                # NEW — Bundle C
+    counter-claims.jsonl                      # NEW — Bundle C
+    address-checks/                           # NEW — Bundle C
+    proposed-transitions.jsonl                # NEW — Bundle C
+    events.jsonl                              # NEW — Bundle C
   graph/
     dataset.trig  shapes.ttl
     imports/  reports/
@@ -86,6 +92,7 @@ Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclos
 .venv\Scripts\python.exe -m scripts.project_graph <workspace>
 .venv\Scripts\python.exe -m scripts.validate_shacl <workspace>
 .venv\Scripts\python.exe -m scripts.run_competency_queries <workspace>
+.venv\Scripts\python.exe -m scripts.propagate_belief <workspace>
 ```
 
 Release gate: SHACL conforms, `unsupported_claims` returns zero, `contradiction_scan` returns zero for chapters under release, and each contract meets its `minimum_verified_claims`. On failure, write `graph/reports/release-gate-<run>.md` and stop.

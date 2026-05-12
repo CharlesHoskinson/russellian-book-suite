@@ -1,7 +1,8 @@
 from pathlib import Path
 import json
+import pytest
 
-from scripts.belief_graph import BeliefGraph, load_belief_graph
+from scripts.belief_graph import BeliefGraph, load_belief_graph, prior_for_status
 from scripts.workspace import init_workspace, WorkspaceLayout
 
 
@@ -39,3 +40,16 @@ def test_node_carries_status_and_sources(tmp_path):
     n = bg.nodes["clm-2026-000001"]
     assert n.status == "verified"
     assert n.sources == ["src1"]
+
+
+def test_prior_for_status_defaults():
+    assert prior_for_status("verified")   == 0.7
+    assert prior_for_status("proposed")   == 0.5
+    assert prior_for_status("disputed")   == 0.2
+    assert prior_for_status("refuted")    == 0.05
+    assert prior_for_status("superseded") == 0.5
+
+
+def test_prior_for_status_unknown_raises():
+    with pytest.raises(ValueError):
+        prior_for_status("anything-else")

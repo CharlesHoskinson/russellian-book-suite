@@ -8,6 +8,22 @@ from pathlib import Path
 from .workspace import WorkspaceLayout
 
 
+PRIOR_BY_STATUS = {
+    "verified":   0.70,
+    "proposed":   0.50,
+    "disputed":   0.20,
+    "refuted":    0.05,
+    "superseded": 0.50,
+}
+
+
+def prior_for_status(status: str) -> float:
+    try:
+        return PRIOR_BY_STATUS[status]
+    except KeyError as e:
+        raise ValueError(f"unknown status: {status!r}") from e
+
+
 @dataclass
 class BeliefNode:
     claim_id: str

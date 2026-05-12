@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ledger-event",
+  "type": "object",
+  "required": ["timestamp","claim_id","from","to","cause_ticket_id","cause_class","operator"],
+  "properties": {
+    "timestamp":       {"type":"string","format":"date-time"},
+    "claim_id":        {"type":"string","pattern":"^clm-[0-9]{4}-[0-9]{6}$"},
+    "from":            {"enum":["proposed","verified","disputed","superseded","refuted"]},
+    "to":              {"enum":["proposed","verified","disputed","superseded","refuted"]},
+    "cause_ticket_id": {"type":"string"},
+    "cause_class":     {"type":"string"},
+    "operator":        {"type":"string"}
+  },
+  "additionalProperties": false
+}

@@ -97,8 +97,35 @@ def test_defeasible_queries_parse():
         prepareQuery(q.read_text(encoding="utf-8"))  # raises on syntax error
 
 
-def test_defeasible_query_emits_warning_not_failure(tmp_path):
+def test_defeasible_query_emits_warning_not_failure(tmp_path, monkeypatch):
+    """Warning-mode behavior: when BLOCKING_DEFEASIBLE is False, defeasible fires
+    surface as warnings rather than raising. This configuration remains valid
+    after the Phase 4 promotion to True default."""
     import json
+    import scripts.run_competency_queries as mod
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Bermuda fact.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.8,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "created_at": "2026-05-11T00:00:00Z",
+        "load_bearing": True, "supports_chapters": ["ch07"]
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+    result = mod.run_competency_queries(layout)
+    assert "warnings" in result
+    warnings = result["warnings"]
+    names = {w["query"] for w in warnings}
+    assert "rebuttal-presence" in names
+
+
+def test_defeasible_critical_fire_hard_fails_when_blocking(tmp_path):
+    """Phase 4 default behavior: severity=critical defeasible fires hard-fail."""
+    import json
+    import pytest
     from scripts.workspace import init_workspace, WorkspaceLayout
     from scripts.project_graph import project_graph
     from scripts.run_competency_queries import run_competency_queries
@@ -111,13 +138,8 @@ def test_defeasible_query_emits_warning_not_failure(tmp_path):
         "load_bearing": True, "supports_chapters": ["ch07"]
     }) + "\n", encoding="utf-8")
     project_graph(layout)
-    result = run_competency_queries(layout)
-    # result is a dict with keys "findings" and "warnings"
-    assert "warnings" in result, "run_competency_queries must return a dict with 'warnings'"
-    warnings = result["warnings"]
-    names = {w["query"] for w in warnings}
-    assert "rebuttal-presence" in names, f"expected rebuttal-presence in warnings; got {names}"
-    # Hard-fail must NOT occur: no exception raised and result produced means pass
+    with pytest.raises(RuntimeError, match="rebuttal-presence"):
+        run_competency_queries(layout)
 
 
 def test_defeasible_exception_queries_guard(tmp_path, monkeypatch):

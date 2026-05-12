@@ -167,13 +167,18 @@ def run(workspace_root: Path, run_id: str | None = None) -> str:
     write_snapshot(workspace_root)
     bg = load_belief_graph(workspace_root)
     trust = load_source_trust(workspace_root)
+    # counter-claims.jsonl is append-only; later records for the same id supersede
+    # earlier ones. Dedupe to latest-per-id before damping so a promoted counter-
+    # claim doesn't damp twice (once as open, once as addressed).
     cc_path = WorkspaceLayout(workspace_root).root / "claims" / "counter-claims.jsonl"
-    counter_claims = []
+    latest_cc: dict[str, dict] = {}
     if cc_path.exists():
         for line in cc_path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line:
-                counter_claims.append(json.loads(line))
+                rec = json.loads(line)
+                latest_cc[rec["id"]] = rec
+    counter_claims = list(latest_cc.values())
     before = {cid: (n.p_posterior if n.p_posterior is not None
                     else (n.p_prior if n.p_prior is not None else prior_for_status(n.status)))
               for cid, n in bg.nodes.items()}

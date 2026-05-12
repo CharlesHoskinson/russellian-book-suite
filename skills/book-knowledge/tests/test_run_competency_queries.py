@@ -65,3 +65,16 @@ def test_runner_writes_report_file(tmp_path):
     run_competency_queries(layout)
     reports = list(layout.graph_reports.glob("competency-*.md"))
     assert reports, "no competency report written"
+
+
+def test_discover_queries_picks_up_subdirs():
+    from scripts.run_competency_queries import discover_queries
+    ASSETS = Path(__file__).resolve().parent.parent / "assets"
+    found = discover_queries(ASSETS)
+    classes = {c for c, _, _ in found}
+    assert "coverage" in classes
+    assert "consistency" in classes
+    names_in_coverage = {n for c, n, _ in found if c == "coverage"}
+    assert "chapter_evidence_coverage" in names_in_coverage
+    names_in_consistency = {n for c, n, _ in found if c == "consistency"}
+    assert "contradiction_scan" in names_in_consistency

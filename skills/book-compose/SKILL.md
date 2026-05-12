@@ -43,7 +43,7 @@ You compile validated knowledge into reader-facing chapter drafts and book relea
 
 ## Components
 
-- `chapter_contract.py`, `chapter_contract_check.py` — load, validate, check.
+- `chapter_contract.py`, `chapter_contract_check.py` — load, validate, check. Bundle C: `load_brief(workspace_root, contract_path)` augments the validated contract with `must_address` — a list of `{counter_claim_id, text, target_claim_id}` derived from open counter-claims in `claims/counter-claims.jsonl` whose `target_claim_id` is in the contract's `claims` list. Chapter contracts may now declare an optional `claims: [clm-YYYY-NNNNNN, ...]` field.
 - `preflight.py`, `query_chapter_evidence.py`, `evidence_summary.py`, `toc.py`.
 - `humanizer_pass.py`, `persona_review_pass.py`, `sibling_skills.py`.
 - `build_release_bundle.py`, `diff_drafts.py`.

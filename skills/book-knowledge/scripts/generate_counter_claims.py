@@ -64,6 +64,14 @@ def generate_for_claim(workspace_root: Path, claim_id: str,
         }
         append_counter_claim(workspace_root, rec)
         new_ids.append(cc_id)
+    # Append an updated claim record carrying the new counter_claim_ids so the
+    # next ledger read picks them up. Preserves append-only ledger semantics.
+    layout = WorkspaceLayout(workspace_root)
+    updated = dict(target)
+    existing = list(updated.get("counter_claim_ids", []))
+    updated["counter_claim_ids"] = existing + new_ids
+    with layout.ledger.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(updated, sort_keys=True) + "\n")
     return new_ids
 
 

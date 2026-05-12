@@ -53,3 +53,23 @@ def test_prior_for_status_defaults():
 def test_prior_for_status_unknown_raises():
     with pytest.raises(ValueError):
         prior_for_status("anything-else")
+
+
+def test_source_trust_defaults_to_one(tmp_path):
+    root = _seed(tmp_path)
+    from scripts.belief_graph import load_source_trust
+    trust = load_source_trust(root)
+    assert trust.get("src1", 1.0) == 1.0
+    assert trust.get("missing-doc", 1.0) == 1.0
+
+
+def test_source_trust_reads_manifest_field(tmp_path):
+    root = _seed(tmp_path)
+    manifest_dir = root / "raw" / "manifests"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    (manifest_dir / "src1.json").write_text(
+        '{"doc_id": "src1", "trust": 0.6}', encoding="utf-8"
+    )
+    from scripts.belief_graph import load_source_trust
+    trust = load_source_trust(root)
+    assert trust["src1"] == 0.6

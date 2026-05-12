@@ -72,3 +72,26 @@ def load_belief_graph(workspace_root: Path) -> BeliefGraph:
         for parent in rec.get("derived_from", []):
             g.derivation_edges.add((parent, cid))
     return g
+
+
+def load_source_trust(workspace_root: Path) -> dict[str, float]:
+    """Load source trust values from manifest files.
+
+    Reads raw/manifests/*.json files. Each manifest may carry
+    {"doc_id": "...", "trust": 0.6}. Missing field defaults to 1.0.
+    Missing manifest dir returns {}.
+    """
+    layout = WorkspaceLayout(workspace_root)
+    manifest_dir = layout.root / "raw" / "manifests"
+    out: dict[str, float] = {}
+    if not manifest_dir.exists():
+        return out
+    for path in manifest_dir.glob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        doc_id = data.get("doc_id")
+        if doc_id:
+            out[doc_id] = float(data.get("trust", 1.0))
+    return out

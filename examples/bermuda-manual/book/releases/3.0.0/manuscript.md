@@ -224,6 +224,36 @@ Bermuda claims a territorial sea of 12 nautical miles from shore and an exclusiv
 200 nautical miles. The fishing zone encloses an area of roughly 430,000 square kilometres against a
 land area of 53.3, a ratio of 8,000 to 1<sup class="footnote-ref" id="fnref-ch01-maritime-zone"><a href="#fn-ch01-maritime-zone">10</a></sup>. The economic implications belong to a later chapter.
 
+## Rivals and Limits
+
+Three rival readings of the geographic frame deserve direct engagement. The first holds that
+regulatory architecture, not geography, built the reinsurance sector. The 1953 Companies Act and the
+exempted-company regime created the corporate substrate; Cayman and the British Virgin Islands took a
+comparable geographic profile — small islands, mid-ocean, no arable land to speak of — and produced
+different sectors entirely. The concession is real: no geography compels a captive-insurance regime
+into existence. The book's position is that both factors are necessary and neither is sufficient.
+Bermuda's physical isolation, which caps the residential and industrial economy at a hard ceiling,
+made the fiscal stakes of attracting exempt capital high enough that legislators pursued the 1953 Act
+and its amendments with the urgency they did. Cayman's oil-refinery option and the BVI's closer
+proximity to the US Virgin Islands altered the political calculus there.
+
+The second rival holds that the salt trade and the reinsurance sector share no continuous causal
+chain: the salt economy collapsed by 1800, and reinsurance capital arrived after Hurricane Hugo and
+Andrew in the 1980s and 1990s, making the geographic continuity retrospective. The discontinuity is
+factual. The claim does not require continuity of the same commodity. It requires that the same
+structural condition — an island incapable of feeding or industrialising itself — pushed successive
+governments toward whatever external revenue stream geography placed within reach. Salt, naval-base
+rents, tourism, and reinsurance are four iterations of the same structural response, not one
+unbroken trade.
+
+The third rival holds that reef-sheltered harbours explain the colonial economy but not the
+contemporary one, which runs over fibre cable rather than water. This is correct as a description of
+mechanism. It misses what the harbour did: it made Bermuda a node for Atlantic shipping in the
+seventeenth and eighteenth centuries, which built the institutional depth — marine law, insurance
+practice, commission agency — that subsequent capital formations found already present. The reef did
+not build the reinsurance sector. It built the environment in which the later regulatory moves landed
+on fertile ground rather than bare rock.
+
 Bermuda is 53.3 square kilometres of land, 1,040 kilometres from any continent, with no rivers, no
 aquifer, a tropical climate at unusual latitude, a hurricane window from June through November, a
 fragile native ecology dominated by introduced species, and a maritime jurisdiction that dwarfs its
@@ -457,6 +487,33 @@ the colony's seawalls and roof construction codes. Hurricane Paulette followed i
 Then, on a course nobody had charted, Flora Duffy won the women's triathlon at the 2020 Summer
 Olympics. She took home Bermuda's first Olympic gold and made the colony the smallest territory to
 win Olympic gold.
+
+## Rivals and Limits
+
+Three rival readings of the constitutional history deserve direct engagement. The first holds that
+the 1995 independence referendum — in which 73 percent of voters rejected sovereignty — was more
+constitutively determining for contemporary self-government than the 1968 Constitution Order, because
+it fixed the territorial status that all subsequent political actors operate within. The vote was
+decisive, and its result was not inevitable. The book's position is that the 1968 Order and the 1995
+referendum operate at different levels of the same structure. The Order created the institutions
+inside which the referendum could be held and its result could be made binding. A plebiscite
+presupposes an electorate and a Parliament; both trace to 1968, not to 1995.
+
+The second rival holds that the political mobilisations of the 1960s — the 1959 Theatre Boycott, the
+1965 Belco strike, the PLP's formation in 1963 — shaped the 1968 settlement, not an abstract
+post-emancipation lineage. The mobilisations were the proximate cause. The book does not deny this.
+The post-emancipation lineage is the condition that produced a racially organised polity in which
+those mobilisations carried the specific political weight they did. Remove 1834 and its aftermath and
+you remove the structural tension that made the 1959 boycott a constitutional event rather than a
+consumer complaint.
+
+The third rival holds that the 1968 Constitution preserved white merchant power through
+property-franchise residues and the two-seat constituency system, so the 1998 PLP victory — not the
+1968 Order — is the actual founding moment of Black-majority political control. This is correct as a
+description of political substance. The book treats 1968 as the juridical foundation because it
+established the institutions, the electoral rules, and the rights framework; 1998 is when the
+electorate used those instruments to shift power. The foundation and the first major exercise of
+foundational power are distinct events. Both belong to the chapter.
 
 <section class="footnotes" role="doc-endnotes">
 <h2 class="footnotes-heading">Notes</h2>
@@ -1993,6 +2050,33 @@ school computer-science strand and the Bermuda Coders Initiative supply local te
 between school and degree. The eighteen-year-old at the L. F. Wade International Airport
 International Airport gate is the system's intended product; the system is designed to bring her
 back, but neither the design nor the funding guarantees the return.
+
+## Rivals and Limits
+
+Three rival readings of the institutions frame deserve direct engagement. The first holds that the
+King Edward VII Memorial Hospital is causally upstream of fiscal and constitutional politics, not a
+surface of them. KEMH's structural deficits have forced cabinet reshuffles, redirected the health-
+insurance regulatory agenda, and constrained budget rounds across successive governments. The
+upstream effect is documented. The book's position is that the hospital's capacity to override
+fiscal policy is itself a product of the prior economic structure: an island that cannot industrialise
+its way out of a healthcare deficit and a constitutional settlement that places the deficit on a
+single annual vote. KEMH is causally productive at the level of policy and causally constrained at
+the level of structure.
+
+The second rival holds that the scooter-dominated mobility regime is an artefact of the 1946 Motor
+Car Act, which permitted small motorcycles before private cars, not an economic surface. The
+legislative point is correct. The book's reply is that the 1946 Act itself responded to road width,
+parish geography, and a population density that ruled out US-style automobile planning. The Act
+codified what geography had already enforced. Scooter mobility is the joint product of legislation
+and the landscape it legislated for.
+
+The third rival holds that Bermuda College's 1974 founding and its community-college model carry
+independent causal weight, shaping the labour market in ways the broader frame does not predict. The
+college's effect on the workforce is real and traceable. The book treats this not as a counter to
+the institutions frame but as evidence for it: a community college that maps directly onto the
+insurance, hospitality, and trades sectors is precisely the lived-experience surface that an
+economy of that shape would produce. Independent causal weight and structural surface are
+compatible descriptions of the same institution.
 
 <section class="footnotes" role="doc-endnotes">
 <h2 class="footnotes-heading">Notes</h2>

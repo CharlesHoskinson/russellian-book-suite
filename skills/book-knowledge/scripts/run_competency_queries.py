@@ -15,9 +15,10 @@ _ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
 QUERY_CLASSES = ("coverage", "consistency", "defeasible")
 
 # When False, defeasible query fires are recorded as warnings but never escalate
-# to failure.  Flip to True in Phase 4 to make severity=critical defeasible
-# fires a hard gate.
-BLOCKING_DEFEASIBLE = False
+# to failure. When True, severity=critical defeasible fires hard-gate the run.
+# Promoted to True after the bermuda Phase 4 run validated no false positives
+# on a clean ledger (commit history in bermuda/fix-the-book branch).
+BLOCKING_DEFEASIBLE = True
 
 
 def discover_queries(assets_root: Path) -> list[tuple[str, str, Path]]:

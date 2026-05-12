@@ -128,3 +128,48 @@ def test_run_entrypoint_writes_report_and_snapshot(tmp_path):
     assert "histogram" in text.lower()
     snapshots = list((layout.root / "claims" / "snapshots").glob("*.jsonl"))
     assert len(snapshots) == 1
+
+
+def test_run_dedupes_counter_claim_records_to_latest(tmp_path):
+    """A counter-claim that has both 'open' and 'addressed' records (after promotion)
+    must damp only once, using the latest status. Without dedup the damping
+    compounds and pushes posteriors below the floor incorrectly."""
+    from scripts.propagate_belief import run
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    layout = init_workspace(tmp_path)
+    layout = WorkspaceLayout(tmp_path)
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Load-bearing claim.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.8,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "supports_chapters": ["ch01"],
+        "load_bearing": True,
+        "counter_claim_ids": ["cc-2026-aaaaaa"],
+        "created_at": "2026-05-11T00:00:00Z"}) + "\n", encoding="utf-8")
+    # Counter-claim appended twice: first open, then addressed (the post-promotion state).
+    cc_path = layout.root / "claims" / "counter-claims.jsonl"
+    cc_path.parent.mkdir(parents=True, exist_ok=True)
+    cc_path.write_text(
+        json.dumps({
+            "id": "cc-2026-aaaaaa", "target_claim_id": "clm-2026-000001",
+            "text": "Open rival hypothesis stated here.", "disagreement_vector": "scope",
+            "status": "open",
+            "provenance": {"generator": "abduction-v1", "prompt_sha256": "0"*64},
+            "created_at": "2026-05-11T00:00:00Z", "addressed_in_chapter": None,
+        }) + "\n" +
+        json.dumps({
+            "id": "cc-2026-aaaaaa", "target_claim_id": "clm-2026-000001",
+            "text": "Open rival hypothesis stated here.", "disagreement_vector": "scope",
+            "status": "addressed",
+            "provenance": {"generator": "abduction-v1", "prompt_sha256": "0"*64},
+            "created_at": "2026-05-11T00:00:00Z", "addressed_in_chapter": "ch01",
+        }) + "\n",
+        encoding="utf-8",
+    )
+    run(tmp_path, run_id="dedup-test")
+    # Latest record per claim_id in ledger carries the posterior.
+    records = [json.loads(l) for l in layout.ledger.read_text(encoding="utf-8").splitlines() if l.strip()]
+    latest = [r for r in records if r["claim_id"] == "clm-2026-000001"][-1]
+    # With dedup: posterior = 0.7 * 0.85 (addressed) = 0.595
+    # Without dedup (buggy): posterior = 0.7 * 0.95 * 0.85 = 0.565
+    assert math.isclose(latest["p_posterior"], 0.7 * COUNTER_ADDRESSED_DAMP, rel_tol=1e-6)

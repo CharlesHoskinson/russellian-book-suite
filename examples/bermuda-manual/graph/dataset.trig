@@ -1,0 +1,349 @@
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix schema: <https://schema.org/> .
+@prefix tbf: <https://example.org/book-knowledge#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000003> {
+    <https://example.org/book-knowledge/claims/clm-2026-000003> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/history-shapes-gov> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/history-shapes-gov> ;
+        tbf:loadBearing true ;
+        tbf:pPosterior 0.6001624999999999 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-02>,
+            <https://example.org/book-knowledge/chapters/ch-03> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The 1968 Constitution Order is the founding instrument of contemporary self-government; the political settlement that produced it traces back through the 1834 emancipation, the slavery period, and the colonial era."^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/history-shapes-gov> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000006> {
+    <https://example.org/book-knowledge/claims/clm-2026-000006> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/who-can-live-there> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/who-can-live-there> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-07> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The Bermudian-status / Permanent Resident Certificate / work-permit framework determines who may live and work on the islands, and that framework is shaped by the same labour-market pressures the rest of the book traces."^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/who-can-live-there> a prov:Entity .
+}
+
+{
+    <https://example.org/book-knowledge/counter-claims/cc-2026-026b43> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000003> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-0825a1> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000003> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-183cb7> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000002> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-2c3742> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000002> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-4c3ffc> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000007> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-98c75a> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000002> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-b37bea> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000007> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-bb70f7> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000007> .
+
+    <https://example.org/book-knowledge/counter-claims/cc-2026-d719c4> a tbf:CounterClaim ;
+        tbf:ccStatus "open" ;
+        tbf:rebuts <https://example.org/book-knowledge/claims/clm-2026-000003> .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000001> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#thesis%3Astatement> ;
+        tbf:confidence 0.9 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#thesis%3Astatement> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """Contemporary Bermuda is a self-governing British Overseas Territory whose
+economy, society, and institutions are shaped by two persistent forces:
+its geography (an isolated mid-Atlantic island chain with no arable scale
+and a reef shelter that produced the early salvage and salt economies)
+and its history (slavery, the 1834 emancipation, and the 1968
+constitutional settlement that put a Black-majority population in
+political control of an internationally-exposed financial centre)."""^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000004> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/demographics-and-c> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/demographics-and-c> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-05> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "Bermuda's demographic structure — Black majority since the nineteenth century, Portuguese-Bermudian minority, declining fertility — produced the cultural institutions (AME church, Cup Match, Gombey troupes) that define contemporary Bermudian life."^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000005> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/cost-of-living> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/cost-of-living> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-06> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The same geography that produced the economy also produces the cost structure: import-everything supply chains, expensive housing, and utilities pricing that explain why a single resident's monthly outlay exceeds OECD medians by roughly three times."^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000006> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/who-can-live-there> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/who-can-live-there> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-07> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The Bermudian-status / Permanent Resident Certificate / work-permit framework determines who may live and work on the islands, and that framework is shaped by the same labour-market pressures the rest of the book traces."^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000008> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#invariants/parish-count> ;
+        tbf:confidence 0.95 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#invariants/parish-count> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """Bermuda has nine traditional parishes including St. George's. Any chapter
+that names a different count contradicts the manual's canonical fact."""^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000009> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#invariants/bmd-peg> ;
+        tbf:confidence 0.95 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#invariants/bmd-peg> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """The Bermudian dollar is pegged at parity with the US dollar. Any chapter
+that implies otherwise contradicts the manual."""^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000010> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#invariants/airport-location> ;
+        tbf:confidence 0.95 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#invariants/airport-location> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """L. F. Wade International Airport sits on St. David's Island in St.
+George's Parish. Any chapter that places it elsewhere contradicts the
+canonical-facts document."""^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000002> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/geography-shapes-e> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/geography-shapes-e> ;
+        tbf:loadBearing true ;
+        tbf:pPosterior 0.6001624999999999 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-01>,
+            <https://example.org/book-knowledge/chapters/ch-04> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "Bermuda's mid-Atlantic position, lack of arable land, reef shelter, and tropical climate together explain the economic structure of the islands — from the seventeenth-century salt trade through tourism to today's reinsurance sector."^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000003> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/history-shapes-gov> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/history-shapes-gov> ;
+        tbf:loadBearing true ;
+        tbf:pPosterior 0.6001624999999999 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-02>,
+            <https://example.org/book-knowledge/chapters/ch-03> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The 1968 Constitution Order is the founding instrument of contemporary self-government; the political settlement that produced it traces back through the 1834 emancipation, the slavery period, and the colonial era."^^xsd:string .
+
+    <https://example.org/book-knowledge/claims/clm-2026-000007> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/institutions> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/institutions> ;
+        tbf:loadBearing true ;
+        tbf:pPosterior 0.6001624999999999 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-08>,
+            <https://example.org/book-knowledge/chapters/ch-09>,
+            <https://example.org/book-knowledge/chapters/ch-10> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The education, healthcare, and transportation institutions — Bermuda College, KEMH, MWI, the ferry/scooter mobility regime — are the lived-experience surface of the deeper economic and constitutional structures."^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#invariants/airport-location> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#invariants/bmd-peg> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#invariants/parish-count> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/cost-of-living> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/demographics-and-c> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/geography-shapes-e> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/history-shapes-gov> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/institutions> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/who-can-live-there> a prov:Entity .
+
+    <https://example.org/book-knowledge/sources/thesis#thesis%3Astatement> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000010> {
+    <https://example.org/book-knowledge/claims/clm-2026-000010> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#invariants/airport-location> ;
+        tbf:confidence 0.95 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#invariants/airport-location> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """L. F. Wade International Airport sits on St. David's Island in St.
+George's Parish. Any chapter that places it elsewhere contradicts the
+canonical-facts document."""^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#invariants/airport-location> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000008> {
+    <https://example.org/book-knowledge/claims/clm-2026-000008> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#invariants/parish-count> ;
+        tbf:confidence 0.95 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#invariants/parish-count> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """Bermuda has nine traditional parishes including St. George's. Any chapter
+that names a different count contradicts the manual's canonical fact."""^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#invariants/parish-count> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000002> {
+    <https://example.org/book-knowledge/claims/clm-2026-000002> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/geography-shapes-e> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/geography-shapes-e> ;
+        tbf:loadBearing true ;
+        tbf:pPosterior 0.6001624999999999 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-01>,
+            <https://example.org/book-knowledge/chapters/ch-04> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "Bermuda's mid-Atlantic position, lack of arable land, reef shelter, and tropical climate together explain the economic structure of the islands — from the seventeenth-century salt trade through tourism to today's reinsurance sector."^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/geography-shapes-e> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000004> {
+    <https://example.org/book-knowledge/claims/clm-2026-000004> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/demographics-and-c> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/demographics-and-c> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-05> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "Bermuda's demographic structure — Black majority since the nineteenth century, Portuguese-Bermudian minority, declining fertility — produced the cultural institutions (AME church, Cup Match, Gombey troupes) that define contemporary Bermudian life."^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/demographics-and-c> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000007> {
+    <https://example.org/book-knowledge/claims/clm-2026-000007> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/institutions> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/institutions> ;
+        tbf:loadBearing true ;
+        tbf:pPosterior 0.6001624999999999 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-08>,
+            <https://example.org/book-knowledge/chapters/ch-09>,
+            <https://example.org/book-knowledge/chapters/ch-10> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The education, healthcare, and transportation institutions — Bermuda College, KEMH, MWI, the ferry/scooter mobility regime — are the lived-experience surface of the deeper economic and constitutional structures."^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/institutions> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000005> {
+    <https://example.org/book-knowledge/claims/clm-2026-000005> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#sub_arguments/cost-of-living> ;
+        tbf:confidence 0.85 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#sub_arguments/cost-of-living> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        tbf:supportsChapter <https://example.org/book-knowledge/chapters/ch-06> ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text "The same geography that produced the economy also produces the cost structure: import-everything supply chains, expensive housing, and utilities pricing that explain why a single resident's monthly outlay exceeds OECD medians by roughly three times."^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#sub_arguments/cost-of-living> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000009> {
+    <https://example.org/book-knowledge/claims/clm-2026-000009> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#invariants/bmd-peg> ;
+        tbf:confidence 0.95 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#invariants/bmd-peg> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """The Bermudian dollar is pegged at parity with the US dollar. Any chapter
+that implies otherwise contradicts the manual."""^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#invariants/bmd-peg> a prov:Entity .
+}
+
+<https://example.org/book-knowledge/graphs/claims/clm-2026-000001> {
+    <https://example.org/book-knowledge/claims/clm-2026-000001> a prov:Entity,
+            tbf:Claim ;
+        prov:wasDerivedFrom <https://example.org/book-knowledge/sources/thesis#thesis%3Astatement> ;
+        tbf:confidence 0.9 ;
+        tbf:hasSourceSpan <https://example.org/book-knowledge/sources/thesis#thesis%3Astatement> ;
+        tbf:pPosterior 0.7 ;
+        tbf:status "verified" ;
+        schema:dateCreated "2026-05-12T16:13:51.630442+00:00"^^xsd:dateTime ;
+        schema:text """Contemporary Bermuda is a self-governing British Overseas Territory whose
+economy, society, and institutions are shaped by two persistent forces:
+its geography (an isolated mid-Atlantic island chain with no arable scale
+and a reef shelter that produced the early salvage and salt economies)
+and its history (slavery, the 1834 emancipation, and the 1968
+constitutional settlement that put a Black-majority population in
+political control of an internationally-exposed financial centre)."""^^xsd:string .
+
+    <https://example.org/book-knowledge/sources/thesis#thesis%3Astatement> a prov:Entity .
+}
+

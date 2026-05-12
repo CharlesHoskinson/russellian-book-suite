@@ -95,3 +95,26 @@ def test_defeasible_queries_parse():
     qdir = Path(__file__).resolve().parent.parent / "assets" / "queries" / "defeasible"
     for q in qdir.glob("*.rq"):
         prepareQuery(q.read_text(encoding="utf-8"))  # raises on syntax error
+
+
+def test_defeasible_query_emits_warning_not_failure(tmp_path):
+    import json
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    from scripts.run_competency_queries import run_competency_queries
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Bermuda fact.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.8,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "created_at": "2026-05-11T00:00:00Z",
+        "load_bearing": True, "supports_chapters": ["ch07"]
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+    result = run_competency_queries(layout)
+    # result is a dict with keys "findings" and "warnings"
+    assert "warnings" in result, "run_competency_queries must return a dict with 'warnings'"
+    warnings = result["warnings"]
+    names = {w["query"] for w in warnings}
+    assert "rebuttal-presence" in names, f"expected rebuttal-presence in warnings; got {names}"
+    # Hard-fail must NOT occur: no exception raised and result produced means pass

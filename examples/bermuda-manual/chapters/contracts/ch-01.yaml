@@ -1,4 +1,6 @@
 chapter_id: ch-01
+claims:
+  - clm-2026-000002
 title: Introduction and Geography
 purpose: Locate Bermuda physically and orient the reader to the archipelago's scale, climate, and natural setting before the political and economic chapters that follow.
 audience: senior-engineer

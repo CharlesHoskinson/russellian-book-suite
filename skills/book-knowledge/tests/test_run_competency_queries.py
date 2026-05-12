@@ -78,3 +78,20 @@ def test_discover_queries_picks_up_subdirs():
     assert "chapter_evidence_coverage" in names_in_coverage
     names_in_consistency = {n for c, n, _ in found if c == "consistency"}
     assert "contradiction_scan" in names_in_consistency
+
+
+def test_defeasible_meta_yaml_loads():
+    import yaml
+    from pathlib import Path
+    p = Path(__file__).resolve().parent.parent / "assets" / "queries" / "defeasible" / "_meta.yaml"
+    data = yaml.safe_load(p.read_text(encoding="utf-8"))
+    assert "rebuttal-presence" in data
+    assert data["rebuttal-presence"]["severity"] in ("critical", "important", "minor")
+
+
+def test_defeasible_queries_parse():
+    from pathlib import Path
+    from rdflib.plugins.sparql import prepareQuery
+    qdir = Path(__file__).resolve().parent.parent / "assets" / "queries" / "defeasible"
+    for q in qdir.glob("*.rq"):
+        prepareQuery(q.read_text(encoding="utf-8"))  # raises on syntax error

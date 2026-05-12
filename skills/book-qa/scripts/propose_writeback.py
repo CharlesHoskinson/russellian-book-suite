@@ -19,6 +19,13 @@ def _load_tickets(qa_dir: Path) -> list[dict]:
 
 
 def propose_writeback(workspace_root: Path, version: str) -> Path:
+    """Emit proposed ledger transitions from current QA findings.
+
+    The output file `claims/proposed-transitions.jsonl` is OVERWRITTEN on each
+    call — it is a per-build scratch artifact, not an accumulating log.
+    Consumers (`apply_writeback.py`) must process it before the next sentinel
+    run, or earlier proposals are lost.
+    """
     qa_dir = workspace_root / "qa"
     claims_dir = workspace_root / "claims"
     claims_dir.mkdir(parents=True, exist_ok=True)
@@ -30,6 +37,7 @@ def propose_writeback(workspace_root: Path, version: str) -> Path:
             m["severity"] = t.get("severity", "important")
             proposed.append(m)
     out_jsonl = claims_dir / "proposed-transitions.jsonl"
+    # Intentional truncate-and-write: per-build scratch, consumed by apply_writeback.
     with out_jsonl.open("w", encoding="utf-8") as fh:
         for p in proposed:
             fh.write(json.dumps(p, sort_keys=True) + "\n")

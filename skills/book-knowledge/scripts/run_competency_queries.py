@@ -89,6 +89,13 @@ def run_competency_queries(layout: WorkspaceLayout) -> dict:
 
         if cls == "defeasible" and rows:
             severity = (meta.get(name) or {}).get("severity", "minor")
+            exc = (meta.get(name) or {}).get("exception_queries", [])
+            if exc:
+                raise NotImplementedError(
+                    f"Defeasible query {name!r} declares exception_queries={exc} but the "
+                    f"exception-evaluation mechanism is not yet implemented. Set exception_queries: [] "
+                    f"or implement the loop in run_competency_queries.py."
+                )
             entry = {"query": name, "severity": severity, "bindings": rows}
             warnings.append(entry)
             if BLOCKING_DEFEASIBLE and severity == "critical":

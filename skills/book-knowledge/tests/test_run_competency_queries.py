@@ -118,3 +118,32 @@ def test_defeasible_query_emits_warning_not_failure(tmp_path):
     names = {w["query"] for w in warnings}
     assert "rebuttal-presence" in names, f"expected rebuttal-presence in warnings; got {names}"
     # Hard-fail must NOT occur: no exception raised and result produced means pass
+
+
+def test_defeasible_exception_queries_guard(tmp_path, monkeypatch):
+    """Non-empty exception_queries must raise NotImplementedError until implemented."""
+    import json
+    import scripts.run_competency_queries as mod
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    import pytest
+
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    # Seed a load-bearing claim that would fire rebuttal-presence.
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Bermuda fact.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.8,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "created_at": "2026-05-11T00:00:00Z",
+        "load_bearing": True, "supports_chapters": ["ch07"],
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+
+    # _load_defeasible_meta takes assets_root: Path; monkeypatch ignores it.
+    monkeypatch.setattr(mod, "_load_defeasible_meta", lambda assets_root: {
+        "rebuttal-presence": {"severity": "critical",
+                              "default_satisfied": True,
+                              "exception_queries": ["some-other-query"]},
+    })
+    with pytest.raises(NotImplementedError, match="exception_queries"):
+        mod.run_competency_queries(layout)

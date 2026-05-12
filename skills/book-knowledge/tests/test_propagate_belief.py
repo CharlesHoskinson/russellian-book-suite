@@ -109,3 +109,22 @@ def test_write_posteriors_appends_records(tmp_path):
     assert records[1]["p_posterior"] == 0.82
     assert records[1]["p_prior"] == 0.7  # carried from prior_for_status("verified")
     assert records[1]["generated_by_run"] == "run-x"
+
+
+def test_run_entrypoint_writes_report_and_snapshot(tmp_path):
+    from scripts.propagate_belief import run
+    init_workspace(tmp_path)
+    layout = WorkspaceLayout(tmp_path)
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Hi text.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.7,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "created_at": "2026-05-11T00:00:00Z"}) + "\n", encoding="utf-8")
+    run_id = run(tmp_path, run_id="run-2026-05-11-01")
+    report = layout.root / "graph" / "reports" / f"belief-propagation-{run_id}.md"
+    assert report.exists()
+    text = report.read_text(encoding="utf-8")
+    assert "clm-2026-000001" in text
+    assert "histogram" in text.lower()
+    snapshots = list((layout.root / "claims" / "snapshots").glob("*.jsonl"))
+    assert len(snapshots) == 1

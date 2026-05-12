@@ -7,7 +7,7 @@ from typing import Iterable
 import json
 import shutil
 
-from .belief_graph import BeliefGraph, prior_for_status, load_belief_graph
+from .belief_graph import BeliefGraph, prior_for_status, load_belief_graph, load_source_trust
 from .workspace import WorkspaceLayout
 
 POSTERIOR_FLOOR = 0.05
@@ -116,3 +116,73 @@ def _latest_record_for(layout: WorkspaceLayout, claim_id: str) -> dict | None:
         if rec["claim_id"] == claim_id:
             found = rec
     return found
+
+
+def _histogram(values: list[float], bins: int = 10) -> list[tuple[float, float, int]]:
+    if not values:
+        return []
+    edges = [i / bins for i in range(bins + 1)]
+    counts = [0] * bins
+    for v in values:
+        idx = min(int(v * bins), bins - 1)
+        counts[idx] += 1
+    return [(edges[i], edges[i + 1], counts[i]) for i in range(bins)]
+
+
+def write_report(workspace_root: Path, run_id: str,
+                 before: dict[str, float], after: dict[str, float]) -> Path:
+    layout = WorkspaceLayout(workspace_root)
+    out_dir = layout.root / "graph" / "reports"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"belief-propagation-{run_id}.md"
+    deltas = sorted(
+        ((cid, before.get(cid, 0.0), after[cid], after[cid] - before.get(cid, 0.0))
+         for cid in after),
+        key=lambda r: abs(r[3]), reverse=True,
+    )
+    lines = [f"# Belief propagation report — {run_id}",
+             "",
+             f"Total claims: {len(after)}",
+             "",
+             "## Top 20 absolute deltas",
+             "",
+             "| claim_id | before | after | delta |",
+             "|---|---|---|---|"]
+    for cid, b, a, d in deltas[:20]:
+        lines.append(f"| {cid} | {b:.3f} | {a:.3f} | {d:+.3f} |")
+    lines.append("")
+    lines.append("## Posterior histogram")
+    lines.append("")
+    lines.append("| bin | count |")
+    lines.append("|---|---|")
+    for lo, hi, count in _histogram(list(after.values())):
+        lines.append(f"| [{lo:.2f}, {hi:.2f}) | {count} |")
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return out
+
+
+def run(workspace_root: Path, run_id: str | None = None) -> str:
+    if run_id is None:
+        run_id = datetime.now(timezone.utc).strftime("run-%Y%m%dT%H%M%SZ")
+    write_snapshot(workspace_root)
+    bg = load_belief_graph(workspace_root)
+    trust = load_source_trust(workspace_root)
+    cc_path = WorkspaceLayout(workspace_root).root / "claims" / "counter-claims.jsonl"
+    counter_claims = []
+    if cc_path.exists():
+        for line in cc_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                counter_claims.append(json.loads(line))
+    before = {cid: (n.p_posterior if n.p_posterior is not None
+                    else (n.p_prior if n.p_prior is not None else prior_for_status(n.status)))
+              for cid, n in bg.nodes.items()}
+    after = propagate(bg, trust, counter_claims)
+    write_posteriors(workspace_root, after, generated_by_run=run_id)
+    write_report(workspace_root, run_id, before, after)
+    return run_id
+
+
+if __name__ == "__main__":
+    import sys
+    run(Path(sys.argv[1]))

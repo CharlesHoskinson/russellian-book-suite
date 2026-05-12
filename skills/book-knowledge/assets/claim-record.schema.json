@@ -7,10 +7,14 @@
   "properties": {
     "claim_id":        {"type": "string", "pattern": "^clm-[0-9]{4}-[0-9]{6}$"},
     "canonical_text":  {"type": "string", "minLength": 4},
-    "status":          {"enum": ["proposed", "verified", "disputed", "superseded"]},
+    "status":          {"enum": ["proposed", "verified", "disputed", "superseded", "refuted"]},
     "claim_type":      {"enum": ["fact", "definition", "design_decision", "method", "result", "open_question"]},
     "semantic_class":  {"type": "string"},
     "confidence":      {"type": "number", "minimum": 0.0, "maximum": 1.0},
+    "p_prior":          {"type": "number", "minimum": 0.0, "maximum": 1.0},
+    "p_posterior":      {"type": "number", "minimum": 0.0, "maximum": 1.0},
+    "load_bearing":     {"type": "boolean", "default": false},
+    "counter_claim_ids":{"type": "array", "items": {"type": "string", "pattern": "^cc-[0-9]{4}-[0-9a-f]{6}$"}},
     "source_spans":    {
       "type": "array",
       "minItems": 1,

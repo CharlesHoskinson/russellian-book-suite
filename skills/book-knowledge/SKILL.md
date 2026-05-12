@@ -44,6 +44,8 @@ Claim ledger:
 - `counter_claims.py` — schema + I/O for counter-claims.jsonl
 - `generate_counter_claims.py` — abductive counter-claim generator (LLM-call parameterized)
 - `promote_addressed.py` — promote counter-claims to addressed after chapter draft check
+- `apply_writeback.py` — applies QA-proposed ledger transitions; default propose-only, --auto-apply for critical D11 (unsupported_claim) tickets
+- `events_log.py` — append-only state-transition log (claims/events.jsonl)
 
 RDF graph, SHACL, SPARQL:
 - `project_graph.py` — ledger to TriG with PROV-O
@@ -100,6 +102,12 @@ Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclos
 ```
 
 Release gate: SHACL conforms, `unsupported_claims` returns zero, `contradiction_scan` returns zero for chapters under release, and each contract meets its `minimum_verified_claims`. On failure, write `graph/reports/release-gate-<run>.md` and stop.
+
+After writeback proposals from book-qa, run:
+```
+.venv\Scripts\python.exe -m scripts.apply_writeback <workspace> --auto-apply
+```
+to commit deterministic critical transitions; review qa/ledger-writeback-<version>.md before applying others.
 
 ## Tests
 

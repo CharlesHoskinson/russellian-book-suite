@@ -66,6 +66,11 @@ Mechanical (`lint_artifact.py`, deterministic):
 - D11 failed-entailment (critical; from `qa/entailment-results.json` verdicts `contradicts`/`unrelated`)
 - D12 unadvanced-sub-argument (important; from `book-thesis` supports-defects summary)
 
+Writeback-consumed categories (Stage 4, healer → book-knowledge ledger):
+- `unsupported_claim` — claims lacking verified sources post-healer; proposal for D11-class transition
+- `refuted_by_new_source` — claim contradicted by source added post-healer; proposal for supersede
+- `addressed_rival` — counter-claim addressed in healer patch; proposal for addressed transition
+
 Editorial (Stage-2 swarm, per chapter):
 
 - C1 heading hierarchy
@@ -89,7 +94,7 @@ Editorial (Stage-2 swarm, per chapter):
 - `book-compose` — `build_book` invokes `lint_artifact` as a gate; `--qa` flag skips during iteration.
 - `book-review` — pre-build qualitative review; orthogonal scope, both ship.
 - `russellian-style` — its linters back C11 judgement by Stage-2 agents.
-- `book-knowledge` — read-only; claim IDs flagged by D1/C4 trace back to its ledger.
+- `book-knowledge` — read-only; claim IDs flagged by D1/C4 trace back to its ledger. `propose_writeback` writes claims/proposed-transitions.jsonl + qa/ledger-writeback-<version>.md; `apply_writeback` (in book-knowledge) commits transitions.
 
 ## Usage
 

@@ -4,9 +4,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
+import json
 import shutil
 
-from .belief_graph import BeliefGraph, prior_for_status
+from .belief_graph import BeliefGraph, prior_for_status, load_belief_graph
 from .workspace import WorkspaceLayout
 
 POSTERIOR_FLOOR = 0.05
@@ -78,3 +79,40 @@ def write_snapshot(workspace_root: Path) -> Path:
     else:
         dest.write_text("", encoding="utf-8")
     return dest
+
+
+def write_posteriors(workspace_root: Path, posteriors: dict[str, float],
+                     generated_by_run: str) -> int:
+    layout = WorkspaceLayout(workspace_root)
+    bg = load_belief_graph(workspace_root)
+    written = 0
+    with layout.ledger.open("a", encoding="utf-8") as fh:
+        for cid, post in posteriors.items():
+            node = bg.nodes.get(cid)
+            if node is None:
+                continue
+            prior = node.p_prior if node.p_prior is not None else prior_for_status(node.status)
+            latest = _latest_record_for(layout, cid)
+            if latest is None:
+                continue
+            new = dict(latest)
+            new["p_prior"] = prior
+            new["p_posterior"] = post
+            new["generated_by_run"] = generated_by_run
+            fh.write(json.dumps(new, sort_keys=True) + "\n")
+            written += 1
+    return written
+
+
+def _latest_record_for(layout: WorkspaceLayout, claim_id: str) -> dict | None:
+    found = None
+    if not layout.ledger.exists():
+        return None
+    for line in layout.ledger.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        rec = json.loads(line)
+        if rec["claim_id"] == claim_id:
+            found = rec
+    return found

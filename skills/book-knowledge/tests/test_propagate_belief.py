@@ -91,3 +91,21 @@ def test_write_snapshot_creates_iso_named_file(tmp_path):
     assert path.name.endswith(".jsonl")
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert records[0]["claim_id"] == "clm-2026-000001"
+
+
+def test_write_posteriors_appends_records(tmp_path):
+    from scripts.propagate_belief import write_posteriors
+    init_workspace(tmp_path)
+    layout = WorkspaceLayout(tmp_path)
+    base = {"claim_id": "clm-2026-000001", "canonical_text": "Hi text.",
+            "status": "verified", "claim_type": "fact", "confidence": 0.7,
+            "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+            "created_at": "2026-05-11T00:00:00Z"}
+    layout.ledger.write_text(json.dumps(base) + "\n", encoding="utf-8")
+    write_posteriors(tmp_path, {"clm-2026-000001": 0.82}, generated_by_run="run-x")
+    records = [json.loads(l) for l in layout.ledger.read_text(encoding="utf-8").splitlines()]
+    assert len(records) == 2
+    assert records[1]["claim_id"] == "clm-2026-000001"
+    assert records[1]["p_posterior"] == 0.82
+    assert records[1]["p_prior"] == 0.7  # carried from prior_for_status("verified")
+    assert records[1]["generated_by_run"] == "run-x"

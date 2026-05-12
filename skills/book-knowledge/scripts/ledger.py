@@ -5,9 +5,11 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .belief_graph import prior_for_status
 from .claim_validator import (
     validate_claim, assert_transition_allowed, ClaimValidationError,
 )
+from .events_log import append_event
 from .workspace import WorkspaceLayout
 
 
@@ -57,6 +59,9 @@ def append_claim(layout: WorkspaceLayout, record: dict) -> None:
 
 
 def transition_status(layout: WorkspaceLayout, claim_id: str, new_status: str,
+                      cause_ticket_id: str = "manual",
+                      cause_class: str = "manual",
+                      operator: str = "unknown",
                       note: str = "") -> dict:
     current = latest_status(layout, claim_id)
     if current is None:
@@ -73,8 +78,20 @@ def transition_status(layout: WorkspaceLayout, claim_id: str, new_status: str,
 
     new_record = dict(base)  # type: ignore[arg-type]
     new_record["status"] = new_status
+    new_record["p_prior"] = prior_for_status(new_status)
     new_record["last_verified_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     if note:
         new_record["review_notes"] = note
     append_claim(layout, new_record)
+
+    append_event(layout.root, {
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "claim_id": claim_id,
+        "from": current,
+        "to": new_status,
+        "cause_ticket_id": cause_ticket_id,
+        "cause_class": cause_class,
+        "operator": operator,
+    })
+
     return new_record

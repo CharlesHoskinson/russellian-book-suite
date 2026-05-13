@@ -1,6 +1,7 @@
 """Project the claim ledger into a TriG dataset with PROV-O provenance."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from urllib.parse import quote
@@ -62,6 +63,7 @@ def project_graph(layout: WorkspaceLayout) -> Path:
         for chapter in claim.get("supports_chapters", []):
             ch_uri = URIRef(f"{BASE}chapters/{quote(chapter)}")
             triples.append((c_uri, TBF.supportsChapter, ch_uri))
+            triples.append((ch_uri, RDF.type, TBF.Chapter))
 
         for t in triples:
             cg.add(t)
@@ -92,6 +94,29 @@ def project_graph(layout: WorkspaceLayout) -> Path:
         default.add((cc_uri, RDF.type, TBF.CounterClaim))
         default.add((cc_uri, TBF.rebuts, _claim_uri(cc["target_claim_id"])))
         default.add((cc_uri, TBF.ccStatus, Literal(cc["status"])))
+
+    # Emit tbf:WikiPage declarations for each *.md file under wiki/.
+    wiki_dir = layout.wiki
+    if wiki_dir.exists():
+        for md_file in wiki_dir.rglob("*.md"):
+            rel = md_file.relative_to(layout.root)
+            page_uri = URIRef(f"{BASE}wiki/{quote(str(rel).replace(chr(92), '/'))}")
+            default.add((page_uri, RDF.type, TBF.WikiPage))
+
+    # Emit schema:dateCreated on each source URI from manifests (ingested_at).
+    manifest_dir = layout.manifests
+    if manifest_dir.exists():
+        for mf in manifest_dir.glob("*.json"):
+            try:
+                data = json.loads(mf.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            doc_id = data.get("doc_id")
+            ingested_at = data.get("ingested_at")
+            if doc_id and ingested_at:
+                src_uri = URIRef(f"{BASE}sources/{quote(doc_id)}")
+                default.add((src_uri, SCHEMA.dateCreated,
+                              Literal(ingested_at, datatype=XSD.dateTime)))
 
     layout.dataset.parent.mkdir(parents=True, exist_ok=True)
     ds.serialize(destination=str(layout.dataset), format="trig")

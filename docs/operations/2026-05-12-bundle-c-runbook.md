@@ -84,7 +84,7 @@ Commit any tuning with a `tune:` prefix and a one-liner explaining the chosen va
 ## 4.4 — Rebuild Bermuda v6 with Bundle C wired in
 
 ```
-cd skills/book-knowledge
+cd skills/book-compose
 .venv\Scripts\python.exe -m scripts.build_book <workspace> v6 "Life in Bermuda" bermuda-manual
 ```
 

@@ -81,6 +81,18 @@ def project_graph(layout: WorkspaceLayout) -> Path:
             cg.add((c_uri, TBF.loadBearing, Literal(True)))
             default.add((c_uri, TBF.loadBearing, Literal(True)))
 
+        if claim.get("axiom"):
+            cg.add((c_uri, TBF.axiom, Literal(True)))
+            default.add((c_uri, TBF.axiom, Literal(True)))
+
+        if claim.get("pin_low_confidence"):
+            cg.add((c_uri, TBF.pinLowConfidence, Literal(True)))
+            default.add((c_uri, TBF.pinLowConfidence, Literal(True)))
+
+        for conflict in claim.get("conflicts_with", []):
+            cg.add((c_uri, TBF.conflictsWith, _claim_uri(conflict)))
+            default.add((c_uri, TBF.conflictsWith, _claim_uri(conflict)))
+
     for cc in read_counter_claims(layout.root):
         cc_uri = URIRef(f"{BASE}counter-claims/{quote(cc['id'])}")
         default.add((cc_uri, RDF.type, TBF.CounterClaim))

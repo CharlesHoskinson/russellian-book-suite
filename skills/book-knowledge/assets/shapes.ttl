@@ -16,7 +16,7 @@ tbf:ClaimShape
     sh:property [
         sh:path tbf:status ;
         sh:minCount 1 ;
-        sh:in ("proposed" "verified" "disputed" "superseded") ;
+        sh:in ( "proposed" "verified" "disputed" "superseded" "refuted" ) ;
     ] ;
     sh:property [
         sh:path tbf:confidence ;

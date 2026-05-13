@@ -142,6 +142,76 @@ def test_defeasible_critical_fire_hard_fails_when_blocking(tmp_path):
         run_competency_queries(layout)
 
 
+def test_posterior_floor_fires_on_low_posterior(tmp_path, monkeypatch):
+    """posterior-floor query must return rows when a chapter-supporting claim
+    has p_posterior < 0.4 without pin_low_confidence."""
+    import json
+    import scripts.run_competency_queries as mod
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Low confidence claim.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.3,
+        "p_posterior": 0.3,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "supports_chapters": ["ch07"],
+        "created_at": "2026-05-13T00:00:00Z",
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+    result = mod.run_competency_queries(layout)
+    warnings = result.get("warnings", [])
+    names = {w["query"] for w in warnings}
+    assert "posterior-floor" in names
+
+
+def test_posterior_floor_skips_pinned_claim(tmp_path, monkeypatch):
+    """A claim with pin_low_confidence: true should NOT fire posterior-floor."""
+    import json
+    import scripts.run_competency_queries as mod
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Pinned low claim.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.3,
+        "p_posterior": 0.3, "pin_low_confidence": True,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "supports_chapters": ["ch07"],
+        "created_at": "2026-05-13T00:00:00Z",
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+    result = mod.run_competency_queries(layout)
+    warnings = result.get("warnings", [])
+    names = {w["query"] for w in warnings}
+    assert "posterior-floor" not in names
+
+
+def test_rebuttal_presence_skips_axiom_claim(tmp_path, monkeypatch):
+    """A claim with axiom: true should NOT fire rebuttal-presence even if load-bearing."""
+    import json
+    import scripts.run_competency_queries as mod
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "An axiom load-bearing claim.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.95,
+        "load_bearing": True, "axiom": True,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "supports_chapters": ["ch07"],
+        "created_at": "2026-05-13T00:00:00Z",
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+    result = mod.run_competency_queries(layout)
+    warnings = result.get("warnings", [])
+    names = {w["query"] for w in warnings}
+    assert "rebuttal-presence" not in names
+
+
 def test_defeasible_exception_queries_guard(tmp_path, monkeypatch):
     """Non-empty exception_queries must raise NotImplementedError until implemented."""
     import json

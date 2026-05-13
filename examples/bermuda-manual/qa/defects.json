@@ -1,19 +1,18 @@
 {
   "summary": {
-    "release": "3.0.0",
-    "manuscript_md_bytes": 227591,
-    "manuscript_html_bytes": 0,
-    "total_defects": 342,
+    "release": "6.0.0",
+    "manuscript_md_bytes": 232066,
+    "manuscript_html_bytes": 482476,
+    "total_defects": 341,
     "by_class": {
-      "D5": 1,
-      "D6": 2,
+      "D5": 2,
       "D9": 333,
       "D12": 6
     },
     "by_severity": {
       "critical": 333,
       "important": 6,
-      "minor": 3
+      "minor": 2
     }
   },
   "defects": [
@@ -26,17 +25,10 @@
     },
     {
       "severity": "minor",
-      "where": "ch-02",
-      "detail": "paragraph-length coefficient-of-variation 0.40 outside [0.4, 1.2]",
-      "fix_hint": "vary paragraph length more (low cv) or normalise outliers (high cv)",
-      "class": "D6"
-    },
-    {
-      "severity": "minor",
-      "where": "ch-09",
-      "detail": "paragraph-length coefficient-of-variation 0.38 outside [0.4, 1.2]",
-      "fix_hint": "vary paragraph length more (low cv) or normalise outliers (high cv)",
-      "class": "D6"
+      "where": "ch-08",
+      "detail": "word count 2751 outside [1700, 2700]",
+      "fix_hint": "shorten or expand prose, or revise contract band",
+      "class": "D5"
     },
     {
       "severity": "critical",

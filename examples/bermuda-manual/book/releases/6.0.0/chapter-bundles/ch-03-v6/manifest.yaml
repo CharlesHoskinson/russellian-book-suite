@@ -1,0 +1,10 @@
+built_at: '2026-05-13T01:22:20+00:00'
+chapter_id: ch-03
+claim_slice_count: 1
+competency_clean: true
+outputs:
+- draft.md
+shacl_conforms: true
+sources_included:
+- government
+version: v6

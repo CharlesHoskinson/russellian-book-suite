@@ -1,0 +1,36 @@
+book_id: bermuda-manual
+built_at: '2026-05-13T01:22:49+00:00'
+chapter_versions:
+  ch-01: v6
+  ch-02: v6
+  ch-03: v6
+  ch-04: v6
+  ch-05: v6
+  ch-06: v6
+  ch-07: v6
+  ch-08: v6
+  ch-09: v6
+  ch-10: v6
+chapters_included:
+- ch-01
+- ch-02
+- ch-03
+- ch-04
+- ch-05
+- ch-06
+- ch-07
+- ch-08
+- ch-09
+- ch-10
+competency_clean: true
+outputs:
+- manuscript.md
+- manuscript.html
+- manuscript.pdf
+shacl_conforms: true
+sources_bibliography:
+- thesis
+title: Life in Bermuda
+total_claim_count: 10
+total_word_count: 36762
+version: 6.0.0

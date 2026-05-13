@@ -1,6 +1,6 @@
 # russellian-book-suite
 
-A family of five Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts. Russell-style prose discipline, multi-persona editorial review, deterministic post-build QA. Local-only — no paid APIs.
+A family of six Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts. Russell-style prose discipline, multi-persona editorial review, deterministic post-build QA. Local-only — no paid APIs.
 
 ## What this is
 
@@ -110,6 +110,7 @@ swarm. Stage-3 (Sentinel) triages findings; Stage-4 (Healer) optionally patches.
 | **[`book-compose`](skills/book-compose/SKILL.md)** | Orchestrator. Read chapter contract → claim slice → draft → bundle → book release (Markdown + React/Tailwind HTML + Playwright PDF) | 4 — compile |
 | **[`book-review`](skills/book-review/SKILL.md)** | Five-persona qualitative editorial review (Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader) — soft-gates chapter release | 3 — review |
 | **[`book-qa`](skills/book-qa/SKILL.md)** | Post-build defect gate: deterministic Stage-1 linter (D1–D8) + per-chapter swarm (C1–C15) + Sentinel-Healer loop | 5 — release gate |
+| **[`book-thesis`](skills/book-thesis/SKILL.md)** | Metabook reasoning: thesis tree, paragraph back-pointers, entailment loop, Datalog cross-chapter consistency | Layer 2-4 on top of book-knowledge; contributes D9-D12 to book-qa |
 
 Skill source: `skills/<skill>/`. Each skill is a self-contained directory with `SKILL.md`, `scripts/`, `tests/`, and (where applicable) `personas/`, `checklists/`, `references/`, `assets/`.
 
@@ -126,8 +127,8 @@ cd ~/.claude/skills/book-qa
 python -m venv .venv
 .venv/Scripts/python -m pip install -e .[dev]
 
-# Or install all five
-for skill in russellian-style book-knowledge book-compose book-review book-qa; do
+# Or install all six
+for skill in russellian-style book-knowledge book-compose book-review book-qa book-thesis; do
   cp -r skills/$skill ~/.claude/skills/$skill
 done
 ```
@@ -138,9 +139,9 @@ In a Claude Code session, the skills are now discoverable. Invoke them by their 
 
 A 78-page non-fiction book on contemporary Bermuda was produced end-to-end through this pipeline. The released artifact and supporting reports live under `examples/bermuda-manual/`:
 
-- `manuscript.pdf` — the final 78-page book (1.4 MB)
-- `summary.json` — book metadata
-- `book-manifest.yaml` — release manifest
+- `book/releases/6.0.0/manuscript.pdf` — the final 78-page book (1.4 MB)
+- `book/releases/6.0.0/summary.json` — book metadata
+- `book/releases/6.0.0/book-manifest.yaml` — release manifest
 - `chapters/contracts/ch-NN.yaml` — the 10 chapter contracts that drove the build
 - `reports/V*.md` — release reports (v3, v4, v4.1, v4.2, v4.3, v5)
 - `qa/v5-swarm-findings.md` — most recent QA pass results
@@ -154,11 +155,12 @@ russellian-book-suite/
 ├── LICENSE                         MIT
 ├── .gitignore
 ├── skills/
-│   ├── russellian-style/           sentence-grain discipline
-│   ├── book-knowledge/             claim ledger
 │   ├── book-compose/               orchestrator + MEMORY.md
+│   ├── book-knowledge/             claim ledger
+│   ├── book-qa/                    deterministic + swarm QA
 │   ├── book-review/                5-persona qualitative review
-│   └── book-qa/                    deterministic + swarm QA
+│   ├── book-thesis/                metabook reasoning
+│   └── russellian-style/           sentence-grain discipline
 ├── tools/                          one-shot scripts (figure gen, hero tables, footnote post-process, etc.)
 ├── examples/
 │   ├── bermuda-manual/             the proof (PDF + contracts + reports + QA findings)
@@ -195,6 +197,9 @@ Image sources for visuals come from OpenStreetMap (ODbL), Wikimedia Commons (whe
 - **v4 design**: `docs/specs/2026-05-10-book-craft-v4-design.md` — proposed `book-craft` skill (chapter craft: scenes, structural variety, visuals manifest, narrative-craft persona)
 - **v5 design**: `docs/specs/2026-05-11-book-qa-v5-design.md` — the `book-qa` Generator-Verifier with Sentinel-Healer pattern
 - **v4 plan**: `docs/plans/2026-05-10-book-craft-v4-and-bermuda-regen.md` — 28-task implementation plan
+- **Bundle C design**: `docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md` — closed-loop claim ledger with abductive counter-claims, Bayesian propagation, writeback adapter
+- **Bundle C plan**: `docs/plans/2026-05-11-bundle-c-closed-loop-ledger.md` — 30-task TDD implementation plan
+- **Bundle C runbook**: `docs/operations/2026-05-12-bundle-c-runbook.md` — Phase-4 operator runbook
 
 ## Lessons (from the Bermuda build)
 

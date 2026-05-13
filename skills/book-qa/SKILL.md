@@ -89,12 +89,22 @@ Editorial (Stage-2 swarm, per chapter):
 - C14 image alt-text quality
 - C15 print-ready format (<=120-char lines)
 
+## Scripts
+
+- `lint_artifact.py` — deterministic mechanical linting (D1-D8).
+- `dispatch_chapter_qa.py` — per-chapter editorial swarm dispatch (C1-C15).
+- `sentinel.py` — ticket aggregation and classification (severity rubric).
+- `healer.py` — isolated-context patch loop, max 3 iterations per defect class.
+- `propose_writeback.py` — reads qa/lint-findings.json + qa/swarm-findings.json, emits claims/proposed-transitions.jsonl + qa/ledger-writeback-<version>.md
+- `transition_rules.py` — pure-function mapping from QA ticket class to proposed ledger transition
+
 ## Composes with
 
 - `book-compose` — `build_book` invokes `lint_artifact` as a gate; `--qa` flag skips during iteration.
 - `book-review` — pre-build qualitative review; orthogonal scope, both ship.
 - `russellian-style` — its linters back C11 judgement by Stage-2 agents.
 - `book-knowledge` — read-only; claim IDs flagged by D1/C4 trace back to its ledger. `propose_writeback` writes claims/proposed-transitions.jsonl + qa/ledger-writeback-<version>.md; `apply_writeback` (in book-knowledge) commits transitions.
+- `book-thesis` — writes D9-D12 inputs before `lint_artifact` reads them.
 
 ## Usage
 
@@ -115,5 +125,6 @@ Waivers: add to `<workspace>/qa-waivers.yaml` to acknowledge an intentional, out
 ## Tests
 
 - `tests/test_lint_artifact.py` — fixture per D1-D8 rule.
-- `tests/test_sentinel.py` — aggregation correctness.
-- `tests/test_healer.py` — bounded-iteration convergence.
+- `tests/test_sentinel_writeback.py` — sentinel + writeback integration.
+- `tests/test_propose_writeback.py` — ledger transition proposal correctness.
+- `tests/test_transition_rules.py` — QA ticket class to transition mapping.

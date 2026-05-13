@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
 import jsonschema
 import yaml
+
+from .sibling_skills import SiblingNotFoundError, load_book_knowledge_module
+
+_log = logging.getLogger(__name__)
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 SCHEMA = json.loads((ASSETS / "chapter-contract.schema.json").read_text(encoding="utf-8"))
@@ -22,6 +27,26 @@ def validate_contract(record: dict) -> None:
         jsonschema.validate(record, SCHEMA)
     except jsonschema.ValidationError as e:
         raise ContractValidationError(str(e)) from e
+
+
+def _read_counter_claims_local(path: Path) -> list[dict]:
+    """Fallback counter-claims reader used when the book-knowledge sibling is not installed.
+
+    Returns last-write-wins per id; skips blank and malformed lines.
+    """
+    if not path.exists():
+        return []
+    latest: dict[str, dict] = {}
+    for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+            latest[rec["id"]] = rec
+        except (json.JSONDecodeError, KeyError) as e:
+            _log.warning("skipping malformed JSONL line %d in %s: %s", i, path, e)
+    return list(latest.values())
 
 
 def load_contract(path: Path) -> dict:
@@ -41,23 +66,20 @@ def load_brief(workspace_root: Path, path: Path) -> dict:
     chapter_claims = set(brief.get("claims") or [])
     must_address: list[dict] = []
     cc_path = Path(workspace_root) / "claims" / "counter-claims.jsonl"
-    if cc_path.exists():
-        latest: dict[str, dict] = {}
-        for line in cc_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            cc = json.loads(line)
-            latest[cc["id"]] = cc
-        for cc in latest.values():
-            if cc.get("status") != "open":
-                continue
-            if cc.get("target_claim_id") in chapter_claims:
-                must_address.append({
-                    "counter_claim_id": cc["id"],
-                    "text": cc["text"],
-                    "target_claim_id": cc["target_claim_id"],
-                })
+    try:
+        io = load_book_knowledge_module("io_utils")
+        raw_ccs = list(io.latest_per(io.read_jsonl(cc_path), "id").values())
+    except SiblingNotFoundError:
+        raw_ccs = _read_counter_claims_local(cc_path)
+    for cc in raw_ccs:
+        if cc.get("status") != "open":
+            continue
+        if cc.get("target_claim_id") in chapter_claims:
+            must_address.append({
+                "counter_claim_id": cc["id"],
+                "text": cc["text"],
+                "target_claim_id": cc["target_claim_id"],
+            })
     brief["must_address"] = must_address
     return brief
 

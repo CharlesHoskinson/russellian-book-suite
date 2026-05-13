@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import getpass
-import json
 from pathlib import Path
 
+from .io_utils import read_jsonl
 from .ledger import transition_status
 from .counter_claims import append_counter_claim, read_counter_claims
 from .workspace import WorkspaceLayout
@@ -23,10 +23,7 @@ def apply_writeback(workspace_root: Path, auto_apply: bool = False) -> dict:
     pt = layout.root / "claims" / "proposed-transitions.jsonl"
     if not pt.exists():
         return {"proposed": 0, "applied": 0}
-    proposed: list[dict] = []
-    for line in pt.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            proposed.append(json.loads(line))
+    proposed = read_jsonl(pt)
     applied = 0
     op = _operator()
     for p in proposed:

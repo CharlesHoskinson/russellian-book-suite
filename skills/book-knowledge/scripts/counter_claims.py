@@ -6,6 +6,7 @@ from pathlib import Path
 
 import jsonschema
 
+from .io_utils import read_jsonl
 from .workspace import WorkspaceLayout
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
@@ -36,15 +37,7 @@ def append_counter_claim(workspace_root: Path, record: dict) -> None:
 
 
 def read_counter_claims(workspace_root: Path) -> list[dict]:
-    path = _path(workspace_root)
-    if not path.exists():
-        return []
-    out = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line:
-            out.append(json.loads(line))
-    return out
+    return read_jsonl(_path(workspace_root))
 
 
 def next_counter_claim_id(workspace_root: Path) -> str:

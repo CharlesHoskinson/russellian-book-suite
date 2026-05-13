@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .io_utils import read_jsonl, latest_per
 from .workspace import WorkspaceLayout
 
 
@@ -41,23 +42,11 @@ class BeliefGraph:
     derivation_edges: set[tuple[str, str]] = field(default_factory=set)  # (parent, child)
 
 
-def _latest_per_claim(records: list[dict]) -> dict[str, dict]:
-    latest: dict[str, dict] = {}
-    for r in records:
-        latest[r["claim_id"]] = r
-    return latest
-
-
 def load_belief_graph(workspace_root: Path) -> BeliefGraph:
     """Load belief graph from workspace ledger."""
     layout = WorkspaceLayout(workspace_root)
-    records: list[dict] = []
-    if layout.ledger.exists():
-        for line in layout.ledger.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line:
-                records.append(json.loads(line))
-    latest = _latest_per_claim(records)
+    records = read_jsonl(layout.ledger)
+    latest = latest_per(records, "claim_id")
     g = BeliefGraph()
     for cid, rec in latest.items():
         g.nodes[cid] = BeliefNode(

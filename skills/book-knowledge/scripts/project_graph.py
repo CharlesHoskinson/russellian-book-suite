@@ -9,6 +9,7 @@ from rdflib import Dataset, Literal, Namespace, URIRef, XSD
 from rdflib.namespace import RDF
 
 from .counter_claims import read_counter_claims
+from .io_utils import latest_per
 from .ledger import read_claims
 from .workspace import WorkspaceLayout
 
@@ -26,13 +27,6 @@ def _source_uri(doc_id: str, locator_text: str) -> URIRef:
     return URIRef(f"{BASE}sources/{quote(doc_id)}#{quote(locator_text[:32])}")
 
 
-def _latest_per_claim(records: list[dict]) -> list[dict]:
-    latest: dict[str, dict] = {}
-    for r in records:
-        latest[r["claim_id"]] = r
-    return list(latest.values())
-
-
 def project_graph(layout: WorkspaceLayout) -> Path:
     ds = Dataset(default_union=True)
     ds.bind("tbf", TBF)
@@ -40,7 +34,7 @@ def project_graph(layout: WorkspaceLayout) -> Path:
     ds.bind("schema", SCHEMA)
 
     default = ds.default_graph
-    for claim in _latest_per_claim(read_claims(layout)):
+    for claim in latest_per(read_claims(layout), "claim_id").values():
         if claim["status"] == "superseded":
             continue
         graph_name = URIRef(f"{BASE}graphs/claims/{quote(claim['claim_id'])}")

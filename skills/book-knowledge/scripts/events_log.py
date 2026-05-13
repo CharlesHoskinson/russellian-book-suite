@@ -6,6 +6,7 @@ from pathlib import Path
 
 import jsonschema
 
+from .io_utils import read_jsonl
 from .workspace import WorkspaceLayout
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
@@ -32,7 +33,4 @@ def append_event(workspace_root: Path, event: dict) -> None:
 
 
 def read_events(workspace_root: Path) -> list[dict]:
-    p = _path(workspace_root)
-    if not p.exists():
-        return []
-    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return read_jsonl(_path(workspace_root))

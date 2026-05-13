@@ -4,19 +4,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from .counter_claims import append_counter_claim, read_counter_claims
-
-
-def _latest_per_id(items: list[dict]) -> dict[str, dict]:
-    latest: dict[str, dict] = {}
-    for r in items:
-        latest[r["id"]] = r
-    return latest
+from .io_utils import latest_per
 
 
 def promote_addressed(workspace_root: Path, chapter_id: str,
                       addressed_ids: list[str]) -> int:
     items = read_counter_claims(workspace_root)
-    latest = _latest_per_id(items)
+    latest = latest_per(items, "id")
     promoted = 0
     for cc_id in addressed_ids:
         rec = latest.get(cc_id)

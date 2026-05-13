@@ -4,7 +4,7 @@ A family of six Claude Code skills that produces non-fiction books from a local 
 
 ## What this is
 
-Five skills that compose into a book pipeline. Data flows top-to-bottom; every
+Six skills that compose into a book pipeline. Data flows top-to-bottom; every
 arrow is labelled with what crosses the stage boundary.
 
 ```
@@ -101,7 +101,7 @@ swarm. Stage-3 (Sentinel) triages findings; Stage-4 (Healer) optionally patches.
 **Hard gate**: D1–D8 must be zero before "ship." Output: the final
 `release/` bundle.
 
-## The five skills
+## The six skills
 
 | Skill | One-line purpose | Lifecycle stage |
 |---|---|---|

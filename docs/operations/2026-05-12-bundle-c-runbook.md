@@ -32,20 +32,19 @@ The `claims` field is optional and was added in Phase 2 (commit `f880e0d`).
 
 Bundle C's `generate_counter_claims.generate_for_all_load_bearing(workspace, llm_call)` walks every claim tagged `load_bearing` and dispatches a counter-claim prompt to the LLM. The `llm_call: Callable[[str], str]` parameter is what you wire to your LLM of choice.
 
-**For one-time use in Claude Code:** dispatch a sub-agent per claim. A minimal `tools/run_counter_claim_gen.py` adapter:
+**For the bermuda example:** a ready-made adapter exists at `tools/run_bermuda_counter_claim_gen.py`. It has hard-coded rivals for the 3 load-bearing bermuda claims. Run:
 
-```python
-"""One-shot: generate counter-claims for all load_bearing claims in a workspace.
-
-Usage: needs to be run from inside Claude Code so it can call Skills.
-For each load-bearing claim without counter_claim_ids, this dumps the prompt
-to /tmp/cc-prompts/<claim_id>.txt and waits for the operator to drop the
-JSON response at /tmp/cc-prompts/<claim_id>.json. A second pass reads back.
-"""
-# stub — wire to your preferred dispatch mechanism
+```
+python tools/run_bermuda_counter_claim_gen.py
 ```
 
-**Or:** call any other LLM API that accepts a single-prompt completion call. The prompt is in `generate_counter_claims.PROMPT_TEMPLATE`; expected response shape is documented at the bottom of the prompt (JSON array of `{text, disagreement_vector}` objects).
+**For any other book:** there is no general-purpose CLI adapter yet. Write one that:
+1. Reads `<workspace>/claims/ledger.jsonl`
+2. Filters to claims with `load_bearing: true` and no `counter_claim_ids`
+3. For each, dispatches an LLM call (your preferred mechanism) with `generate_counter_claims.PROMPT_TEMPLATE.format(claim_text=claim["canonical_text"])`
+4. Calls `generate_counter_claims.generate_for_claim(workspace, claim_id, llm_call=lambda p: response)` to write the records
+
+The `tools/run_bermuda_counter_claim_gen.py` script is a worked example of this pattern.
 
 After running, the workspace should contain:
 - `claims/counter-claims.jsonl` with 2–3 records per load-bearing claim
@@ -86,10 +85,8 @@ Commit any tuning with a `tune:` prefix and a one-liner explaining the chosen va
 
 ```
 cd skills/book-compose
-.venv\Scripts\python.exe -m scripts.build_book <repo-root>/examples/bermuda-manual --version v6
+.venv\Scripts\python.exe -m scripts.build_book <workspace> v6 "Life in Bermuda" bermuda-manual
 ```
-
-(Exact command depends on the existing build CLI — adapt if it differs.)
 
 What to verify:
 

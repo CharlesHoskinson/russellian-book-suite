@@ -10,6 +10,7 @@ from .claim_validator import (
     validate_claim, assert_transition_allowed, ClaimValidationError,
 )
 from .events_log import append_event
+from .io_utils import read_jsonl
 from .workspace import WorkspaceLayout
 
 
@@ -17,20 +18,8 @@ class LedgerError(Exception):
     pass
 
 
-def _read_lines(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    out: list[dict] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        out.append(json.loads(line))
-    return out
-
-
 def read_claims(layout: WorkspaceLayout) -> list[dict]:
-    return _read_lines(layout.ledger)
+    return read_jsonl(layout.ledger)
 
 
 def latest_status(layout: WorkspaceLayout, claim_id: str) -> str | None:

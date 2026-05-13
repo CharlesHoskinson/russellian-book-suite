@@ -2,22 +2,42 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
+
+from .sibling_skills import SiblingNotFoundError, load_book_knowledge_module
+
+_log = logging.getLogger(__name__)
+
+
+def _read_jsonl_local(path: Path) -> list[dict]:
+    """Fallback JSONL reader used when the book-knowledge sibling is not installed."""
+    if not path.exists():
+        return []
+    out: list[dict] = []
+    for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError as e:
+            _log.warning("skipping malformed JSONL line %d in %s: %s", i, path, e)
+    return out
 
 
 def _latest_per_claim_from_ledger(workspace_root: Path) -> list[dict]:
     """Read ledger.jsonl and return the last record seen for each claim_id."""
     ledger = Path(workspace_root) / "claims" / "ledger.jsonl"
-    if not ledger.exists():
-        return []
-    latest: dict[str, dict] = {}
-    for line in ledger.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        rec = json.loads(line)
-        latest[rec["claim_id"]] = rec
-    return list(latest.values())
+    try:
+        io = load_book_knowledge_module("io_utils")
+        return list(io.latest_per(io.read_jsonl(ledger), "claim_id").values())
+    except SiblingNotFoundError:
+        records = _read_jsonl_local(ledger)
+        latest: dict[str, dict] = {}
+        for r in records:
+            latest[r["claim_id"]] = r
+        return list(latest.values())
 
 
 def slice_for_chapter(workspace_root: Path, chapter_id: str, contract: dict) -> list[dict]:

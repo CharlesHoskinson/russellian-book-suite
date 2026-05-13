@@ -36,8 +36,6 @@ Qualitative editorial review for chapter drafts. Dispatches five persona subagen
 - **Copyeditor** (`personas/copyeditor.md`) — cross-chapter consistency, mechanics.
 - **Enjoyment Reader** (`personas/enjoyment-reader.md`) — momentum, where the reader stops.
 
-A sixth narrative-craft persona is planned for v4.
-
 ## Severity rubric
 
 A finding is `critical` iff the persona believes the chapter must not ship as written.

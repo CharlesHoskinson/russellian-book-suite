@@ -47,8 +47,8 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 - `book-compose` — calls this skill as the prose-polish stage of chapter drafting.
 - `book-review` — runs persona reviews on prose already compliant with this skill.
 - `book-qa` — queries chapters drafted under this style.
+- `book-thesis` — provides reasoning layer for entailment-backed prose discipline.
 - `humanizer` — strips residual AI-writing tells after this skill runs.
-- `book-craft` (planned) — orchestrates the full pipeline.
 
 ## Usage
 

@@ -8,6 +8,7 @@ import json
 import shutil
 
 from .belief_graph import BeliefGraph, prior_for_status, load_belief_graph, load_source_trust
+from .io_utils import read_jsonl, latest_per
 from .workspace import WorkspaceLayout
 
 POSTERIOR_FLOOR = 0.05
@@ -85,6 +86,7 @@ def write_posteriors(workspace_root: Path, posteriors: dict[str, float],
                      generated_by_run: str) -> int:
     layout = WorkspaceLayout(workspace_root)
     bg = load_belief_graph(workspace_root)
+    latest_by_id = latest_per(read_jsonl(layout.ledger), "claim_id")
     written = 0
     with layout.ledger.open("a", encoding="utf-8") as fh:
         for cid, post in posteriors.items():
@@ -92,7 +94,7 @@ def write_posteriors(workspace_root: Path, posteriors: dict[str, float],
             if node is None:
                 continue
             prior = node.p_prior if node.p_prior is not None else prior_for_status(node.status)
-            latest = _latest_record_for(layout, cid)
+            latest = latest_by_id.get(cid)
             if latest is None:
                 continue
             new = dict(latest)
@@ -102,20 +104,6 @@ def write_posteriors(workspace_root: Path, posteriors: dict[str, float],
             fh.write(json.dumps(new, sort_keys=True) + "\n")
             written += 1
     return written
-
-
-def _latest_record_for(layout: WorkspaceLayout, claim_id: str) -> dict | None:
-    found = None
-    if not layout.ledger.exists():
-        return None
-    for line in layout.ledger.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        rec = json.loads(line)
-        if rec["claim_id"] == claim_id:
-            found = rec
-    return found
 
 
 def _histogram(values: list[float], bins: int = 10) -> list[tuple[float, float, int]]:
@@ -171,14 +159,7 @@ def run(workspace_root: Path, run_id: str | None = None) -> str:
     # earlier ones. Dedupe to latest-per-id before damping so a promoted counter-
     # claim doesn't damp twice (once as open, once as addressed).
     cc_path = WorkspaceLayout(workspace_root).root / "claims" / "counter-claims.jsonl"
-    latest_cc: dict[str, dict] = {}
-    if cc_path.exists():
-        for line in cc_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line:
-                rec = json.loads(line)
-                latest_cc[rec["id"]] = rec
-    counter_claims = list(latest_cc.values())
+    counter_claims = list(latest_per(read_jsonl(cc_path), "id").values())
     before = {cid: (n.p_posterior if n.p_posterior is not None
                     else (n.p_prior if n.p_prior is not None else prior_for_status(n.status)))
               for cid, n in bg.nodes.items()}

@@ -14,6 +14,8 @@
     "p_prior":          {"type": "number", "minimum": 0.0, "maximum": 1.0},
     "p_posterior":      {"type": "number", "minimum": 0.0, "maximum": 1.0},
     "load_bearing":     {"type": "boolean", "default": false},
+    "axiom":              {"type": "boolean", "default": false},
+    "pin_low_confidence": {"type": "boolean", "default": false},
     "counter_claim_ids":{"type": "array", "items": {"type": "string", "pattern": "^cc-[0-9]{4}-[0-9a-f]{6}$"}},
     "source_spans":    {
       "type": "array",

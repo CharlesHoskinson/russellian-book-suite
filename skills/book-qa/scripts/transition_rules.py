@@ -1,8 +1,16 @@
 """Pure mapping from QA defect ticket → proposed ledger transition."""
 
+# D11 (failed-entailment from lint_artifact/book-thesis) is semantically
+# equivalent to unsupported_claim: a paragraph that does not entail its
+# declared supports-node leaves the cited claim without manuscript backing.
+D11_SYNONYMS: frozenset[str] = frozenset({"D11", "failed_entailment"})
+
 
 def map_ticket_to_proposed_transition(ticket: dict) -> dict | None:
     cls = ticket.get("class")
+    # Normalise D11 synonyms to "unsupported_claim" before dispatch.
+    if cls in D11_SYNONYMS:
+        cls = "unsupported_claim"
     if cls == "unsupported_claim":
         if ticket.get("claim_current_status") != "verified":
             return None

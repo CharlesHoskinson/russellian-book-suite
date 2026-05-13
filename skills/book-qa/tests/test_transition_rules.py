@@ -1,4 +1,4 @@
-from scripts.transition_rules import map_ticket_to_proposed_transition
+from scripts.transition_rules import D11_SYNONYMS, map_ticket_to_proposed_transition
 
 
 def _ticket(class_, **kw):
@@ -11,6 +11,39 @@ def test_unsupported_claim_maps_to_disputed():
     out = map_ticket_to_proposed_transition(t)
     assert out["from"] == "verified"
     assert out["to"] == "disputed"
+
+
+def test_d11_synonym_maps_to_disputed():
+    """D11 (failed-entailment) is a synonym for unsupported_claim."""
+    t = _ticket("D11", claim_id="clm-2026-000002",
+                claim_current_status="verified")
+    out = map_ticket_to_proposed_transition(t)
+    assert out is not None
+    assert out["kind"] == "claim"
+    assert out["from"] == "verified"
+    assert out["to"] == "disputed"
+    assert out["cause_class"] == "unsupported_claim"
+
+
+def test_failed_entailment_synonym_maps_to_disputed():
+    """String alias 'failed_entailment' also maps correctly."""
+    t = _ticket("failed_entailment", claim_id="clm-2026-000002",
+                claim_current_status="verified")
+    out = map_ticket_to_proposed_transition(t)
+    assert out is not None
+    assert out["to"] == "disputed"
+
+
+def test_d11_synonyms_constant_contains_expected_values():
+    assert "D11" in D11_SYNONYMS
+    assert "failed_entailment" in D11_SYNONYMS
+
+
+def test_d11_on_already_disputed_skips():
+    """Synonym guard still enforces the verified-only gate."""
+    t = _ticket("D11", claim_id="clm-2026-000002",
+                claim_current_status="disputed")
+    assert map_ticket_to_proposed_transition(t) is None
 
 
 def test_refuted_by_new_source_maps_to_refuted():

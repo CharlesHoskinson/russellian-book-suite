@@ -1,0 +1,16 @@
+{
+  "generated_by": "entailment-swarm-2026-05-12",
+  "release": "v6",
+  "tickets": [
+    {
+      "id": "ch04-D11-001",
+      "class": "D11",
+      "severity": "critical",
+      "claim_id": "clm-2026-000002",
+      "claim_current_status": "verified",
+      "where": "ch-04 paragraph 3",
+      "detail": "Entailment critic returned 'unrelated' for ch-04 ¶3 vs supports-node 'geography-shapes-economy': paragraph discusses tourism policy without connecting it to the reef-shelter thesis node.",
+      "fix_hint": "Rewrite the paragraph to explicitly draw the causal chain from reef geography to the tourism economy, or repoint supports to a more specific sub-argument node."
+    }
+  ]
+}

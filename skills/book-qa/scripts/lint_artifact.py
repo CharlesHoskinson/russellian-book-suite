@@ -35,6 +35,8 @@ import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+import yaml
+
 
 @dataclass
 class Defect:
@@ -432,12 +434,29 @@ def lint_d9_d12(workspace: Path) -> list[Defect]:
 
 # ----------------------------------------------------------------- D13 helpers
 
+def _verification_enabled(workspace: Path) -> bool:
+    """Return True only when qa-config.yaml is present and has enable_verification: true."""
+    cfg_path = workspace / "qa-config.yaml"
+    if not cfg_path.exists():
+        return False
+    try:
+        cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return False
+    return cfg.get("enable_verification") is True
+
+
 def lint_d13_verification_unsat(workspace: Path) -> list[Defect]:
     """Read qa/verification-defects.json emitted by a neurosym-forge verifier.
 
     Each member of the unsat core becomes one critical defect. :sat and
     :unknown verdicts produce no defects.
+
+    Verification is opt-in: D13 is skipped unless qa-config.yaml in the
+    workspace root contains ``enable_verification: true``.
     """
+    if not _verification_enabled(workspace):
+        return []
     path = workspace / "qa" / "verification-defects.json"
     if not path.exists():
         return []

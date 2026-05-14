@@ -1,0 +1,79 @@
+(ns {{ project_slug }}.booklogic
+  "BookLogic v0.4 declaration-form compiler. Reads rules/booklogic/*.edn,
+   produces atomspace IR + codegens rules/predicates.edn for the legacy
+   Python ingester (deprecated in PR-3.5).
+
+   Forms supported in PR-3: defsort, defpredicate, deflift.
+   Active forms (defrule, defconstraint, defquery, defremedy) land in PR-4."
+  (:require [cljs.reader :as edn]
+            [clojure.string :as str]
+            ["fs" :as fs]
+            ["path" :as path]))
+
+;; ----- form recognisers -----
+
+(defn- form-head [form]
+  (when (sequential? form) (first form)))
+
+(defn- defsort? [form]
+  (= (form-head form) 'defsort))
+
+(defn- defpredicate? [form]
+  (= (form-head form) 'defpredicate))
+
+(defn- deflift? [form]
+  (= (form-head form) 'deflift))
+
+;; ----- defsort expansion -----
+
+(defn- expand-defsort
+  "(defsort :foo) → {:kind :primitive :name :foo}
+   (defsort {:kind :fn :args [...] :ret ...}) → {:kind :fn ...}
+   (defsort {:kind :enum :members [...]}) → {:kind :enum ...}"
+  [form]
+  (let [[_ value] form]
+    (cond
+      (keyword? value)
+        {:kind :primitive :name value}
+      (and (map? value) (= (:kind value) :fn))
+        (assoc value :name nil)
+      (and (map? value) (= (:kind value) :enum))
+        (assoc value :name nil)
+      :else
+        (throw (ex-info "defsort: value must be a keyword or {:kind :fn/:enum ...}"
+                        {:form form})))))
+
+;; ----- I/O -----
+
+(defn- read-edn-file [path]
+  (let [text (.toString (.readFileSync fs path))]
+    (edn/read-string text)))
+
+(defn- exists? [path]
+  (try (.existsSync fs path) (catch :default _ false)))
+
+(defn load-booklogic
+  "Read project-root/rules/booklogic/{sorts,predicates,lifts}.edn.
+   Returns {:sorts [forms] :predicates [forms] :lifts [forms]}. Missing
+   files contribute empty form lists."
+  [project-root]
+  (let [dir   (path/join project-root "rules" "booklogic")
+        load  (fn [name]
+                (let [p (path/join dir name)]
+                  (if (exists? p)
+                    (or (:forms (read-edn-file p)) [])
+                    [])))]
+    {:sorts      (load "sorts.edn")
+     :predicates (load "predicates.edn")
+     :lifts      (load "lifts.edn")}))
+
+;; ----- main expansion driver (defpredicate + deflift land in later phases) -----
+
+(defn expand
+  "Expand loaded BookLogic forms into atomspace IR.
+   Returns {:sort-registry [...] :predicate-registry [...] :lift-rules [...]}."
+  [{:keys [sorts predicates lifts]}]
+  {:sort-registry      (mapv expand-defsort (filter defsort? sorts))
+   :predicate-registry []  ; populated in Phase 2
+   :lift-rules         []  ; populated in Phase 3
+   })

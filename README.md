@@ -111,6 +111,7 @@ swarm. Stage-3 (Sentinel) triages findings; Stage-4 (Healer) optionally patches.
 | **[`book-review`](skills/book-review/SKILL.md)** | Five-persona qualitative editorial review (Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader) — soft-gates chapter release | 3 — review |
 | **[`book-qa`](skills/book-qa/SKILL.md)** | Post-build defect gate: deterministic Stage-1 linter (D1–D8) + per-chapter swarm (C1–C15) + Sentinel-Healer loop | 5 — release gate |
 | **[`book-thesis`](skills/book-thesis/SKILL.md)** | Metabook reasoning: thesis tree, paragraph back-pointers, entailment loop, Datalog cross-chapter consistency | Layer 2-4 on top of book-knowledge; contributes D9-D12 to book-qa |
+| **[`neurosym-forge`](skills/neurosym-forge/SKILL.md)** | Scaffolds and extends CLJS+Rust neurosymbolic verifier projects under MeTTa-style atomspace conventions | Optional; composes with book-knowledge via the `--book-knowledge-bridge` flag |
 
 Skill source: `skills/<skill>/`. Each skill is a self-contained directory with `SKILL.md`, `scripts/`, `tests/`, and (where applicable) `personas/`, `checklists/`, `references/`, `assets/`.
 

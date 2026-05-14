@@ -13,9 +13,10 @@ The writer preserves dict insertion order for stability.
 """
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
-from scripts._edn_reader import Keyword
+from scripts._edn_reader import Keyword, Symbol
 
 
 class EdnWriteError(ValueError):
@@ -41,6 +42,13 @@ def _emit_compact(value: Any) -> str:
         return "false"
     if isinstance(value, Keyword):
         return str(value)
+    if isinstance(value, Symbol):
+        return str(value)
+    if isinstance(value, dt.datetime):
+        iso = value.isoformat()
+        if iso.endswith("+00:00"):
+            iso = iso[:-6] + "Z"
+        return f'#inst "{iso}"'
     if isinstance(value, str):
         return _emit_string(value)
     if isinstance(value, bool):  # bool is subclass of int — must be after bool branch

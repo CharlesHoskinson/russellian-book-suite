@@ -103,3 +103,52 @@ def test_inst_expects_string_payload() -> None:
 def test_inst_invalid_format_raises() -> None:
     with pytest.raises(EdnReadError, match=r"invalid #inst literal"):
         read_edn('#inst "not-a-datetime"')
+
+
+from scripts._edn_writer import write_edn
+
+
+def test_write_symbol_bare() -> None:
+    assert write_edn(Symbol("foo")) == "foo"
+
+
+def test_write_symbol_namespaced() -> None:
+    assert write_edn(Symbol("ingested", namespace="source")) == "source/ingested"
+
+
+def test_write_datetime_utc() -> None:
+    instant = dt.datetime(2026, 5, 14, 15, 30, tzinfo=dt.timezone.utc)
+    assert write_edn(instant) == '#inst "2026-05-14T15:30:00Z"'
+
+
+def test_write_datetime_offset() -> None:
+    tz = dt.timezone(dt.timedelta(hours=2))
+    instant = dt.datetime(2026, 5, 14, 15, 30, tzinfo=tz)
+    out = write_edn(instant)
+    assert out.startswith('#inst "')
+    assert "+02:00" in out
+
+
+def test_round_trip_symbol() -> None:
+    from scripts._edn_reader import read_edn as r
+    sym = Symbol("ingested", namespace="source")
+    assert r(write_edn(sym)) == sym
+
+
+def test_round_trip_datetime() -> None:
+    from scripts._edn_reader import read_edn as r
+    instant = dt.datetime(2026, 5, 12, 16, 13, 51, 630442, tzinfo=dt.timezone.utc)
+    assert r(write_edn(instant)) == instant
+
+
+def test_round_trip_event_list() -> None:
+    from scripts._edn_reader import read_edn as r
+    event = [
+        Symbol("ingested", namespace="source"),
+        {
+            Keyword("id", namespace="doc"): "d1",
+            Keyword("ingested-at"): dt.datetime(2026, 5, 14, 0, 0, 0, tzinfo=dt.timezone.utc),
+        },
+    ]
+    s = write_edn(event)
+    assert r(s) == event

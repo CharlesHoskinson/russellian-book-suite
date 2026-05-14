@@ -6,7 +6,13 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from scripts._io import read_edn_as_json, file_checksum
+from scripts._edn_reader import Keyword
+from scripts._io import read_edn_file, file_checksum
+from scripts.sort_registry import _dict_get
+
+RULES_KEY = Keyword("rules")
+CHECKSUMS_KEY = Keyword("checksums")
+ID_KEY = Keyword("id")
 
 
 @dataclass
@@ -30,7 +36,13 @@ def lint_rewrite_coverage(project_root: Path) -> CoverageReport:
     checksums_path = rules_dir / ".checksums.edn"
     expected_checksums: dict[str, str] = {}
     if checksums_path.exists():
-        expected_checksums = read_edn_as_json(checksums_path).get("checksums", {})
+        parsed = read_edn_file(checksums_path)
+        raw = _dict_get(parsed, "checksums") or {}
+        # Normalise keys: string or Keyword → string
+        for k, v in raw.items():
+            key = k.name if hasattr(k, "name") else str(k)
+            # But checksums keys are file names like "seed.edn" — plain strings
+            expected_checksums[str(k)] = v
 
     for path in sorted(rules_dir.glob("*.edn")):
         if path.name.startswith("."):
@@ -46,12 +58,14 @@ def lint_rewrite_coverage(project_root: Path) -> CoverageReport:
                 f"Reapply via add_rewrite_rule or restore the file."
             )
         try:
-            payload = read_edn_as_json(path)
+            payload = read_edn_file(path)
         except Exception:
-            report.errors.append(f"{path.name}: cannot parse as JSON")
+            report.errors.append(f"{path.name}: cannot parse as EDN")
             continue
-        for rule in payload.get("rules", []):
-            rid = rule.get("id")
+        rules_val = _dict_get(payload, "rules") or []
+        for rule in rules_val:
+            rid_raw = _dict_get(rule, "id")
+            rid = str(rid_raw) if rid_raw is not None else None
             if not rid:
                 report.errors.append(f"{path.name}: rule missing id")
                 continue

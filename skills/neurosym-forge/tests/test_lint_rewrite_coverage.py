@@ -5,19 +5,37 @@ from pathlib import Path
 
 import pytest
 
-from scripts._io import write_json_as_edn, file_checksum
+from scripts._edn_reader import Keyword
+from scripts._io import write_edn_file, file_checksum
 from scripts.lint_rewrite_coverage import lint_rewrite_coverage
 
+RULES_KEY = Keyword("rules")
+CHECKSUMS_KEY = Keyword("checksums")
+ID_KEY = Keyword("id")
+KIND_KEY = Keyword("kind")
+SORT_KEY = Keyword("sort")
+NAME_KEY = Keyword("name")
+LHS_KEY = Keyword("lhs")
+RHS_KEY = Keyword("rhs")
 
-def _make_scaffold(root: Path, rules: dict[str, list[dict]], tests: list[str]) -> None:
+
+def _make_rule(rid: str) -> dict:
+    return {
+        ID_KEY: rid,
+        LHS_KEY: {KIND_KEY: Keyword("variable"), NAME_KEY: "?x", SORT_KEY: Keyword("int")},
+        RHS_KEY: {KIND_KEY: Keyword("variable"), NAME_KEY: "?x", SORT_KEY: Keyword("int")},
+    }
+
+
+def _make_scaffold(root: Path, rules: dict, tests: list[str]) -> None:
     (root / "rules").mkdir(parents=True)
     (root / "tests" / "rules").mkdir(parents=True)
-    checksums: dict[str, str] = {}
+    checksums: dict = {}
     for fname, rule_list in rules.items():
         p = root / "rules" / fname
-        write_json_as_edn(p, {"rules": rule_list})
+        write_edn_file(p, {RULES_KEY: rule_list})
         checksums[fname] = file_checksum(p)
-    write_json_as_edn(root / "rules" / ".checksums.edn", {"checksums": checksums})
+    write_edn_file(root / "rules" / ".checksums.edn", {CHECKSUMS_KEY: checksums})
     for t in tests:
         (root / "tests" / "rules" / t).write_text("(deftest ...)\n", encoding="utf-8")
 
@@ -25,11 +43,7 @@ def _make_scaffold(root: Path, rules: dict[str, list[dict]], tests: list[str]) -
 def test_clean_coverage(tmp_path: Path) -> None:
     _make_scaffold(
         tmp_path,
-        rules={"seed.edn": [
-            {"id": "R001",
-             "lhs": {"kind": "variable", "name": "?x", "sort": ":int"},
-             "rhs": {"kind": "variable", "name": "?x", "sort": ":int"}}
-        ]},
+        rules={"seed.edn": [_make_rule("R001")]},
         tests=["test_R001.cljs"],
     )
     report = lint_rewrite_coverage(tmp_path)
@@ -39,11 +53,7 @@ def test_clean_coverage(tmp_path: Path) -> None:
 def test_missing_fixture_flagged(tmp_path: Path) -> None:
     _make_scaffold(
         tmp_path,
-        rules={"seed.edn": [
-            {"id": "R001",
-             "lhs": {"kind": "variable", "name": "?x", "sort": ":int"},
-             "rhs": {"kind": "variable", "name": "?x", "sort": ":int"}}
-        ]},
+        rules={"seed.edn": [_make_rule("R001")]},
         tests=[],
     )
     report = lint_rewrite_coverage(tmp_path)
@@ -54,11 +64,7 @@ def test_missing_fixture_flagged(tmp_path: Path) -> None:
 def test_checksum_mismatch_flagged(tmp_path: Path) -> None:
     _make_scaffold(
         tmp_path,
-        rules={"seed.edn": [
-            {"id": "R001",
-             "lhs": {"kind": "variable", "name": "?x", "sort": ":int"},
-             "rhs": {"kind": "variable", "name": "?x", "sort": ":int"}}
-        ]},
+        rules={"seed.edn": [_make_rule("R001")]},
         tests=["test_R001.cljs"],
     )
     (tmp_path / "rules" / "seed.edn").write_text("tampered\n", encoding="utf-8")

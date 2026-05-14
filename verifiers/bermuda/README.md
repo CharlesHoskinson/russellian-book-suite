@@ -1,38 +1,57 @@
-# Bermuda Verifier
+# Bermuda verifier
 
-A neurosymbolic verification project scaffolded by [neurosym-forge](../../skills/neurosym-forge/).
-Four-phase pipeline: Claude → ClojureScript (rewrite) → Rust (verify) → Claude (synthesise) → Rust (typeset).
+A neurosymbolic verifier for the Bermuda manual. Encodes the six canonical
+facts (parish count, island count, currency peg, airport location, cedar
+binomial) as Z3 axioms; ingests the book-knowledge claim ledger and
+chapter prose; reports unsat verdicts as `book-qa` defect class D13.
 
-## Build
+## Quickstart
 
-```bash
-npm install
-npm run build
-```
-
-## Verify
+From this directory:
 
 ```bash
-npm run verify work/claims.edn work/verdict.edn
+# Install Python helpers
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -e ".[dev]"
+
+# Run end-to-end (stubbed verifier, no Rust toolchain required)
+.venv/Scripts/python.exe -m scripts.run_verification \
+  --workspace ../../examples/bermuda-manual \
+  --release 6.0.0 \
+  --stub --stub-verdict sat
+
+# Then book-qa picks up qa/verification-defects.json:
+cd ../../skills/book-qa && python -m scripts.lint_artifact \
+  ../../examples/bermuda-manual 6.0.0
 ```
 
-## Extend
-
-Add a rewrite rule from the parent repo:
+## Full verification (requires Rust + Node)
 
 ```bash
-cd ../../skills/neurosym-forge
-.venv/Scripts/python.exe -m scripts.add_rewrite_rule \
-  --project ../../verifiers/bermuda \
-  --rule-file new-rule.edn
+# Build the Rust addon
+cd rust-verifier && cargo build --release
+cp target/release/libbermuda_verifier.* ../cljs-orchestrator/native/
+
+# Build the CLJS orchestrator
+cd ../ && npm install && npm run build:cljs
+
+# Run real verification
+.venv/Scripts/python.exe -m scripts.run_verification \
+  --workspace ../../examples/bermuda-manual --release 6.0.0
 ```
 
-Add a grounded atom:
+## Layout
 
-```bash
-.venv/Scripts/python.exe -m scripts.add_grounded_atom \
-  --project ../../verifiers/bermuda \
-  --name :my-fn --lib custom --sort :verdict
-```
+- `rules/predicates.edn` — Bermuda predicate map (parishes, islands, currency, etc.)
+- `rules/seed.edn` — atomspace seed
+- `rust-verifier/src/canonical.rs` — Z3 hard constraints encoding canonical-facts.md
+- `scripts/ingest_ledger.py` — `claims/ledger.jsonl` → `work/claims.edn`
+- `scripts/extract_prose.py` — `book/releases/N/chapter-bundles/` → `work/prose-facts.edn`
+- `scripts/verdict_to_qa.py` — `work/verdict.edn` → `<workspace>/qa/verification-defects.json`
+- `scripts/run_verification.py` — end-to-end driver
 
-See `../../skills/neurosym-forge/references/` for the full conventions.
+## Composition with book-qa
+
+`book-qa.lint_artifact` reads `<workspace>/qa/verification-defects.json` as defect
+class **D13**. Enable per workspace via `qa-config.yaml: enable_verification: true`.
+A `:unsat` verdict emits one critical D13 ticket per claim ID in the unsat core.

@@ -52,3 +52,60 @@ def test_keyword_equality_and_hashing() -> None:
     assert read_edn(":foo/bar") == Keyword("bar", namespace="foo")
     assert hash(Keyword("foo")) == hash(Keyword("foo"))
     assert {Keyword("foo"): 1} == {Keyword("foo"): 1}
+
+
+def test_read_empty_vector() -> None:
+    assert read_edn("[]") == []
+
+
+def test_read_vector() -> None:
+    assert read_edn("[1 2 3]") == [1, 2, 3]
+
+
+def test_read_nested_vector() -> None:
+    assert read_edn("[[1 2] [3 4]]") == [[1, 2], [3, 4]]
+
+
+def test_read_empty_map() -> None:
+    assert read_edn("{}") == {}
+
+
+def test_read_map_with_keyword_keys() -> None:
+    result = read_edn('{:kind :symbol :name "foo"}')
+    assert result == {Keyword("kind"): Keyword("symbol"), Keyword("name"): "foo"}
+
+
+def test_read_list() -> None:
+    result = read_edn("(:source/ingested {:doc-id \"d1\"})")
+    assert isinstance(result, list)
+    assert result[0] == Keyword("ingested", namespace="source")
+    assert result[1] == {Keyword("doc-id"): "d1"}
+
+
+def test_read_comma_as_whitespace() -> None:
+    assert read_edn("[1, 2, 3]") == [1, 2, 3]
+
+
+def test_read_line_comment() -> None:
+    src = """
+    ; this is a comment
+    [1 2 3]  ; trailing comment
+    """
+    assert read_edn(src) == [1, 2, 3]
+
+
+def test_unsupported_tagged_literal_raises() -> None:
+    with pytest.raises(EdnReadError, match="tagged literals"):
+        read_edn('#inst "2026-01-01"')
+
+
+def test_unterminated_string_raises() -> None:
+    with pytest.raises(EdnReadError, match="unterminated"):
+        read_edn('"oops')
+
+
+def test_read_edn_all() -> None:
+    from scripts._edn_reader import read_edn_all
+    src = ":foo :bar :baz"
+    out = read_edn_all(src)
+    assert out == [Keyword("foo"), Keyword("bar"), Keyword("baz")]

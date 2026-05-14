@@ -7,8 +7,10 @@ with new sorts and rules, run it end-to-end, and feed its verdict into
 verifier at `verifiers/bermuda/`.
 
 Conceptual overview lives in `docs/concepts/neurosym-forge.md`. Read it
-first if you have not already. The recipe scaffolds a non-book
-verifier (chemistry, legal, math) with one flag toggled.
+first if you have not already. The same recipe scaffolds a non-book
+verifier (chemistry, legal, math) with one flag toggled; the worked
+example at `skills/neurosym-forge/references/worked-examples/osmotic-pressure/README.md`
+walks through the chemistry case end to end.
 
 ---
 

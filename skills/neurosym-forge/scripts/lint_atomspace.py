@@ -39,14 +39,14 @@ def _collect_sort_strings(s: Any) -> set[str]:
     return out
 
 
-def _walk_atom_sorts(payload: dict[str, Any], collect: set[str]) -> None:
+def walk_atom_sorts(payload: dict[str, Any], collect: set[str]) -> None:
     if "sort" in payload:
         collect |= _collect_sort_strings(payload["sort"])
     if "head" in payload and isinstance(payload["head"], dict):
-        _walk_atom_sorts(payload["head"], collect)
+        walk_atom_sorts(payload["head"], collect)
     for a in payload.get("args", []) or []:
         if isinstance(a, dict):
-            _walk_atom_sorts(a, collect)
+            walk_atom_sorts(a, collect)
 
 
 def lint_atomspace(payload: dict[str, Any]) -> LintReport:
@@ -75,7 +75,7 @@ def lint_atomspace(payload: dict[str, Any]) -> LintReport:
             report.errors.append(f"atoms[{i}]: {e}")
             continue
         referenced: set[str] = set()
-        _walk_atom_sorts(raw, referenced)
+        walk_atom_sorts(raw, referenced)
         for s in referenced:
             if s.startswith(":") and s not in known_primitives:
                 report.errors.append(
@@ -93,8 +93,8 @@ def lint_atomspace(payload: dict[str, Any]) -> LintReport:
         except ValueError as e:
             report.errors.append(f"rules[{i}] {rule.id}: {e}")
         referenced: set[str] = set()
-        _walk_atom_sorts(raw["lhs"], referenced)
-        _walk_atom_sorts(raw["rhs"], referenced)
+        walk_atom_sorts(raw["lhs"], referenced)
+        walk_atom_sorts(raw["rhs"], referenced)
         for s in referenced:
             if s.startswith(":") and s not in known_primitives:
                 report.errors.append(f"rules[{i}] {rule.id}: unknown sort {s!r}")

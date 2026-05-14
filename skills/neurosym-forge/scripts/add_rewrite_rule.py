@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts._io import read_edn_as_json, write_json_as_edn, file_checksum
-from scripts.lint_atomspace import _walk_atom_sorts
+from scripts.lint_atomspace import walk_atom_sorts
 from scripts.rewrite_rule import RewriteRule
 from scripts.sort_registry import SortRegistry
 
@@ -16,8 +16,8 @@ from scripts.sort_registry import SortRegistry
 def _validate_against_registry(rule_payload: dict[str, Any], registry: SortRegistry) -> None:
     primitives = {s.value for s in registry._sorts if isinstance(s.value, str)}
     referenced: set[str] = set()
-    _walk_atom_sorts(rule_payload["lhs"], referenced)
-    _walk_atom_sorts(rule_payload["rhs"], referenced)
+    walk_atom_sorts(rule_payload["lhs"], referenced)
+    walk_atom_sorts(rule_payload["rhs"], referenced)
     unknown = {s for s in referenced if s.startswith(":") and s not in primitives}
     if unknown:
         raise ValueError(f"unknown sort(s): {sorted(unknown)}")

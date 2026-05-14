@@ -72,3 +72,15 @@ def test_rejects_duplicate(tmp_path: Path) -> None:
         add_grounded_atom(project, project_slug="demo",
                           name=":my-fn", lib="custom", fn="my_fn",
                           sort={"kind": "fn", "args": [":atom"], "ret": ":verdict"})
+
+
+def test_appends_mod_when_no_anchor(tmp_path: Path) -> None:
+    project = _seed(tmp_path)
+    # Strip the `mod ir;` anchor before calling.
+    lib_rs = project / "rust-verifier" / "src" / "lib.rs"
+    lib_rs.write_text("#![deny(clippy::all)]\nuse napi_derive::napi;\n", encoding="utf-8")
+    add_grounded_atom(project, project_slug="demo",
+                      name=":my-fn", lib="custom", fn="my_fn",
+                      sort={"kind": "fn", "args": [":atom"], "ret": ":verdict"})
+    text = lib_rs.read_text(encoding="utf-8")
+    assert "mod custom;" in text

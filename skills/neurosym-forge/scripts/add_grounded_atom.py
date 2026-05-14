@@ -56,7 +56,7 @@ def add_grounded_atom(
 
     rs_path = project_root / "rust-verifier" / "src" / f"{lib}.rs"
     if not rs_path.exists():
-        rs_path.write_text(f"// grounded atoms for lib={lib}\n", encoding="utf-8")
+        rs_path.write_text(f"// grounded atoms for lib={lib}\n", encoding="utf-8", newline="\n")
     arg_sig, ret_sig = _napi_arg_types(sort)
     rs_path.write_text(
         rs_path.read_text(encoding="utf-8")
@@ -69,14 +69,18 @@ def add_grounded_atom(
             f"}}\n"
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
     lib_rs = project_root / "rust-verifier" / "src" / "lib.rs"
     text = lib_rs.read_text(encoding="utf-8")
     mod_line = f"mod {lib};"
     if mod_line not in text:
-        text = re.sub(r"(mod ir;)", r"\1\n" + mod_line, text, count=1)
-        lib_rs.write_text(text, encoding="utf-8")
+        if "mod ir;" in text:
+            text = re.sub(r"(mod ir;)", r"\1\n" + mod_line, text, count=1)
+        else:
+            text = text.rstrip() + "\n" + mod_line + "\n"
+        lib_rs.write_text(text, encoding="utf-8", newline="\n")
 
     bridge_path = (
         project_root / "cljs-orchestrator" / "src" / "main" / project_slug / "bridge.cljs"
@@ -86,7 +90,7 @@ def add_grounded_atom(
         f"\n(defn {fn.replace('_', '-')} [edn-arg]\n"
         f"  (native/{_camel_case(fn)} edn-arg))\n"
     )
-    bridge_path.write_text(bridge_text, encoding="utf-8")
+    bridge_path.write_text(bridge_text, encoding="utf-8", newline="\n")
 
     checksums_path = project_root / "rules" / ".checksums.edn"
     checksums = read_edn_as_json(checksums_path)["checksums"] if checksums_path.exists() else {}

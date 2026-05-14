@@ -1,7 +1,7 @@
 # neurosym-forge — Design
 
 Date: 2026-05-13
-Author: Charles (with Claude)
+Author: Charles
 Status: Draft, pending user approval
 
 ## Problem

@@ -35,3 +35,18 @@ def test_negation_affirmation_template_silent_on_clean():
     findings = lint_ai_staccato(FIXTURES / "negation_affirmation_clean.md")
     hits = [f for f in findings if f["rule"] == "negation-affirmation-template"]
     assert hits == []
+
+
+def test_this_is_conclusion_overuse_fires():
+    from scripts.lint_ai_staccato import lint_ai_staccato
+    findings = lint_ai_staccato(FIXTURES / "this_is_stacking.md")
+    hits = [f for f in findings if f["rule"] == "this-is-conclusion-overuse"]
+    assert hits, "expected this-is-conclusion-overuse to fire"
+    assert hits[0]["match_count"] >= 3
+
+
+def test_this_is_conclusion_overuse_silent_on_clean():
+    from scripts.lint_ai_staccato import lint_ai_staccato
+    findings = lint_ai_staccato(FIXTURES / "this_is_stacking_clean.md")
+    hits = [f for f in findings if f["rule"] == "this-is-conclusion-overuse"]
+    assert hits == []

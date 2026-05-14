@@ -145,6 +145,54 @@ def _negation_affirmation_template(paragraphs: list[tuple[int, str]], cfg: dict)
     }]
 
 
+_THIS_IS_RE = re.compile(r"^\s*(?:This|It|These|Those)\s+(?:is|are|was|were)\b", re.IGNORECASE)
+
+
+def _this_is_conclusion_overuse(paragraphs: list[tuple[int, str]], cfg: dict) -> list[dict]:
+    """Flag windows where many paragraphs end on a 'This is …' / 'It is …' sentence."""
+    window = cfg["this_is_window"]
+    min_hits = cfg["this_is_min"]
+    matches: list[int] = []
+    for start_line, text in paragraphs:
+        sents = _sentences(text)
+        if not sents:
+            continue
+        last = sents[-1]
+        if _THIS_IS_RE.match(last):
+            matches.append(start_line)
+    if not matches:
+        return []
+    findings: list[dict] = []
+    for i in range(len(matches)):
+        run = [m for m in matches[i:]
+               if _paragraph_distance(matches[i], m, paragraphs) < window]
+        if len(run) >= min_hits:
+            findings.append({
+                "rule": "this-is-conclusion-overuse",
+                "tier": "important",
+                "severity": "advisory",
+                "line": run[0],
+                "match_count": len(run),
+                "match_lines": run,
+                "message": (
+                    f"{len(run)} paragraphs in a {window}-paragraph window end "
+                    "on a 'This is …' / 'It is …' conclusion. Replace with a "
+                    "consequence-carrying sentence."
+                ),
+            })
+            break
+    return findings
+
+
+def _paragraph_distance(line_a: int, line_b: int, paragraphs: list[tuple[int, str]]) -> int:
+    """Number of paragraphs between two paragraphs identified by their start lines."""
+    idx_a = next((i for i, (l, _) in enumerate(paragraphs) if l == line_a), -1)
+    idx_b = next((i for i, (l, _) in enumerate(paragraphs) if l == line_b), -1)
+    if idx_a < 0 or idx_b < 0:
+        return 99999
+    return abs(idx_b - idx_a)
+
+
 def lint_ai_staccato(path: Path) -> list[dict]:
     text = load_markdown(path)
     paras = _paragraphs(text)
@@ -152,6 +200,7 @@ def lint_ai_staccato(path: Path) -> list[dict]:
     findings: list[dict] = []
     findings.extend(_staccato_paragraph_run(paras, cfg))
     findings.extend(_negation_affirmation_template(paras, cfg))
+    findings.extend(_this_is_conclusion_overuse(paras, cfg))
     return findings
 
 

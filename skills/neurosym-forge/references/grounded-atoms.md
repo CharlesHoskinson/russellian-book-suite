@@ -41,3 +41,16 @@ Every grounded atom is typed. The argument shape is currently always `String` ov
 - `custom` — anything else
 
 Adding a new library is just a new module file in `rust-verifier/src/` and a `mod` declaration.
+
+## The axioms hook (v0.3+)
+
+The scaffolded `rust-verifier/src/axioms.rs` ships a no-op `assert_axioms(ctx, solver)`
+that the SMT walk in `smt.rs` calls before any per-atom tracked assertions. Projects
+install hard constraints by replacing the body. Example: a chemistry domain might
+assert `R = 8.314` as a Z3 constant; a book domain (like Bermuda) asserts each
+canonical fact from `canonical-facts.md`.
+
+Reference implementation: `verifiers/bermuda/rust-verifier/src/canonical.rs` ships
+`assert_bermuda_axioms` and the `assert_tracked_atom` helper. The Bermuda project's
+`axioms.rs` is a thin re-export shim so `crate::axioms::assert_axioms` resolves to
+the bermuda-specific implementation.

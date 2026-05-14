@@ -5,7 +5,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from scripts.atom import Atom
+from scripts.atom import Atom, _normalize
+from scripts.sort_registry import _dict_get
 
 ID_PATTERN = re.compile(r"^R[0-9]{3,}$")
 
@@ -20,27 +21,30 @@ class RewriteRule:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "RewriteRule":
-        rid = payload.get("id", "")
+        rid = _normalize(_dict_get(payload, "id") or "")
         if not ID_PATTERN.match(rid):
             raise ValueError(f"rule id must match R[0-9]{{3,}}, got {rid!r}")
+        lhs_raw = _dict_get(payload, "lhs")
+        rhs_raw = _dict_get(payload, "rhs")
         return cls(
             id=rid,
-            lhs=Atom.from_dict(payload["lhs"]),
-            rhs=Atom.from_dict(payload["rhs"]),
-            doc=payload.get("doc"),
-            tags=list(payload.get("tags", [])),
+            lhs=Atom.from_dict(lhs_raw),
+            rhs=Atom.from_dict(rhs_raw),
+            doc=_normalize(_dict_get(payload, "doc")),
+            tags=list(_dict_get(payload, "tags") or []),
         )
 
     def to_dict(self) -> dict[str, Any]:
-        out: dict[str, Any] = {
-            "id": self.id,
-            "lhs": self.lhs.to_dict(),
-            "rhs": self.rhs.to_dict(),
+        from scripts._edn_reader import Keyword
+        out: dict[Any, Any] = {
+            Keyword("id"): self.id,
+            Keyword("lhs"): self.lhs.to_dict(),
+            Keyword("rhs"): self.rhs.to_dict(),
         }
         if self.doc is not None:
-            out["doc"] = self.doc
+            out[Keyword("doc")] = self.doc
         if self.tags:
-            out["tags"] = list(self.tags)
+            out[Keyword("tags")] = list(self.tags)
         return out
 
     def check_variable_balance(self) -> None:

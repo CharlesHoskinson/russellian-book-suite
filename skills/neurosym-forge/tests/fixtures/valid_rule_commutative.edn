@@ -1,13 +1,11 @@
-{
-  "id": "R001",
-  "lhs": {"kind": "expression", "sort": ":real",
-          "head": {"kind": "symbol", "name": ":+", "sort": {"kind": "fn", "args": [":real", ":real"], "ret": ":real"}},
-          "args": [{"kind": "variable", "name": "?a", "sort": ":real"},
-                   {"kind": "variable", "name": "?b", "sort": ":real"}]},
-  "rhs": {"kind": "expression", "sort": ":real",
-          "head": {"kind": "symbol", "name": ":+", "sort": {"kind": "fn", "args": [":real", ":real"], "ret": ":real"}},
-          "args": [{"kind": "variable", "name": "?b", "sort": ":real"},
-                   {"kind": "variable", "name": "?a", "sort": ":real"}]},
-  "doc": "commutativity of addition",
-  "tags": ["algebraic", "commutative"]
-}
+{:id "R001"
+ :lhs {:kind :expression :sort :real
+       :head {:kind :symbol :name :+ :sort {:kind :fn :args [:real :real] :ret :real}}
+       :args [{:kind :variable :name "?a" :sort :real}
+              {:kind :variable :name "?b" :sort :real}]}
+ :rhs {:kind :expression :sort :real
+       :head {:kind :symbol :name :+ :sort {:kind :fn :args [:real :real] :ret :real}}
+       :args [{:kind :variable :name "?b" :sort :real}
+              {:kind :variable :name "?a" :sort :real}]}
+ :doc "commutativity of addition"
+ :tags ["algebraic" "commutative"]}

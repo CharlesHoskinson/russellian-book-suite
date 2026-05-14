@@ -7,25 +7,29 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from scripts._io import read_edn_as_json, write_json_as_edn, file_checksum
+from scripts._edn_reader import Keyword
+from scripts._io import read_edn_file, write_edn_file, file_checksum
 from scripts.sort_registry import Sort, SortRegistry
+
+SORTS_KEY = Keyword("sorts")
+CHECKSUMS_KEY = Keyword("checksums")
 
 
 def add_sort(project_root: Path, sort_value: Any) -> None:
     seed = project_root / "rules" / "seed.edn"
-    payload = read_edn_as_json(seed)
-    registry = SortRegistry.from_dict({"sorts": payload.get("sorts", [])})
+    payload = read_edn_file(seed)
+    registry = SortRegistry.from_dict({SORTS_KEY: payload.get(SORTS_KEY, [])})
     new_sort = Sort.from_value(sort_value)
     if registry.contains(new_sort):
         raise ValueError(f"sort already present: {new_sort}")
     registry.add(new_sort)
-    payload["sorts"] = [s.value for s in registry._sorts]
-    write_json_as_edn(seed, payload)
+    payload[SORTS_KEY] = registry.to_edn_sorts()
+    write_edn_file(seed, payload)
 
     checksums_path = project_root / "rules" / ".checksums.edn"
-    checksums = read_edn_as_json(checksums_path)["checksums"] if checksums_path.exists() else {}
+    checksums = read_edn_file(checksums_path)[CHECKSUMS_KEY] if checksums_path.exists() else {}
     checksums["seed.edn"] = file_checksum(seed)
-    write_json_as_edn(checksums_path, {"checksums": checksums})
+    write_edn_file(checksums_path, {CHECKSUMS_KEY: checksums})
 
 
 def main(argv: list[str]) -> int:

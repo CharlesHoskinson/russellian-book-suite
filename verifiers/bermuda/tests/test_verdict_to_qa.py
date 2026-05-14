@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
+from scripts._edn_reader import Keyword
+from scripts._io import write_edn_file
 from scripts.verdict_to_qa import translate
+
+_KW_VERSION = Keyword("version")
+_KW_VERDICT = Keyword("verdict")
+_KW_CORE = Keyword("core")
+_KW_REASON = Keyword("reason")
 
 
 def test_sat_emits_empty_defects(fixtures_dir: Path, tmp_path: Path) -> None:
@@ -32,9 +39,12 @@ def test_missing_input_raises(tmp_path: Path) -> None:
 
 def test_unknown_verdict_is_logged_not_gated(tmp_path: Path) -> None:
     inp = tmp_path / "unknown.edn"
-    inp.write_text(json.dumps({"version": 1, "verdict": "unknown",
-                               "core": [], "reason": "smt timeout"}),
-                   encoding="utf-8")
+    write_edn_file(inp, {
+        _KW_VERSION: 1,
+        _KW_VERDICT: Keyword("unknown"),
+        _KW_CORE: [],
+        _KW_REASON: "smt timeout",
+    })
     out = tmp_path / "verification-defects.json"
     translate(inp, out)
     payload = json.loads(out.read_text(encoding="utf-8"))

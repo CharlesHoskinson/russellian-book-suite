@@ -1,6 +1,4 @@
-{
-  "version": 1,
-  "verdict": "sat",
-  "core": [],
-  "verified_count": 12
-}
+{:version 1
+ :verdict :sat
+ :core []
+ :verified-count 12}

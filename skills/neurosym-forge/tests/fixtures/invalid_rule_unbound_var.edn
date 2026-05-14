@@ -1,8 +1,6 @@
-{
-  "id": "R002",
-  "lhs": {"kind": "expression", "sort": ":real",
-          "head": {"kind": "symbol", "name": ":f", "sort": {"kind": "fn", "args": [":real"], "ret": ":real"}},
-          "args": [{"kind": "variable", "name": "?x", "sort": ":real"}]},
-  "rhs": {"kind": "variable", "name": "?y", "sort": ":real"},
-  "doc": "broken: ?y is free on rhs but not lhs"
-}
+{:id "R002"
+ :lhs {:kind :expression :sort :real
+       :head {:kind :symbol :name :f :sort {:kind :fn :args [:real] :ret :real}}
+       :args [{:kind :variable :name "?x" :sort :real}]}
+ :rhs {:kind :variable :name "?y" :sort :real}
+ :doc "broken: ?y is free on rhs but not lhs"}

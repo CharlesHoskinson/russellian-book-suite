@@ -9,7 +9,10 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from scripts._io import file_checksum, write_json_as_edn
+from scripts._edn_reader import Keyword
+from scripts._io import file_checksum, write_edn_file
+
+CHECKSUMS_KEY = Keyword("checksums")
 
 FORGE_VERSION = "0.1.0"
 SLUG_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -87,7 +90,7 @@ def scaffold_project(
         if p.name.startswith("."):
             continue
         checksums[p.name] = file_checksum(p)
-    write_json_as_edn(out_dir / "rules" / ".checksums.edn", {"checksums": checksums})
+    write_edn_file(out_dir / "rules" / ".checksums.edn", {CHECKSUMS_KEY: checksums})
 
 
 def main(argv: list[str]) -> int:

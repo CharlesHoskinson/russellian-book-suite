@@ -5,39 +5,61 @@ from pathlib import Path
 
 import pytest
 
-from scripts._io import read_edn_as_json, write_json_as_edn
+from scripts._edn_reader import Keyword
+from scripts._io import read_edn_file, write_edn_file
 from scripts.add_rewrite_rule import add_rewrite_rule
 
+ID_KEY = Keyword("id")
+RULES_KEY = Keyword("rules")
+CHECKSUMS_KEY = Keyword("checksums")
+KIND_KEY = Keyword("kind")
+SORT_KEY = Keyword("sort")
+NAME_KEY = Keyword("name")
+HEAD_KEY = Keyword("head")
+ARGS_KEY = Keyword("args")
+LHS_KEY = Keyword("lhs")
+RHS_KEY = Keyword("rhs")
+DOC_KEY = Keyword("doc")
+RET_KEY = Keyword("ret")
+
 RULE = {
-    "id": "R001",
-    "lhs": {"kind": "expression", "sort": ":real",
-            "head": {"kind": "symbol", "name": ":+",
-                     "sort": {"kind": "fn", "args": [":real", ":real"], "ret": ":real"}},
-            "args": [{"kind": "variable", "name": "?a", "sort": ":real"},
-                     {"kind": "variable", "name": "?b", "sort": ":real"}]},
-    "rhs": {"kind": "expression", "sort": ":real",
-            "head": {"kind": "symbol", "name": ":+",
-                     "sort": {"kind": "fn", "args": [":real", ":real"], "ret": ":real"}},
-            "args": [{"kind": "variable", "name": "?b", "sort": ":real"},
-                     {"kind": "variable", "name": "?a", "sort": ":real"}]},
-    "doc": "commutative",
+    ID_KEY: "R001",
+    LHS_KEY: {KIND_KEY: Keyword("expression"), SORT_KEY: Keyword("real"),
+              HEAD_KEY: {KIND_KEY: Keyword("symbol"), NAME_KEY: Keyword("+"),
+                         SORT_KEY: {Keyword("kind"): Keyword("fn"),
+                                    Keyword("args"): [Keyword("real"), Keyword("real")],
+                                    Keyword("ret"): Keyword("real")}},
+              ARGS_KEY: [{KIND_KEY: Keyword("variable"), NAME_KEY: "?a", SORT_KEY: Keyword("real")},
+                         {KIND_KEY: Keyword("variable"), NAME_KEY: "?b", SORT_KEY: Keyword("real")}]},
+    RHS_KEY: {KIND_KEY: Keyword("expression"), SORT_KEY: Keyword("real"),
+              HEAD_KEY: {KIND_KEY: Keyword("symbol"), NAME_KEY: Keyword("+"),
+                         SORT_KEY: {Keyword("kind"): Keyword("fn"),
+                                    Keyword("args"): [Keyword("real"), Keyword("real")],
+                                    Keyword("ret"): Keyword("real")}},
+              ARGS_KEY: [{KIND_KEY: Keyword("variable"), NAME_KEY: "?b", SORT_KEY: Keyword("real")},
+                         {KIND_KEY: Keyword("variable"), NAME_KEY: "?a", SORT_KEY: Keyword("real")}]},
+    DOC_KEY: "commutative",
 }
 
 
 def _seed(tmp_path: Path) -> Path:
     (tmp_path / "rules").mkdir()
     (tmp_path / "tests" / "rules").mkdir(parents=True)
-    write_json_as_edn(tmp_path / "rules" / "seed.edn",
-                      {"version": 1, "sorts": [":real"], "rules": [], "atoms": []})
-    write_json_as_edn(tmp_path / "rules" / ".checksums.edn", {"checksums": {}})
+    write_edn_file(tmp_path / "rules" / "seed.edn", {
+        Keyword("version"): 1,
+        Keyword("sorts"): [Keyword("real")],
+        RULES_KEY: [],
+        Keyword("atoms"): [],
+    })
+    write_edn_file(tmp_path / "rules" / ".checksums.edn", {CHECKSUMS_KEY: {}})
     return tmp_path
 
 
 def test_appends_rule_and_fixture(tmp_path: Path) -> None:
     project = _seed(tmp_path)
     add_rewrite_rule(project, RULE)
-    payload = read_edn_as_json(project / "rules" / "seed.edn")
-    assert any(r["id"] == "R001" for r in payload["rules"])
+    payload = read_edn_file(project / "rules" / "seed.edn")
+    assert any(r.get(ID_KEY) == "R001" for r in payload[RULES_KEY])
     assert (project / "tests" / "rules" / "test_R001.cljs").exists()
 
 
@@ -51,9 +73,9 @@ def test_rejects_duplicate_id(tmp_path: Path) -> None:
 def test_validates_variable_balance(tmp_path: Path) -> None:
     project = _seed(tmp_path)
     bad = {
-        "id": "R002",
-        "lhs": {"kind": "variable", "name": "?x", "sort": ":real"},
-        "rhs": {"kind": "variable", "name": "?y", "sort": ":real"},
+        ID_KEY: "R002",
+        LHS_KEY: {KIND_KEY: Keyword("variable"), NAME_KEY: "?x", SORT_KEY: Keyword("real")},
+        RHS_KEY: {KIND_KEY: Keyword("variable"), NAME_KEY: "?y", SORT_KEY: Keyword("real")},
     }
     with pytest.raises(ValueError, match="unbound"):
         add_rewrite_rule(project, bad)
@@ -61,15 +83,17 @@ def test_validates_variable_balance(tmp_path: Path) -> None:
 
 def test_rejects_unknown_sort(tmp_path: Path) -> None:
     project = _seed(tmp_path)
-    rule = dict(RULE, id="R003")
-    rule["lhs"] = dict(rule["lhs"], sort=":nonexistent")
+    rule = dict(RULE)
+    rule[ID_KEY] = "R003"
+    rule[LHS_KEY] = dict(rule[LHS_KEY])
+    rule[LHS_KEY][SORT_KEY] = Keyword("nonexistent")
     with pytest.raises(ValueError, match="unknown sort"):
         add_rewrite_rule(project, rule)
 
 
 def test_rejects_corrupt_seed(tmp_path: Path) -> None:
     project = _seed(tmp_path)
-    (project / "rules" / "seed.edn").write_text("not json", encoding="utf-8")
+    (project / "rules" / "seed.edn").write_text("not edn !!!", encoding="utf-8")
     with pytest.raises(ValueError, match="seed"):
         add_rewrite_rule(project, RULE)
 
@@ -77,5 +101,5 @@ def test_rejects_corrupt_seed(tmp_path: Path) -> None:
 def test_updates_checksum(tmp_path: Path) -> None:
     project = _seed(tmp_path)
     add_rewrite_rule(project, RULE)
-    checksums = read_edn_as_json(project / "rules" / ".checksums.edn")["checksums"]
+    checksums = read_edn_file(project / "rules" / ".checksums.edn")[CHECKSUMS_KEY]
     assert "seed.edn" in checksums

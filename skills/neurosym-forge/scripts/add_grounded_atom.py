@@ -8,8 +8,16 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from scripts._io import read_edn_as_json, write_json_as_edn, file_checksum
+from scripts._edn_reader import Keyword
+from scripts._io import read_edn_file, write_edn_file, file_checksum
 from scripts.sort_registry import Sort
+
+GROUNDED_KEY = Keyword("grounded")
+KIND_KEY = Keyword("kind")
+NAME_KEY = Keyword("name")
+SORT_KEY = Keyword("sort")
+DOC_KEY = Keyword("doc")
+CHECKSUMS_KEY = Keyword("checksums")
 
 NAPI_LIBS = {"z3", "egg", "cozo", "tectonic", "custom"}
 _FN_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
@@ -43,19 +51,19 @@ def add_grounded_atom(
     Sort.from_value(sort)  # validate shape
 
     grounded_path = project_root / "rules" / "grounded.edn"
-    payload = read_edn_as_json(grounded_path)
-    if any(g["name"] == name for g in payload.get("grounded", [])):
+    payload = read_edn_file(grounded_path)
+    if any(g[NAME_KEY] == name for g in payload.get(GROUNDED_KEY, [])):
         raise ValueError(f"duplicate grounded atom: {name}")
-    record: dict[str, Any] = {
-        "kind": "grounded",
-        "name": name,
-        "sort": sort,
-        "grounded": {"lib": lib, "fn": fn, "napi": True},
+    record: dict[Any, Any] = {
+        KIND_KEY: Keyword("grounded"),
+        NAME_KEY: name,
+        SORT_KEY: sort,
+        GROUNDED_KEY: {Keyword("lib"): lib, Keyword("fn"): fn, Keyword("napi"): True},
     }
     if doc:
-        record["doc"] = doc
-    payload.setdefault("grounded", []).append(record)
-    write_json_as_edn(grounded_path, payload)
+        record[DOC_KEY] = doc
+    payload.setdefault(GROUNDED_KEY, []).append(record)
+    write_edn_file(grounded_path, payload)
 
     rs_path = project_root / "rust-verifier" / "src" / f"{lib}.rs"
     if not rs_path.exists():
@@ -67,7 +75,7 @@ def add_grounded_atom(
             f"\n\n#[napi_derive::napi]\n"
             f"pub fn {fn}({arg_sig}) -> {ret_sig} {{\n"
             f"    // TODO ({name}): implement against {lib} backend.\n"
-            f"    // Sort: {json.dumps(sort)}\n"
+            f"    // Sort: {sort!r}\n"
             f"    todo!()\n"
             f"}}\n"
         ),
@@ -110,9 +118,9 @@ def add_grounded_atom(
     fixture.write_text(fixture_text, encoding="utf-8", newline="\n")
 
     checksums_path = project_root / "rules" / ".checksums.edn"
-    checksums = read_edn_as_json(checksums_path)["checksums"] if checksums_path.exists() else {}
+    checksums = read_edn_file(checksums_path)[CHECKSUMS_KEY] if checksums_path.exists() else {}
     checksums["grounded.edn"] = file_checksum(grounded_path)
-    write_json_as_edn(checksums_path, {"checksums": checksums})
+    write_edn_file(checksums_path, {CHECKSUMS_KEY: checksums})
 
 
 def main(argv: list[str]) -> int:

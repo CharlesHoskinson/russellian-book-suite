@@ -58,6 +58,32 @@ def test_real_personas_load():
     real = load_all()
     ids = [p.persona_id for p in real]
     assert sorted(ids) == sorted([
-        "copyeditor", "domain-expert", "enjoyment-reader",
+        "ai-slop-detector", "copyeditor", "domain-expert",
+        "enjoyment-reader", "first-time-visitor",
         "gottlieb", "lay-reader",
     ])
+
+
+def test_ai_slop_detector_persona_loads():
+    """Ai-slop-detector persona is shipped in personas/."""
+    from scripts.persona_loader import load_persona
+    p = load_persona("ai-slop-detector")
+    assert p.persona_id == "ai-slop-detector"
+    assert p.display_name == "AI-Slop Detector"
+    assert "humanizer" in p.body_md.lower()
+    assert "Wikipedia" in p.body_md
+    assert "## Severity rubric" in p.body_md
+    assert "Critical" in p.body_md
+    assert "Important" in p.body_md
+    assert "Minor" in p.body_md
+
+
+def test_first_time_visitor_persona_loads():
+    """First-time-visitor persona is shipped in personas/."""
+    from scripts.persona_loader import load_persona
+    p = load_persona("first-time-visitor")
+    assert p.persona_id == "first-time-visitor"
+    assert p.display_name == "First-Time Visitor"
+    assert "30 second" in p.body_md.lower() or "thirty second" in p.body_md.lower()
+    assert "## Severity rubric" in p.body_md
+    assert "timeline" in p.body_md.lower()

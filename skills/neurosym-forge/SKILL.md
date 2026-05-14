@@ -24,7 +24,7 @@ The authoring skill for neurosymbolic verification projects in CLJS + Rust. Prod
 ## What it does NOT own
 
 - Source ingestion or claim extraction (book-knowledge)
-- Running shadow-cljs or cargo builds (handled by the scaffolded project)
+- Shadow-cljs or cargo builds (handled by the scaffolded project)
 - Prose synthesis (book-compose)
 - Editorial review (book-review)
 - Defect QA (book-qa)

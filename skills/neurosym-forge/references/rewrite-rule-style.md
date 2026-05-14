@@ -22,7 +22,7 @@ Do not embed proofs in the doc string. The fixture test is the proof.
 - `:eliminating` — lhs introduces variables unused on rhs (allowed)
 - `:domain-<name>` — domain-specific group
 
-Tag liberally; tags drive future rule indexing.
+Tag with one or more groups; the linter uses tags to filter and the scaffolder uses them to organize rule files.
 
 ## Fixture test
 

@@ -105,8 +105,8 @@ The skill's central conceptual contribution is the mapping table below, encoded 
 
 | MeTTa form | Semantics | Encoding in scaffolded CLJS + Rust |
 |---|---|---|
-| `(= lhs rhs)` | Equality declaration; defines `lhs` as rewritable to `rhs` | `meander.epsilon/rewrite` clause pair in `nl_to_fol.cljs`; the equality is stored as an EDN record `{:= [lhs rhs] :doc "..." :id ...}` so the skill can introspect and version rule sets |
-| `(: x T)` | Type declaration: atom `x` has sort `T` | Every atom in EDN carries `:sort` (one of `:int`, `:real`, `:bool`, `:entity`, `(:fn [args] ret)`, `(:enum kw+)`); malli `m/=>` schemas enforce sorts at function boundaries |
+| `(= lhs rhs)` | Function expression; `lhs` is a recognition template, `rhs` is the body | `meander.epsilon/rewrite` clause pair in `nl_to_fol.cljs`; stored as a flat EDN rule record `{:id "R001" :lhs ... :rhs ... :doc "..." :tags #{...}}` so the skill can introspect and version rule sets |
+| `(: x T)` | Type assignment: atom `x` has sort `T` | Every atom in EDN carries `:sort` (one of `:int`, `:real`, `:bool`, `:entity`, `(:fn [args] ret)`, `(:enum kw+)`); malli `m/=>` schemas enforce sorts at function boundaries |
 | `!expr` | Force-evaluate `expr` now (do not store as data) | EDN metadata `^:force` on an atom; the CLJS phase driver evaluates immediately and replaces the atom in-place with the result |
 | `(match $space pattern template)` | Query the atomspace and project results through a template | core.logic `run*` over a cozo Datalog query (the atomspace is the cozo store), then meander template substitution |
 | `(superpose (a b c))` | Non-deterministic choice: produce three branches | CLJS `lazy-seq` of alternatives; each branch is sent to Rust as a separate `assert_and_track` block with a distinct branch tracker |
@@ -126,6 +126,9 @@ skills/neurosym-forge/
 ├── pyproject.toml                        Python 3.13, scripts are Python
 ├── scripts/
 │   ├── __init__.py
+│   ├── atom.py                           atom record dataclass and validators
+│   ├── rewrite_rule.py                   rule record dataclass and variable-balance checks
+│   ├── sort_registry.py                  sort registry load/validate/extend
 │   ├── scaffold_project.py               emits the full CLJS+Rust skeleton
 │   ├── add_rewrite_rule.py               appends a (=) rule, validates sorts
 │   ├── add_grounded_atom.py              emits a #[napi] fn + CLJS bridge stub
@@ -133,7 +136,7 @@ skills/neurosym-forge/
 │   ├── lint_atomspace.py                 every atom has :sort; no unbound vars
 │   ├── lint_rewrite_coverage.py          every rule has a fixture test
 │   ├── render_call_graph.py              ASCII diagram of phase boundaries
-│   └── verify_claims.py                  convenience wrapper: build + run
+│   └── verify_claims.py                  prints npm run build + node verify commands
 ├── references/                           progressive disclosure
 │   ├── metta-idioms.md                   the mapping table above, with examples
 │   ├── atomspace-edn.md                  the EDN-as-atomspace IR
@@ -142,7 +145,7 @@ skills/neurosym-forge/
 │   ├── rewrite-rule-style.md             naming, doc, fixture conventions
 │   └── worked-examples/
 │       ├── osmotic-pressure/             the clojure.md example, regenerated
-│       └── claim-ledger-bridge/          verify book-knowledge claims
+│       └── claim-ledger-bridge/          verify book-knowledge claims — v0.2 only
 ├── assets/
 │   ├── project-template/                 the scaffolded skeleton
 │   │   ├── shadow-cljs.edn.tmpl
@@ -249,7 +252,7 @@ Linting:
 - `render_call_graph.py` — ASCII diagram of Claude↔CLJS↔Rust phase boundaries
 
 Convenience:
-- `verify_claims.py` — wraps `npm run build && node ... verify` for the scaffolded project
+- `verify_claims.py` — prints `npm run build && node ... verify` for the scaffolded project
 
 ## Composes with
 
@@ -321,14 +324,13 @@ This shape is enforced by `lint_atomspace.py` and the JSON Schemas in `assets/sc
 
 ## Rewrite rule shape
 
-A rewrite rule is an expression atom whose head is `:=`:
+A rewrite rule is a flat record stored in `rules/*.edn`:
 
 ```clojure
-{:kind :expression
- :head {:kind :symbol :name := :sort :rule}
- :args [<lhs-atom> <rhs-atom>]
+{:id   "R001"
+ :lhs  <lhs-form>
+ :rhs  <rhs-form>
  :doc  "comment for humans"
- :id   "R001"
  :tags #{:algebraic :commutative}}
 ```
 
@@ -357,15 +359,11 @@ The skill is self-reflective in the MeTTa sense: the rule set itself is data, ed
 
 ## Composition with existing skills
 
-### book-knowledge bridge
+### book-knowledge bridge — v0.2 only
 
-A scaffolded project can consume `claims/ledger.jsonl`. The bridge is a Python helper in `scripts/ingest_ledger.py` (inside the scaffolded project, not the skill) that:
+The book-knowledge bridge (`scripts/ingest_ledger.py` inside the scaffolded project, `--book-knowledge-bridge` flag on `scaffold_project`) is **deferred to v0.2**. The `references/worked-examples/claim-ledger-bridge/` worked example is likewise deferred. Neither is wired in v0.1. See the v0.2 notes under "What this skill does NOT ship in v0.1".
 
-- Reads claims via `book-knowledge.scripts.io_utils.read_jsonl`
-- Filters to `:tbf:status :verified` claims
-- Emits `work/atomspace.edn` with one expression atom per claim, sort-annotated from the claim's `:p` predicate via a project-local predicate-to-sort map
-
-`neurosym-forge.scripts.scaffold_project` accepts a `--book-knowledge-bridge` flag that emits this helper and adds the project-local predicate map to `rules/predicates.edn`.
+The intended design: a Python helper reads `claims/ledger.jsonl` via `book-knowledge.scripts.io_utils.read_jsonl`, filters to `:tbf:status :verified` claims, and emits `work/atomspace.edn` with one expression atom per claim, sort-annotated from the claim's `:p` predicate via a project-local predicate-to-sort map.
 
 ### book-qa D13
 
@@ -398,6 +396,7 @@ The skill follows the same Anthropic best practices as the other skills in the s
 - A second SMT solver (cvc5) — the skill emits Z3-only stubs. cvc5 second-opinion mode is a v0.2 target.
 - Lean / Coq proof export — out of scope.
 - A `book-thesis` integration — deferred to v0.2.
+- The book-knowledge bridge (`--book-knowledge-bridge` flag, `scripts/ingest_ledger.py`, `references/worked-examples/claim-ledger-bridge/`) — deferred to v0.2.
 - An automatic re-run loop when the verifier returns `:unsat` — the skill emits the scaffolding for it, but the loop is in the scaffolded project, not the skill. The skill itself is stateless.
 
 ## Open questions

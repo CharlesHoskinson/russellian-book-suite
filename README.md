@@ -115,6 +115,18 @@ Each skill is a self-contained Claude Code skill at `skills/<name>/` with its ow
 
 Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest tests/ -q` from a skill directory.
 
+## Verifiers (optional)
+
+Neurosymbolic verifier projects scaffolded by `neurosym-forge`. Each
+`verifiers/<slug>/` is a CLJS+Rust project that ingests a book workspace's
+claim ledger plus chapter prose and reports logical contradictions as
+`book-qa` defect class D13. The scaffold is opt-in per workspace via
+`examples/<workspace>/qa-config.yaml: enable_verification: true`.
+
+| Verifier | For workspace | Status |
+|---|---|---|
+| [`verifiers/bermuda/`](verifiers/bermuda/README.md) | `examples/bermuda-manual/` | v0.1 — Python helpers + Z3 axioms shipped; full CLJS+Rust build manual |
+
 The skills compose by shared workspace, not by direct API call. Each skill owns a subtree and treats the others as read-only inputs:
 
 ```

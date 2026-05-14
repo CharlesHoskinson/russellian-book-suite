@@ -11,7 +11,7 @@ metadata:
 
 # neurosym-forge
 
-The authoring skill for neurosymbolic verification projects in CLJS + Rust. Produces project skeletons, rewrite rules, grounded-atom modules, and IR linters. Encodes MeTTa idioms as authoring conventions.
+The authoring skill for neurosymbolic verification projects in CLJS + Rust. Produces project skeletons, rewrite rules, grounded-atom modules, and IR linters. Encodes MeTTa idioms as authoring conventions. v0.3 adds an `axioms.rs` hook contract so scaffolded projects can install Z3 hard constraints before per-atom verification, makes the `tectonic` dep optional (build with `--features pdf` to include PDF rendering), and accepts relative `--out` paths with `..` segments that resolve under the current working directory.
 
 ## What it owns
 

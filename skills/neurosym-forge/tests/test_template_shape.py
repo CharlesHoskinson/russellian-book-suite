@@ -114,3 +114,34 @@ def test_ir_template_verdict_uses_edn_not_serde_json() -> None:
     # The return-trip verdict serialization must not use serde_json::to_string
     assert "serde_json::to_string" not in text, \
         "ir.rs.tmpl emit_verdict must use EDN emission, not serde_json::to_string"
+
+
+# ----------------------------------------------------------------- BookLogic templates
+
+BOOKLOGIC_TMPL = TEMPLATE_ROOT / "cljs-orchestrator" / "src" / "main" / "__project__" / "booklogic.cljs.tmpl"
+BOOKLOGIC_TEST_TMPL = TEMPLATE_ROOT / "cljs-orchestrator" / "src" / "test" / "__project__" / "booklogic_test.cljs.tmpl"
+
+
+def test_booklogic_template_exists() -> None:
+    assert BOOKLOGIC_TMPL.exists()
+
+
+def test_booklogic_test_template_exists() -> None:
+    assert BOOKLOGIC_TEST_TMPL.exists()
+
+
+def test_booklogic_template_has_main() -> None:
+    text = BOOKLOGIC_TMPL.read_text(encoding="utf-8")
+    assert "(defn -main" in text, "booklogic.cljs.tmpl must declare a -main CLI entry"
+
+
+def test_booklogic_template_dispatches_three_forms() -> None:
+    text = BOOKLOGIC_TMPL.read_text(encoding="utf-8")
+    for sym in ("defsort", "defpredicate", "deflift"):
+        assert sym in text, f"booklogic.cljs.tmpl must reference {sym!r}"
+
+
+def test_booklogic_template_emits_predicates_edn() -> None:
+    text = BOOKLOGIC_TMPL.read_text(encoding="utf-8")
+    assert "emit-predicates-edn" in text
+    assert "writeFileSync" in text, "booklogic.cljs.tmpl must write predicates.edn to disk"

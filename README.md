@@ -58,8 +58,10 @@ The fix is not a smarter prompt. The fix is a pipeline that separates fact inges
    ┌──────────────────────────────────────────────┐
    │  2. AUTHOR + STYLE                            │
    │  book-compose  →  russellian-style            │
-   │  per-section: hedges · passive · density ·    │
-   │  parallel · rhythm · listicle  →  humanizer   │
+   │  prose_mode (technical · narrative · polemic) │
+   │  loads the matching system prompt             │
+   │  per-section: 6 negative linters + 5 vitality │
+   │  linters  →  humanizer                        │
    └──────────────────┬────────────────────────────┘
                       │ chapter-NN.md
                       ▼
@@ -105,7 +107,7 @@ Each skill is a self-contained Claude Code skill at `skills/<name>/` with its ow
 | Skill | Stage | What it does |
 |---|---|---|
 | [`book-knowledge`](skills/book-knowledge/SKILL.md) | 1 — ingest | Reads source PDFs and Markdown, extracts claims with PROV-O provenance, projects them into an RDF graph, validates the graph with SHACL, runs competency queries, manages the append-only ledger, propagates Bayesian belief across the provenance DAG |
-| [`russellian-style`](skills/russellian-style/SKILL.md) | 2 — style | Sentence-grain prose linters: hedges, passive voice, signal density, parallel structure, rhythm, listicle abstraction. Drawn from Russell's analytic style |
+| [`russellian-style`](skills/russellian-style/SKILL.md) | 2 — style | Sentence-grain prose discipline. Six negative linters (hedges, passive voice, signal density, parallel structure, rhythm, listicle abstraction) plus a vitality layer of five advisory linters (burstiness, AI vocabulary, concrete instance density, epistemic precision, paragraph motion). Ships a 50-paragraph Russell corpus index for retrieval, three mode-keyed system prompts for the drafter, and a positive-doctrine vitality guide |
 | [`book-compose`](skills/book-compose/SKILL.md) | 2 + 4 — author + compile | Chapter orchestrator. Reads the contract, slices the claim ledger, generates an outline and section drafts, applies russellian-style and humanizer per section, assembles the book release (Markdown + React/Tailwind HTML + Playwright PDF) |
 | [`book-review`](skills/book-review/SKILL.md) | 3 — review | Seven editorial personas with markdown role descriptions: Gottlieb (cadence, AI sloppy), Lay Reader (accessibility), Domain Expert (facts), Copyeditor (mechanics), Enjoyment Reader (momentum), AI-Slop Detector (24-pattern Wikipedia catalog), First-Time Visitor (30-second drive-by) |
 | [`review-conductor`](skills/review-conductor/SKILL.md) | 3 — review orchestration | Reads a panel YAML, calls book-review's dispatch primitives, applies per-persona severity gates (gating vs advisory), aggregates findings, emits `panel-review.md` + `verdict.json` |
@@ -321,7 +323,7 @@ with a typical AI-generated version of the same idea:
 
 The Russell version has zero hedges, zero promotional adjectives, an active verb in each clause, and a closing turn the reader could not have predicted. The AI version has three of the suite's hard-blocked patterns in one sentence: AI vocabulary (*leverage*, *navigate*, *transformative*), a superficial -ing analysis (*ensuring readers undergo...*), and a paragraph that does not earn its place.
 
-The principles translate into six deterministic linters. Each linter takes a markdown file and emits a JSON report; `russellian-style/scripts/` also ships two infrastructure modules (`lint_common.py` for sentence iteration and `style_pass_report.py` for the aggregated report), which is why the skill carries eight scripts rather than six.
+The principles translate into deterministic linters. Each linter takes a Markdown file and emits a JSON report.
 
 | Linter | What it catches |
 |---|---|
@@ -332,7 +334,33 @@ The principles translate into six deterministic linters. Each linter takes a mar
 | `lint_sentence_rhythm.py` | Sentence-length variance and cadence defects (e.g., five consecutive sentences with word counts within three of each other) |
 | `lint_listicle_abstract.py` | Abstract-noun listicles masquerading as argument (*rests on N premises*, *consists of N components*) |
 
-A Russell pass produces `style-pass-report.md` with per-rule findings and a single pass/fail verdict against configurable thresholds. `book-compose` invokes the linters after each section draft; the `humanizer` sibling skill runs an AI-fingerprint sweep afterwards to catch what the deterministic rules cannot.
+#### The vitality layer
+
+The six linters above describe the patterns to remove. Russell's prose has a second, harder dimension: motion. The vitality layer adds five advisory linters that detect the absence of motion rather than the presence of bloat. They land *advisory* in v1 — they surface in the report but do not block release — until a calibration study correlates their findings with the persona panel's verdicts.
+
+| Linter | What it measures |
+|---|---|
+| `lint_burstiness.py` | Sentence-length variance via Fano factor. Flags the AI signature band where every sentence falls between twelve and seventeen words |
+| `lint_ai_vocabulary.py` | False certainty (*clearly*, *obviously*), magic adverbs (*quietly*, *deeply*, *seamlessly*), transition-adverb starters (*moreover*, *furthermore*). Delegates to the `humanizer` skill's twenty-four-pattern catalog when present |
+| `lint_concrete_instance_density.py` | spaCy NER per paragraph plus an occupational-noun matcher (*the official*, *the censor*, *the worker*). Flags three or more consecutive paragraphs with zero concrete instances |
+| `lint_epistemic_precision.py` | Three-tier classifier: banned vague (*perhaps*, *arguably*), allowed bounded (*within five percent*, *under condition Y*), required uncertainty (numeric specificity without a source attribution) |
+| `lint_paragraph_motion.py` | Per-paragraph shape rubric (assertion-only, concession-turn, contrast, definition-by-pressure, question-answer, example-inference). Flags the flat axiom stack where seventy percent or more of paragraphs are pure assertion |
+
+When a vitality linter fires, the report retrieves one paragraph reference from a fifty-paragraph index of public-domain Russell texts at `skills/russellian-style/references/russell-corpus-map.md` — same rhetorical mode as the flagged section, returned as a citation plus a one-sentence calibration lesson. The retrieval primitive never loads the full paragraph text; the reader retrieves the source from Project Gutenberg if they want the passage in front of them.
+
+#### Mode-keyed system prompts
+
+`book-compose`'s drafter loads a system prompt matching the chapter contract's `prose_mode` field. Three prompts ship in `skills/russellian-style/assets/system-prompts/`:
+
+- `technical-exposition.md` — chapters that explain, define, or argue from evidence. Default.
+- `narrative-editorial.md` — narrative chapters and book introductions; room for hyperbaton, conjunction-starts, and concrete sensory anchors.
+- `polemic.md` — op-ed-style work; antithesis-led, sharper turns, dry irony where compression earns it.
+
+Each prompt declares banned-word registries, structural mandates, preferred rhetorical devices, and closing rules adapted from the PDF *"AI Prose: From Terseness to Cadence"* with Russell-specific overlays.
+
+A Russell pass produces `style-pass-report.md` with per-rule findings, a `vitality_metrics` block, and one or more corpus anchors when vitality linters fire. `book-compose` invokes the negative linters after each section draft; the vitality linters run on the assembled chapter; the `humanizer` sibling skill catches what the deterministic rules cannot.
+
+The positive doctrine companion to the negative-rules guide lives at `skills/russellian-style/references/russellian-vitality-guide.md`. Six rules: open with a difficulty not a system noun; concrete examples earn abstractions; permit exact uncertainty; antithesis to expose distinction; vary paragraph motion; let the last sentence change pressure.
 
 ### The thesis tree
 
@@ -584,7 +612,7 @@ After these commands you should see:
 - `graph/dataset.trig` with the projected RDF graph
 - `graph/reports/shacl-latest.txt` reporting `shacl_conforms: True`
 
-Now write a chapter contract at `chapters/contracts/ch-01.yaml` listing the topic, must-include claims, must-not-do constraints, evidence requirements, and acceptance thresholds. Then in Claude Code: `"draft chapter ch-01"`. The orchestrator runs stages 1-7 of the pipeline and writes `chapters/drafts/ch-01/draft.md`.
+Now write a chapter contract at `chapters/contracts/ch-01.yaml` listing the topic, must-include claims, must-not-do constraints, evidence requirements, and acceptance thresholds. The contract may declare an optional `prose_mode` field (one of `technical-exposition`, `narrative-editorial`, or `polemic`; defaults to `technical-exposition`); `book-compose`'s drafter loads the matching system prompt from `russellian-style/assets/system-prompts/` and passes it to the LLM as the system message. Then in Claude Code: `"draft chapter ch-01"`. The orchestrator runs stages 1-7 of the pipeline and writes `chapters/drafts/ch-01/draft.md`.
 
 When all chapters pass: `"build the book release v1.0"`. `book-compose` assembles the manuscript, renders the React/Tailwind HTML browser, prints the PDF via Playwright's bundled Chromium, and hands off to `book-qa` for the release gate.
 
@@ -692,12 +720,14 @@ Design specs in `docs/specs/`:
 - `2026-05-11-book-thesis-v6-design.md` — `book-thesis` four-layer metabook reasoning
 - `2026-05-11-bundle-c-closed-loop-ledger-design.md` — closed-loop ledger with abductive counter-claims and Bayesian propagation
 - `2026-05-13-review-conductor-design.md` — multi-panel review orchestration
+- `2026-05-14-russellian-vitality-design.md` — vitality layer for russellian-style: five advisory linters, corpus retrieval, mode-keyed system prompts
 
 Implementation plans in `docs/plans/`:
 
 - `2026-05-10-book-craft-v4-and-bermuda-regen.md` — 28-task TDD plan
 - `2026-05-11-bundle-c-closed-loop-ledger.md` — 30-task TDD plan
 - `2026-05-13-review-conductor-and-personas.md` — review-conductor + personas + outcomes
+- `2026-05-14-russellian-vitality.md` — vitality-layer TDD plan, 14 tasks across 5 phases
 
 Operator runbooks in `docs/operations/`:
 

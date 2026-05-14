@@ -1,0 +1,20 @@
+//! Project-specific axioms. Override this file (or replace with a
+//! domain-specific module like `canonical.rs`) to assert hard constraints
+//! before the per-atom tracked assertions in `smt::check_all`.
+//!
+//! The default ships a no-op so a freshly-scaffolded project compiles
+//! and verifies trivially (all-Sat) until the project author writes
+//! its axioms.
+
+#[cfg(feature = "smt")]
+use z3::{Context, Solver};
+
+#[cfg(feature = "smt")]
+pub fn assert_axioms(_ctx: &Context, _solver: &Solver) {
+    // No-op default. Domain-specific verifiers replace this body.
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn assert_axioms() {
+    // No-op default for builds without the smt feature.
+}

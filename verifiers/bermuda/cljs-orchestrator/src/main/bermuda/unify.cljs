@@ -1,0 +1,8 @@
+(ns bermuda.unify
+  "core.logic-based variable unification across atoms."
+  (:require [clojure.core.logic :as l]))
+
+(defn unify-atoms [a b]
+  (l/run* [q]
+    (l/== a b)
+    (l/== q [a b])))

@@ -4,12 +4,26 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from scripts.sort_registry import Sort
+from scripts.sort_registry import Sort, _dict_get, _kw_str
+
+
+def _normalize(value: Any) -> Any:
+    """Accept either a string or a Keyword; return the canonical form.
+
+    For PR-1, the canonical form keeps the existing dataclass fields as
+    strings so external callers comparing atom.kind == ":symbol" keep
+    working. Keyword inputs from EDN are converted to their string
+    representation via str(keyword).
+    """
+    from scripts._edn_reader import Keyword
+    if isinstance(value, Keyword):
+        return str(value)
+    return value
 
 
 @dataclass
 class Atom:
-    kind: str  # "symbol" | "variable" | "grounded" | "expression"
+    kind: str  # ":symbol" | ":variable" | ":grounded" | ":expression"
     sort: Sort
     name: Optional[str] = None
     grounded: Optional[dict[str, Any]] = None
@@ -20,75 +34,108 @@ class Atom:
     tags: list[str] = field(default_factory=list)
     force: bool = False
 
-    VALID_KINDS = ("symbol", "variable", "grounded", "expression")
+    VALID_KINDS = (":symbol", ":variable", ":grounded", ":expression")
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Atom":
-        if "kind" not in payload:
+        kind_raw = _dict_get(payload, "kind")
+        if kind_raw is None:
             raise ValueError("atom missing 'kind'")
-        if payload["kind"] not in cls.VALID_KINDS:
-            raise ValueError(f"unknown atom kind: {payload['kind']!r}")
-        if "sort" not in payload:
+        kind = _normalize(kind_raw)
+        if kind not in cls.VALID_KINDS:
+            raise ValueError(f"unknown atom kind: {kind!r}")
+
+        sort_raw = _dict_get(payload, "sort")
+        if sort_raw is None:
             raise ValueError("atom missing 'sort'")
-        kind = payload["kind"]
-        sort = Sort.from_value(payload["sort"])
-        if kind == "symbol":
-            name = payload.get("name")
-            if name is None:
+        sort = Sort.from_value(sort_raw)
+
+        if kind == ":symbol":
+            name_raw = _dict_get(payload, "name")
+            if name_raw is None:
                 raise ValueError("symbol atom requires 'name'")
-            return cls(kind="symbol", sort=sort, name=name,
-                       doc=payload.get("doc"), id=payload.get("id"),
-                       tags=list(payload.get("tags", [])),
-                       force=bool(payload.get("force", False)))
-        if kind == "variable":
-            name = payload.get("name", "")
+            name = _normalize(name_raw)
+            return cls(kind=":symbol", sort=sort, name=name,
+                       doc=_dict_get(payload, "doc"),
+                       id=_dict_get(payload, "id"),
+                       tags=list(_dict_get(payload, "tags") or []),
+                       force=bool(_dict_get(payload, "force") or False))
+        if kind == ":variable":
+            name_raw = _dict_get(payload, "name") or ""
+            name = _normalize(name_raw) if name_raw else ""
             if not name.startswith("?"):
                 raise ValueError(f"variable name must start with '?', got {name!r}")
-            return cls(kind="variable", sort=sort, name=name)
-        if kind == "grounded":
-            g = payload.get("grounded")
-            if not g or "lib" not in g or "fn" not in g:
+            return cls(kind=":variable", sort=sort, name=name)
+        if kind == ":grounded":
+            g_raw = _dict_get(payload, "grounded")
+            if not g_raw or _dict_get(g_raw, "lib") is None or _dict_get(g_raw, "fn") is None:
                 raise ValueError("grounded atom requires {'grounded': {'lib', 'fn'}}")
-            return cls(kind="grounded", sort=sort, name=payload.get("name"),
-                       grounded=dict(g),
-                       doc=payload.get("doc"), id=payload.get("id"),
-                       tags=list(payload.get("tags", [])),
-                       force=bool(payload.get("force", False)))
-        if kind == "expression":
-            if "head" not in payload or "args" not in payload:
+            # Normalise grounded sub-dict to string keys for internal storage
+            g = {
+                "lib": _normalize(_dict_get(g_raw, "lib")),
+                "fn": _normalize(_dict_get(g_raw, "fn")),
+            }
+            napi = _dict_get(g_raw, "napi")
+            if napi is not None:
+                g["napi"] = napi
+            name_raw = _dict_get(payload, "name")
+            name = _normalize(name_raw) if name_raw is not None else None
+            return cls(kind=":grounded", sort=sort, name=name,
+                       grounded=g,
+                       doc=_dict_get(payload, "doc"),
+                       id=_dict_get(payload, "id"),
+                       tags=list(_dict_get(payload, "tags") or []),
+                       force=bool(_dict_get(payload, "force") or False))
+        if kind == ":expression":
+            head_raw = _dict_get(payload, "head")
+            args_raw = _dict_get(payload, "args")
+            if head_raw is None or args_raw is None:
                 raise ValueError("expression atom requires 'head' and 'args'")
-            return cls(kind="expression", sort=sort,
-                       head=Atom.from_dict(payload["head"]),
-                       args=[Atom.from_dict(a) for a in payload["args"]],
-                       doc=payload.get("doc"), id=payload.get("id"),
-                       tags=list(payload.get("tags", [])),
-                       force=bool(payload.get("force", False)))
+            return cls(kind=":expression", sort=sort,
+                       head=Atom.from_dict(head_raw),
+                       args=[Atom.from_dict(a) for a in args_raw],
+                       doc=_dict_get(payload, "doc"),
+                       id=_dict_get(payload, "id"),
+                       tags=list(_dict_get(payload, "tags") or []),
+                       force=bool(_dict_get(payload, "force") or False))
         raise ValueError(f"unhandled kind {kind!r}")
 
     def to_dict(self) -> dict[str, Any]:
-        out: dict[str, Any] = {"kind": self.kind, "sort": self.sort.value}
+        from scripts._edn_reader import Keyword
+        from scripts.sort_registry import _sort_value_to_edn
+        # kind stored as ":symbol" → emit as Keyword("symbol")
+        kind_val = Keyword(self.kind[1:]) if self.kind.startswith(":") else self.kind
+        sort_val = _sort_value_to_edn(self.sort.value)
+        out: dict[Any, Any] = {Keyword("kind"): kind_val, Keyword("sort"): sort_val}
         if self.name is not None:
-            out["name"] = self.name
+            # name may be ":osmotic-pressure" (a keyword) or "?a" (a string variable)
+            name_val = (Keyword(self.name[1:]) if isinstance(self.name, str) and self.name.startswith(":")
+                        else self.name)
+            out[Keyword("name")] = name_val
         if self.grounded is not None:
-            out["grounded"] = dict(self.grounded)
+            # grounded sub-dict: convert to Keyword keys
+            g: dict[Any, Any] = {}
+            for k, v in self.grounded.items():
+                g[Keyword(k)] = v
+            out[Keyword("grounded")] = g
         if self.head is not None:
-            out["head"] = self.head.to_dict()
+            out[Keyword("head")] = self.head.to_dict()
         if self.args:
-            out["args"] = [a.to_dict() for a in self.args]
+            out[Keyword("args")] = [a.to_dict() for a in self.args]
         if self.doc is not None:
-            out["doc"] = self.doc
+            out[Keyword("doc")] = self.doc
         if self.id is not None:
-            out["id"] = self.id
+            out[Keyword("id")] = self.id
         if self.tags:
-            out["tags"] = list(self.tags)
+            out[Keyword("tags")] = list(self.tags)
         if self.force:
-            out["force"] = True
+            out[Keyword("force")] = True
         return out
 
-    def is_symbol(self) -> bool:     return self.kind == "symbol"
-    def is_variable(self) -> bool:   return self.kind == "variable"
-    def is_grounded(self) -> bool:   return self.kind == "grounded"
-    def is_expression(self) -> bool: return self.kind == "expression"
+    def is_symbol(self) -> bool:     return self.kind == ":symbol"
+    def is_variable(self) -> bool:   return self.kind == ":variable"
+    def is_grounded(self) -> bool:   return self.kind == ":grounded"
+    def is_expression(self) -> bool: return self.kind == ":expression"
 
     def free_variables(self) -> set[str]:
         if self.is_variable():

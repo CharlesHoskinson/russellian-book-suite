@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts._io import read_edn_as_json
+from scripts._edn_reader import Keyword
+from scripts._io import read_edn_file
 from scripts.scaffold_project import scaffold_project
 
 
@@ -68,9 +69,10 @@ def test_forge_version_recorded(tmp_project_root: Path, skill_root: Path) -> Non
         out_dir=tmp_project_root,
         skill_root=skill_root,
     )
-    payload = read_edn_as_json(tmp_project_root / "rules" / ".forge-version.edn")
-    assert "neurosym_forge_version" in payload
-    assert payload["neurosym_forge_version"].startswith("0.1")
+    payload = read_edn_file(tmp_project_root / "rules" / ".forge-version.edn")
+    version_key = Keyword("neurosym_forge_version")
+    assert version_key in payload
+    assert payload[version_key].startswith("0.1")
 
 
 def test_refuses_to_overwrite(tmp_project_root: Path, skill_root: Path) -> None:

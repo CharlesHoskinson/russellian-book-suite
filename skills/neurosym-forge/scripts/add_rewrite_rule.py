@@ -7,18 +7,33 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from scripts._io import read_edn_as_json, write_json_as_edn, file_checksum
+from scripts._edn_reader import Keyword
+from scripts._io import read_edn_file, write_edn_file, file_checksum
 from scripts.lint_atomspace import walk_atom_sorts
 from scripts.rewrite_rule import RewriteRule
 from scripts.sort_registry import SortRegistry
 
+SORTS_KEY = Keyword("sorts")
+RULES_KEY = Keyword("rules")
+CHECKSUMS_KEY = Keyword("checksums")
+ID_KEY = Keyword("id")
+LHS_KEY = Keyword("lhs")
+RHS_KEY = Keyword("rhs")
+DOC_KEY = Keyword("doc")
+TAGS_KEY = Keyword("tags")
+
 
 def _validate_against_registry(rule_payload: dict[str, Any], registry: SortRegistry) -> None:
     primitives = {s.value for s in registry._sorts if isinstance(s.value, str)}
-    referenced: set[str] = set()
-    walk_atom_sorts(rule_payload["lhs"], referenced)
-    walk_atom_sorts(rule_payload["rhs"], referenced)
-    unknown = {s for s in referenced if s.startswith(":") and s not in primitives}
+    referenced: set[Any] = set()
+    walk_atom_sorts(rule_payload[LHS_KEY], referenced)
+    walk_atom_sorts(rule_payload[RHS_KEY], referenced)
+    # Each referenced sort may be a string ":foo" or a Keyword; normalise to string for comparison
+    unknown = set()
+    for s in referenced:
+        s_str = str(s) if hasattr(s, "name") else s
+        if isinstance(s_str, str) and s_str.startswith(":") and s_str not in primitives:
+            unknown.add(s_str)
     if unknown:
         raise ValueError(f"unknown sort(s): {sorted(unknown)}")
 
@@ -26,21 +41,21 @@ def _validate_against_registry(rule_payload: dict[str, Any], registry: SortRegis
 def add_rewrite_rule(project_root: Path, rule_payload: dict[str, Any]) -> None:
     seed = project_root / "rules" / "seed.edn"
     try:
-        payload = read_edn_as_json(seed)
+        payload = read_edn_file(seed)
     except Exception as exc:
         raise ValueError(f"cannot parse seed at {seed}: {exc}") from exc
-    registry = SortRegistry.from_dict({"sorts": payload.get("sorts", [])})
+    registry = SortRegistry.from_dict({SORTS_KEY: payload.get(SORTS_KEY, [])})
     _validate_against_registry(rule_payload, registry)
 
     rule = RewriteRule.from_dict(rule_payload)
     rule.check_variable_balance()
 
-    rules = payload.get("rules", [])
-    if any(r.get("id") == rule.id for r in rules):
+    rules = payload.get(RULES_KEY, [])
+    if any(r.get(ID_KEY) == rule.id for r in rules):
         raise ValueError(f"duplicate rule id: {rule.id}")
     rules.append(rule.to_dict())
-    payload["rules"] = rules
-    write_json_as_edn(seed, payload)
+    payload[RULES_KEY] = rules
+    write_edn_file(seed, payload)
 
     fixture_dir = project_root / "tests" / "rules"
     fixture_dir.mkdir(parents=True, exist_ok=True)
@@ -48,9 +63,9 @@ def add_rewrite_rule(project_root: Path, rule_payload: dict[str, Any]) -> None:
     fixture.write_text(_fixture_text(rule), encoding="utf-8", newline="\n")
 
     checksums_path = project_root / "rules" / ".checksums.edn"
-    checksums = read_edn_as_json(checksums_path)["checksums"] if checksums_path.exists() else {}
+    checksums = read_edn_file(checksums_path)[CHECKSUMS_KEY] if checksums_path.exists() else {}
     checksums["seed.edn"] = file_checksum(seed)
-    write_json_as_edn(checksums_path, {"checksums": checksums})
+    write_edn_file(checksums_path, {CHECKSUMS_KEY: checksums})
 
 
 def _fixture_text(rule: RewriteRule) -> str:

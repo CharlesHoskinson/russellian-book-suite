@@ -27,11 +27,11 @@ Total: 62
 
 ## Integration smoke (manual)
 
-Scaffolded `C:\Users\charl\AppData\Local\Temp\_int_smoke_osmotic` with neurosym-forge v0.1.0.
-- scaffold_project: PASS
-- add_sort ":molarity": PASS
-- lint_atomspace: PASS
-- lint_rewrite_coverage: PASS
+Scaffolded `_int_smoke_osmotic` with neurosym-forge v0.1.0 (slug: osmotic_pressure).
+- scaffold_project: PASS — `package.json` present
+- add_sort ":molarity": PASS — sort appended to `rules/seed.edn`
+- lint_atomspace: PASS — `OK: atomspace ... passes (0 atoms, 0 rules)`
+- lint_rewrite_coverage: PASS — `OK: rule coverage ... is clean`
 
 Did not run `npm install` / `npm run build` — CLJS+Rust toolchain
 verification is deferred to a follow-up plan.

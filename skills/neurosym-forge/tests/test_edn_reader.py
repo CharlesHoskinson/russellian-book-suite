@@ -95,8 +95,8 @@ def test_read_line_comment() -> None:
 
 
 def test_unsupported_tagged_literal_raises() -> None:
-    with pytest.raises(EdnReadError, match="tagged literals"):
-        read_edn('#inst "2026-01-01"')
+    with pytest.raises(EdnReadError, match="unknown tag"):
+        read_edn('#uuid "550e8400-e29b-41d4-a716-446655440000"')
 
 
 def test_unterminated_string_raises() -> None:

@@ -10,9 +10,8 @@
 //! `parse_formulas` returns one `(ClaimId, edn_rs::Edn)` per atom;
 //! `smt::check_all` does typed dispatch on the Edn value.
 //!
-//! NOTE: `emit_verdict` still uses serde_json for PR-1 because the CLJS bridge
-//! reads the verdict as JSON. PR-2 will switch verdict emission to EDN so that
-//! CLJS can read keywords correctly.
+//! `emit_verdict` produces hand-rolled EDN so the CLJS bridge receives real
+//! keywords on the return trip.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -80,8 +79,25 @@ pub fn parse_formulas(edn: &str) -> Result<Vec<(ClaimId, Atom)>, Error> {
     Ok(out)
 }
 
-/// Serialize the verdict back to JSON for the CLJS bridge.
-/// PR-2 will replace this with EDN emission so keywords survive the round-trip.
+/// Emit the verdict as an EDN map so the CLJS bridge receives real keywords.
 pub fn emit_verdict(v: &Verdict) -> String {
-    serde_json::to_string(v).unwrap_or_else(|_| "{\"status\":\"unknown\"}".to_string())
+    let mut out = String::from("{:status :");
+    out.push_str(&v.status);
+    out.push_str(" :core [");
+    for (i, claim_id) in v.core.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push('"');
+        out.push_str(&edn_escape(claim_id));
+        out.push('"');
+    }
+    out.push_str("] :explanation \"");
+    out.push_str(&edn_escape(&v.explanation));
+    out.push_str("\"}");
+    out
+}
+
+fn edn_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
 }

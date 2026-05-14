@@ -67,9 +67,12 @@ def lint_concrete_instance_density(path: Path) -> list[dict]:
             if run_start is None:
                 run_start = i
             if i - run_start + 1 >= 3 and not flagged:
+                # All vitality linters advisory in v1; tier records internal
+                # strength for the report, severity stays advisory.
                 findings.append({
                     "rule": "concrete-instance-density",
-                    "severity": "important",
+                    "tier": "important",
+                    "severity": "advisory",
                     "run_start_paragraph": run_start,
                     "run_length": i - run_start + 1,
                     "message": (

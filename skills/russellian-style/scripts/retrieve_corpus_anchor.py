@@ -97,6 +97,12 @@ def retrieve_anchor(
     rng = random.Random(seed)
     chosen = rng.choice(in_mode)
     source = sources.get(chosen["source"], {})
+    # Note: calibration_lesson defaults to rhetorical_move because the
+    # corpus JSON does not yet ship a separate calibration_lesson column
+    # (the corpus-map.md narrative does; the JSON does not). The duplication
+    # is intentional until the corpus index gains its own calibration field;
+    # the loader presents both keys so downstream consumers can swap to the
+    # column the moment it exists without a code change.
     return ExemplarRef(
         corpus_id=chosen["id"],
         source_title=source.get("title", ""),

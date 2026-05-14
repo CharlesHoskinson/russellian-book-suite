@@ -54,13 +54,16 @@ def lint_epistemic_precision(path: Path) -> list[dict]:
     banned_re = _banned_vague_pattern()
     for sentence in iter_sentences(text):
         for m in banned_re.finditer(sentence.text):
+            # All vitality linters advisory in v1; tier records the internal
+            # strength of the finding for the report.
             findings.append({
                 "rule": "epistemic-precision",
                 "category": "banned_vague",
                 "phrase": m.group(1),
                 "sentence": sentence.text,
                 "line": getattr(sentence, "line", 0),
-                "severity": "important",
+                "tier": "important",
+                "severity": "advisory",
             })
 
     sentences = list(iter_sentences(text))

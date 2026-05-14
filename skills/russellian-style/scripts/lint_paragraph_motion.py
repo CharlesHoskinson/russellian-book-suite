@@ -87,9 +87,11 @@ def lint_paragraph_motion(path: Path) -> list[dict]:
 
     findings: list[dict] = []
     if flat_prop > 0.70:
+        # All vitality linters advisory in v1.
         findings.append({
             "rule": "paragraph-motion",
-            "severity": "important",
+            "tier": "important",
+            "severity": "advisory",
             "flat_proportion": round(flat_prop, 3),
             "shape_distribution": {
                 s: shapes.count(s) for s in SHAPES if shapes.count(s) > 0

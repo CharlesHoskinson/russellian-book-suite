@@ -69,3 +69,43 @@ def test_build_report_still_works_unchanged(tmp_path):
     report_md = build_report(_write(tmp_path, text))
     assert isinstance(report_md, str)
     assert len(report_md) > 0
+
+
+def test_report_dict_has_positive_checks_block(tmp_path):
+    from scripts.style_pass_report import generate_report_dict
+    sample = tmp_path / "draft.md"
+    sample.write_text(
+        "The ledger records claims, but the act of recording is more than a list — every "
+        "entry carries a date, a source, and a state.\n\n"
+        "A graph projects relations from those claims, and the projection is where "
+        "contradictions surface that the prose would otherwise hide.\n",
+        encoding="utf-8",
+    )
+    report = generate_report_dict(sample)
+    assert "positive_checks" in report
+    pc = report["positive_checks"]
+    for key in (
+        "sentence_length_fano",
+        "paragraph_shape_diversity",
+        "concession_turn_count",
+        "concrete_instance_count",
+        "template_repetition_rate",
+    ):
+        assert key in pc, f"missing positive check: {key}"
+    assert pc["concession_turn_count"] >= 1
+
+
+def test_report_dict_includes_ai_staccato_findings(tmp_path):
+    from scripts.style_pass_report import generate_report_dict
+    sample = tmp_path / "staccato.md"
+    sample.write_text(
+        "The ledger records claims. It tracks every change.\n\n"
+        "The graph holds relations. It projects them from claims.\n\n"
+        "The validator checks shapes. It rejects malformed input.\n\n"
+        "The report names defects. It links each one to a source.\n",
+        encoding="utf-8",
+    )
+    report = generate_report_dict(sample)
+    finds = [f for f in report["findings"]
+             if f.get("finding", {}).get("rule") == "staccato-paragraph-run"]
+    assert finds, "expected ai_staccato findings to appear in report dict"

@@ -7,6 +7,7 @@ tokens and humanizer fingerprint metrics.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 from dataclasses import dataclass, field
@@ -46,6 +47,22 @@ def _read_persona_severity_counts(review_path: Path) -> tuple[int, int, int]:
     )
 
 
+def _read_verdict_counts(verdict_path: Path) -> tuple[int, int, int, int]:
+    """Read review-conductor's verdict.json. Returns (gating_crit, advisory_crit, important, minor).
+
+    Only counts criticals that come from gating personas; advisory criticals
+    surface in the report but do not block. Important and minor are summed
+    across all personas.
+    """
+    data = json.loads(verdict_path.read_text(encoding="utf-8"))
+    gating_crit = int(data.get("gating_criticals", 0))
+    advisory_crit = int(data.get("advisory_criticals", 0))
+    per_persona = data.get("per_persona", {})
+    important = sum(int(stats.get("important", 0)) for stats in per_persona.values())
+    minor = sum(int(stats.get("minor", 0)) for stats in per_persona.values())
+    return gating_crit, advisory_crit, important, minor
+
+
 def _compute_persona_metrics(draft_path: Path) -> dict:
     workspace_root = _find_workspace_root_from_draft(draft_path)
     if workspace_root is None:
@@ -57,7 +74,25 @@ def _compute_persona_metrics(draft_path: Path) -> dict:
         }
 
     chapter_id = draft_path.parent.name
-    review_path = workspace_root / "chapters" / "drafts" / chapter_id / "persona-review.md"
+    chapter_dir = workspace_root / "chapters" / "drafts" / chapter_id
+
+    # Prefer review-conductor's verdict.json (per-persona gating split) over
+    # the legacy persona-review.md uniform count.
+    verdict_path = chapter_dir / "verdict.json"
+    if verdict_path.is_file() and verdict_path.stat().st_mtime >= draft_path.stat().st_mtime:
+        gating, advisory, important, minor = _read_verdict_counts(verdict_path)
+        return {
+            # Only gating criticals soft-gate; advisory criticals surface separately.
+            "persona_critical_count": gating,
+            "persona_advisory_critical_count": advisory,
+            "persona_important_count": important,
+            "persona_minor_count": minor,
+            "persona_reviews_complete": True,
+        }
+
+    review_path = chapter_dir / "panel-review.md"
+    if not review_path.exists():
+        review_path = chapter_dir / "persona-review.md"
     if not review_path.exists():
         return {
             "persona_critical_count": 0,

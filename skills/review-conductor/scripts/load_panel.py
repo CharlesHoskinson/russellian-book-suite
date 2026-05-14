@@ -50,9 +50,21 @@ class Panel:
 
 
 def load_panel(path: Path) -> Panel:
-    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    path = Path(path).resolve()
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     jsonschema.validate(instance=raw, schema=PANEL_SCHEMA)
     outcomes_raw = raw.get("outcomes") or {"exemplar_paths": [], "per_persona_exemplars": 0}
+    # Resolve relative exemplar paths against the panel YAML's directory so
+    # the chapter-default panel's `../book-review/references/outcomes/...`
+    # works regardless of the caller's CWD.
+    panel_dir = path.parent
+    raw_paths = outcomes_raw.get("exemplar_paths", [])
+    resolved_paths: list[str] = []
+    for p in raw_paths:
+        candidate = Path(p)
+        if not candidate.is_absolute():
+            candidate = (panel_dir / candidate).resolve()
+        resolved_paths.append(str(candidate))
     return Panel(
         panel_id=raw["panel_id"],
         artifact_scope=raw["artifact_scope"],
@@ -70,7 +82,7 @@ def load_panel(path: Path) -> Panel:
             soft_gate_rule=raw["verdict"]["soft_gate_rule"],
         ),
         outcomes=OutcomesConfig(
-            exemplar_paths=outcomes_raw.get("exemplar_paths", []),
+            exemplar_paths=resolved_paths,
             per_persona_exemplars=outcomes_raw.get("per_persona_exemplars", 0),
         ),
         output=OutputConfig(

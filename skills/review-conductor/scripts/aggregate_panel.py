@@ -57,10 +57,11 @@ def run_aggregation(workspace: Path, chapter_id: str, panel: Panel) -> dict:
         else:
             advisory_criticals += c
 
-    if panel.verdict.hard_gate:
-        result = None  # hard gate hook reserved for future use; v1 disables
-    else:
-        result = None
+    # The hard_gate field is reserved for future use per the spec
+    # (docs/specs/2026-05-13-review-conductor-design.md, "Invariants").
+    # v1 always produces "pass" or "soft-gate-fail"; "hard-gate-fail" stays
+    # in the schema enum for the future deterministic-failure hook.
+    result = None
 
     if result is None:
         rule = panel.verdict.soft_gate_rule

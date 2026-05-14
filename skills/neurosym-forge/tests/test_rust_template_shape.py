@@ -79,11 +79,11 @@ def test_cargo_template_tectonic_optional() -> None:
 
 
 def test_ir_template_parses_atoms_array() -> None:
-    """ir.rs.tmpl must parse the 'atoms' array from EDN-as-JSON, not return empty."""
+    """ir.rs.tmpl must parse the 'atoms' array via edn-rs, not return empty."""
     text = _read("ir.rs.tmpl")
     assert 'atoms' in text, "ir.rs.tmpl must reference the 'atoms' array"
-    # The stub `Ok(Vec::new())` should be gone; serde_json should be used
-    assert 'serde_json' in text or '"atoms"' in text
+    # The stub `Ok(Vec::new())` should be gone; edn_rs is used for parsing
+    assert 'edn_rs' in text or '":atoms"' in text
 
 
 def test_cargo_template_includes_edn_rs() -> None:

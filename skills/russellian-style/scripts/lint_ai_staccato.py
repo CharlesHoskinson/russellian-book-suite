@@ -114,12 +114,44 @@ def _staccato_paragraph_run(paragraphs: list[tuple[int, str]], cfg: dict) -> lis
     return findings
 
 
+_NEG_AFFIRM_RE = re.compile(
+    r"\b(\w[\w\s''-]{0,40}?)\s+(?:is|are|was|were)\s+not\s+[^.!?]+?[.!?]\s+"
+    r"(?:\1|It|It is|These|They|Those|This)\s+(?:is|are|was|were)\s+",
+    re.IGNORECASE,
+)
+
+
+def _negation_affirmation_template(paragraphs: list[tuple[int, str]], cfg: dict) -> list[dict]:
+    """Flag the 'X is not Y. X is Z.' (or variants) template across paragraphs."""
+    min_paras = cfg["negation_affirmation_min_paragraphs"]
+    hits: list[int] = []
+    for start_line, text in paragraphs:
+        if _NEG_AFFIRM_RE.search(text):
+            hits.append(start_line)
+    if len(hits) < min_paras:
+        return []
+    return [{
+        "rule": "negation-affirmation-template",
+        "tier": "important",
+        "severity": "advisory",
+        "line": hits[0],
+        "match_count": len(hits),
+        "match_lines": hits,
+        "message": (
+            f"'X is not Y. X is Z.' template matches across {len(hits)} paragraphs. "
+            "Vary the rhetorical shape — try a concession, a distinction, or a "
+            "consequence-carrying turn."
+        ),
+    }]
+
+
 def lint_ai_staccato(path: Path) -> list[dict]:
     text = load_markdown(path)
     paras = _paragraphs(text)
     cfg = load_rules()["ai_staccato"]["detection"]
     findings: list[dict] = []
     findings.extend(_staccato_paragraph_run(paras, cfg))
+    findings.extend(_negation_affirmation_template(paras, cfg))
     return findings
 
 

@@ -20,3 +20,18 @@ def test_staccato_paragraph_run_silent_on_varied_prose():
     findings = lint_ai_staccato(FIXTURES / "staccato_run_clean.md")
     runs = [f for f in findings if f["rule"] == "staccato-paragraph-run"]
     assert runs == []
+
+
+def test_negation_affirmation_template_fires():
+    from scripts.lint_ai_staccato import lint_ai_staccato
+    findings = lint_ai_staccato(FIXTURES / "negation_affirmation.md")
+    hits = [f for f in findings if f["rule"] == "negation-affirmation-template"]
+    assert hits, "expected negation-affirmation-template to fire"
+    assert hits[0]["match_count"] >= 2
+
+
+def test_negation_affirmation_template_silent_on_clean():
+    from scripts.lint_ai_staccato import lint_ai_staccato
+    findings = lint_ai_staccato(FIXTURES / "negation_affirmation_clean.md")
+    hits = [f for f in findings if f["rule"] == "negation-affirmation-template"]
+    assert hits == []

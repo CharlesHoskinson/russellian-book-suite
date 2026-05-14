@@ -6,7 +6,7 @@ Critics called Bitcoin a bubble. They were right and wrong at once.
 
 Speculation has obscured the philosophy. Many men bought Bitcoin because they desired more dollars. This is not a contradiction in the protocol. It is a contradiction in the buyer.
 
-The protocol does not endorse speculation. It is a system, not a sermon.
+The protocol fixes a supply. The protocol stops rewrites. The protocol pays the miner. The protocol confirms each block. The protocol records each transaction.
 
 Holders complained when the price fell. This is the predictable end of every speculative wave.
 

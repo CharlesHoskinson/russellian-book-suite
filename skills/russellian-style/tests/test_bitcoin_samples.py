@@ -11,6 +11,7 @@ def test_bitcoin_staccato_fires_expected_rules():
     assert "staccato-paragraph-run" in rules
     assert "negation-affirmation-template" in rules
     assert "this-is-conclusion-overuse" in rules
+    assert "abstract-subject-run" in rules
 
 
 def test_bitcoin_russellian_silent_under_ai_staccato():

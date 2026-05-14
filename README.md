@@ -110,7 +110,7 @@ Each skill is a self-contained Claude Code skill at `skills/<name>/` with its ow
 | [`book-compose`](skills/book-compose/SKILL.md) | 2 + 4 — author + compile | Chapter orchestrator. Reads the contract, slices the claim ledger, generates an outline and section drafts, applies russellian-style and humanizer per section, assembles the book release (Markdown + React/Tailwind HTML + Playwright PDF) | 95 |
 | [`book-review`](skills/book-review/SKILL.md) | 3 — review | Seven editorial personas with markdown role descriptions: Gottlieb (cadence, AI sloppy), Lay Reader (accessibility), Domain Expert (facts), Copyeditor (mechanics), Enjoyment Reader (momentum), AI-Slop Detector (24-pattern Wikipedia catalog), First-Time Visitor (30-second drive-by) | 24 |
 | [`review-conductor`](skills/review-conductor/SKILL.md) | 3 — review orchestration | Reads a panel YAML, calls book-review's dispatch primitives, applies per-persona severity gates (gating vs advisory), aggregates findings, emits `panel-review.md` + `verdict.json` | 32 |
-| [`book-qa`](skills/book-qa/SKILL.md) | 5 — release gate | Post-build defect gate. D1-D8 deterministic linter on the built artefact, D9-D12 from book-thesis, C1-C15 per-chapter agent swarm, sentinel-healer patch loop | 41 |
+| [`book-qa`](skills/book-qa/SKILL.md) | 5 — release gate | Post-build defect gate. D1-D8 deterministic linter on the built artefact, D9-D12 from book-thesis, C1-C15 per-chapter agent swarm, Sentinel-Healer patch loop | 41 |
 | [`book-thesis`](skills/book-thesis/SKILL.md) | layer-2/3/4 over book-knowledge | Thesis tree, paragraph back-pointers, per-paragraph entailment loop, Datalog cross-chapter consistency. Contributes defect classes D9-D12 to book-qa | 16 |
 
 **Total: 400 tests** across the seven skills. All green at HEAD.
@@ -208,7 +208,8 @@ A workspace is a directory. Eight subtrees, four append-only ledgers, one RDF gr
 │   ├── events.jsonl                     # (reserved; transition log split planned)
 │   ├── proposed-transitions.jsonl
 │   ├── snapshots/
-│   └── address-checks/
+│   └── address-checks/                  # (created on first counter-claim
+│                                        #  address check; absent in bermuda v6)
 ├── graph/                   # book-knowledge owns; projected RDF dataset
 │   ├── dataset.trig                     # the projected graph
 │   └── reports/                         # SHACL reports, competency-query results
@@ -519,9 +520,9 @@ The pipeline as described so far is acyclic: ingest produces claims, drafting co
 
 Three Bundle C invariants make the loop safe:
 
-- `propagate_belief.run` deduplicates counter-claims to latest-per-id before damping; a promoted counter-claim must not damp twice.
+- `propagate_belief.run` deduplicates counter-claims to the latest record per claim ID (the ledger is append-only, so the same counter-claim ID can appear multiple times with successive states) before *damping* — the Bayesian step that reduces the weight of repeated evidence so a single source cannot double-count. A promoted counter-claim must not damp twice.
 - `apply_writeback` is the only mutator of `claims/` outside `book-knowledge`'s ingest path, preserving the ledger-ownership invariant.
-- `BLOCKING_DEFEASIBLE = True` is the default; a critical defeasible-query result hard-fails the QA gate.
+- A *defeasible* claim is one that can be defeated by stronger counter-evidence — verified, but rebuttable. `BLOCKING_DEFEASIBLE = True` is the default; a critical defeasible-query result hard-fails the QA gate (a chapter that cites a load-bearing claim whose rival has not been addressed cannot ship).
 
 The Bundle C runbook (`docs/operations/2026-05-12-bundle-c-runbook.md`) walks the four phases on the Bermuda workspace.
 
@@ -612,11 +613,8 @@ chapters_included: [ch-01, …, ch-10]
 chapter_versions: {ch-01: v6, …, ch-10: v6}
 total_word_count: 36762                # counted on the assembled HTML;
                                        # `wc -w` on the .md returns 28,018
-total_claim_count: 10                  # ten distinct verified claim IDs;
-                                       # ledger.jsonl is 46 lines because it
-                                       # interleaves claim and state-transition
-                                       # records
-sources_bibliography: [thesis]
+sources_bibliography:
+  - thesis
 shacl_conforms: true                   # graph validates against shapes.ttl
 competency_clean: true                 # all 8 competency queries return zero rows
 outputs: [manuscript.md, manuscript.html, manuscript.pdf]

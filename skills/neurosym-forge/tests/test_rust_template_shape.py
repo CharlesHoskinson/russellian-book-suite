@@ -84,3 +84,26 @@ def test_ir_template_parses_atoms_array() -> None:
     assert 'atoms' in text, "ir.rs.tmpl must reference the 'atoms' array"
     # The stub `Ok(Vec::new())` should be gone; serde_json should be used
     assert 'serde_json' in text or '"atoms"' in text
+
+
+def test_cargo_template_includes_edn_rs() -> None:
+    text = _read("Cargo.toml.tmpl")
+    assert "edn-rs" in text, "Cargo.toml.tmpl must declare edn-rs"
+
+
+def test_ir_template_uses_edn_rs_not_serde_json() -> None:
+    text = _read("ir.rs.tmpl")
+    # ir.rs PARSES atoms from the Python writer — must use edn-rs
+    assert "edn_rs" in text or "edn-rs" in text, "ir.rs.tmpl must use edn-rs for parsing"
+    # serde_json may still appear for the verdict serialization or types,
+    # but the PARSE path must not be serde_json
+    assert "serde_json::from_str" not in text, \
+        "ir.rs.tmpl must not use serde_json::from_str on the atom parse path"
+
+
+def test_smt_template_dispatches_on_edn() -> None:
+    text = _read("smt.rs.tmpl")
+    # smt.rs receives parsed atoms from ir.rs. After PR-1 these are
+    # edn_rs::Edn values, not serde_json::Value.
+    assert "edn_rs" in text or "Edn" in text, \
+        "smt.rs.tmpl must dispatch on edn_rs::Edn values"

@@ -23,6 +23,8 @@ use z3::{
 
 #[cfg(feature = "smt")]
 pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
+    use edn_rs::Edn;
+
     let cfg = Config::new();
     let ctx = Context::new(&cfg);
     let solver = Solver::new(&ctx);
@@ -34,45 +36,50 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
 
     for (id, atom) in formulas {
         // Skip context / opaque / non-expression atoms.
-        let kind = atom.get("kind").and_then(|v| v.as_str()).unwrap_or("");
-        if kind != "expression" {
+        // Accept either Keyword or Str during migration; Keyword is canonical.
+        let kind = match atom.get(":kind") {
+            Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
+            _ => "".to_string(),
+        };
+        if kind != ":expression" {
             continue;
         }
-        let predicate = match atom.get("predicate").and_then(|v| v.as_str()) {
-            Some(p) => p.trim_start_matches(':'),
-            None => continue,
+        let predicate = match atom.get(":predicate") {
+            Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
+            _ => continue,
         };
-        let subject = match atom.get("subject").and_then(|v| v.as_str()) {
-            Some(s) => s.trim_start_matches(':'),
-            None => continue,
+        let subject = match atom.get(":subject") {
+            Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
+            _ => continue,
         };
-        let var_name = format!("{}_{}", predicate, subject);
+        let var_name = format!("{}_{}",
+            predicate.trim_start_matches(':'),
+            subject.trim_start_matches(':'));
         let tracker = Bool::new_const(&ctx, id.as_str());
 
-        let Some(value) = atom.get("value") else {
-            continue;
-        };
+        let value = match atom.get(":value") { Some(v) => v, None => continue };
 
         let assertion: Bool = match value {
-            serde_json::Value::Number(n) if n.is_i64() => {
-                let v = n.as_i64().unwrap();
+            Edn::Int(n) => {
                 let z3_var = Int::new_const(&ctx, var_name.as_str());
-                z3_var._eq(&Int::from_i64(&ctx, v))
+                z3_var._eq(&Int::from_i64(&ctx, *n))
             }
-            serde_json::Value::Number(n) if n.is_f64() => {
-                let v = n.as_f64().unwrap();
-                // Represent as rational with 1e-6 tolerance via Real.
+            Edn::Double(f) => {
+                let v: f64 = (*f).into();
                 let z3_var = Real::new_const(&ctx, var_name.as_str());
                 let numerator = (v * 1_000_000.0) as i32;
                 z3_var._eq(&Real::from_real(&ctx, numerator, 1_000_000))
             }
-            serde_json::Value::String(s) => {
+            Edn::Str(s) => {
                 let z3_var = Z3String::new_const(&ctx, var_name.as_str());
                 let lit = Z3String::from_str(&ctx, s)
                     .map_err(|_| Error::Smt(format!("invalid string literal: {s:?}")))?;
                 z3_var._eq(&lit)
             }
-            serde_json::Value::Bool(b) => {
+            Edn::Bool(b) => {
                 let z3_var = Bool::new_const(&ctx, var_name.as_str());
                 z3_var._eq(&Bool::from_bool(&ctx, *b))
             }

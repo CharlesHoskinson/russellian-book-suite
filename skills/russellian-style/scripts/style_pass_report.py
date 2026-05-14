@@ -14,6 +14,12 @@ from .lint_signal_density import lint_signal_density
 from .lint_parallel_structure import lint_parallel_structure
 from .lint_listicle_abstract import lint_listicle_abstract
 from .lint_sentence_rhythm import lint_sentence_rhythm
+from .lint_burstiness import lint_burstiness
+from .lint_ai_vocabulary import lint_ai_vocabulary
+from .lint_concrete_instance_density import lint_concrete_instance_density
+from .lint_epistemic_precision import lint_epistemic_precision
+from .lint_paragraph_motion import lint_paragraph_motion
+from .retrieve_corpus_anchor import retrieve_anchor
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
@@ -81,6 +87,100 @@ def build_report(source_path: Path) -> str:
 def write_report(source_path: Path, out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(build_report(source_path), encoding="utf-8")
+
+
+def _russell_vitality_score(metrics: dict) -> float:
+    """Composite advisory score on [0, 1]; higher is better.
+
+    Weights and thresholds are placeholders calibrated empirically in
+    the follow-up promotion spec; advisory only in v1.
+    """
+    pm = metrics["paragraph_motion_score"]
+    bf = metrics["burstiness_fano_factor"]
+    av = metrics["ai_vocabulary_violations"]
+    burst_term = min(bf / 0.7, 1.0)
+    av_term = max(0.0, 1.0 - av / 10.0)
+    return round(pm * 0.4 + burst_term * 0.3 + av_term * 0.3, 3)
+
+
+def generate_report_dict(source_path: Path) -> dict:
+    """Return the full report as a dict.
+
+    Emits both the existing negative_metrics block and the new
+    vitality_metrics block. When a vitality linter fires, attaches one
+    matching Russell corpus anchor under corpus_anchors. The existing
+    template-based build_report() function is unchanged.
+    """
+    source_path = Path(source_path)
+
+    hedges = lint_hedges(source_path)
+    passives = lint_passive_voice(source_path)
+    signal = lint_signal_density(source_path)
+    parallel = lint_parallel_structure(source_path)
+    rhythm = lint_sentence_rhythm(source_path)
+    listicle = lint_listicle_abstract(source_path)
+
+    burst = lint_burstiness(source_path)
+    ai_vocab = lint_ai_vocabulary(source_path)
+    concrete = lint_concrete_instance_density(source_path)
+    episteme = lint_epistemic_precision(source_path)
+    motion = lint_paragraph_motion(source_path)
+
+    fano = burst[0]["fano_factor"] if burst else 0.7
+    in_band = burst[0]["in_band_proportion"] if burst else 0.0
+    if motion:
+        pm_score = round(1.0 - motion[0].get("flat_proportion", 0.0), 3)
+    else:
+        pm_score = 1.0
+
+    vitality_metrics = {
+        "burstiness_fano_factor": fano,
+        "in_band_proportion": in_band,
+        "ai_vocabulary_violations": len(ai_vocab),
+        "concrete_instance_density_violations": len(concrete),
+        "epistemic_precision_violations": len(episteme),
+        "paragraph_motion_score": pm_score,
+    }
+    vitality_metrics["russell_vitality_score"] = _russell_vitality_score(vitality_metrics)
+
+    negative_metrics = {
+        "hedge_count": len(hedges),
+        "passive_voice_ratio": _passive_voice_ratio(source_path),
+        "modifier_budget_violations": len(signal),
+        "parallel_structure_violations": len(parallel),
+        "listicle_abstract_count": len(listicle),
+        "rhythm_violations": len(rhythm),
+    }
+
+    findings: list[dict] = []
+    for f in hedges + passives + signal + parallel + rhythm + listicle:
+        findings.append({"section": "negative", "finding": f})
+    for f in burst + ai_vocab + concrete + episteme + motion:
+        findings.append({"section": "vitality", "finding": f})
+
+    corpus_anchors: list[dict] = []
+    if motion:
+        try:
+            anchor = retrieve_anchor(rhetorical_mode="problems", seed=42)
+            corpus_anchors.append({
+                "for_finding": "paragraph-motion:flat_axiom_stack",
+                "anchor": {
+                    "corpus_id": anchor.corpus_id,
+                    "source_title": anchor.source_title,
+                    "rhetorical_move": anchor.rhetorical_move,
+                    "calibration_lesson": anchor.calibration_lesson,
+                },
+            })
+        except (LookupError, ValueError):
+            pass
+
+    return {
+        "path": str(source_path),
+        "negative_metrics": negative_metrics,
+        "vitality_metrics": vitality_metrics,
+        "findings": findings,
+        "corpus_anchors": corpus_anchors,
+    }
 
 
 def main(argv: list[str]) -> int:

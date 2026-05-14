@@ -15,7 +15,7 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 ## What it owns
 
 - Sentence- and paragraph-level prose discipline.
-- The 26-principle Russellian style catalog and rule registry.
+- The Russellian style catalog and rule registry.
 - Deterministic linters for hedges, passive voice, signal density, parallel structure, rhythm, and listicle abstraction.
 - The `style-pass-report.md` artifact and its acceptance metrics.
 - Refusal protocol for non-accuracy genres.
@@ -39,7 +39,7 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 
 ## Style guide
 
-`references/russellian-style-guide.md` is the authoritative catalog: 26 principles across 5 domains (vocabulary, voice, atomicity, flow, structure).
+`references/russellian-style-guide.md` is the authoritative catalog, organised across vocabulary, voice, atomicity, flow, and structure.
 
 ## Composes with
 
@@ -59,4 +59,4 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 
 ## Tests
 
-59 tests across 11 files in `tests/`. Run with `pytest` from the skill root. Fixtures in `tests/fixtures/`; trigger calibration in `tests/trigger_tests.yaml`.
+Run with `pytest` from the skill root. Fixtures in `tests/fixtures/`; trigger calibration in `tests/trigger_tests.yaml`.

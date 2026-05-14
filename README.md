@@ -103,18 +103,18 @@ The pipeline is sequential. Stage N reads stage N-1's outputs and writes its own
 
 Each skill is a self-contained Claude Code skill at `skills/<name>/` with its own `SKILL.md`, `scripts/`, `tests/`, and (where needed) `personas/`, `panels/`, `references/`.
 
-| Skill | Stage | What it does | Tests |
-|---|---|---|---:|
-| [`book-knowledge`](skills/book-knowledge/SKILL.md) | 1 — ingest | Reads source PDFs and Markdown, extracts claims with PROV-O provenance, projects them into an RDF graph, validates the graph with SHACL, runs competency queries, manages the append-only ledger, propagates Bayesian belief across the provenance DAG | 133 |
-| [`russellian-style`](skills/russellian-style/SKILL.md) | 2 — style | Sentence-grain prose linters: hedges, passive voice, signal density, parallel structure, rhythm, listicle abstraction. Twenty-six principles across five domains, drawn from Russell's analytic style | 59 |
-| [`book-compose`](skills/book-compose/SKILL.md) | 2 + 4 — author + compile | Chapter orchestrator. Reads the contract, slices the claim ledger, generates an outline and section drafts, applies russellian-style and humanizer per section, assembles the book release (Markdown + React/Tailwind HTML + Playwright PDF) | 95 |
-| [`book-review`](skills/book-review/SKILL.md) | 3 — review | Seven editorial personas with markdown role descriptions: Gottlieb (cadence, AI sloppy), Lay Reader (accessibility), Domain Expert (facts), Copyeditor (mechanics), Enjoyment Reader (momentum), AI-Slop Detector (24-pattern Wikipedia catalog), First-Time Visitor (30-second drive-by) | 24 |
-| [`review-conductor`](skills/review-conductor/SKILL.md) | 3 — review orchestration | Reads a panel YAML, calls book-review's dispatch primitives, applies per-persona severity gates (gating vs advisory), aggregates findings, emits `panel-review.md` + `verdict.json` | 32 |
-| [`book-qa`](skills/book-qa/SKILL.md) | 5 — release gate | Post-build defect gate. D1-D8 deterministic linter on the built artefact, D9-D12 from book-thesis, C1-C15 per-chapter agent swarm, Sentinel-Healer patch loop | 41 |
-| [`book-thesis`](skills/book-thesis/SKILL.md) | layer-2/3/4 over book-knowledge | Thesis tree, paragraph back-pointers, per-paragraph entailment loop, Datalog cross-chapter consistency. Contributes defect classes D9-D12 to book-qa | 16 |
-| [`neurosym-forge`](skills/neurosym-forge/SKILL.md) | optional verification side-channel | Scaffolds and extends ClojureScript + Rust neurosymbolic verifier projects under MeTTa-style atomspace conventions. Emits Z3/egg/cozo grounded atoms; does not run verification itself | 71 |
+| Skill | Stage | What it does |
+|---|---|---|
+| [`book-knowledge`](skills/book-knowledge/SKILL.md) | 1 — ingest | Reads source PDFs and Markdown, extracts claims with PROV-O provenance, projects them into an RDF graph, validates the graph with SHACL, runs competency queries, manages the append-only ledger, propagates Bayesian belief across the provenance DAG |
+| [`russellian-style`](skills/russellian-style/SKILL.md) | 2 — style | Sentence-grain prose linters: hedges, passive voice, signal density, parallel structure, rhythm, listicle abstraction. Drawn from Russell's analytic style |
+| [`book-compose`](skills/book-compose/SKILL.md) | 2 + 4 — author + compile | Chapter orchestrator. Reads the contract, slices the claim ledger, generates an outline and section drafts, applies russellian-style and humanizer per section, assembles the book release (Markdown + React/Tailwind HTML + Playwright PDF) |
+| [`book-review`](skills/book-review/SKILL.md) | 3 — review | Seven editorial personas with markdown role descriptions: Gottlieb (cadence, AI sloppy), Lay Reader (accessibility), Domain Expert (facts), Copyeditor (mechanics), Enjoyment Reader (momentum), AI-Slop Detector (24-pattern Wikipedia catalog), First-Time Visitor (30-second drive-by) |
+| [`review-conductor`](skills/review-conductor/SKILL.md) | 3 — review orchestration | Reads a panel YAML, calls book-review's dispatch primitives, applies per-persona severity gates (gating vs advisory), aggregates findings, emits `panel-review.md` + `verdict.json` |
+| [`book-qa`](skills/book-qa/SKILL.md) | 5 — release gate | Post-build defect gate. D1-D8 deterministic linter on the built artefact, D9-D12 from book-thesis, C1-C15 per-chapter agent swarm, Sentinel-Healer patch loop |
+| [`book-thesis`](skills/book-thesis/SKILL.md) | layer-2/3/4 over book-knowledge | Thesis tree, paragraph back-pointers, per-paragraph entailment loop, Datalog cross-chapter consistency. Contributes defect classes D9-D12 to book-qa |
+| [`neurosym-forge`](skills/neurosym-forge/SKILL.md) | optional verification side-channel | Scaffolds and extends ClojureScript + Rust neurosymbolic verifier projects under MeTTa-style atomspace conventions. Emits Z3/egg/cozo grounded atoms; does not run verification itself |
 
-**Total: 400 tests** across the seven skills. All green at HEAD.
+Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest tests/ -q` from a skill directory.
 
 The skills compose by shared workspace, not by direct API call. Each skill owns a subtree and treats the others as read-only inputs:
 
@@ -298,7 +298,7 @@ Every claim carries PROV-O provenance: which source, which extractor, which vers
 
 ### Russellian prose discipline
 
-Bertrand Russell wrote sentences that survive a hundred years because each one stands on its own. `russellian-style` enforces **twenty-six principles across five domains**, each backed by a deterministic Python linter that reads markdown and emits a JSON report.
+Bertrand Russell wrote sentences that survive a hundred years because each one stands on its own. `russellian-style` enforces a closed catalog of analytic-prose principles — covering vocabulary, voice, atomicity, flow, and structure — each backed by a deterministic Python linter that reads Markdown and emits a JSON report. The catalog lives at `skills/russellian-style/references/russellian-style-guide.md`.
 
 Russell's own prose makes the test case. Compare his sentence
 
@@ -651,13 +651,13 @@ russellian-book-suite/
 ├── .github/
 │   └── workflows/ci.yml            per-skill pytest jobs + smoke pipeline
 ├── skills/
-│   ├── book-knowledge/             ledger + graph + SHACL (22 scripts, 133 tests)
-│   ├── book-compose/               orchestrator + book release (19 scripts, 95 tests)
-│   ├── book-qa/                    D + C defect gate (6 scripts, 41 tests)
-│   ├── book-review/                7-persona definitions (5 scripts, 24 tests)
-│   ├── review-conductor/           panel orchestration (6 scripts, 32 tests)
-│   ├── book-thesis/                metabook reasoning (5 scripts, 16 tests)
-│   └── russellian-style/           prose discipline (8 scripts, 59 tests)
+│   ├── book-knowledge/             ledger + graph + SHACL
+│   ├── book-compose/               orchestrator + book release
+│   ├── book-qa/                    D + C defect gate
+│   ├── book-review/                7-persona definitions
+│   ├── review-conductor/           panel orchestration
+│   ├── book-thesis/                metabook reasoning
+│   └── russellian-style/           prose discipline
 ├── tools/                          one-shot scripts (figure generation, hero tables,
 │                                   footnote post-process, deterministic healer,
 │                                   ledger synthesiser, load-bearing tagger)
@@ -670,7 +670,7 @@ russellian-book-suite/
     └── retros/                     post-release retrospectives
 ```
 
-Test totals: 59 + 133 + 95 + 24 + 41 + 16 + 32 = **400 tests** across the seven skills. All green at HEAD.
+Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest tests/ -q` from a skill directory.
 
 ## Lessons learned
 

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurosym-forge.local/sort.schema.json",
+  "title": "Sort",
+  "description": "A sort (type) in the EDN-as-atomspace IR. Either a keyword primitive, a function type, or an enum.",
+  "oneOf": [
+    {
+      "type": "string",
+      "pattern": "^:(int|real|bool|string|entity|formula|verdict|solution|rule|atom)$",
+      "description": "Primitive sort keyword"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {"const": "fn"},
+        "args": {"type": "array", "items": {"$ref": "#"}},
+        "ret":  {"$ref": "#"}
+      },
+      "required": ["kind", "args", "ret"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {"const": "enum"},
+        "members": {"type": "array", "items": {"type": "string", "pattern": "^:[a-z][a-z0-9-]*$"}, "minItems": 1}
+      },
+      "required": ["kind", "members"],
+      "additionalProperties": false
+    }
+  ]
+}

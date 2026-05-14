@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurosym-forge.local/rewrite-rule.schema.json",
+  "title": "RewriteRule",
+  "description": "A MeTTa-style (= lhs rhs) equality declaration.",
+  "type": "object",
+  "properties": {
+    "id":   {"type": "string", "pattern": "^R[0-9]{3,}$"},
+    "lhs":  {"$ref": "atom.schema.json"},
+    "rhs":  {"$ref": "atom.schema.json"},
+    "doc":  {"type": "string"},
+    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "required": ["id", "lhs", "rhs"],
+  "additionalProperties": false
+}

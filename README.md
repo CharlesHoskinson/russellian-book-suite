@@ -234,6 +234,10 @@ A workspace is a directory. Eight subtrees, four append-only ledgers, one RDF gr
 │   ├── chapter-tickets/
 │   ├── ledger-writeback-<version>.md
 │   └── panels/                          # optional per-workspace panel overrides
+│                                        # (resolved by book-compose's wrapper at
+│                                        #  scripts/persona_review_pass.py:_resolve_panel_path;
+│                                        #  absent in bermuda v6, which uses the
+│                                        #  shipped chapter-default.yaml)
 ├── thesis/                  # book-thesis owns
 │   ├── <book-id>.yaml
 │   └── schema.yaml

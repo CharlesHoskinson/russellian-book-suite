@@ -1,6 +1,6 @@
 # Russellian Style Guide
 
-This file enumerates the 26 principles of technical writing transmuted through Bertrand Russell's analytic discipline. Read this file when actively rewriting prose. Each principle lists: the rule, why it matters, and a worked example.
+This file enumerates the principles of technical writing transmuted through Bertrand Russell's analytic discipline. Read this file when actively rewriting prose. Each principle lists: the rule, why it matters, and a worked example.
 
 ## Domain 1 — Writing Mindset (Epistemological Certainty)
 

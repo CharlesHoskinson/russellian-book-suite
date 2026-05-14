@@ -9,10 +9,15 @@ Never persuade the reader of a tool's value through adjectives or superlatives. 
 - Bad: "Our highly robust API easily handles enterprise-grade workloads."
 - Good: "The API processes 4,000 requests per second on a single instance."
 
-### 2. Eliminate probabilistic hedging
+### 2. No vague hedging; exact uncertainty permitted
 Replace ambiguous qualifiers with deterministic thresholds.
 - Bad: "The script might fail under heavy load."
 - Good: "The script fails when CPU utilization exceeds 90 percent."
+
+The skill does not forbid uncertainty. It forbids the *vague* uncertainty
+that hides the limits of a claim. "It seems to me that …" is vague.
+"On the evidence so far, X holds; the cases of Y are unresolved." is
+exact uncertainty and is welcome.
 
 ### 3. Prefer the simplest adequate vocabulary
 The shortest precise word displaces the complex Latinate one.
@@ -113,3 +118,56 @@ Four sentences of identical word count and shape are a fingerprint, not a discip
 
 - Bad: four consecutive 18-word sentences each beginning with "Bermuda".
 - Good: alternation of short declarative and longer balanced sentences.
+
+## Anti-staccato
+
+Mechanical clarity passes the negative linters and still produces
+prose that reads as a wall of compact assertions. The trap is most
+visible in the negation-affirmation template:
+
+**Bad** — passes all six negative linters; fails
+`staccato-paragraph-run` and `this-is-conclusion-overuse`:
+
+> Speculation has obscured the philosophy. Many men bought Bitcoin not
+> because they desired sound money, but because they desired more
+> dollars. This is not a contradiction in the protocol. It is a
+> contradiction in the buyer.
+
+**Good** — passes both:
+
+> Those who call Bitcoin a mere speculation have seized upon a real
+> defect and mistaken it for the whole subject. It is true that many
+> men bought it in the hope of selling it to a more excited neighbour.
+> But this tells us more about men than about the protocol. A system
+> may be philosophically interesting even when most of its admirers
+> understand it badly.
+
+The good version keeps every clarity gain — no hedge, active voice,
+modest modifier load — and adds the moves the bad version lacks:
+concession ("real defect"), distinction (men vs. protocol), and a
+sentence that turns the argument rather than concluding it.
+
+## Concession-turn structure
+
+Russell's working unit is not the sentence but the move. The most
+common move has four steps:
+
+1. State the common view (often the reader's prejudice).
+2. Grant the part of it that is true.
+3. Draw the distinction the common view conceals.
+4. State the consequence that follows from the distinction.
+
+The four steps need not occupy four sentences. Two short ones can
+carry the whole move if the concession and the distinction are
+compressed.
+
+Example:
+
+> The defender of the official secret will say that disclosure aids
+> the enemy. He is right when the secret is technical and the enemy
+> is technical. He is wrong, and dangerously so, when the secret is
+> embarrassing and the enemy is the voter.
+
+Three sentences, four moves: common view (sentence 1), partial grant
+(sentence 2), distinction (sentence 3), consequence (sentence 3's
+second clause). The paragraph earns its last sentence.

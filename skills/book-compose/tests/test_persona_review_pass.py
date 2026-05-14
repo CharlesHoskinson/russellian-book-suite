@@ -25,13 +25,29 @@ def _seed(tmp_path: Path) -> Path:
     return workspace
 
 
-def test_prepare_packets_returns_five(tmp_path):
+def test_prepare_packets_returns_seven(tmp_path):
+    """After PR-A added ai-slop-detector + first-time-visitor, book-review ships 7 personas."""
     workspace = _seed(tmp_path)
     packets = prepare_packets(workspace, "ch-01")
-    assert len(packets) == 5
+    assert len(packets) == 7
 
 
 def test_aggregate_returns_aggregated_review(tmp_path):
     workspace = _seed(tmp_path)
     result = aggregate(workspace, "ch-01")
     assert result.severity_counts["critical"] == 0
+
+
+def test_run_panel_returns_verdict_dict(tmp_path):
+    """run_panel delegates to review-conductor and returns a verdict dict."""
+    from scripts.persona_review_pass import run_panel
+    workspace = _seed(tmp_path)
+
+    # No dispatcher: no reviews are written, so aggregate finds no reports.
+    # The conductor still runs, the verdict is computed against zero findings
+    # which means verdict == "pass".
+    verdict = run_panel(workspace, "ch-01", panel_id="chapter-default", dispatcher=None)
+    assert verdict["panel_id"] == "chapter-default"
+    assert verdict["artifact"] == {"type": "chapter", "id": "ch-01"}
+    assert verdict["verdict"] == "pass"
+    assert verdict["gating_criticals"] == 0

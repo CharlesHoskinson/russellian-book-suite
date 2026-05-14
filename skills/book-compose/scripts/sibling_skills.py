@@ -176,3 +176,41 @@ def load_book_review_module(name: str) -> types.ModuleType:
     sys.modules[full_name] = module
     spec.loader.exec_module(module)
     return module
+
+
+_RC_PACKAGE_ALIAS = "_review_conductor_scripts"
+
+
+def review_conductor_root() -> Path:
+    return _resolve("review-conductor")
+
+
+def _ensure_rc_package() -> types.ModuleType:
+    if _RC_PACKAGE_ALIAS in sys.modules:
+        return sys.modules[_RC_PACKAGE_ALIAS]
+    rc_scripts = review_conductor_root() / "scripts"
+    if not rc_scripts.is_dir():
+        raise SiblingNotFoundError(f"review-conductor scripts dir missing: {rc_scripts}")
+    pkg = types.ModuleType(_RC_PACKAGE_ALIAS)
+    pkg.__path__ = [str(rc_scripts)]
+    sys.modules[_RC_PACKAGE_ALIAS] = pkg
+    return pkg
+
+
+def load_review_conductor_module(name: str) -> types.ModuleType:
+    _ensure_rc_package()
+    full_name = f"{_RC_PACKAGE_ALIAS}.{name}"
+    if full_name in sys.modules:
+        return sys.modules[full_name]
+    rc_scripts = review_conductor_root() / "scripts"
+    module_path = rc_scripts / f"{name}.py"
+    if not module_path.is_file():
+        raise SiblingNotFoundError(f"review-conductor module not found: {module_path}")
+    spec = importlib.util.spec_from_file_location(full_name, module_path,
+                                                  submodule_search_locations=None)
+    if spec is None or spec.loader is None:
+        raise SiblingNotFoundError(f"could not load spec for {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[full_name] = module
+    spec.loader.exec_module(module)
+    return module

@@ -48,3 +48,78 @@ def test_write_manifest_rejects_invalid_record(tmp_path):
            "sha256": "z" * 64, "ingested_at": "2026-05-09T00:00:00Z", "node_count": 0}
     with pytest.raises(ManifestValidationError):
         write_manifest(tmp_path / "bad.json", bad)
+
+
+def test_trust_field_accepted_by_schema(tmp_path):
+    record = {
+        "doc_name": "thesis",
+        "doc_id": "thesis",
+        "source_kind": "markdown",
+        "sha256": "c" * 64,
+        "ingested_at": "2026-05-01T00:00:00Z",
+        "node_count": 20,
+        "trust": 1.0,
+    }
+    out = tmp_path / "thesis.json"
+    # should not raise
+    write_manifest(out, record)
+    loaded = load_manifest(out)
+    assert loaded["trust"] == 1.0
+
+
+def test_trust_field_boundary_values(tmp_path):
+    for trust_val in (0.0, 0.5, 1.0):
+        record = {
+            "doc_name": "source",
+            "doc_id": "source",
+            "source_kind": "pdf",
+            "sha256": "d" * 64,
+            "ingested_at": "2026-05-01T00:00:00Z",
+            "node_count": 1,
+            "trust": trust_val,
+        }
+        write_manifest(tmp_path / f"source-{trust_val}.json", record)
+
+
+def test_trust_field_out_of_range_rejected(tmp_path):
+    for trust_val in (-0.1, 1.1, 2.0):
+        record = {
+            "doc_name": "source",
+            "doc_id": "source",
+            "source_kind": "pdf",
+            "sha256": "e" * 64,
+            "ingested_at": "2026-05-01T00:00:00Z",
+            "node_count": 1,
+            "trust": trust_val,
+        }
+        with pytest.raises(ManifestValidationError):
+            write_manifest(tmp_path / "bad-trust.json", record)
+
+
+def test_bermuda_synthesizer_manifest_is_schema_valid(tmp_path):
+    """Manifest emitted by synthesize_bermuda_ledger must pass schema validation."""
+    import sys, importlib
+    # The synthesizer is in tools/ at the repo root; locate it relative to this file.
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
+    tools_dir = repo_root / "tools"
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+    synthesize_mod = importlib.import_module("synthesize_bermuda_ledger")
+
+    # Copy the bermuda thesis YAML into tmp_path so synthesizer has something to read.
+    bermuda_thesis = repo_root / "examples" / "bermuda-manual" / "thesis" / "bermuda-manual.yaml"
+    if not bermuda_thesis.exists():
+        import pytest; pytest.skip("bermuda thesis not found")
+
+    ws = tmp_path / "bermuda"
+    (ws / "thesis").mkdir(parents=True)
+    import shutil
+    shutil.copy(bermuda_thesis, ws / "thesis" / "bermuda-manual.yaml")
+
+    synthesize_mod.synthesize(ws)
+
+    manifest_path = ws / "raw" / "manifests" / "thesis.json"
+    assert manifest_path.exists()
+    loaded = load_manifest(manifest_path)  # raises ManifestValidationError if invalid
+    assert loaded["doc_id"] == "thesis"
+    assert loaded["trust"] == 1.0

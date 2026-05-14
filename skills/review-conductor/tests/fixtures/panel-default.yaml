@@ -1,0 +1,17 @@
+panel_id: test-panel
+artifact_scope: chapter
+description: Test fixture panel with two personas.
+personas:
+  - id: gottlieb
+    severity_gate: gating
+  - id: lay-reader
+    severity_gate: advisory
+verdict:
+  hard_gate: false
+  soft_gate_rule: any_critical_from_gating
+outcomes:
+  exemplar_paths: []
+  per_persona_exemplars: 0
+output:
+  panel_report_path: "chapters/drafts/{chapter_id}/panel-review.md"
+  verdict_path: "chapters/drafts/{chapter_id}/verdict.json"

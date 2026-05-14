@@ -4,7 +4,7 @@ This file orients any AI agent working in this repo. Read it first.
 
 ## What this repo is
 
-A family of six Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts. See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
+A family of seven Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts (`book-knowledge`, `russellian-style`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`). See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
 
 ## Per-skill conventions
 

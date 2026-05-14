@@ -19,6 +19,7 @@ Usage:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from datetime import datetime, timezone
@@ -113,15 +114,18 @@ def synthesize(workspace_root: Path) -> int:
         for r in records:
             fh.write(json.dumps(r, sort_keys=True) + "\n")
 
-    # Source manifest for the thesis "document".
+    # Source manifest for the thesis "document" — schema-valid per source-manifest.schema.json.
     manifest = workspace_root / "raw" / "manifests" / "thesis.json"
     if not manifest.exists():
+        sha256 = hashlib.sha256(thesis_path.read_bytes()).hexdigest() if thesis_path.exists() else "0" * 64
         manifest.write_text(json.dumps({
+            "doc_name": "bermuda-manual thesis",
             "doc_id": "thesis",
-            "title": "bermuda-manual thesis",
-            "path": "thesis/bermuda-manual.yaml",
-            "trust": 1.0,
+            "source_kind": "markdown",
+            "sha256": sha256,
+            "node_count": n,
             "ingested_at": now,
+            "trust": 1.0,
         }, sort_keys=True, indent=2), encoding="utf-8")
 
     return len(records)

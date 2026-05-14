@@ -1,0 +1,29 @@
+panel_id: chapter-default
+artifact_scope: chapter
+description: Default seven-persona panel for chapter drafts.
+personas:
+  - id: gottlieb
+    severity_gate: gating
+  - id: lay-reader
+    severity_gate: advisory
+  - id: domain-expert
+    severity_gate: gating
+  - id: copyeditor
+    severity_gate: gating
+  - id: enjoyment-reader
+    severity_gate: advisory
+  - id: ai-slop-detector
+    severity_gate: gating
+    delegates_to: humanizer
+  - id: first-time-visitor
+    severity_gate: advisory
+verdict:
+  hard_gate: false
+  soft_gate_rule: any_critical_from_gating
+outcomes:
+  exemplar_paths:
+    - ../book-review/references/outcomes/readme-pass-2026-05-13/
+  per_persona_exemplars: 1
+output:
+  panel_report_path: "chapters/drafts/{chapter_id}/panel-review.md"
+  verdict_path: "chapters/drafts/{chapter_id}/verdict.json"

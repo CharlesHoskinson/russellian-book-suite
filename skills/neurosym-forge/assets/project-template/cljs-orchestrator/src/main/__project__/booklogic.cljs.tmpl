@@ -67,6 +67,55 @@
      :predicates (load "predicates.edn")
      :lifts      (load "lifts.edn")}))
 
+;; ----- deflift expansion -----
+
+(defn- option-map
+  "Parses [:k1 v1 :k2 v2 ...] into {:k1 v1 :k2 v2 ...}.
+   Used for deflift's option section."
+  [option-pairs]
+  (if (and (sequential? option-pairs) (even? (count option-pairs)))
+    (apply hash-map option-pairs)
+    (throw (ex-info "deflift: option section must be even-arity key-value pairs"
+                    {:pairs option-pairs}))))
+
+(defn- expand-deflift
+  "(deflift L001 :from K :when REGEX :emit ATOM ...) → lift-rule map"
+  [form]
+  (let [[_ name & options]   form
+        opts                  (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "deflift: name must be a symbol" {:form form})))
+    (doseq [required [:from :when :emit]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "deflift " name ": missing required option " required)
+                        {:form form}))))
+    {:name        name
+     :from        (:from opts)
+     :pattern     (:when opts)              ; regex stored as string per spec
+     :emit        (:emit opts)
+     :word-to-int (:word-to-int opts)
+     :provenance  (or (:provenance opts) :inherit)
+     :confidence  (or (:confidence opts) :inherit)}))
+
+;; ----- validation: lifts reference known predicates -----
+
+(defn- emit-target-predicate
+  "Extract the predicate keyword from a lift's :emit form.
+   (fact ?id :Subject :pred-name args...) → :pred-name"
+  [emit-form]
+  (when (and (sequential? emit-form) (= (first emit-form) 'fact))
+    (let [[_ _claim-id _subject pred-name & _] emit-form]
+      pred-name)))
+
+(defn- validate-lifts
+  [lift-rules predicate-registry]
+  (let [known-preds (set (map :name predicate-registry))]
+    (doseq [lift lift-rules
+            :let [pred (emit-target-predicate (:emit lift))]]
+      (when (and pred (not (contains? known-preds pred)))
+        (throw (ex-info (str "deflift " (:name lift) ": unknown predicate " pred)
+                        {:lift lift :unknown pred}))))))
+
 ;; ----- defpredicate expansion -----
 
 (defn- expand-defpredicate
@@ -106,13 +155,15 @@
         (throw (ex-info (str "defpredicate " name ": unknown return sort " ret)
                         {:predicate pred :unknown ret}))))))
 
-;; ----- main expansion driver (deflift lands in Phase 3) -----
+;; ----- main expansion driver -----
 
 (defn expand
   [{:keys [sorts predicates lifts]}]
   (let [sort-registry      (mapv expand-defsort (filter defsort? sorts))
-        predicate-registry (mapv expand-defpredicate (filter defpredicate? predicates))]
+        predicate-registry (mapv expand-defpredicate (filter defpredicate? predicates))
+        lift-rules         (mapv expand-deflift (filter deflift? lifts))]
     (validate-predicate-sorts predicate-registry sort-registry)
+    (validate-lifts lift-rules predicate-registry)
     {:sort-registry      sort-registry
      :predicate-registry predicate-registry
-     :lift-rules         []}))  ; populated in Phase 3
+     :lift-rules         lift-rules}))

@@ -119,11 +119,35 @@ Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest 
 
 ## Verifiers (optional)
 
-Neurosymbolic verifier projects scaffolded by `neurosym-forge`. Each
-`verifiers/<slug>/` is a CLJS+Rust project that ingests a book workspace's
-claim ledger plus chapter prose and reports logical contradictions as
-`book-qa` defect class D13. The scaffold is opt-in per workspace via
-`examples/<workspace>/qa-config.yaml: enable_verification: true`.
+Neurosymbolic verifier projects scaffolded by `neurosym-forge` carry
+logical verification beyond what the prose linters catch.
+`neurosym-forge` emits a ClojureScript orchestrator and a Rust solver
+backend per project, glued by an EDN-as-Atomspace intermediate
+representation. Each scaffold ships an `axioms.rs` hook (v0.3) where
+the project installs Z3 hard constraints; the per-atom walk that
+follows tracks each operator-supplied claim so that an `:unsat`
+verdict carries an unsat core pointing at the offending atoms.
+
+The typical workflow is the recipe from the runbook: scaffold the
+project, ingest the workspace claim ledger, extract prose facts from
+chapter bundles, add domain sorts and rewrite rules with the
+`add_*.py` helpers, override `axioms.rs` for the domain, run the
+pipeline, then consume the verdict in `book-qa` as defect class
+**D13: claim-set-unsatisfiable**. Each step is one helper invocation;
+the runbook walks through them with expected outputs.
+
+Composition with `book-qa` is loose. The verifier writes
+`qa/verification-defects.json` into the workspace; `book-qa` reads
+that file when the workspace `qa-config.yaml` carries
+`enable_verification: true`. Off by default; flipping the flag is the
+single switch that turns the gate on.
+
+For a conceptual overview of the IR and the MeTTa idiom mapping, read
+[`docs/concepts/neurosym-forge.md`](docs/concepts/neurosym-forge.md).
+For the operator workflow, read
+[`docs/operations/neurosym-forge-runbook.md`](docs/operations/neurosym-forge-runbook.md).
+For the skill's public spec, read
+[`skills/neurosym-forge/SKILL.md`](skills/neurosym-forge/SKILL.md).
 
 | Verifier | For workspace | Status |
 |---|---|---|

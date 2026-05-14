@@ -37,7 +37,7 @@ You compile validated knowledge into reader-facing chapter drafts and book relea
 4. **Outline** — section plan with claim assignments; user approval before drafting.
 5. **Draft** — per-section: select claims → first pass → `russellian-style` → `humanizer` → write back.
 6. **Linters** — `chapter_contract_check.py` enforces hedge / passive / listicle / rhythm / citation / `ai_fingerprint_total == 0`.
-7. **Personas** — `persona_review_pass.prepare_packets`; one Task subagent per persona; `aggregate` produces `persona-review.md`; soft-gate `persona_critical_count == 0`.
+7. **Personas** — `persona_review_pass.run_panel` delegates to `review-conductor.run_panel` with the `chapter-default` panel (seven personas: Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader, AI-slop Detector, First-Time Visitor). One Task subagent per persona; the conductor's `aggregate_panel` produces `panel-review.md` and `verdict.json`. Soft-gate when `verdict.verdict == "soft-gate-fail"` (any critical from gating personas: Gottlieb, Domain Expert, Copyeditor, AI-slop Detector).
 8. **Chapter bundle** — `build_release_bundle.py` writes draft.md + evidence-summary.md + claims-slice.jsonl + manifest.yaml + optional Pandoc renders.
 9. **Book release (explicit only)** — `book_preflight` → `build_book` → React/Tailwind/shadcn injection via `web-artifacts-builder-anthropic` → Playwright PDF.
 

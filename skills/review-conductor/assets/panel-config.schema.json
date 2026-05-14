@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://russellian-book-suite/review-conductor/panel-config.schema.json",
+  "title": "Panel config for review-conductor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["panel_id", "artifact_scope", "personas", "verdict", "output"],
+  "properties": {
+    "panel_id": {"type": "string", "minLength": 1},
+    "artifact_scope": {
+      "type": "string",
+      "enum": ["chapter", "readme", "intro", "abstract", "marketing"]
+    },
+    "description": {"type": "string"},
+    "personas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity_gate"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "severity_gate": {"type": "string", "enum": ["gating", "advisory"]},
+          "delegates_to": {"type": "string"}
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hard_gate", "soft_gate_rule"],
+      "properties": {
+        "hard_gate": {"type": "boolean"},
+        "soft_gate_rule": {
+          "type": "string",
+          "enum": ["any_critical_from_gating", "any_critical", "majority_critical"]
+        }
+      }
+    },
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exemplar_paths": {"type": "array", "items": {"type": "string"}},
+        "per_persona_exemplars": {"type": "integer", "minimum": 0, "maximum": 5}
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["panel_report_path", "verdict_path"],
+      "properties": {
+        "panel_report_path": {"type": "string"},
+        "verdict_path": {"type": "string"}
+      }
+    }
+  }
+}

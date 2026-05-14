@@ -41,6 +41,8 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 
 `references/russellian-style-guide.md` is the authoritative catalog, organised across vocabulary, voice, atomicity, flow, and structure.
 
+When prose is compliant but lifeless, read `references/russell-corpus-map.md` and compare against the 50-paragraph Russell corpus indexed in `assets/russell-corpus/index.json`.
+
 ## Composes with
 
 - `book-knowledge` — ingests sources whose claims this skill later polishes.

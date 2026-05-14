@@ -155,6 +155,51 @@
         (throw (ex-info (str "defpredicate " name ": unknown return sort " ret)
                         {:predicate pred :unknown ret}))))))
 
+;; ----- predicates.edn codegen (legacy compat for Python ingester) -----
+
+(defn- infer-subject
+  "Extract the subject keyword from a lift's :emit form.
+   (fact ?id :Subject :pred ...) → :Subject"
+  [emit-form]
+  (when (and (sequential? emit-form) (= (first emit-form) 'fact))
+    (nth emit-form 2 nil)))
+
+(defn- infer-value-kind
+  "Determine the value-kind from the :emit form's body.
+   (fact ?id :Subject :pred (parse-int ?n)) → :int
+   (fact ?id :Subject :pred (parse-float ?x)) → :real
+   (fact ?id :Subject :pred true)             → :bool
+   (fact ?id :Subject :pred ?s)               → :string  (best-effort default)"
+  [emit-form]
+  (when (and (sequential? emit-form) (= (first emit-form) 'fact))
+    (let [body (nth emit-form 3 nil)]
+      (cond
+        (and (sequential? body) (= (first body) 'parse-int))   :int
+        (and (sequential? body) (= (first body) 'parse-float)) :real
+        (boolean? body)                                        :bool
+        :else                                                  :string))))
+
+(defn- lift-to-predicate-entry
+  [lift]
+  (let [pred (emit-target-predicate (:emit lift))]
+    [pred {:patterns    [(:pattern lift)]
+           :predicate   pred
+           :subject     (infer-subject (:emit lift))
+           :value-kind  (infer-value-kind (:emit lift))
+           :word-to-int (or (:word-to-int lift) {})}]))
+
+(defn- emit-predicates-edn-string
+  "Build the EDN string for rules/predicates.edn from the lift rules."
+  [{:keys [lift-rules]}]
+  (let [entries (into {} (map lift-to-predicate-entry lift-rules))]
+    (pr-str {:version 1 :predicates entries})))
+
+(defn emit-predicates-edn
+  "Write rules/predicates.edn at out-path."
+  [expanded out-path]
+  (let [text (emit-predicates-edn-string expanded)]
+    (.writeFileSync fs out-path text)))
+
 ;; ----- main expansion driver -----
 
 (defn expand

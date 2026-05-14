@@ -307,3 +307,46 @@ def test_d12_unadvanced_sub_argument_picked_up(stage_release):
     assert "history-shapes-government" in nodes
     assert summary["by_class"].get("D12") == 2
     assert summary["by_severity"].get("important") == 2
+
+
+# --------------------------------------------------------------------- D13
+
+from scripts.lint_artifact import lint_d13_verification_unsat
+
+
+def test_d13_no_file_returns_empty(tmp_path: Path) -> None:
+    assert lint_d13_verification_unsat(tmp_path) == []
+
+
+def test_d13_sat_returns_empty(tmp_path: Path) -> None:
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "sat", "core": [], "explanation": "",
+    }), encoding="utf-8")
+    assert lint_d13_verification_unsat(tmp_path) == []
+
+
+def test_d13_unknown_returns_empty(tmp_path: Path) -> None:
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "unknown", "core": [], "reason": "smt timeout",
+    }), encoding="utf-8")
+    assert lint_d13_verification_unsat(tmp_path) == []
+
+
+def test_d13_unsat_emits_one_defect_per_core_member(tmp_path: Path) -> None:
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "unsat",
+        "core": ["clm-2026-000008", "prose-ch-02-001"],
+        "explanation": "Chapter 2 prose says 8 parishes; ledger says 9.",
+    }), encoding="utf-8")
+    defects = lint_d13_verification_unsat(tmp_path)
+    assert len(defects) == 2
+    assert all(d.class_ == "D13" for d in defects)
+    assert all(d.severity == "critical" for d in defects)
+    ids = {d.where for d in defects}
+    assert "clm-2026-000008" in ids

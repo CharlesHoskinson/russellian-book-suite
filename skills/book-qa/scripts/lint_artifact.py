@@ -18,6 +18,7 @@ D9  paragraph-orphan         (from qa/supports-defects.json, class=D9; critical)
 D10 transitive-contradiction (from qa/datalog-defects.json,  class=D10; critical)
 D11 failed-entailment        (from qa/entailment-results.json verdicts; critical)
 D12 unadvanced-sub-argument  (from qa/supports-defects.json summary; important)
+D13 verification-unsat       (from qa/verification-defects.json; critical)
 
 Usage:
     python lint_artifact.py <workspace> <release-version>
@@ -429,6 +430,35 @@ def lint_d9_d12(workspace: Path) -> list[Defect]:
     return out
 
 
+# ----------------------------------------------------------------- D13 helpers
+
+def lint_d13_verification_unsat(workspace: Path) -> list[Defect]:
+    """Read qa/verification-defects.json emitted by a neurosym-forge verifier.
+
+    Each member of the unsat core becomes one critical defect. :sat and
+    :unknown verdicts produce no defects.
+    """
+    path = workspace / "qa" / "verification-defects.json"
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return [Defect("D13", CRITICAL, str(path),
+                       "verification-defects.json is not valid JSON",
+                       "regenerate via verdict_to_qa.py")]
+    if payload.get("verdict") != "unsat":
+        return []
+    core = payload.get("core") or []
+    explanation = payload.get("explanation", "logical contradiction detected")
+    return [
+        Defect("D13", CRITICAL, claim_id,
+               f"verification unsat: {explanation}",
+               f"review claim/prose {claim_id}; reconcile against canonical facts")
+        for claim_id in core
+    ]
+
+
 # ----------------------------------------------------------------- main
 
 def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
@@ -450,6 +480,7 @@ def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
     defects += lint_d7_css_reset(html)
     defects += lint_d8_asset_404s(md, html, release_dir)
     defects += lint_d9_d12(workspace)
+    defects.extend(lint_d13_verification_unsat(workspace))
 
     summary = {
         "release": version,

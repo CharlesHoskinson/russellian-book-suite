@@ -26,9 +26,14 @@ def scaffold_project(
     if not SLUG_PATTERN.match(project_slug):
         raise ValueError(f"project_slug must match {SLUG_PATTERN.pattern!r}, got {project_slug!r}")
     out_str = str(out_dir)
-    if ".." in Path(out_str).parts:
-        raise ValueError(f"--out must not contain '..' segments; got {out_str!r}")
-    out_dir = Path(out_str).resolve()
+    resolved = Path(out_str).resolve()
+    cwd = Path.cwd().resolve()
+    if not Path(out_str).is_absolute() and not resolved.is_relative_to(cwd.parent):
+        raise ValueError(
+            f"--out {out_str!r} resolves to {resolved}, which is outside the "
+            f"current working directory {cwd}; pass an absolute path if intentional"
+        )
+    out_dir = resolved
     if out_dir.exists():
         raise FileExistsError(f"refusing to overwrite {out_dir}")
 

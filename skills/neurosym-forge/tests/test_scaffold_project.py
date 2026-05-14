@@ -97,10 +97,13 @@ def test_rejects_empty_slug(tmp_path: Path, skill_root: Path) -> None:
                          out_dir=tmp_path / "v", skill_root=skill_root)
 
 
-def test_rejects_dotdot_in_out(tmp_path: Path, skill_root: Path) -> None:
-    with pytest.raises(ValueError, match=r"\.\."):
+def test_rejects_dotdot_in_out(tmp_path: Path, skill_root: Path, monkeypatch) -> None:
+    inside = tmp_path / "cwd"
+    inside.mkdir()
+    monkeypatch.chdir(inside)
+    with pytest.raises(ValueError, match="outside the current working directory"):
         scaffold_project(project_name="X", project_slug="x",
-                         out_dir=tmp_path / ".." / "escape" / "x",
+                         out_dir=Path("..") / ".." / ".." / "escape" / "x",
                          skill_root=skill_root)
 
 
@@ -132,3 +135,74 @@ def test_no_bridge_omits_ingest_ledger(tmp_project_root: Path, skill_root: Path)
         has_book_knowledge_bridge=False,
     )
     assert not (tmp_project_root / "scripts" / "ingest_ledger.py").exists()
+
+
+def test_relative_dotdot_under_cwd_accepted(tmp_path: Path, skill_root: Path,
+                                             monkeypatch) -> None:
+    """`--out ../verifiers/x` from a sibling cwd resolves to a path under
+    the original cwd; this is allowed."""
+    # Make tmp_path the cwd so a relative .. resolves under it
+    parent = tmp_path
+    workdir = parent / "work"
+    workdir.mkdir()
+    target = parent / "verifiers" / "demo"
+    monkeypatch.chdir(workdir)
+    scaffold_project(
+        project_name="Demo", project_slug="demo",
+        out_dir=Path("..") / "verifiers" / "demo",
+        skill_root=skill_root,
+    )
+    assert target.exists()
+
+
+def test_absolute_outside_cwd_accepted(tmp_path: Path, skill_root: Path,
+                                       monkeypatch) -> None:
+    """An absolute path outside cwd is allowed (operator opt-in)."""
+    inside = tmp_path / "inside"
+    inside.mkdir()
+    outside = tmp_path / "outside_abs" / "demo"
+    monkeypatch.chdir(inside)
+    scaffold_project(
+        project_name="Demo", project_slug="demo",
+        out_dir=outside.resolve(),
+        skill_root=skill_root,
+    )
+    assert outside.exists()
+
+
+def test_relative_dotdot_escaping_cwd_rejected(tmp_path: Path, skill_root: Path,
+                                                monkeypatch) -> None:
+    """A relative path with `..` that resolves OUTSIDE cwd is rejected."""
+    inside = tmp_path / "deep" / "nested" / "cwd"
+    inside.mkdir(parents=True)
+    monkeypatch.chdir(inside)
+    with pytest.raises(ValueError, match="outside the current working directory"):
+        scaffold_project(
+            project_name="Demo", project_slug="demo",
+            out_dir=Path("..") / ".." / ".." / ".." / "escape",
+            skill_root=skill_root,
+        )
+
+
+def test_scaffolded_axioms_rs_exists(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    axioms = tmp_project_root / "rust-verifier" / "src" / "axioms.rs"
+    assert axioms.exists()
+    text = axioms.read_text(encoding="utf-8")
+    assert "pub fn assert_axioms" in text
+
+
+def test_scaffolded_lib_rs_includes_mod_axioms(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    lib = (tmp_project_root / "rust-verifier" / "src" / "lib.rs").read_text(encoding="utf-8")
+    assert "mod axioms;" in lib
+
+
+def test_scaffolded_cargo_toml_has_features(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    cargo = (tmp_project_root / "rust-verifier" / "Cargo.toml").read_text(encoding="utf-8")
+    assert "[features]" in cargo
+    assert "pdf" in cargo

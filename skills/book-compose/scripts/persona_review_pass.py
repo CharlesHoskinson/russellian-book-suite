@@ -14,8 +14,23 @@ from typing import Any, Callable, Optional
 from .sibling_skills import (
     load_book_review_module,
     load_review_conductor_module,
+    load_russellian_style_module,
     review_conductor_root,
 )
+
+
+def load_system_prompt(prose_mode: str = "technical-exposition") -> str:
+    """Load the russellian-style system prompt for the given prose mode.
+
+    Falls back to the technical-exposition default if the mode is unknown
+    rather than raising; the drafter must always have a system prompt to
+    inject.
+    """
+    spl = load_russellian_style_module("system_prompt_loader")
+    try:
+        return spl.load(prose_mode)
+    except ValueError:
+        return spl.load(spl.DEFAULT_MODE)
 
 
 def prepare_packets(workspace: Path, chapter_id: str,

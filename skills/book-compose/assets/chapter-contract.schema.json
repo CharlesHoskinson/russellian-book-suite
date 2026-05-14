@@ -48,6 +48,12 @@
       "type": "array",
       "items": {"enum": ["markdown", "pdf", "epub", "latex"]},
       "minItems": 1
+    },
+    "prose_mode": {
+      "type": "string",
+      "enum": ["technical-exposition", "narrative-editorial", "polemic"],
+      "description": "Optional. Selects which russellian-style system prompt the drafter loads. Defaults to technical-exposition.",
+      "default": "technical-exposition"
     }
   },
   "additionalProperties": false

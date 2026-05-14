@@ -51,3 +51,15 @@ def test_run_panel_returns_verdict_dict(tmp_path):
     assert verdict["artifact"] == {"type": "chapter", "id": "ch-01"}
     assert verdict["verdict"] == "pass"
     assert verdict["gating_criticals"] == 0
+
+
+def test_load_system_prompt_returns_text_for_known_mode():
+    from scripts.persona_review_pass import load_system_prompt
+    text = load_system_prompt("technical-exposition")
+    assert "Role" in text or "role" in text
+
+
+def test_load_system_prompt_falls_back_for_unknown_mode():
+    from scripts.persona_review_pass import load_system_prompt
+    text = load_system_prompt("nonexistent-mode")
+    assert text  # falls back to default; non-empty

@@ -14,6 +14,7 @@ egg         = "0.10"
 cozo        = { version = "0.7", default-features = false, features = ["compact"] }
 tectonic    = "0.16"
 serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
 edn-rs      = "0.18"
 thiserror   = "2"
 ordered-float = "4"

@@ -2,6 +2,7 @@
 use napi_derive::napi;
 
 mod ir;
+mod canonical;
 mod smt;
 mod eqsat;
 mod kg;

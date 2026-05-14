@@ -62,6 +62,9 @@ def lint_rewrite_coverage(project_root: Path) -> CoverageReport:
         except Exception:
             report.errors.append(f"{path.name}: cannot parse as EDN")
             continue
+        if not isinstance(payload, dict):
+            report.errors.append(f"{path.name}: expected a map at top level")
+            continue
         rules_val = _dict_get(payload, "rules") or []
         for rule in rules_val:
             rid_raw = _dict_get(rule, "id")

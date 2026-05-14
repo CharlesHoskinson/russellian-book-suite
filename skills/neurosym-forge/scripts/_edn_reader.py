@@ -6,14 +6,17 @@ docs/specs/2026-05-14-booklogic-v0.4-mission-design.md § "D1 — Real EDN bound
 
     primitives: int, float, str, bool, nil
     keywords:   :foo, :foo/bar
+    symbols:    foo, foo/bar
+    tagged:     #inst "..."
     collections: {k v ...}, [a b ...], (a b ...)
     comments:   ; to end of line
 
-Does NOT support: tagged literals, sets, symbols, custom dispatch, character
-literals. The reader raises EdnReadError on unsupported forms.
+Does NOT support: sets, custom dispatch, character literals, arbitrary tagged
+literals (raises EdnReadError on unknown tags).
 """
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,6 +36,38 @@ class Keyword:
         if self.namespace:
             return f":{self.namespace}/{self.name}"
         return f":{self.name}"
+
+
+@dataclass(frozen=True)
+class Symbol:
+    """An EDN symbol. Hashable and equal-by-value.
+
+    Symbols are bare identifiers (`foo`, `foo/bar`) — distinct from keywords
+    (which begin with `:`). The S-expression event heads in the ingestion
+    trace use symbols as the leading element of a list.
+    """
+
+    name: str
+    namespace: str | None = None
+
+    def __str__(self) -> str:
+        if self.namespace:
+            return f"{self.namespace}/{self.name}"
+        return self.name
+
+    def __hash__(self) -> int:
+        return hash(("Symbol", self.namespace, self.name))
+
+
+def _parse_inst(s: str) -> dt.datetime:
+    """Parse an ISO-8601 timestamp into a timezone-aware datetime.
+
+    Accepts both 'Z' and '+HH:MM' offsets. Microsecond precision honoured.
+    """
+    # Python 3.11+ datetime.fromisoformat handles 'Z' natively; for
+    # earlier interpreters, normalise 'Z' to '+00:00'.
+    normalized = s.replace("Z", "+00:00") if s.endswith("Z") else s
+    return dt.datetime.fromisoformat(normalized)
 
 
 def read_edn(s: str) -> Any:
@@ -102,10 +137,27 @@ class _Parser:
         if c == ":":
             return self._parse_keyword()
         if c == "#":
-            raise EdnReadError(
-                f"tagged literals, sets, and custom dispatch are not supported "
-                f"in PR-1 (position {self.pos})"
-            )
+            self._advance()  # consume '#'
+            if self._eof():
+                raise EdnReadError("dangling #")
+            tag_start = self.pos
+            while not self._eof() and self._peek() not in " \t\n\r,()[]{}\";":
+                self.pos += 1
+            tag = self.src[tag_start:self.pos]
+            if not tag:
+                raise EdnReadError("dangling # (empty tag)")
+            if tag == "inst":
+                self._skip_ws_and_comments()
+                value = self._parse_form()
+                if not isinstance(value, str):
+                    raise EdnReadError(
+                        f"#inst expects a string payload, got {type(value).__name__}"
+                    )
+                try:
+                    return _parse_inst(value)
+                except ValueError as e:
+                    raise EdnReadError(f"invalid #inst literal: {e}")
+            raise EdnReadError(f"unknown tag #{tag!r}")
         return self._parse_atom()
 
     def _parse_map(self) -> dict[Any, Any]:
@@ -184,4 +236,15 @@ class _Parser:
             return float(token)
         except ValueError:
             pass
+        # Symbol: starts with letter or underscore; may contain a single '/'
+        if token and (token[0].isalpha() or token[0] == "_"):
+            if "/" in token:
+                ns, _, name = token.partition("/")
+                # validate that there's no trailing '/' and name is non-empty
+                if not ns or not name or "/" in name:
+                    raise EdnReadError(
+                        f"malformed namespaced symbol {token!r} at position {start}"
+                    )
+                return Symbol(name=name, namespace=ns)
+            return Symbol(name=token)
         raise EdnReadError(f"unrecognised atom {token!r} at position {start}")

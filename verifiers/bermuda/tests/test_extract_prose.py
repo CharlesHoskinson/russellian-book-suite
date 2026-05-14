@@ -5,19 +5,30 @@ from pathlib import Path
 
 import pytest
 
+from scripts._edn_reader import Keyword
+from scripts._io import read_edn_file
 from scripts.extract_prose import extract_chapter, extract_release
+
+_KW_ATOMS = Keyword("atoms")
+_KW_PREDICATE = Keyword("predicate")
+_KW_VALUE = Keyword("value")
+_KW_SOURCE = Keyword("source")
+_KW_EXTRACTOR = Keyword("extractor")
+_KW_CONFIDENCE = Keyword("confidence")
+_KW_KIND = Keyword("kind")
+_KW_ID = Keyword("id")
 
 
 def test_extracts_clean_chapter(fixtures_dir: Path, tmp_work: Path) -> None:
     atoms = extract_chapter(fixtures_dir / "chapter_clean.md")
-    assert any(a["predicate"] == ":parishes-count" and a["value"] == 9 for a in atoms)
+    assert any(a[_KW_PREDICATE] == ":parishes-count" and a[_KW_VALUE] == 9 for a in atoms)
 
 
 def test_extracts_drifty_chapter(fixtures_dir: Path) -> None:
     atoms = extract_chapter(fixtures_dir / "chapter_with_8_parishes.md")
     # Should pick up BOTH the "8 parishes" and the "9" mention — the verifier
     # decides which contradicts the canonical
-    values = sorted(a["value"] for a in atoms if a["predicate"] == ":parishes-count")
+    values = sorted(a[_KW_VALUE] for a in atoms if a[_KW_PREDICATE] == ":parishes-count")
     assert values == [8, 9]
 
 
@@ -29,9 +40,9 @@ def test_extract_release_walks_chapter_bundles(tmp_path: Path) -> None:
     (bundles / "ch-02").mkdir()
     (bundles / "ch-02" / "draft.md").write_text("Bermuda has 8 parishes.")
     n = extract_release(bundles, tmp_path / "prose-facts.edn")
-    payload = json.loads((tmp_path / "prose-facts.edn").read_text(encoding="utf-8"))
+    payload = read_edn_file(tmp_path / "prose-facts.edn")
     assert n == 2
-    chapters = {a["source"]["file"] for a in payload["atoms"]}
+    chapters = {a[_KW_SOURCE]["file"] for a in payload[_KW_ATOMS]}
     assert "ch-01/draft.md" in str(chapters) or any("ch-01" in c for c in chapters)
 
 
@@ -47,9 +58,9 @@ def test_pass_b_calls_llm_and_parses_json() -> None:
     atoms = extract_pass_b("Some chapter text.", source_file="ch-01.md",
                            llm_call=fake_llm)
     assert len(atoms) == 2
-    assert any(a["predicate"] == ":parishes-count" for a in atoms)
-    assert all(a["extractor"] == "llm" for a in atoms)
-    assert all(a["confidence"] == 0.6 for a in atoms)
+    assert any(a[_KW_PREDICATE] == ":parishes-count" for a in atoms)
+    assert all(a[_KW_EXTRACTOR] == "llm" for a in atoms)
+    assert all(a[_KW_CONFIDENCE] == 0.6 for a in atoms)
 
 
 def test_pass_b_handles_malformed_llm_output() -> None:
@@ -76,6 +87,6 @@ def test_extract_release_with_pass_b_enabled(tmp_path: Path) -> None:
 
     n = extract_release(bundles, tmp_path / "prose-facts.edn",
                         llm_call=fake_llm)
-    payload = json.loads((tmp_path / "prose-facts.edn").read_text(encoding="utf-8"))
+    payload = read_edn_file(tmp_path / "prose-facts.edn")
     # Pass A finds parishes, Pass B finds population → 2 atoms
     assert n == 2

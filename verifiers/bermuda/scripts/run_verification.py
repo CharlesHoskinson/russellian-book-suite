@@ -10,14 +10,25 @@ Phases:
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
 from pathlib import Path
 
+# scripts/__init__.py extends this package's __path__ to include forge's
+# scripts/ dir, so the imports below resolve to neurosym-forge's modules.
+from scripts._edn_reader import Keyword  # noqa: E402
+from scripts._io import write_edn_file  # noqa: E402
+
 from scripts.extract_prose import extract_release
 from scripts.ingest_ledger import ingest
 from scripts.verdict_to_qa import translate
+
+_KW_VERSION = Keyword("version")
+_KW_VERDICT = Keyword("verdict")
+_KW_CORE = Keyword("core")
+_KW_EXPLANATION = Keyword("explanation")
+_KW_VERIFIED_COUNT = Keyword("verified-count")
+_KW_ATOMS = Keyword("atoms")
 
 
 def run(workspace: Path, release_version: str, project_root: Path,
@@ -38,18 +49,18 @@ def run(workspace: Path, release_version: str, project_root: Path,
     if bundles.exists():
         extract_release(bundles, prose_edn)
     else:
-        prose_edn.write_text(json.dumps({"version": 1, "atoms": []}), encoding="utf-8")
+        write_edn_file(prose_edn, {_KW_VERSION: 1, _KW_ATOMS: []})
 
     # Phase 3: verify
     verdict_edn = work / "verdict.edn"
     if stub_verifier:
-        verdict_edn.write_text(json.dumps({
-            "version": 1,
-            "verdict": stub_verdict,
-            "core": stub_core or [],
-            "explanation": "stub" if stub_verdict == "unsat" else "",
-            "verified_count": 0,
-        }), encoding="utf-8")
+        write_edn_file(verdict_edn, {
+            _KW_VERSION: 1,
+            _KW_VERDICT: Keyword(stub_verdict),
+            _KW_CORE: stub_core or [],
+            _KW_EXPLANATION: "stub" if stub_verdict == "unsat" else "",
+            _KW_VERIFIED_COUNT: 0,
+        })
     else:
         main_js = project_root / "cljs-orchestrator" / "dist" / "main.js"
         if not main_js.exists():

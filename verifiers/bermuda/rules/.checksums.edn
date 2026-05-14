@@ -1,7 +1,7 @@
 {
-  "checksums": {
-    "grounded.edn": "2e53054e029471a1c0ba68e377efd6d65df98dc87082bca53ce4a4e9839989eb",
-    "predicates.edn": "f360b86798109e6f63b423c9764fe13545092f2ae697ef386dfd4ca50e89e51b",
-    "seed.edn": "0de7a485e8eecbeee0df7c6aa0549133961b450a2b2c253a2b8bbd536e75be04"
-  }
+ :checksums {
+             "grounded.edn" "fbd1e8ff093a7c3e4496fa2e0019285873a644eb4c248391fa186c08a1a90f53"
+             "predicates.edn" "de9f0c9f4cb6dd2a7d32e42791b1f48cff1d1591ab0a7b5f97fd7c272eb189a7"
+             "seed.edn" "1df0e9c9e408d4f508a6e7211f59290d84c7590eff5c024444d6f98d1d40a38f"
+            }
 }

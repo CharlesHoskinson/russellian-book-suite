@@ -16,6 +16,32 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# scripts/__init__.py extends this package's __path__ to include forge's
+# scripts/ dir, so the imports below resolve to neurosym-forge's modules.
+from scripts._edn_reader import Keyword, read_edn  # noqa: E402
+from scripts._edn_writer import write_edn  # noqa: E402
+from scripts._io import read_edn_file, write_edn_file  # noqa: E402
+
+_KW_VERSION = Keyword("version")
+_KW_ATOMS = Keyword("atoms")
+_KW_PREDICATES = Keyword("predicates")
+_KW_PATTERNS = Keyword("patterns")
+_KW_PREDICATE = Keyword("predicate")
+_KW_SUBJECT = Keyword("subject")
+_KW_VALUE_KIND = Keyword("value_kind")
+_KW_WORD_TO_INT = Keyword("word_to_int")
+_KW_VALUE = Keyword("value")
+
+_KW_ID = Keyword("id")
+_KW_DOC = Keyword("doc")
+_KW_SOURCE_SPANS = Keyword("source_spans")
+_KW_SUPPORTS_CHAPTERS = Keyword("supports_chapters")
+_KW_CONFIDENCE = Keyword("confidence")
+_KW_KIND = Keyword("kind")
+_KW_SORT = Keyword("sort")
+_KW_NAME = Keyword("name")
+_KW_CONTEXT = Keyword("context")
+
 
 def read_ledger(path: Path) -> list[dict]:
     rows: list[dict] = []
@@ -41,19 +67,20 @@ def _is_verified(c: dict) -> bool:
     return c.get("status") == "verified" or c.get("tbf:status") == "verified"
 
 
-def _apply_predicates(text: str, predicates: dict[str, dict]) -> tuple[str, Any, str] | None:
+def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | None:
     """Match text against the predicate map. Returns (predicate, value, subject) or None."""
     for _name, spec in predicates.items():
-        for pat in spec.get("patterns", []):
+        for pat in spec.get(_KW_PATTERNS, []):
             m = re.search(pat, text, flags=re.IGNORECASE | re.DOTALL)
             if not m:
                 continue
-            value_kind = spec.get("value_kind")
+            value_kind = spec.get(_KW_VALUE_KIND)
             if value_kind == "bool":
-                value = spec.get("value", True)
+                value = spec.get(_KW_VALUE, True)
             elif value_kind == "int":
                 raw = m.group("n") if "n" in m.groupdict() else m.group(1)
-                value = spec.get("word_to_int", {}).get(raw.lower(), None)
+                word_to_int = spec.get(_KW_WORD_TO_INT, {})
+                value = word_to_int.get(raw.lower(), None)
                 if value is None:
                     try:
                         value = int(raw)
@@ -65,31 +92,44 @@ def _apply_predicates(text: str, predicates: dict[str, dict]) -> tuple[str, Any,
                 value = m.group("island").replace(".", "").replace(" ", "_")
             else:
                 continue
-            return spec["predicate"], value, spec["subject"]
+            return spec[_KW_PREDICATE], value, spec[_KW_SUBJECT]
     return None
 
 
-def _claim_to_atom(claim: dict, predicates: dict[str, dict]) -> dict:
+def _claim_to_atom(claim: dict, predicates: dict) -> dict:
     text = claim.get("canonical_text", "")
-    base: dict[str, Any] = {
-        "id": claim.get("claim_id", "?"),
-        "doc": text[:200],
-        "source_spans": claim.get("source_spans", []),
-        "supports_chapters": claim.get("supports_chapters", []),
-        "confidence": claim.get("confidence", 0.0),
+    base: dict = {
+        _KW_ID: claim.get("claim_id", "?"),
+        _KW_DOC: text[:200],
+        _KW_SOURCE_SPANS: claim.get("source_spans", []),
+        _KW_SUPPORTS_CHAPTERS: claim.get("supports_chapters", []),
+        _KW_CONFIDENCE: claim.get("confidence", 0.0),
     }
     if claim.get("claim_type") == "design_decision":
-        base.update({"kind": "symbol", "sort": ":formula",
-                     "name": ":CONTEXT", "context": True})
+        base.update({
+            _KW_KIND: Keyword("symbol"),
+            _KW_SORT: Keyword("formula"),
+            _KW_NAME: Keyword("CONTEXT"),
+            _KW_CONTEXT: True,
+        })
         return base
     match = _apply_predicates(text, predicates)
     if match is None:
-        base.update({"kind": "symbol", "sort": ":formula", "name": ":OPAQUE"})
+        base.update({
+            _KW_KIND: Keyword("symbol"),
+            _KW_SORT: Keyword("formula"),
+            _KW_NAME: Keyword("OPAQUE"),
+        })
         return base
     predicate, value, subject = match
-    base.update({"kind": "expression", "sort": ":formula",
-                 "predicate": predicate, "subject": subject, "value": value,
-                 "context": False})
+    base.update({
+        _KW_KIND: Keyword("expression"),
+        _KW_SORT: Keyword("formula"),
+        _KW_PREDICATE: predicate,
+        _KW_SUBJECT: subject,
+        _KW_VALUE: value,
+        _KW_CONTEXT: False,
+    })
     return base
 
 
@@ -97,15 +137,10 @@ def ingest(ledger_path: Path, predicates_path: Path, out_path: Path) -> int:
     rows = read_ledger(ledger_path)
     latest = latest_per_id(rows)
     verified = [c for c in latest.values() if _is_verified(c)]
-    predicates = json.loads(predicates_path.read_text(encoding="utf-8")).get(
-        "predicates", {}
-    )
+    predicates_data = read_edn_file(predicates_path)
+    predicates = predicates_data.get(_KW_PREDICATES, {})
     atoms = [_claim_to_atom(c, predicates) for c in verified]
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
-        json.dumps({"version": 1, "atoms": atoms}, indent=2, sort_keys=True),
-        encoding="utf-8", newline="\n",
-    )
+    write_edn_file(out_path, {_KW_VERSION: 1, _KW_ATOMS: atoms})
     return len(atoms)
 
 

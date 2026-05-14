@@ -1,7 +1,5 @@
-{
-  "version": 1,
-  "verdict": "unsat",
-  "core": ["clm-2026-000008", "prose-ch-02-001"],
-  "explanation": "Chapter 2 prose says 8 parishes; ledger says 9.",
-  "verified_count": 11
-}
+{:version 1
+ :verdict :unsat
+ :core ["clm-2026-000008" "prose-ch-02-001"]
+ :explanation "Chapter 2 prose says 8 parishes; ledger says 9."
+ :verified-count 11}

@@ -7,6 +7,11 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
+# scripts/__init__.py extends this package's __path__ to include forge's
+# scripts/ dir, so the imports below resolve to neurosym-forge's modules.
+from scripts._edn_reader import Keyword  # noqa: E402
+from scripts._io import write_edn_file  # noqa: E402
+
 from scripts.prose_patterns import extract_pass_a
 
 LlmCall = Callable[[str], str]
@@ -24,6 +29,18 @@ Chapter text:
 {text}
 ---
 """
+
+_KW_VERSION = Keyword("version")
+_KW_ATOMS = Keyword("atoms")
+_KW_KIND = Keyword("kind")
+_KW_SORT = Keyword("sort")
+_KW_PREDICATE = Keyword("predicate")
+_KW_SUBJECT = Keyword("subject")
+_KW_VALUE = Keyword("value")
+_KW_ID = Keyword("id")
+_KW_SOURCE = Keyword("source")
+_KW_CONFIDENCE = Keyword("confidence")
+_KW_EXTRACTOR = Keyword("extractor")
 
 
 def extract_chapter(draft_path: Path) -> list[dict]:
@@ -49,15 +66,15 @@ def extract_pass_b(text: str, source_file: str,
         if "predicate" not in item or "subject" not in item or "value" not in item:
             continue
         out.append({
-            "kind": "expression",
-            "sort": ":formula",
-            "predicate": item["predicate"],
-            "subject": item["subject"],
-            "value": item["value"],
-            "id": f"prose-{Path(source_file).stem}-llm-{i + 1:03d}",
-            "source": {"file": source_file, "line": 0},
-            "confidence": 0.6,
-            "extractor": "llm",
+            _KW_KIND: Keyword("expression"),
+            _KW_SORT: Keyword("formula"),
+            _KW_PREDICATE: item["predicate"],
+            _KW_SUBJECT: item["subject"],
+            _KW_VALUE: item["value"],
+            _KW_ID: f"prose-{Path(source_file).stem}-llm-{i + 1:03d}",
+            _KW_SOURCE: {"file": source_file, "line": 0},
+            _KW_CONFIDENCE: 0.6,
+            _KW_EXTRACTOR: "llm",
         })
     return out
 
@@ -79,11 +96,7 @@ def extract_release(bundles_dir: Path, out_path: Path,
         if llm_call is not None:
             all_atoms.extend(extract_pass_b(text, source_file=source,
                                             llm_call=llm_call))
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
-        json.dumps({"version": 1, "atoms": all_atoms}, indent=2, sort_keys=True),
-        encoding="utf-8", newline="\n",
-    )
+    write_edn_file(out_path, {_KW_VERSION: 1, _KW_ATOMS: all_atoms})
     return len(all_atoms)
 
 

@@ -166,3 +166,68 @@ Run the new skill against the current 20-paragraph sample, a Bermuda chapter, an
 ## Recommended Direction
 
 The skill should stop treating Russell as maximal compression. Russell's better model is compressed movement: every sentence reduces ambiguity, but every paragraph also advances a living argument. The next version should keep the deterministic lint core and add a second layer that rewards concrete pressure, exact uncertainty, antithesis, and paragraph turns.
+
+---
+
+## Anti-staccato fix (2026-05-14)
+
+The vitality layer (Phase B, commit `a3cb36c`) shipped five advisory
+linters: burstiness, ai-vocabulary, concrete-instance density,
+epistemic precision, paragraph motion. Field testing against a fresh
+Bitcoin prose attempt reproduced the original failure: the output
+passed all six negative linters and most of the vitality block, yet
+still read as a wall of compact assertion + compact justification
+pairs. The vitality linters caught flat_proportion ≥ 0.93 on
+paragraph motion — the signal was right, but the advisory severity and
+the lack of named patterns gave the operator no concrete redirection.
+
+The new `lint_ai_staccato` linter names four patterns the existing
+suite missed:
+
+1. **staccato-paragraph-run** — runs of three or more paragraphs
+   whose sentences are all twelve words or fewer.
+2. **negation-affirmation-template** — repeated `X is not Y. X is Z.`
+   shapes across paragraphs.
+3. **this-is-conclusion-overuse** — three or more paragraph-final
+   sentences starting with `This is …` / `It is …` in a six-paragraph
+   window.
+4. **abstract-subject-run** — four or more consecutive sentences
+   sharing the same abstract-noun grammatical subject from a short
+   stoplist (`system`, `protocol`, `ledger`, `truth`, `freedom`, etc.).
+
+`style_pass_report` now emits a positive-checks block alongside the
+existing negative_metrics and vitality_metrics:
+`sentence_length_fano`, `paragraph_shape_diversity`,
+`concession_turn_count`, `concrete_instance_count`,
+`template_repetition_rate`. All five are informational; no new gate.
+
+### Bitcoin comparison
+
+Two 10-paragraph samples land at
+`skills/russellian-style/tests/fixtures/before_after/`:
+
+- `bitcoin_staccato.md` — the failing pattern. Fires
+  `staccato-paragraph-run` (≥ 1 run), `negation-affirmation-template`
+  (≥ 2 hits), and `this-is-conclusion-overuse` (≥ 3 hits in window).
+- `bitcoin_russellian.md` — the same factual content recast with
+  concessions, distinctions, particular agents (the schoolteacher in
+  Lagos, the pensioner in Naples, the Athenian assembly), and
+  consequence-carrying paragraph ends. Silent under all four new
+  rules and at most four findings under the six negative linters.
+
+The paragraph-by-paragraph difference is mostly the four moves that
+the negative linters cannot enforce: concession before judgement
+(paragraphs 1, 3, 4), particular agents in place of `the system`
+(paragraphs 5, 6, 8), consequences that earn the last sentence
+(paragraphs 2, 4, 7, 9), and one paragraph (10) that does the rare
+Russellian move of stating the cost a free choice imposes on the one
+who makes it.
+
+### Calibration note
+
+The new linter is advisory in v1, matching the research-doc guidance
+that gating should follow calibration against at least three corpus
+sources and one real chapter. The Bitcoin good-sample is the seed
+target. A future spec can promote `negation-affirmation-template` to
+gating once it has been run against three corpus chapters without
+false positives.

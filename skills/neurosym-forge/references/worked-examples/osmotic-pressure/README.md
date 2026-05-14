@@ -54,19 +54,19 @@ JSONL file instead of a book workspace.
 ## Add domain sorts
 
 The seed sort registry covers `:int`, `:real`, and `:bool`. Add the
-chemistry sorts:
+chemistry sorts (each invocation appends one entry to
+`rules/seed.edn` and refreshes the checksum):
 
 ```bash
 .venv\Scripts\python.exe -m scripts.add_sort \
-  --project ../../verifiers/osmotic_pressure --name :solution --kind :entity
+  --project ../../verifiers/osmotic_pressure --sort :solution
 .venv\Scripts\python.exe -m scripts.add_sort \
-  --project ../../verifiers/osmotic_pressure --name :pressure-pa --kind :real
+  --project ../../verifiers/osmotic_pressure --sort :pressure-pa
 .venv\Scripts\python.exe -m scripts.add_sort \
-  --project ../../verifiers/osmotic_pressure --name :temperature-k --kind :real
+  --project ../../verifiers/osmotic_pressure --sort :temperature-k
 ```
 
-`:molarity` already maps to `:real` via the seed; no separate entry
-needed.
+`:molarity` reuses the seed `:real`; no separate entry needed.
 
 ## Add the gas constant as a grounded atom
 
@@ -94,20 +94,33 @@ pub fn r_constant() -> f64 { 8.314 }
 
 ## Add the van 't Hoff rule
 
+The rule body lives in a JSON file; the helper reads it and appends
+the record to `rules/seed.edn`. Write `vant-hoff.json` first with
+the lhs/rhs expression plus the rule's ID, doc, and tags:
+
+```json
+{
+  "id": "R042",
+  "lhs": {"kind": "expression", "sort": ":real",
+          "head": {"kind": "symbol", "name": ":osmotic-pressure",
+                   "sort": {"kind": "fn", "args": [":solution"], "ret": ":real"}},
+          "args": [{"kind": "variable", "name": "?s", "sort": ":solution"}]},
+  "rhs": "<i * M * R * T expression — see references/worked-examples/osmotic-pressure/vant-hoff.json>",
+  "doc": "van 't Hoff: pi = i * M * R * T",
+  "tags": ["algebraic", "domain-chemistry"]
+}
+```
+
+Then append:
+
 ```bash
 .venv\Scripts\python.exe -m scripts.add_rewrite_rule \
   --project ../../verifiers/osmotic_pressure \
-  --id R042 \
-  --doc "van 't Hoff: π = i · M · R · T" \
-  --tags algebraic,domain-chemistry \
-  --rule-file vant-hoff.edn
+  --rule-file vant-hoff.json
 ```
 
-The `vant-hoff.edn` file carries the lhs/rhs expression in the
-project's standard EDN shape (the same record as the seed example
-`scripts/add_rewrite_rule.py` writes for any rule). The fixture stub
-at `tests/rules/test_R042.cljs` asserts the rewrite produces the
-expected algebraic term.
+The fixture stub at `tests/rules/test_R042.cljs` asserts the rewrite
+produces the expected algebraic term.
 
 ## Override the axioms hook
 
@@ -155,12 +168,14 @@ constraint set, not the numerical value.
 For the live (non-stub) path, build the Rust addon
 (`cargo build --release --no-default-features --features smt,kg`)
 and the CLJS orchestrator (`npm install && npm run build:cljs`),
-then drop the `--stub` flags. The runbook documents the build
-steps.
+then drop the `--stub` flags. The runbook documents the build steps
+end to end, including the Cargo feature flags that skip tectonic.
 
 ## Pass two: doctored run
 
-Replace the ledger and re-run:
+The ledger flips one row and the rest of the workflow stays
+identical. Replace `claims_clean.jsonl` with `claims_doctored.jsonl`
+on the `ingest_ledger` call, then re-run:
 
 ```bash
 .venv\Scripts\python.exe -m scripts.ingest_ledger \
@@ -170,19 +185,15 @@ Replace the ledger and re-run:
 
 .venv\Scripts\python.exe -m scripts.run_verification \
   --workspace . --release 0.1.0 \
-  --stub --stub-verdict unsat \
-  --stub-core clm-osmo-000003
+  --stub --stub-verdict unsat
 ```
 
-Expected output: `work/verdict.edn` carrying
-
-```clojure
-{:verdict :unsat
- :core ["clm-osmo-000003"]}
-```
-
-and `qa/verification-defects.json` carrying one critical D13 ticket
-pointing at `clm-osmo-000003` — the doctored `i = 1` claim.
+Expected output: `work/verdict.edn` carrying `{:verdict :unsat}`
+plus an `:core` field listing the tracker IDs. On the stub path
+the core is synthetic; on the live path it lists `clm-osmo-000003`
+— the doctored `i = 1` claim. The translation writes
+`qa/verification-defects.json` with one critical D13 ticket per
+core entry.
 
 The unsat core does not list R, the molarity, or the temperature
 because those values match the canonical background. The core lists

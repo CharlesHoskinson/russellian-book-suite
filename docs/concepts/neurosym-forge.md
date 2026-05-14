@@ -94,12 +94,14 @@ the atom population, the grounded-atom registry, and a checksum table:
  :checksums {"rules/seed.edn" "<sha256>"}}
 ```
 
-`scripts/lint_atomspace.py` enforces the shape: every atom carries a
-sort, every variable on a rule's `rhs` also occurs on its `lhs` (unless
-the rule carries the `:eliminating` tag), every grounded atom's sort
-matches its Rust signature, and the checksum on each `rules/*.edn`
-matches the file content on disk. The checksum lint flags any manual edit to
-`rules/*.edn`; the `add_*.py` helpers are the only sanctioned mutators.
+`scripts/lint_atomspace.py` enforces the atom-level shape: every atom
+carries a sort, every variable on a rule's `rhs` also occurs on its
+`lhs` (unless the rule carries the `:eliminating` tag), and every
+grounded atom's sort matches its Rust signature.
+`scripts/lint_rewrite_coverage.py` enforces two further invariants:
+every rule has a fixture test at `tests/rules/test_<ID>.cljs`, and the
+checksum on each `rules/*.edn` matches the file content on disk. The
+`add_*.py` helpers are the only sanctioned mutators of `rules/*.edn`.
 
 The four-kind taxonomy is the same as MeTTa's. The top-level shape
 diverges: MeTTa's Atomspace is a hypergraph indexed by content;
@@ -121,7 +123,7 @@ implementation lives in CLJS or Rust.
 | `!expr` | top-level evaluation directive | EDN metadata `^:force` on a grounded-atom shim; the CLJS phase driver evaluates immediately |
 | `(match &self pattern template)` | atomspace query | `core.logic/run*` over a cozo Datalog clause, then meander template substitution |
 | `(superpose (a b c))` | non-deterministic branching | CLJS `lazy-seq` of alternatives; each branch ships to Rust as a separate `assert_and_track` block |
-| `(collapse expr)` | reduce a non-deterministic stream | a reduction over the lazy-seq picks one branch; the verdict EDN records the choice |
+| `(collapse expr)` | native MeTTa returns a tuple of all branches | scaffold reduces to one branch (a divergence — see note below); the verdict EDN records the choice |
 | Grounded atom | host value or function | `#[napi]` Rust function with a CLJS thin shim |
 | Self-reflection | rules-as-data, programs modify their own atomspace | restricted form: `rules/*.edn` is data, but only the `add_*.py` helpers mutate it; checksums detect drift |
 

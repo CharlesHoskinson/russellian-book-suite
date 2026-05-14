@@ -52,8 +52,9 @@ For a book-workspace verifier (the Bermuda pattern):
 
 ```
 .venv\Scripts\python.exe -m scripts.scaffold_project \
-  --out ../../verifiers/bermuda \
+  --name "Bermuda Verifier" \
   --slug bermuda \
+  --out ../../verifiers/bermuda \
   --book-knowledge-bridge
 ```
 
@@ -62,32 +63,36 @@ flag:
 
 ```
 .venv\Scripts\python.exe -m scripts.scaffold_project \
-  --out ../../verifiers/osmotic_pressure \
-  --slug osmotic_pressure
+  --name "Osmotic Pressure Verifier" \
+  --slug osmotic_pressure \
+  --out ../../verifiers/osmotic_pressure
 ```
 
-The `--book-knowledge-bridge` flag adds `scripts/ingest_ledger.py` and
-the predicate-map scaffolding under `rules/predicates.edn`. Without it,
-the scaffolded project takes its Phase-1 input from any EDN file the
-operator chooses to write; the rest of the pipeline runs unchanged.
+`--name` is the human-readable project name (used in the generated
+`SKILL.md` and `README.md`); `--slug` is the snake_case identifier
+used in paths and namespaces. The `--book-knowledge-bridge` flag adds
+`scripts/ingest_ledger.py`. Without it, the operator writes the
+Phase-1 input themselves; the rest of the pipeline runs unchanged.
 
 After scaffold, the output tree contains:
 
 ```
 verifiers/<slug>/
 ├── SKILL.md
-├── cljs-orchestrator/
-│   ├── package.json
-│   ├── shadow-cljs.edn
-│   └── src/main/<slug>/
-│       ├── core.cljs
-│       ├── phases.cljs
-│       ├── ir.cljs
-│       ├── nl_to_fol.cljs
-│       ├── unify.cljs
-│       └── bridge.cljs
+├── README.md
+├── deps.edn
+├── package.json
+├── shadow-cljs.edn
+├── cljs-orchestrator/src/main/<slug>/
+│   ├── core.cljs
+│   ├── phases.cljs
+│   ├── ir.cljs
+│   ├── nl_to_fol.cljs
+│   ├── unify.cljs
+│   └── bridge.cljs
 ├── rust-verifier/
 │   ├── Cargo.toml
+│   ├── build.rs
 │   └── src/
 │       ├── lib.rs
 │       ├── axioms.rs      ← v0.3 no-op hook; override per project
@@ -99,15 +104,21 @@ verifiers/<slug>/
 ├── rules/
 │   ├── seed.edn
 │   ├── grounded.edn
-│   ├── predicates.edn     ← only with --book-knowledge-bridge
+│   ├── predicates.edn     ← populated by the operator
+│   ├── .forge-version.edn
 │   └── .checksums.edn
-├── scripts/
-│   ├── ingest_ledger.py    ← only with the bridge flag
-│   ├── extract_prose.py
-│   ├── verdict_to_qa.py
-│   └── run_verification.py
-└── pyproject.toml
+├── templates/
+│   ├── report.tex.tera
+│   └── claim_table.tex.tera
+└── scripts/
+    └── ingest_ledger.py    ← only with --book-knowledge-bridge
 ```
+
+The scaffold ships exactly one Python driver — `ingest_ledger.py`,
+emitted only in bridge mode. Every other workspace driver
+(`extract_prose.py`, `verdict_to_qa.py`, `run_verification.py`) lives
+per project; an operator copies them from the Bermuda verifier at
+`verifiers/bermuda/scripts/` and adapts each to the new domain.
 
 The `axioms.rs` file ships as a no-op stub. Domain-specific verifiers
 replace its body; the scaffold contract requires that
@@ -141,25 +152,38 @@ cd verifiers/bermuda
 Expected output: a count of tracked vs context atoms and the path to
 the EDN file.
 
-The predicate map shape (from Bermuda's seed):
+The predicate-map file is JSON-shaped EDN. From Bermuda's
+`rules/predicates.edn`:
 
-```clojure
-{:parishes        {:pattern #"^(\d+) parishes$"
-                   :value-kind :int
-                   :sort :int}
- :main-islands    {:pattern #"^(\d+) main islands$"
-                   :value-kind :int
-                   :sort :int}
- :currency-peg    {:pattern #"^pegged 1:1 to USD$"
-                   :value-kind :bool
-                   :sort :bool}}
+```json
+{
+  "version": 1,
+  "predicates": {
+    "parishes": {
+      "patterns": ["(?P<n>\\d+|nine|eight)\\s+parishes"],
+      "predicate": ":parishes-count",
+      "subject": ":Bermuda",
+      "value_kind": "int",
+      "word_to_int": {"nine": 9, "eight": 8}
+    },
+    "currency_peg": {
+      "patterns": ["Bermudian\\s+dollar.*pegged.*US\\s+dollar"],
+      "predicate": ":currency-pegged-at-parity",
+      "subject": ":BMD",
+      "value_kind": "bool",
+      "value": true
+    }
+  }
+}
 ```
 
 Each pattern is a regex over the claim's `canonical_text` field. The
-first capture group is the value; `value-kind` decides how to coerce
-it. Claims that do not match any pattern fall to `:CONTEXT` and never
-participate in Z3 assertions. Claims marked `:status :OPAQUE` skip
-ingestion.
+named capture group `n` (or a positional group) carries the raw
+value; `value_kind` decides the coercion (`int`, `bool`, `string`,
+`entity`). For `int` predicates with word forms, `word_to_int` maps
+spelled-out numbers to digits. Claims that do not match any pattern
+fall to `:CONTEXT` and never participate in Z3 assertions. Claims
+marked `:status :OPAQUE` skip ingestion.
 
 ---
 
@@ -181,9 +205,10 @@ predicate patterns over the prose text. From the project root:
 
 The script does two passes. Pass A is regex-only and runs always.
 Pass B is an optional LLM disambiguator that turns ambiguous prose
-into a structured value; enable it with `--llm-pass` and the
-`--llm-call` adapter. Pass B is opt-in because it costs tokens; Pass
-A alone catches the Bermuda parish-count drift.
+into a structured value; it runs only when the caller passes an
+`llm_call` callable into `extract_prose.run`. The CLI form skips
+Pass B by default. Pass A alone catches the Bermuda parish-count
+drift.
 
 Output: `work/prose-facts.edn` with one atom per matched prose span,
 each atom carrying a `:source` field pointing at the chapter file and
@@ -206,36 +231,59 @@ Sorts are the type vocabulary. The seed set is `:int`, `:real`,
 cd skills/neurosym-forge
 .venv\Scripts\python.exe -m scripts.add_sort \
   --project ../../verifiers/bermuda \
-  --name :parish \
-  --kind :entity
+  --sort :parish
 ```
 
-The helper validates the name (lower-case keyword, no collisions),
-appends to the project's `:sorts` vector in `rules/seed.edn`, and
-refreshes the checksum.
+The `--sort` argument accepts either a bare keyword literal
+(`:parish`) for a primitive sort or a JSON object for function and
+enum sorts:
+
+```
+.venv\Scripts\python.exe -m scripts.add_sort \
+  --project ../../verifiers/bermuda \
+  --sort '{"kind":"enum","members":[":sat",":unsat",":unknown"]}'
+```
+
+The helper validates the sort, appends it to the `:sorts` vector in
+`rules/seed.edn`, and refreshes the checksum.
 
 ### Add a rewrite rule
 
 Rules are the `(= lhs rhs)` records. Each one carries an ID
-(`R<NNN>`), a doc string, and a set of tags. Adding one:
+(`R<NNN>`), a doc string, and a set of tags. The helper reads the
+rule body from a JSON file; write the body first:
+
+```json
+{
+  "id": "R042",
+  "lhs": {"kind": "expression", "sort": ":bool",
+          "head": {"kind": "symbol", "name": ":currency-peg",
+                   "sort": {"kind": "fn", "args": [":entity"], "ret": ":bool"}},
+          "args": [{"kind": "variable", "name": "?c", "sort": ":entity"}]},
+  "rhs": {"kind": "expression", "sort": ":bool",
+          "head": {"kind": "symbol", "name": ":pegged-to-usd",
+                   "sort": {"kind": "fn", "args": [":entity"], "ret": ":bool"}},
+          "args": [{"kind": "variable", "name": "?c", "sort": ":entity"}]},
+  "doc": "currency-peg unfolds to pegged-to-usd",
+  "tags": ["algebraic", "domain-bermuda"]
+}
+```
+
+Then append it:
 
 ```
 .venv\Scripts\python.exe -m scripts.add_rewrite_rule \
   --project ../../verifiers/bermuda \
-  --id R042 \
-  --doc "currency-peg follows USD reserve identity" \
-  --tags algebraic,domain-bermuda \
-  --lhs '(currency-peg ?c)' \
-  --rhs '(and (pegged-to USD ?c) (= (ratio ?c) 1))'
+  --rule-file R042.json
 ```
 
 The helper checks variable balance (every free `?v` on `:rhs` also
 occurs on `:lhs` unless the rule carries the `:eliminating` tag),
 validates the sorts against the registry, appends the rule to
-`rules/seed.edn`, and writes a fixture stub at
-`tests/rules/test_R042.cljs` in the scaffolded project. The fixture
-is a stub the operator fills in to assert the rewrite produces the
-expected term.
+`rules/seed.edn`, refreshes the checksum, and writes a fixture stub
+at `tests/rules/test_R042.cljs` in the scaffolded project. The
+fixture is a stub the operator fills in to assert the rewrite
+produces the expected term.
 
 `lint_rewrite_coverage.py` flags any rule without a fixture test.
 
@@ -420,18 +468,12 @@ and compares against the file content on disk. A mismatch means
 someone (the operator, an agent, a merge conflict) edited the file
 without going through an `add_*.py` helper.
 
-Recovery: undo the manual edit, then re-add the rule through
-`add_rewrite_rule.py`. If the manual edit is correct and the
-helpers do not yet support the shape, refresh the checksum:
-
-```
-.venv\Scripts\python.exe -m scripts.refresh_checksum \
-  --project ../../verifiers/bermuda \
-  --file rules/seed.edn
-```
-
-…but this disables the drift detector for that file until the next
-helper-mediated write. Use sparingly.
+Recovery: undo the manual edit, then re-apply the change through the
+helper. If the manual edit is correct and the helpers do not yet
+support the shape, the workaround is to remove the file's entry from
+`rules/.checksums.edn` and let the next helper-mediated write
+regenerate it. Doing so disables drift detection for that file until
+the next helper run.
 
 ### `:unknown` verdict from Z3
 

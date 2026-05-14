@@ -1,0 +1,1 @@
+{"kind": "grounded", "name": ":z3-check-all", "sort": {"kind": "fn", "args": [":atom"], "ret": ":verdict"}, "grounded": {"lib": "z3", "fn": "check_all", "napi": true}}

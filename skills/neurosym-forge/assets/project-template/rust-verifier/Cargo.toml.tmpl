@@ -1,0 +1,22 @@
+[package]
+name    = "{{ project_slug }}-verifier"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi        = { version = "3", features = ["napi9", "serde-json", "async"] }
+napi-derive = "3"
+z3          = { version = "0.20", features = ["bundled"] }
+egg         = "0.10"
+cozo        = { version = "0.7", default-features = false, features = ["compact"] }
+tectonic    = "0.16"
+serde       = { version = "1", features = ["derive"] }
+edn-rs      = "0.18"
+thiserror   = "2"
+ordered-float = "4"
+
+[build-dependencies]
+napi-build = "2"

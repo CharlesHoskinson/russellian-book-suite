@@ -112,6 +112,7 @@ Each skill is a self-contained Claude Code skill at `skills/<name>/` with its ow
 | [`review-conductor`](skills/review-conductor/SKILL.md) | 3 — review orchestration | Reads a panel YAML, calls book-review's dispatch primitives, applies per-persona severity gates (gating vs advisory), aggregates findings, emits `panel-review.md` + `verdict.json` | 32 |
 | [`book-qa`](skills/book-qa/SKILL.md) | 5 — release gate | Post-build defect gate. D1-D8 deterministic linter on the built artefact, D9-D12 from book-thesis, C1-C15 per-chapter agent swarm, Sentinel-Healer patch loop | 41 |
 | [`book-thesis`](skills/book-thesis/SKILL.md) | layer-2/3/4 over book-knowledge | Thesis tree, paragraph back-pointers, per-paragraph entailment loop, Datalog cross-chapter consistency. Contributes defect classes D9-D12 to book-qa | 16 |
+| [`neurosym-forge`](skills/neurosym-forge/SKILL.md) | optional verification side-channel | Scaffolds and extends ClojureScript + Rust neurosymbolic verifier projects under MeTTa-style atomspace conventions. Emits Z3/egg/cozo grounded atoms; does not run verification itself | 71 |
 
 **Total: 400 tests** across the seven skills. All green at HEAD.
 

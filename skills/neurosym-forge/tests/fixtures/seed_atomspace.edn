@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "sorts": [":int", ":real", ":bool", ":solution",
+            {"kind": "fn", "args": [":solution"], "ret": ":real"}],
+  "rules": [
+    {
+      "id": "R001",
+      "lhs": {"kind": "expression", "sort": ":real",
+              "head": {"kind": "symbol", "name": ":+", "sort": {"kind": "fn", "args": [":real", ":real"], "ret": ":real"}},
+              "args": [{"kind": "variable", "name": "?a", "sort": ":real"},
+                       {"kind": "variable", "name": "?b", "sort": ":real"}]},
+      "rhs": {"kind": "expression", "sort": ":real",
+              "head": {"kind": "symbol", "name": ":+", "sort": {"kind": "fn", "args": [":real", ":real"], "ret": ":real"}},
+              "args": [{"kind": "variable", "name": "?b", "sort": ":real"},
+                       {"kind": "variable", "name": "?a", "sort": ":real"}]},
+      "doc": "commutativity"
+    }
+  ],
+  "atoms": [
+    {"kind": "symbol", "name": ":osmotic-pressure", "sort": {"kind": "fn", "args": [":solution"], "ret": ":real"}}
+  ]
+}

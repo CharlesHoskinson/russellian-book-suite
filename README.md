@@ -32,9 +32,8 @@ The suite is **local-only by construction**. No paid APIs. No telemetry. No netw
 5. [End-to-end: the Bermuda manual](#end-to-end-the-bermuda-manual)
 6. [Local-only constraint](#local-only-constraint)
 7. [Repository layout](#repository-layout)
-8. [Lessons learned](#lessons-learned)
-9. [Documentation](#documentation)
-10. [License and acknowledgements](#license-and-acknowledgements)
+8. [Documentation](#documentation)
+9. [License and acknowledgements](#license-and-acknowledgements)
 
 ## The fingerprint problem
 
@@ -671,18 +670,6 @@ russellian-book-suite/
 ```
 
 Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest tests/ -q` from a skill directory.
-
-## Lessons learned
-
-Four patterns recur across the v3-to-v4.3 retrospective, the Bermuda build, and the Bundle C rollout. The full list lives in `skills/book-compose/MEMORY.md`; the load-bearing four are:
-
-**Orphan citation tokens leak through three layers.** `[clm-…]` tokens appear in chapter drafts, in the assembled manuscript, and in the merged HTML. Stripping at any single layer leaves residue at the others. The release-gate D1 check strips at all three; skipping any one re-introduces tokens on the next build.
-
-**HTML block break rule.** Every `</section>`, `</div>`, and `</aside>` must be followed by a blank line before any Markdown block can resume. Omitting the blank line causes the next `# Heading` to render as literal text.
-
-**Tailwind preflight resets heading sizes.** Tailwind's preflight CSS sets `h1, h2, h3 { font-size: inherit }`. Any heading-override CSS must live after the preflight in the cascade, or every heading renders at body size. D7 catches this.
-
-**Middle chapters degrade.** Chapters 4-8 in a ten-chapter batch return lower-quality agent output than chapters 1-3 and 9-10. The mitigation is structural: one fresh-context agent per chapter, randomised dispatch order, per-agent prompts capped at 500 words.
 
 ## Documentation
 

@@ -27,10 +27,25 @@ class EdnReadError(ValueError):
 
 @dataclass(frozen=True)
 class Keyword:
-    """An EDN keyword. Hashable and equal-by-value."""
+    """An EDN keyword. Hashable and equal-by-value.
+
+    Accepts either ``Keyword("name")`` or ``Keyword("ns/name")`` shorthand
+    (equivalent to ``Keyword("name", namespace="ns")``).  When the ``name``
+    argument contains a ``/`` and no explicit ``namespace`` is supplied the
+    string is split automatically, so ``Keyword("doc/id")`` and
+    ``Keyword("id", namespace="doc")`` are the same object.
+    """
 
     name: str
     namespace: str | None = None
+
+    def __post_init__(self) -> None:
+        # Auto-split "ns/name" shorthand when namespace is not explicitly set.
+        if self.namespace is None and "/" in self.name:
+            ns, _, name = self.name.partition("/")
+            if ns and name and "/" not in name:
+                object.__setattr__(self, "namespace", ns)
+                object.__setattr__(self, "name", name)
 
     def __str__(self) -> str:
         if self.namespace:

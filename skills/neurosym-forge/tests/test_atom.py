@@ -47,3 +47,8 @@ def test_variable_atom_has_question_prefix() -> None:
     a = Atom.from_dict({"kind": "variable", "name": "?s", "sort": ":solution"})
     assert a.is_variable()
     assert a.name.startswith("?")
+
+
+def test_symbol_atom_requires_name() -> None:
+    with pytest.raises(ValueError, match="symbol atom requires 'name'"):
+        Atom.from_dict({"kind": "symbol", "sort": ":int"})

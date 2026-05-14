@@ -43,3 +43,23 @@ def test_registry_rejects_duplicate() -> None:
 def test_registry_lookup_missing() -> None:
     reg = SortRegistry()
     assert not reg.contains(Sort.from_value(":nonexistent"))
+
+
+def test_function_sort_hashable_in_set() -> None:
+    a = Sort.from_value({"kind": "fn", "args": [":int", ":real"], "ret": ":bool"})
+    b = Sort.from_value({"kind": "fn", "args": [":int", ":real"], "ret": ":bool"})
+    c = Sort.from_value({"kind": "fn", "args": [":int"], "ret": ":bool"})
+    s = {a, b, c}
+    assert len(s) == 2  # a and b deduplicate; c is distinct
+
+
+def test_enum_sort_hashable_in_set() -> None:
+    a = Sort.from_value({"kind": "enum", "members": [":sat", ":unsat"]})
+    b = Sort.from_value({"kind": "enum", "members": [":sat", ":unsat"]})
+    s = {a, b}
+    assert len(s) == 1
+
+
+def test_primitive_sort_hashable_in_set() -> None:
+    s = {Sort.from_value(":int"), Sort.from_value(":int"), Sort.from_value(":real")}
+    assert len(s) == 2

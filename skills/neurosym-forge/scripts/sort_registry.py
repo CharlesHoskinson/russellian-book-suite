@@ -54,6 +54,16 @@ class Sort:
             raise ValueError("members only valid on enum sorts")
         return list(self.value["members"])
 
+    def __hash__(self) -> int:
+        if isinstance(self.value, str):
+            return hash(("primitive", self.value))
+        kind = self.value.get("kind")
+        if kind == "fn":
+            return hash(("fn", tuple(self.value["args"]), self.value["ret"]))
+        if kind == "enum":
+            return hash(("enum", tuple(self.value["members"])))
+        return hash(str(self.value))
+
     def __str__(self) -> str:
         if isinstance(self.value, str):
             return self.value

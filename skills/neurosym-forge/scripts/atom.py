@@ -33,7 +33,10 @@ class Atom:
         kind = payload["kind"]
         sort = Sort.from_value(payload["sort"])
         if kind == "symbol":
-            return cls(kind="symbol", sort=sort, name=payload.get("name"),
+            name = payload.get("name")
+            if name is None:
+                raise ValueError("symbol atom requires 'name'")
+            return cls(kind="symbol", sort=sort, name=name,
                        doc=payload.get("doc"), id=payload.get("id"),
                        tags=list(payload.get("tags", [])),
                        force=bool(payload.get("force", False)))

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurosym-forge.local/atom.schema.json",
+  "title": "Atom",
+  "description": "A MeTTa-style atom: symbol, variable, grounded, or expression.",
+  "type": "object",
+  "properties": {
+    "kind":    {"enum": ["symbol", "variable", "grounded", "expression"]},
+    "name":    {"type": "string"},
+    "sort":    {"$ref": "sort.schema.json"},
+    "grounded": {
+      "type": "object",
+      "properties": {
+        "lib":  {"type": "string", "enum": ["z3", "egg", "cozo", "tectonic", "custom"]},
+        "fn":   {"type": "string"},
+        "napi": {"type": "boolean"}
+      },
+      "required": ["lib", "fn"],
+      "additionalProperties": false
+    },
+    "head": {"$ref": "#"},
+    "args": {"type": "array", "items": {"$ref": "#"}},
+    "doc":  {"type": "string"},
+    "id":   {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]*$"},
+    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "force": {"type": "boolean", "description": "MeTTa ! prefix — evaluate immediately"}
+  },
+  "required": ["kind", "sort"],
+  "allOf": [
+    {"if": {"properties": {"kind": {"const": "symbol"}}, "required": ["kind"]},
+     "then": {"required": ["name"], "not": {"required": ["head", "args", "grounded"]}}},
+    {"if": {"properties": {"kind": {"const": "variable"}}, "required": ["kind"]},
+     "then": {"required": ["name"], "not": {"required": ["head", "args", "grounded"]}}},
+    {"if": {"properties": {"kind": {"const": "grounded"}}, "required": ["kind"]},
+     "then": {"required": ["name", "grounded"], "not": {"required": ["head", "args"]}}},
+    {"if": {"properties": {"kind": {"const": "expression"}}, "required": ["kind"]},
+     "then": {"required": ["head", "args"], "not": {"required": ["grounded"]}}}
+  ],
+  "additionalProperties": false
+}

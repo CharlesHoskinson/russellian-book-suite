@@ -60,8 +60,8 @@ The fix is not a smarter prompt. The fix is a pipeline that separates fact inges
    │  book-compose  →  russellian-style            │
    │  prose_mode (technical · narrative · polemic) │
    │  loads the matching system prompt             │
-   │  per-section: 6 negative linters + 5 vitality │
-   │  linters  →  humanizer                        │
+   │  per-section: linters (6 negative, 5 vitality)│
+   │  → humanizer                                  │
    └──────────────────┬────────────────────────────┘
                       │ chapter-NN.md
                       ▼
@@ -100,14 +100,14 @@ The fix is not a smarter prompt. The fix is a pipeline that separates fact inges
 
 The pipeline is sequential. Stage N reads stage N-1's outputs and writes its own. Two side-channels close the loop: persona findings can return a chapter to stage 2 for redraft; post-build QA at stage 5 can propose write-backs to the claim ledger at stage 1, so a defect surfaced in the final book corrects the underlying facts for the next release.
 
-## The seven skills
+## The seven core skills (plus one optional)
 
-Each skill is a self-contained Claude Code skill at `skills/<name>/` with its own `SKILL.md`, `scripts/`, `tests/`, and (where needed) `personas/`, `panels/`, `references/`.
+Seven skills compose the book pipeline. An eighth, `neurosym-forge`, is an optional verification side-channel listed for completeness. Each is a self-contained Claude Code skill at `skills/<name>/` with its own `SKILL.md`, `scripts/`, `tests/`, and (where needed) `personas/`, `panels/`, `references/`.
 
 | Skill | Stage | What it does |
 |---|---|---|
 | [`book-knowledge`](skills/book-knowledge/SKILL.md) | 1 — ingest | Reads source PDFs and Markdown, extracts claims with PROV-O provenance, projects them into an RDF graph, validates the graph with SHACL, runs competency queries, manages the append-only ledger, propagates Bayesian belief across the provenance DAG |
-| [`russellian-style`](skills/russellian-style/SKILL.md) | 2 — style | Sentence-grain prose discipline. Six negative linters (hedges, passive voice, signal density, parallel structure, rhythm, listicle abstraction) plus a vitality layer of five advisory linters (burstiness, AI vocabulary, concrete instance density, epistemic precision, paragraph motion). Ships a 50-paragraph Russell corpus index for retrieval, three mode-keyed system prompts for the drafter, and a positive-doctrine vitality guide |
+| [`russellian-style`](skills/russellian-style/SKILL.md) | 2 — style | Sentence-grain prose discipline. Six negative linters (hedges, passive voice, signal density, parallel structure, rhythm, listicle abstraction) catch the patterns to remove. A vitality layer of five advisory linters (burstiness, AI vocabulary, concrete instance density, epistemic precision, paragraph motion) catches the patterns to put in. The skill also ships a 50-paragraph Russell corpus index, three mode-keyed system prompts, and a positive-doctrine vitality guide |
 | [`book-compose`](skills/book-compose/SKILL.md) | 2 + 4 — author + compile | Chapter orchestrator. Reads the contract, slices the claim ledger, generates an outline and section drafts, applies russellian-style and humanizer per section, assembles the book release (Markdown + React/Tailwind HTML + Playwright PDF) |
 | [`book-review`](skills/book-review/SKILL.md) | 3 — review | Seven editorial personas with markdown role descriptions: Gottlieb (cadence, AI sloppy), Lay Reader (accessibility), Domain Expert (facts), Copyeditor (mechanics), Enjoyment Reader (momentum), AI-Slop Detector (24-pattern Wikipedia catalog), First-Time Visitor (30-second drive-by) |
 | [`review-conductor`](skills/review-conductor/SKILL.md) | 3 — review orchestration | Reads a panel YAML, calls book-review's dispatch primitives, applies per-persona severity gates (gating vs advisory), aggregates findings, emits `panel-review.md` + `verdict.json` |
@@ -336,17 +336,17 @@ The principles translate into deterministic linters. Each linter takes a Markdow
 
 #### The vitality layer
 
-The six linters above describe the patterns to remove. Russell's prose has a second, harder dimension: motion. The vitality layer adds five advisory linters that detect the absence of motion rather than the presence of bloat. They land *advisory* in v1 — they surface in the report but do not block release — until a calibration study correlates their findings with the persona panel's verdicts.
+The six linters above describe the patterns to remove. Russell's prose has a second, harder dimension: motion. Concrete examples earn abstractions. Antithesis exposes a distinction. The last sentence changes pressure. The vitality layer adds five advisory linters that detect the *absence* of these moves rather than the *presence* of bloat. All five land advisory in v1. They surface in the report but do not block release. A future calibration study will correlate their findings with the persona panel's verdicts before any promotion to gating.
 
 | Linter | What it measures |
 |---|---|
-| `lint_burstiness.py` | Sentence-length variance via Fano factor. Flags the AI signature band where every sentence falls between twelve and seventeen words |
-| `lint_ai_vocabulary.py` | False certainty (*clearly*, *obviously*), magic adverbs (*quietly*, *deeply*, *seamlessly*), transition-adverb starters (*moreover*, *furthermore*). Delegates to the `humanizer` skill's twenty-four-pattern catalog when present |
-| `lint_concrete_instance_density.py` | spaCy NER per paragraph plus an occupational-noun matcher (*the official*, *the censor*, *the worker*). Flags three or more consecutive paragraphs with zero concrete instances |
-| `lint_epistemic_precision.py` | Three-tier classifier: banned vague (*perhaps*, *arguably*), allowed bounded (*within five percent*, *under condition Y*), required uncertainty (numeric specificity without a source attribution) |
-| `lint_paragraph_motion.py` | Per-paragraph shape rubric (assertion-only, concession-turn, contrast, definition-by-pressure, question-answer, example-inference). Flags the flat axiom stack where seventy percent or more of paragraphs are pure assertion |
+| `lint_burstiness.py` | The *Fano factor* (variance-to-mean ratio) of the sentence-length distribution. A document whose sentences cluster between twelve and seventeen words carries the AI signature; human prose disperses much more widely |
+| `lint_ai_vocabulary.py` | Three lexical patterns Russell never used: false-certainty markers (*clearly*, *obviously*), magic adverbs (*quietly*, *deeply*, *seamlessly*), and transition-adverb sentence-starters (*moreover*, *furthermore*). When the `humanizer` skill is installed, the linter also runs its twenty-four-pattern Wikipedia "Signs of AI writing" catalog |
+| `lint_concrete_instance_density.py` | spaCy named-entity recognition per paragraph, with an occupational-noun matcher for Russell's stock figures (*the official*, *the censor*, *the worker*). A section fails when three or more paragraphs in a row carry zero concrete instances |
+| `lint_epistemic_precision.py` | Replaces the binary hedge classifier with three tiers: banned vague (*perhaps*, *arguably*), allowed bounded (*within five percent*, *under condition Y*), and required uncertainty — numeric specificity that lacks a source attribution gets flagged as itself a hedge |
+| `lint_paragraph_motion.py` | A rubric over each paragraph's shape: assertion-only, concession-turn, contrast, definition-by-pressure, question-answer, or example-inference. The *flat axiom stack* fires when seventy percent or more of a section's paragraphs are pure assertion-and-justification, with no turn |
 
-When a vitality linter fires, the report retrieves one paragraph reference from a fifty-paragraph index of public-domain Russell texts at `skills/russellian-style/references/russell-corpus-map.md` — same rhetorical mode as the flagged section, returned as a citation plus a one-sentence calibration lesson. The retrieval primitive never loads the full paragraph text; the reader retrieves the source from Project Gutenberg if they want the passage in front of them.
+When a vitality linter fires, the report retrieves one paragraph reference from a fifty-paragraph index of public-domain Russell texts at `skills/russellian-style/references/russell-corpus-map.md`. The reference matches the flagged section's rhetorical mode and arrives as a citation plus a one-sentence lesson. The retrieval helper never loads the full source text. A reader who wants the passage in front of them fetches it from Project Gutenberg using the URL and line hint in the citation.
 
 #### Mode-keyed system prompts
 

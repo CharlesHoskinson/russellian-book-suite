@@ -44,6 +44,8 @@ def lint_ai_vocabulary(path: Path) -> list[dict]:
     supplement = load_supplement()
     patterns_by_id = {p["id"]: p for p in supplement["patterns"]}
 
+    # All vitality linters advisory in v1; tier records the internal
+    # strength of the finding for the report.
     fc = patterns_by_id["false_certainty"]
     fc_re = _word_boundary_pattern(fc["phrases"])
     for sentence in iter_sentences(text):
@@ -54,6 +56,8 @@ def lint_ai_vocabulary(path: Path) -> list[dict]:
                 "phrase": m.group(1),
                 "sentence": sentence.text,
                 "line": getattr(sentence, "line", 0),
+                "tier": "important",
+                "severity": "advisory",
             })
 
     ma = patterns_by_id["magic_adverb"]
@@ -66,6 +70,8 @@ def lint_ai_vocabulary(path: Path) -> list[dict]:
                 "phrase": m.group(1),
                 "sentence": sentence.text,
                 "line": getattr(sentence, "line", 0),
+                "tier": "important",
+                "severity": "advisory",
             })
 
     ta = patterns_by_id["transition_adverb_starter"]
@@ -78,6 +84,8 @@ def lint_ai_vocabulary(path: Path) -> list[dict]:
                 "phrase": hit,
                 "sentence": sentence.text,
                 "line": getattr(sentence, "line", 0),
+                "tier": "important",
+                "severity": "advisory",
             })
 
     # Note: sweeping_abstraction_subject requires a dependency parser; deferred.
@@ -101,6 +109,8 @@ def lint_ai_vocabulary(path: Path) -> list[dict]:
                         "phrase": m.group(1),
                         "sentence": sentence.text,
                         "line": getattr(sentence, "line", 0),
+                        "tier": "important",
+                        "severity": "advisory",
                     })
 
     return findings

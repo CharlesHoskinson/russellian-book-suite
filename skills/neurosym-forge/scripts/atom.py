@@ -50,7 +50,10 @@ class Atom:
             if not g or "lib" not in g or "fn" not in g:
                 raise ValueError("grounded atom requires {'grounded': {'lib', 'fn'}}")
             return cls(kind="grounded", sort=sort, name=payload.get("name"),
-                       grounded=dict(g))
+                       grounded=dict(g),
+                       doc=payload.get("doc"), id=payload.get("id"),
+                       tags=list(payload.get("tags", [])),
+                       force=bool(payload.get("force", False)))
         if kind == "expression":
             if "head" not in payload or "args" not in payload:
                 raise ValueError("expression atom requires 'head' and 'args'")

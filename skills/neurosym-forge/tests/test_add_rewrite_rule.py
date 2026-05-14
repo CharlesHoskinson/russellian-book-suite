@@ -67,6 +67,13 @@ def test_rejects_unknown_sort(tmp_path: Path) -> None:
         add_rewrite_rule(project, rule)
 
 
+def test_rejects_corrupt_seed(tmp_path: Path) -> None:
+    project = _seed(tmp_path)
+    (project / "rules" / "seed.edn").write_text("not json", encoding="utf-8")
+    with pytest.raises(ValueError, match="seed"):
+        add_rewrite_rule(project, RULE)
+
+
 def test_updates_checksum(tmp_path: Path) -> None:
     project = _seed(tmp_path)
     add_rewrite_rule(project, RULE)

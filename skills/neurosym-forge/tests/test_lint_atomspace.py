@@ -48,6 +48,13 @@ def test_rule_with_invalid_balance_flagged() -> None:
     assert any("R002" in e and "unbound" in e for e in report.errors)
 
 
+def test_null_sorts_flagged() -> None:
+    payload = {"sorts": None, "rules": [], "atoms": []}
+    report = lint_atomspace(payload)
+    assert not report.ok
+    assert any("must be a list" in e for e in report.errors)
+
+
 def test_cli_returns_nonzero_on_errors(tmp_path: Path) -> None:
     import subprocess
     import sys

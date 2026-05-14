@@ -12,6 +12,7 @@ from scripts._io import read_edn_as_json, write_json_as_edn, file_checksum
 from scripts.sort_registry import Sort
 
 NAPI_LIBS = {"z3", "egg", "cozo", "tectonic", "custom"}
+_FN_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 
 def _camel_case(snake: str) -> str:
@@ -37,6 +38,8 @@ def add_grounded_atom(
         raise ValueError(f"lib must be one of {sorted(NAPI_LIBS)}, got {lib!r}")
     if not name.startswith(":"):
         raise ValueError(f"grounded atom name must start with ':', got {name!r}")
+    if not _FN_PATTERN.match(fn):
+        raise ValueError(f"fn must be a snake_case Rust identifier, got {fn!r}")
     Sort.from_value(sort)  # validate shape
 
     grounded_path = project_root / "rules" / "grounded.edn"
@@ -91,6 +94,20 @@ def add_grounded_atom(
         f"  (native/{_camel_case(fn)} edn-arg))\n"
     )
     bridge_path.write_text(bridge_text, encoding="utf-8", newline="\n")
+
+    grounded_test_dir = project_root / "tests" / "grounded"
+    grounded_test_dir.mkdir(parents=True, exist_ok=True)
+    fixture = grounded_test_dir / f"test_{fn}.cljs"
+    fn_kebab = fn.replace("_", "-")
+    fixture_text = (
+        f"(ns grounded.test-{fn_kebab}\n"
+        f"  (:require [cljs.test :refer-macros [deftest is]]\n"
+        f"            [{project_slug}.bridge :as bridge]))\n\n"
+        f"(deftest {fn_kebab}-stub-returns\n"
+        f"  ;; grounded atom {name} backed by {lib}\n"
+        f"  (is (some? :TODO-supply-input-for-{fn_kebab})))\n"
+    )
+    fixture.write_text(fixture_text, encoding="utf-8", newline="\n")
 
     checksums_path = project_root / "rules" / ".checksums.edn"
     checksums = read_edn_as_json(checksums_path)["checksums"] if checksums_path.exists() else {}

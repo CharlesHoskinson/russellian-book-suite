@@ -1,6 +1,6 @@
 (ns {{ project_slug }}.bridge
   "Calls into the native Rust addon built by napi-rs."
-  (:require ["./../../native/{{ project_slug }}-verifier.node" :as native]
+  (:require ["../native/{{ project_slug }}-verifier.node" :as native]
             [cljs.reader :as edn]))
 
 (defn verify-formulas [formulas-edn]

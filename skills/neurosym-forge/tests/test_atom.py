@@ -52,3 +52,22 @@ def test_variable_atom_has_question_prefix() -> None:
 def test_symbol_atom_requires_name() -> None:
     with pytest.raises(ValueError, match="symbol atom requires 'name'"):
         Atom.from_dict({"kind": "symbol", "sort": ":int"})
+
+
+def test_grounded_atom_round_trip_preserves_meta() -> None:
+    src = {
+        "kind": "grounded",
+        "sort": ":verdict",
+        "name": ":my-fn",
+        "grounded": {"lib": "custom", "fn": "my_fn", "napi": True},
+        "doc": "custom solver hook",
+        "id": "G001",
+        "tags": ["experimental"],
+        "force": True,
+    }
+    a = Atom.from_dict(src)
+    out = a.to_dict()
+    assert out["doc"] == "custom solver hook"
+    assert out["id"] == "G001"
+    assert out["tags"] == ["experimental"]
+    assert out["force"] is True

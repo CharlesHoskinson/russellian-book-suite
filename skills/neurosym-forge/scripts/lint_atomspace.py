@@ -55,6 +55,9 @@ def lint_atomspace(payload: dict[str, Any]) -> LintReport:
     if "sorts" not in payload:
         report.errors.append("atomspace missing 'sorts' field")
         return report
+    if not isinstance(payload["sorts"], list):
+        report.errors.append("atomspace 'sorts' must be a list")
+        return report
     try:
         registry = SortRegistry.from_dict({"sorts": payload["sorts"]})
     except ValueError as e:

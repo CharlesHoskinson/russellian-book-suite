@@ -50,7 +50,7 @@ Convenience:
 
 ## Composes with
 
-- `book-knowledge` — accepts `claims/ledger.jsonl` as Phase-1 input via the `--book-knowledge-bridge` scaffold flag
+- `book-knowledge` — book-knowledge bridge — v0.2 only; not wired in v0.1
 - `book-qa` — optional defect class `D13: claim-set-unsatisfiable`, off by default in v0.1
 - `book-thesis` — v0.2 only; not wired in v0.1
 

@@ -85,6 +85,25 @@ def test_refuses_to_overwrite(tmp_project_root: Path, skill_root: Path) -> None:
         )
 
 
+def test_rejects_bad_slug(tmp_path: Path, skill_root: Path) -> None:
+    with pytest.raises(ValueError, match="project_slug"):
+        scaffold_project(project_name="X", project_slug="My-Project",
+                         out_dir=tmp_path / "v", skill_root=skill_root)
+
+
+def test_rejects_empty_slug(tmp_path: Path, skill_root: Path) -> None:
+    with pytest.raises(ValueError, match="project_slug"):
+        scaffold_project(project_name="X", project_slug="",
+                         out_dir=tmp_path / "v", skill_root=skill_root)
+
+
+def test_rejects_dotdot_in_out(tmp_path: Path, skill_root: Path) -> None:
+    with pytest.raises(ValueError, match=r"\.\."):
+        scaffold_project(project_name="X", project_slug="x",
+                         out_dir=tmp_path / ".." / "escape" / "x",
+                         skill_root=skill_root)
+
+
 def test_cli_round_trip(tmp_path: Path, skill_root: Path) -> None:
     out = tmp_path / "v" / "demo"
     result = subprocess.run(

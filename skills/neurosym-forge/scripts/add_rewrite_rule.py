@@ -25,7 +25,10 @@ def _validate_against_registry(rule_payload: dict[str, Any], registry: SortRegis
 
 def add_rewrite_rule(project_root: Path, rule_payload: dict[str, Any]) -> None:
     seed = project_root / "rules" / "seed.edn"
-    payload = read_edn_as_json(seed)
+    try:
+        payload = read_edn_as_json(seed)
+    except Exception as exc:
+        raise ValueError(f"cannot parse seed at {seed}: {exc}") from exc
     registry = SortRegistry.from_dict({"sorts": payload.get("sorts", [])})
     _validate_against_registry(rule_payload, registry)
 

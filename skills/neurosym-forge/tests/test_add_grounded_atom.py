@@ -74,6 +74,26 @@ def test_rejects_duplicate(tmp_path: Path) -> None:
                           sort={"kind": "fn", "args": [":atom"], "ret": ":verdict"})
 
 
+def test_rejects_hyphenated_fn(tmp_path: Path) -> None:
+    project = _seed(tmp_path)
+    with pytest.raises(ValueError, match="snake_case"):
+        add_grounded_atom(project, project_slug="demo",
+                          name=":my-fn", lib="custom", fn="my-fn",
+                          sort={"kind": "fn", "args": [":atom"], "ret": ":verdict"})
+
+
+def test_emits_fixture_test(tmp_path: Path) -> None:
+    project = _seed(tmp_path)
+    add_grounded_atom(project, project_slug="demo",
+                      name=":my-fn", lib="custom", fn="my_fn",
+                      sort={"kind": "fn", "args": [":atom"], "ret": ":verdict"})
+    fixture = project / "tests" / "grounded" / "test_my_fn.cljs"
+    assert fixture.exists()
+    text = fixture.read_text(encoding="utf-8")
+    assert "my-fn-stub-returns" in text
+    assert "demo.bridge" in text
+
+
 def test_appends_mod_when_no_anchor(tmp_path: Path) -> None:
     project = _seed(tmp_path)
     # Strip the `mod ir;` anchor before calling.

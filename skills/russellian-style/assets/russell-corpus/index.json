@@ -1,0 +1,95 @@
+{
+  "version": "0.1.0",
+  "paragraph_count": 50,
+  "copyright_policy": "Project Gutenberg public-domain source pointers and paraphrased style metadata only; retrieve source text by URL and line hint when needed.",
+  "sources": {
+    "problems": {
+      "title": "The Problems of Philosophy",
+      "url": "https://www.gutenberg.org/cache/epub/5827/pg5827-images.html",
+      "copyright_status": "public_domain_us",
+      "mode": ["popular_philosophy", "general_reader_exposition"]
+    },
+    "mysticism": {
+      "title": "Mysticism and Logic and Other Essays",
+      "url": "https://www.gutenberg.org/cache/epub/25447/pg25447-images.html",
+      "copyright_status": "public_domain_us",
+      "mode": ["abstract_opposition", "disciplined_concession"]
+    },
+    "external-world": {
+      "title": "Our Knowledge of the External World as a Field for Scientific Method in Philosophy",
+      "url": "https://www.gutenberg.org/cache/epub/37090/pg37090-images.html",
+      "copyright_status": "public_domain_us",
+      "mode": ["analytic_method", "scientific_philosophy"]
+    },
+    "analysis-mind": {
+      "title": "The Analysis of Mind",
+      "url": "https://www.gutenberg.org/cache/epub/2529/pg2529-images.html",
+      "copyright_status": "public_domain_us",
+      "mode": ["definition_by_pressure", "conceptual_sorting"]
+    },
+    "free-thought": {
+      "title": "Free Thought and Official Propaganda",
+      "url": "https://www.gutenberg.org/cache/epub/44932/pg44932-images.html",
+      "copyright_status": "public_domain_us",
+      "mode": ["public_argument", "political_antithesis"]
+    },
+    "political-ideals": {
+      "title": "Political Ideals",
+      "url": "https://www.gutenberg.org/cache/epub/4776/pg4776-images.html",
+      "copyright_status": "public_domain_us",
+      "mode": ["humane_political_reasoning", "liberty_coercion_balance"]
+    }
+  },
+  "paragraphs": [
+    {"id": "problems-001", "source": "problems", "line_hint": 433, "rhetorical_move": "relation made concrete through a room example", "tags": ["concrete_example", "abstraction_grounding"]},
+    {"id": "problems-002", "source": "problems", "line_hint": 436, "rhetorical_move": "objection to mental production of relations", "tags": ["counterexample", "argument_turn"]},
+    {"id": "problems-003", "source": "problems", "line_hint": 440, "rhetorical_move": "chapter problem narrowed after prior conclusion", "tags": ["earned_transition", "scope_control"]},
+    {"id": "problems-004", "source": "problems", "line_hint": 442, "rhetorical_move": "justice used to introduce universals", "tags": ["familiar_question", "definition"]},
+    {"id": "problems-005", "source": "problems", "line_hint": 447, "rhetorical_move": "terminology correction after historical discussion", "tags": ["term_precision", "historical_context"]},
+    {"id": "problems-006", "source": "problems", "line_hint": 709, "rhetorical_move": "wrong conception split into two causes", "tags": ["diagnosis", "causal_split"]},
+    {"id": "problems-007", "source": "problems", "line_hint": 711, "rhetorical_move": "practical prejudice personified", "tags": ["human_figure", "antithesis"]},
+    {"id": "problems-008", "source": "problems", "line_hint": 713, "rhetorical_move": "philosophy compared against other studies", "tags": ["concession", "domain_contrast"]},
+    {"id": "problems-009", "source": "problems", "line_hint": 720, "rhetorical_move": "low hope kept alive as intellectual duty", "tags": ["exact_uncertainty", "duty"]},
+    {"id": "problems-010", "source": "problems", "line_hint": 723, "rhetorical_move": "uncertainty turned into value", "tags": ["reversal", "paragraph_turn"]},
+    {"id": "mysticism-001", "source": "mysticism", "line_hint": 195, "rhetorical_move": "ethical wish separated from truth seeking", "tags": ["distinction", "method_discipline"]},
+    {"id": "mysticism-002", "source": "mysticism", "line_hint": 198, "rhetorical_move": "mean examples used to test philosophical purity", "tags": ["lowly_concrete", "scientific_temper"]},
+    {"id": "mysticism-003", "source": "mysticism", "line_hint": 202, "rhetorical_move": "shared mystical beliefs enumerated before judgment", "tags": ["charitable_summary", "opponent_model"]},
+    {"id": "mysticism-004", "source": "mysticism", "line_hint": 206, "rhetorical_move": "certainty described before belief content", "tags": ["psychology_of_belief", "distinction"]},
+    {"id": "mysticism-005", "source": "mysticism", "line_hint": 227, "rhetorical_move": "mistaken creed distinguished from useful attitude", "tags": ["partial_concession", "preserve_truth"]},
+    {"id": "mysticism-006", "source": "mysticism", "line_hint": 230, "rhetorical_move": "ignorance stated plainly before the thesis", "tags": ["epistemic_limit", "claim_boundary"]},
+    {"id": "mysticism-007", "source": "mysticism", "line_hint": 232, "rhetorical_move": "false opposition dissolved", "tags": ["binary_dissolution", "relation"]},
+    {"id": "mysticism-008", "source": "mysticism", "line_hint": 263, "rhetorical_move": "metaphysical whole traced to felt unity", "tags": ["motive_source", "abstraction_origin"]},
+    {"id": "external-001", "source": "external-world", "line_hint": 66, "rhetorical_move": "method introduced by capacity and limit", "tags": ["method_scope", "limit"]},
+    {"id": "external-002", "source": "external-world", "line_hint": 67, "rhetorical_move": "personal research pressure made explicit", "tags": ["intellectual_autobiography", "method_need"]},
+    {"id": "external-003", "source": "external-world", "line_hint": 68, "rhetorical_move": "past systems granted imaginative use but denied authority", "tags": ["concession", "authority_refusal"]},
+    {"id": "external-004", "source": "external-world", "line_hint": 69, "rhetorical_move": "scientific aim opposed to temperament", "tags": ["impersonality", "institutional_standard"]},
+    {"id": "external-005", "source": "external-world", "line_hint": 76, "rhetorical_move": "incompleteness defended as methodological", "tags": ["tentative_method", "construction"]},
+    {"id": "external-006", "source": "external-world", "line_hint": 97, "rhetorical_move": "philosophical overclaim framed historically", "tags": ["historical_sweep", "polemical_opening"]},
+    {"id": "external-007", "source": "external-world", "line_hint": 100, "rhetorical_move": "three schools distinguished before criticism", "tags": ["classification", "setup"]},
+    {"id": "external-008", "source": "external-world", "line_hint": 103, "rhetorical_move": "Galileo analogy for piecemeal results", "tags": ["analogy", "method_visibility"]},
+    {"id": "analysis-001", "source": "analysis-mind", "line_hint": 77, "rhetorical_move": "common examples open a technical definition", "tags": ["ordinary_case", "definition"]},
+    {"id": "analysis-002", "source": "analysis-mind", "line_hint": 84, "rhetorical_move": "popular certainty becomes the object of analysis", "tags": ["common_view", "pressure"]},
+    {"id": "analysis-003", "source": "analysis-mind", "line_hint": 88, "rhetorical_move": "thesis placed between false alternatives", "tags": ["third_term", "debate_reframe"]},
+    {"id": "analysis-004", "source": "analysis-mind", "line_hint": 135, "rhetorical_move": "technical distinction explained in plain terms", "tags": ["translation", "distinction"]},
+    {"id": "analysis-005", "source": "analysis-mind", "line_hint": 136, "rhetorical_move": "realism and idealism contrasted symmetrically", "tags": ["balanced_contrast", "opponent_model"]},
+    {"id": "analysis-006", "source": "analysis-mind", "line_hint": 140, "rhetorical_move": "organic world claim tested by logic", "tags": ["metaphor_test", "argument_pressure"]},
+    {"id": "analysis-007", "source": "analysis-mind", "line_hint": 322, "rhetorical_move": "instinct and habit distinguished by experience", "tags": ["boundary_condition", "definition"]},
+    {"id": "analysis-008", "source": "analysis-mind", "line_hint": 327, "rhetorical_move": "animal experiment used to teach learning", "tags": ["empirical_sequence", "concrete_example"]},
+    {"id": "free-001", "source": "free-thought", "line_hint": 80, "rhetorical_move": "belief opposed by rational doubt", "tags": ["antithesis", "memorable_reversal"]},
+    {"id": "free-002", "source": "free-thought", "line_hint": 81, "rhetorical_move": "scientific method unpacked as social practice", "tags": ["method_steps", "social_practice"]},
+    {"id": "free-003", "source": "free-thought", "line_hint": 82, "rhetorical_move": "science contrasted with politics and religion", "tags": ["domain_contrast", "norms"]},
+    {"id": "free-004", "source": "free-thought", "line_hint": 83, "rhetorical_move": "dogma linked to material coercion", "tags": ["consequence", "social_harm"]},
+    {"id": "free-005", "source": "free-thought", "line_hint": 88, "rhetorical_move": "Einstein counterfactual shifted into politics", "tags": ["counterfactual", "institutional_absurdity"]},
+    {"id": "free-006", "source": "free-thought", "line_hint": 90, "rhetorical_move": "reversal compressed into one sentence", "tags": ["compressed_turn", "antithesis"]},
+    {"id": "free-007", "source": "free-thought", "line_hint": 92, "rhetorical_move": "education critique begins with concrete curriculum", "tags": ["schoolroom_example", "public_argument"]},
+    {"id": "free-008", "source": "free-thought", "line_hint": 93, "rhetorical_move": "national vanity compared to personal modesty", "tags": ["dry_wit", "social_analogy"]},
+    {"id": "political-001", "source": "political-ideals", "line_hint": 77, "rhetorical_move": "security balanced with creative energy", "tags": ["two_condition_account", "balance"]},
+    {"id": "political-002", "source": "political-ideals", "line_hint": 78, "rhetorical_move": "no final utopia, only living progress", "tags": ["anti_static_goal", "direction"]},
+    {"id": "political-003", "source": "political-ideals", "line_hint": 82, "rhetorical_move": "institutional atmosphere over reward", "tags": ["condition", "behavior_change"]},
+    {"id": "political-004", "source": "political-ideals", "line_hint": 87, "rhetorical_move": "democratic principle moved into organizations", "tags": ["principle_transfer", "institution"]},
+    {"id": "political-005", "source": "political-ideals", "line_hint": 89, "rhetorical_move": "vast state made psychologically remote", "tags": ["lived_effect", "political_structure"]},
+    {"id": "political-006", "source": "political-ideals", "line_hint": 92, "rhetorical_move": "liberty bounded by noninterference", "tags": ["principle_boundary", "balance"]},
+    {"id": "political-007", "source": "political-ideals", "line_hint": 96, "rhetorical_move": "beneficent force limited to reducing force", "tags": ["narrow_exception", "moral_condition"]},
+    {"id": "political-008", "source": "political-ideals", "line_hint": 101, "rhetorical_move": "legitimate force reduced to cases", "tags": ["conditional_doctrine", "case_split"]}
+  ]
+}

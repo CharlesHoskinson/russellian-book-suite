@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://russellian-book-suite/review-conductor/verdict.schema.json",
+  "title": "Verdict from review-conductor panel run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["panel_id", "artifact", "verdict", "gating_criticals", "advisory_criticals", "per_persona", "report_path", "timestamp"],
+  "properties": {
+    "panel_id": {"type": "string"},
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": {"type": "string"},
+        "id": {"type": "string"}
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "soft-gate-fail", "hard-gate-fail"]
+    },
+    "gating_criticals": {"type": "integer", "minimum": 0},
+    "advisory_criticals": {"type": "integer", "minimum": 0},
+    "per_persona": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["critical", "important", "minor"],
+        "properties": {
+          "critical": {"type": "integer", "minimum": 0},
+          "important": {"type": "integer", "minimum": 0},
+          "minor": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "report_path": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"}
+  }
+}

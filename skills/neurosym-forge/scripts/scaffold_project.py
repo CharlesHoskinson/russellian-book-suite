@@ -20,12 +20,9 @@ def scaffold_project(
     project_slug: str,
     out_dir: Path,
     skill_root: Path,
-    has_book_knowledge_bridge: bool = False,  # deferred to v0.2; accepted but not wired
+    has_book_knowledge_bridge: bool = False,
 ) -> None:
-    """Render the project template tree into out_dir.
-
-    --book-knowledge-bridge is deferred to v0.2; passing it has no effect in v0.1.
-    """
+    """Render the project template tree into out_dir."""
     if not SLUG_PATTERN.match(project_slug):
         raise ValueError(f"project_slug must match {SLUG_PATTERN.pattern!r}, got {project_slug!r}")
     out_str = str(out_dir)
@@ -60,6 +57,25 @@ def scaffold_project(
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(rendered, encoding="utf-8", newline="\n")
 
+    # Bridge-specific templates (only if --book-knowledge-bridge)
+    if has_book_knowledge_bridge:
+        bridge_root = skill_root / "assets" / "project-template-bridge"
+        if bridge_root.is_dir():
+            bridge_env = Environment(
+                loader=FileSystemLoader(str(bridge_root)),
+                keep_trailing_newline=True,
+                undefined=StrictUndefined,
+            )
+            for tmpl in sorted(bridge_root.rglob("*.tmpl")):
+                rel = tmpl.relative_to(bridge_root)
+                out_rel = Path(str(rel)[:-len(".tmpl")].replace("__project__", project_slug))
+                loader_path = str(rel).replace("\\", "/")
+                template = bridge_env.get_template(loader_path)
+                rendered = template.render(**ctx)
+                out_path = out_dir / out_rel
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_text(rendered, encoding="utf-8", newline="\n")
+
     # Initialise rules checksums based on the freshly-rendered files
     checksums: dict[str, str] = {}
     for p in sorted((out_dir / "rules").glob("*.edn")):
@@ -74,6 +90,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--name", required=True, help="Human-readable project name")
     ap.add_argument("--slug", required=True, help="Filesystem-safe slug (snake_case)")
     ap.add_argument("--out", required=True, help="Output directory")
+    ap.add_argument("--book-knowledge-bridge", action="store_true",
+                    help="Emit a book-knowledge claim-ledger ingester template")
     args = ap.parse_args(argv)
     skill_root = Path(__file__).resolve().parent.parent
     scaffold_project(
@@ -81,6 +99,7 @@ def main(argv: list[str]) -> int:
         project_slug=args.slug,
         out_dir=Path(args.out),
         skill_root=skill_root,
+        has_book_knowledge_bridge=args.book_knowledge_bridge,
     )
     print(f"scaffolded {args.slug} at {args.out}")
     return 0

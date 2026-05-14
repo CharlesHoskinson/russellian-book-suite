@@ -107,3 +107,10 @@ def test_smt_template_dispatches_on_edn() -> None:
     # edn_rs::Edn values, not serde_json::Value.
     assert "edn_rs" in text or "Edn" in text, \
         "smt.rs.tmpl must dispatch on edn_rs::Edn values"
+
+
+def test_ir_template_verdict_uses_edn_not_serde_json() -> None:
+    text = _read("ir.rs.tmpl")
+    # The return-trip verdict serialization must not use serde_json::to_string
+    assert "serde_json::to_string" not in text, \
+        "ir.rs.tmpl emit_verdict must use EDN emission, not serde_json::to_string"

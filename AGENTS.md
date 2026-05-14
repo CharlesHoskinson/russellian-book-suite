@@ -4,9 +4,9 @@ Conventions and operating guidance for autonomous coding agents (Codex, Claude C
 
 ## What this repo is
 
-A monorepo of six Python 3.13 skills that compose into a non-fiction book pipeline:
-`russellian-style`, `book-knowledge`, `book-compose`, `book-review`, `book-qa`, `book-thesis`.
-~258 pytest tests across the three skills with maintained suites. RDF/SPARQL/SHACL via rdflib + pyshacl. LLM tooling is parameterized — production code accepts a `Callable[[str], str]` so tests pass stub responses.
+A monorepo of seven Python 3.13 skills that compose into a non-fiction book pipeline:
+`book-knowledge`, `russellian-style`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`.
+400 pytest tests across the seven skills (book-knowledge 133, russellian-style 59, book-compose 95, book-review 24, review-conductor 32, book-qa 41, book-thesis 16). RDF/SPARQL/SHACL via rdflib + pyshacl. LLM tooling is parameterized — production code accepts a `Callable[[str], str]` so tests pass stub responses.
 
 For human-targeted context and design conventions, also read `CLAUDE.md` at repo root.
 
@@ -39,15 +39,15 @@ cd skills/<skill>
 .venv/bin/python -m pytest tests/ -q                  # POSIX
 ```
 
-Run all three primary suites:
+Run all seven primary suites:
 
 ```bash
-for s in book-knowledge book-qa book-compose; do
+for s in book-knowledge russellian-style book-compose book-review review-conductor book-qa book-thesis; do
   (cd skills/$s && .venv/Scripts/python.exe -m pytest tests/ -q --tb=no || echo "FAIL: $s")
 done
 ```
 
-Expected pass counts (May 2026): book-knowledge 123, book-qa 41, book-compose 94, total 258.
+Expected pass counts (May 2026): book-knowledge 133, russellian-style 59, book-compose 95, book-review 24, review-conductor 32, book-qa 41, book-thesis 16, total 400.
 
 ## Project structure
 

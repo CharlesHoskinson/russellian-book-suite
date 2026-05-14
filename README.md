@@ -1,6 +1,6 @@
 # russellian-book-suite
 
-You give the suite a folder of sources and a chapter contract. It fact-checks every claim against the sources, drafts the chapter, lints the prose against Bertrand Russell's analytic style, dispatches a seven-persona editorial panel to review the draft, and refuses to ship until every gate passes. The output is a non-fiction book — Markdown, HTML, and PDF — that did not roll off an AI prose mill.
+You give the suite a folder of sources and a chapter contract. It fact-checks every claim against the sources and drafts the chapter. Then it lints the prose against Bertrand Russell's analytic style, dispatches a seven-persona editorial panel to review the draft, and refuses to ship until every gate passes. The output is a non-fiction book — Markdown, HTML, and PDF — that did not roll off an AI prose mill.
 
 The `examples/bermuda-manual/` workspace is the proof: a 78-page book on contemporary Bermuda compiled end-to-end through the pipeline, with a SHACL-conformant knowledge graph and zero open competency-query failures at release.
 
@@ -11,7 +11,7 @@ The `examples/bermuda-manual/` workspace is the proof: a 78-page book on contemp
 ## Who this is for
 
 - **Non-fiction authors** who want a local, auditable pipeline rather than a hosted AI writing service.
-- **Research teams** building reference manuals, internal handbooks, or technical books from a source corpus.
+- **Research teams** who need reference manuals, internal handbooks, or technical books drawn from a vetted source corpus.
 - **Pipeline builders** who want to study how seven Claude Code skills compose into a single editorial workflow.
 
 The suite is **local-only by construction**. No paid APIs. No telemetry. No network egress at runtime. Every LLM call is parameterised through a callable; tests pass fake LLM functions and run offline.
@@ -38,9 +38,9 @@ The suite is **local-only by construction**. No paid APIs. No telemetry. No netw
 
 ## The fingerprint problem
 
-Large language models leave a fingerprint. The sentences average eighteen words, the paragraphs split into threes, and the opening adjective is "comprehensive" or "robust." Em-dashes do the work that connectives should. The prose reads competent and forgettable; a domain reader spots an error in the second paragraph and stops trusting the rest. This suite was built because a hosted AI tool will not catch any of that, and a manuscript that lands on a publisher's desk with a thousand small AI tells will be rejected before page ten.
+Large language models leave a fingerprint. Sentences average eighteen words. Paragraphs come in threes. The opening adjective is always "comprehensive" or "robust," and em-dashes do the work that connectives should. The prose reads competent and forgettable; a domain reader spots an error in the second paragraph and stops trusting the rest. This suite was built because a hosted AI tool will not catch any of that, and a manuscript that lands on a publisher's desk with a thousand small AI tells will be rejected before page ten.
 
-The fix is not a smarter prompt. The fix is a pipeline that separates fact ingestion, drafting, prose linting, persona review, and defect gating into distinct stages — each with its own discipline, each refusing to pass the artefact downstream until its own gate clears.
+The fix is not a smarter prompt. The fix is a pipeline that separates fact ingestion, drafting, prose linting, persona review, and defect gating into distinct stages. Each stage runs its own discipline; each refuses to pass the artefact downstream until its gate clears.
 
 ## The pipeline
 
@@ -105,7 +105,7 @@ Each skill is a self-contained Claude Code skill at `skills/<name>/` with its ow
 
 | Skill | Stage | What it does | Tests |
 |---|---|---|---:|
-| [`book-knowledge`](skills/book-knowledge/SKILL.md) | 1 — ingest | Reads source PDFs and Markdown, extracts claims with PROV-O provenance, projects them into an RDF graph, validates the graph with SHACL, runs competency queries, manages the append-only ledger, propagates Bayesian belief across the provenance DAG | 123 |
+| [`book-knowledge`](skills/book-knowledge/SKILL.md) | 1 — ingest | Reads source PDFs and Markdown, extracts claims with PROV-O provenance, projects them into an RDF graph, validates the graph with SHACL, runs competency queries, manages the append-only ledger, propagates Bayesian belief across the provenance DAG | 133 |
 | [`russellian-style`](skills/russellian-style/SKILL.md) | 2 — style | Sentence-grain prose linters: hedges, passive voice, signal density, parallel structure, rhythm, listicle abstraction. Twenty-six principles across five domains, drawn from Russell's analytic style | 59 |
 | [`book-compose`](skills/book-compose/SKILL.md) | 2 + 4 — author + compile | Chapter orchestrator. Reads the contract, slices the claim ledger, generates an outline and section drafts, applies russellian-style and humanizer per section, assembles the book release (Markdown + React/Tailwind HTML + Playwright PDF) | 95 |
 | [`book-review`](skills/book-review/SKILL.md) | 3 — review | Seven editorial personas with markdown role descriptions: Gottlieb (cadence, AI sloppy), Lay Reader (accessibility), Domain Expert (facts), Copyeditor (mechanics), Enjoyment Reader (momentum), AI-Slop Detector (24-pattern Wikipedia catalog), First-Time Visitor (30-second drive-by) | 24 |
@@ -113,7 +113,7 @@ Each skill is a self-contained Claude Code skill at `skills/<name>/` with its ow
 | [`book-qa`](skills/book-qa/SKILL.md) | 5 — release gate | Post-build defect gate. D1-D8 deterministic linter on the built artefact, D9-D12 from book-thesis, C1-C15 per-chapter agent swarm, sentinel-healer patch loop | 41 |
 | [`book-thesis`](skills/book-thesis/SKILL.md) | layer-2/3/4 over book-knowledge | Thesis tree, paragraph back-pointers, per-paragraph entailment loop, Datalog cross-chapter consistency. Contributes defect classes D9-D12 to book-qa | 16 |
 
-**Total: 390 tests** across the seven skills. All green at HEAD.
+**Total: 400 tests** across the seven skills. All green at HEAD.
 
 The skills compose by shared workspace, not by direct API call. Each skill owns a subtree and treats the others as read-only inputs:
 
@@ -199,17 +199,22 @@ A workspace is a directory. Eight subtrees, four append-only ledgers, one RDF gr
 │   ├── current-status.md
 │   ├── sources/  concepts/  entities/  chapters/
 ├── claims/                  # book-knowledge owns; append-only claim ledger
-│   ├── ledger.jsonl
+│   ├── ledger.jsonl                     # claim records + state-transition records
+│   │                                    # (n.b. transitions live here in v6;
+│   │                                    #  events.jsonl below is reserved for a
+│   │                                    #  future split-out — not yet in use)
 │   ├── counter-claims.jsonl
 │   ├── conflicts.jsonl                  # (created on first conflict)
-│   ├── events.jsonl                     # (created on first state transition)
+│   ├── events.jsonl                     # (reserved; transition log split planned)
 │   ├── proposed-transitions.jsonl
 │   ├── snapshots/
 │   └── address-checks/
 ├── graph/                   # book-knowledge owns; projected RDF dataset
 │   ├── dataset.trig                     # the projected graph
-│   ├── shapes.ttl                       # SHACL shapes (ships with book-knowledge)
 │   └── reports/                         # SHACL reports, competency-query results
+│                                        # (SHACL shapes ship with the skill at
+│                                        #  skills/book-knowledge/assets/shapes.ttl
+│                                        #  and are referenced at validate-time)
 ├── chapters/                # book-compose owns
 │   ├── contracts/           # chapter-NN.yaml
 │   ├── drafts/              # chapter-NN/{outline.md, draft.md, panel-review.md, verdict.json}
@@ -283,7 +288,7 @@ The status field follows a five-state machine. New claims arrive `proposed`. `ve
 
 Every claim carries PROV-O provenance: which source, which extractor, which version, when. A SHACL violation surfaces as a warning at ingest time and as a hard fail at release gate.
 
-**Bayesian belief propagation** (added in Bundle C) reads the ledger plus the conflict log and writes a posterior probability to each claim, conditioned on its supporting and refuting evidence. Claims dropping below a configurable floor get a `pin_low_confidence` axiom; they surface in the `posterior-floor` **competency query** — a SPARQL query that asks "what claims have we accepted with insufficient evidence?" Bundle C also introduced abductive **counter-claim generation**: given a load-bearing claim, the system synthesises a plausible rival hypothesis and writes it to `counter-claims.jsonl`. Any chapter whose contract references the original claim must address the rival before its release gate passes.
+**Bayesian belief propagation** (added in Bundle C) reads the ledger plus the conflict log and writes a posterior probability to each claim, conditioned on its supporting and refuting evidence. Claims dropping below a configurable floor get a `pin_low_confidence` axiom; they surface in the `posterior-floor` **competency query** — a SPARQL query that asks "what claims have we accepted with insufficient evidence?" Bundle C also introduced **abductive counter-claim generation**: *abductive reasoning* is inference to the best alternative explanation, so given a load-bearing claim, the system synthesises a plausible rival hypothesis and writes it to `counter-claims.jsonl`. Any chapter whose contract references the original claim must address the rival before its release gate passes.
 
 ### Russellian prose discipline
 
@@ -299,7 +304,7 @@ with a typical AI-generated version of the same idea:
 
 The Russell version has zero hedges, zero promotional adjectives, an active verb in each clause, and a closing turn the reader could not have predicted. The AI version has three of the suite's hard-blocked patterns in one sentence: AI vocabulary (*leverage*, *navigate*, *transformative*), a superficial -ing analysis (*ensuring readers undergo...*), and a paragraph that does not earn its place.
 
-The five domains — writing mindset, structure and flow, teaching and explanation, sentence craft, reasoning and argument — translate into six deterministic linters. Each linter takes a markdown file and emits a JSON report.
+The principles translate into six deterministic linters. Each linter takes a markdown file and emits a JSON report; `russellian-style/scripts/` also ships two infrastructure modules (`lint_common.py` for sentence iteration and `style_pass_report.py` for the aggregated report), which is why the skill carries eight scripts rather than six.
 
 | Linter | What it catches |
 |---|---|
@@ -378,15 +383,18 @@ The conductor also injects **Outcomes exemplars** — actual past findings from 
                       ┌────────┴────────┐
                       │                 │
                 Mechanical          Editorial
-                (D1-D12)            (C1-C15,
-                      │             per-chapter swarm)
-        ┌─────────────┼─────────┐       │
-        │             │                 │
-   from book-qa  from book-thesis      ...
-   (D1-D8,       (D9-D12,
-   deterministic) routed via book-qa)
-        │             │                 │
-        ▼             ▼                 ▼
+                (D1-D12)            (C1-C15)
+                      │                 │
+            ┌─────────┴─────────┐       │
+            │                   │       │
+       from book-qa       from book-thesis
+       (D1-D8,            (D9-D12,
+       deterministic      routed via
+       linter)            book-qa)
+            │                   │       │
+            ▼                   ▼       ▼
+      lint_artifact.py     book-thesis  per-chapter
+                           scripts      swarm
 ```
 
 Mechanical defects:
@@ -406,7 +414,9 @@ Mechanical defects:
 | D11 | failed-entailment (`contradicts` / `unrelated`) | book-thesis entailment loop | critical |
 | D12 | unadvanced-sub-argument | book-thesis | important |
 
-D1-D8 are the eight checks `lint_artifact.py` runs on the built artefact. D9-D12 are the four classes `book-thesis` contributes; book-qa consumes them. The hard-gate is D1-D8 == 0 (the deterministic checks `book-qa` owns directly); D9-D11 also block release through the soft-gate path.
+D1-D8 are the eight checks `lint_artifact.py` runs on the built artefact; these are the **hard gate** — the release fails if any one returns non-zero. D9-D12 are the four classes `book-thesis` contributes to book-qa; D9, D10, and D11 are also critical-severity and block release, but through the soft-gate path (book-qa records them on the verdict; the operator can override with a documented waiver in `qa-waivers.yaml`). D12 is important-severity and surfaces in the post-build report.
+
+The "hard-gate: D1-D8 == 0" label on the pipeline ASCII at the top of this README describes only the deterministic mechanical hard-gate; the D9-D11 soft-gate path is in addition, not instead.
 
 Editorial defects, per-chapter swarm of fresh-context agents:
 
@@ -463,7 +473,7 @@ Three healer outcomes propose **ledger write-backs** back to `book-knowledge`: `
 
 ### Bundle C: the closed-loop ledger
 
-The pipeline as described so far is acyclic: ingest produces claims, drafting consumes them, QA gates the release. Bundle C closes the loop. Post-build QA proposes ledger transitions; counter-claims (rival hypotheses generated by **abductive reasoning** — inference to the best alternative explanation) become drafting targets; Bayesian propagation re-scores claim posteriors after each new source.
+The pipeline as described so far is acyclic: ingest produces claims, drafting consumes them, QA gates the release. Bundle C closes the loop. Post-build QA proposes ledger transitions, abductive counter-claims become drafting targets, and Bayesian propagation re-scores claim posteriors after each new source.
 
 ```
    ┌─────────────────┐
@@ -565,7 +575,7 @@ When all chapters pass: `"build the book release v1.0"`. `book-compose` assemble
 
 A 78-page non-fiction book on contemporary Bermuda was produced end-to-end through this pipeline. The workspace at `examples/bermuda-manual/` is the proof.
 
-A note on what "proof" means here. The current Bermuda ledger was **synthesised from a thesis YAML**, not ingested from a PDF corpus. The thesis describes the argument structure; `tools/synthesize_bermuda_ledger.py` produced a claim ledger matching that argument, which the rest of the pipeline then drafted, reviewed, and shipped end-to-end. This validates the pipeline's drafting → review → release chain on a real-shaped workload. The PDF-ingest path is exercised by `book-knowledge`'s own test suite but not yet by a full Bermuda-scale build. A future release will rebuild the workspace from primary sources (Bermuda Government statistics, Department of Tourism reports, Reinsurance Industry Association of Bermuda data).
+A note on what "proof" means here. The current Bermuda ledger was **synthesised from a thesis YAML**, not ingested from a PDF corpus. The thesis describes the argument structure; `tools/synthesize_bermuda_ledger.py` produced a claim ledger matching that argument, which the rest of the pipeline then drafted, reviewed, and shipped end-to-end. This validates the pipeline's drafting → review → release chain on a real-shaped workload. The PDF-ingest path is exercised by `book-knowledge`'s own test suite but not yet by a full Bermuda-scale build. A future release will rebuild the workspace from primary sources (Bermuda Government statistics, Department of Tourism reports, Association of Bermuda Insurers and Reinsurers (ABIR) data).
 
 What the v6.0.0 release contains:
 
@@ -602,7 +612,10 @@ chapters_included: [ch-01, …, ch-10]
 chapter_versions: {ch-01: v6, …, ch-10: v6}
 total_word_count: 36762                # counted on the assembled HTML;
                                        # `wc -w` on the .md returns 28,018
-total_claim_count: 10
+total_claim_count: 10                  # ten distinct verified claim IDs;
+                                       # ledger.jsonl is 46 lines because it
+                                       # interleaves claim and state-transition
+                                       # records
 sources_bibliography: [thesis]
 shacl_conforms: true                   # graph validates against shapes.ttl
 competency_clean: true                 # all 8 competency queries return zero rows
@@ -635,7 +648,7 @@ russellian-book-suite/
 ├── .github/
 │   └── workflows/ci.yml            per-skill pytest jobs + smoke pipeline
 ├── skills/
-│   ├── book-knowledge/             ledger + graph + SHACL (22 scripts, 123 tests)
+│   ├── book-knowledge/             ledger + graph + SHACL (22 scripts, 133 tests)
 │   ├── book-compose/               orchestrator + book release (19 scripts, 95 tests)
 │   ├── book-qa/                    D + C defect gate (6 scripts, 41 tests)
 │   ├── book-review/                7-persona definitions (5 scripts, 24 tests)
@@ -654,7 +667,7 @@ russellian-book-suite/
     └── retros/                     post-release retrospectives
 ```
 
-Test totals: 59 + 123 + 95 + 24 + 41 + 16 + 32 = **390 tests** across the seven skills. All green at HEAD.
+Test totals: 59 + 133 + 95 + 24 + 41 + 16 + 32 = **400 tests** across the seven skills. All green at HEAD.
 
 ## Lessons learned
 

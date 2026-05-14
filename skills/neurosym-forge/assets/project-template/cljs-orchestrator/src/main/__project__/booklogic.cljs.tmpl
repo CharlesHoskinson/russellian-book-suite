@@ -212,3 +212,20 @@
     {:sort-registry      sort-registry
      :predicate-registry predicate-registry
      :lift-rules         lift-rules}))
+
+;; ----- CLI entry: nbb -m {{ project_slug }}.booklogic <project-root> -----
+
+(defn -main
+  "CLI: nbb -m {{ project_slug }}.booklogic <project-root>
+   Reads rules/booklogic/*.edn, expands, writes rules/predicates.edn,
+   prints a one-line report. Exits 0 on success."
+  [& args]
+  (let [project-root (or (first args) ".")
+        booklogic    (load-booklogic project-root)
+        expanded     (expand booklogic)
+        out-path     (path/join project-root "rules" "predicates.edn")]
+    (emit-predicates-edn expanded out-path)
+    (println (str "[booklogic] compiled "
+                  (count (:sort-registry expanded))      " sorts, "
+                  (count (:predicate-registry expanded)) " predicates, "
+                  (count (:lift-rules expanded))         " lifts → " out-path))))

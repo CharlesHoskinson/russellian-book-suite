@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neurosym-forge"
+version = "0.1.0"
+description = "Scaffolder for ClojureScript + Rust neurosymbolic verification projects"
+authors = [{name = "Charles Hoskinson"}]
+license = {text = "MIT"}
+requires-python = ">=3.13"
+dependencies = [
+    "jsonschema>=4.21",
+    "pyyaml>=6.0.1",
+    "jinja2>=3.1.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.setuptools.package-data]
+scripts = ["../assets/**/*", "../references/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

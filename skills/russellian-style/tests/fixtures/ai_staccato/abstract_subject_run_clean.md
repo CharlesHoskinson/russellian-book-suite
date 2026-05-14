@@ -1,0 +1,1 @@
+The author records claims as data; the system she works through projects each one onto a graph. A validator runs the SHACL pass, and the censor blocks the release if a constraint fails. The reader benefits because the chapter cannot ship with a quietly broken citation.

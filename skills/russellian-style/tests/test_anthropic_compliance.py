@@ -48,3 +48,28 @@ def test_progressive_disclosure_directories_exist():
 def test_skill_md_under_size_limit():
     text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
     assert len(text.splitlines()) <= 350, "SKILL.md should stay focused; move detail to references/"
+
+
+def test_rules_json_carries_ai_staccato_entry():
+    import json
+    from pathlib import Path
+    rules_path = Path(__file__).resolve().parent.parent / "assets" / "russellian-rules.json"
+    rules = json.loads(rules_path.read_text(encoding="utf-8"))
+    assert "ai_staccato" in rules, "rules.json must declare the ai_staccato entry"
+    cfg = rules["ai_staccato"]
+    assert cfg["tier"] == "important"
+    assert cfg["severity"] == "advisory"
+    det = cfg["detection"]
+    for key in (
+        "staccato_run_min",
+        "staccato_max_sentence_words",
+        "staccato_max_sentences_per_paragraph",
+        "negation_affirmation_min_paragraphs",
+        "this_is_window",
+        "this_is_min",
+        "abstract_subject_min_run",
+        "abstract_subject_stoplist",
+    ):
+        assert key in det, f"missing detection key: {key}"
+    assert "system" in det["abstract_subject_stoplist"]
+    assert "protocol" in det["abstract_subject_stoplist"]

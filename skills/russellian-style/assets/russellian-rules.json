@@ -36,5 +36,24 @@
   "listicle_anaphora_min_repeats": 3,
   "listicle_anaphora_window_lines": 6,
   "rhythm_run_min_length": 4,
-  "rhythm_word_count_tolerance": 3
+  "rhythm_word_count_tolerance": 3,
+  "ai_staccato": {
+    "id": "ai_staccato",
+    "tier": "important",
+    "severity": "advisory",
+    "detection": {
+      "staccato_run_min": 3,
+      "staccato_max_sentence_words": 12,
+      "staccato_max_sentences_per_paragraph": 3,
+      "negation_affirmation_min_paragraphs": 2,
+      "this_is_window": 6,
+      "this_is_min": 3,
+      "abstract_subject_min_run": 4,
+      "abstract_subject_stoplist": [
+        "system", "protocol", "ledger", "truth", "freedom",
+        "pipeline", "result", "process", "thing", "framework",
+        "approach", "principle"
+      ]
+    }
+  }
 }

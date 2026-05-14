@@ -11,7 +11,7 @@ import re
 from datetime import datetime, timezone
 from itertools import combinations
 
-from .ledger import read_claims
+from .ledger import read_claims, transition_status
 from .workspace import WorkspaceLayout
 
 ANTONYM_PAIRS = [
@@ -60,5 +60,15 @@ def detect_conflicts(layout: WorkspaceLayout) -> list[dict]:
         with layout.conflicts.open("a", encoding="utf-8") as fh:
             for c in conflicts:
                 fh.write(json.dumps(c, sort_keys=True) + "\n")
+
+        conflicting_ids: set[str] = set()
+        for c in conflicts:
+            conflicting_ids.update(c["claims"])
+        for claim_id in sorted(conflicting_ids):
+            transition_status(
+                layout, claim_id, "disputed",
+                cause_class="detect_conflicts",
+                note="Antonym-pair conflict detected with another claim.",
+            )
 
     return conflicts

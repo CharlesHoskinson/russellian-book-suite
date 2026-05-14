@@ -42,3 +42,19 @@ def test_writes_conflicts_jsonl(tmp_path):
     assert layout.conflicts.exists()
     content = layout.conflicts.read_text(encoding="utf-8")
     assert "clm-2026-000001" in content
+
+
+def test_conflicting_claims_transition_to_disputed(tmp_path):
+    """After detect_conflicts, both conflicting claims should be status=disputed,
+    per the documented five-state machine and the README's state diagram."""
+    from scripts.ledger import latest_status
+
+    layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
+    append_claim(layout, _verified("clm-2026-000001", "Operation X is allowed."))
+    append_claim(layout, _verified("clm-2026-000002", "Operation X is forbidden."))
+
+    conflicts = detect_conflicts(layout)
+    assert len(conflicts) >= 1
+
+    assert latest_status(layout, "clm-2026-000001") == "disputed"
+    assert latest_status(layout, "clm-2026-000002") == "disputed"

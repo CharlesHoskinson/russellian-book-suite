@@ -128,3 +128,9 @@ Waivers: add to `<workspace>/qa-waivers.yaml` to acknowledge an intentional, out
 - `tests/test_sentinel_writeback.py` — sentinel + writeback integration.
 - `tests/test_propose_writeback.py` — ledger transition proposal correctness.
 - `tests/test_transition_rules.py` — QA ticket class to transition mapping.
+
+## Configuration
+
+Place a `qa-config.yaml` file at the workspace root to opt into optional checks. Currently one knob is supported:
+
+- `enable_verification: true` — activates D13 verification-unsat gating. Without this key (or with it set to `false`), D13 is skipped entirely so workspaces that have not yet wired up a neurosym-forge verifier run cleanly.

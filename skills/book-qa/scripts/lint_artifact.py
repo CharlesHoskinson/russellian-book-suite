@@ -18,6 +18,7 @@ D9  paragraph-orphan         (from qa/supports-defects.json, class=D9; critical)
 D10 transitive-contradiction (from qa/datalog-defects.json,  class=D10; critical)
 D11 failed-entailment        (from qa/entailment-results.json verdicts; critical)
 D12 unadvanced-sub-argument  (from qa/supports-defects.json summary; important)
+D13 verification-unsat       (from qa/verification-defects.json; critical)
 
 Usage:
     python lint_artifact.py <workspace> <release-version>
@@ -33,6 +34,8 @@ import statistics
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+import yaml
 
 
 @dataclass
@@ -429,6 +432,52 @@ def lint_d9_d12(workspace: Path) -> list[Defect]:
     return out
 
 
+# ----------------------------------------------------------------- D13 helpers
+
+def _verification_enabled(workspace: Path) -> bool:
+    """Return True only when qa-config.yaml is present and has enable_verification: true."""
+    cfg_path = workspace / "qa-config.yaml"
+    if not cfg_path.exists():
+        return False
+    try:
+        cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return False
+    return cfg.get("enable_verification") is True
+
+
+def lint_d13_verification_unsat(workspace: Path) -> list[Defect]:
+    """Read qa/verification-defects.json emitted by a neurosym-forge verifier.
+
+    Each member of the unsat core becomes one critical defect. :sat and
+    :unknown verdicts produce no defects.
+
+    Verification is opt-in: D13 is skipped unless qa-config.yaml in the
+    workspace root contains ``enable_verification: true``.
+    """
+    if not _verification_enabled(workspace):
+        return []
+    path = workspace / "qa" / "verification-defects.json"
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return [Defect("D13", CRITICAL, str(path),
+                       "verification-defects.json is not valid JSON",
+                       "regenerate via verdict_to_qa.py")]
+    if payload.get("verdict") != "unsat":
+        return []
+    core = payload.get("core") or []
+    explanation = payload.get("explanation", "logical contradiction detected")
+    return [
+        Defect("D13", CRITICAL, claim_id,
+               f"verification unsat: {explanation}",
+               f"review claim/prose {claim_id}; reconcile against canonical facts")
+        for claim_id in core
+    ]
+
+
 # ----------------------------------------------------------------- main
 
 def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
@@ -450,6 +499,7 @@ def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
     defects += lint_d7_css_reset(html)
     defects += lint_d8_asset_404s(md, html, release_dir)
     defects += lint_d9_d12(workspace)
+    defects.extend(lint_d13_verification_unsat(workspace))
 
     summary = {
         "release": version,

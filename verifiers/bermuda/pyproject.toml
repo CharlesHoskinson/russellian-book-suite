@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bermuda-verifier"
+version = "0.1.0"
+description = "Bermuda manual neurosymbolic verifier"
+authors = [{name = "Charles Hoskinson"}]
+license = {text = "MIT"}
+requires-python = ">=3.13"
+dependencies = [
+    "jsonschema>=4.21",
+    "pyyaml>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

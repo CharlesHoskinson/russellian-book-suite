@@ -62,6 +62,7 @@ docs/                    human-targeted documentation
   plans/                 TDD implementation plans
   operations/            operator runbooks
   retros/                retrospectives
+verifiers/               optional neurosym-forge projects (one per workspace; opt-in via qa-config.yaml)
 tools/                   one-shot scripts (workspace synthesis, tagging, etc.)
 CLAUDE.md                repo-level conventions for AI agents
 AGENTS.md                this file

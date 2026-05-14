@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+node_modules/
+target/
+work/
+cljs-orchestrator/dist/
+cljs-orchestrator/native/*.node
+.shadow-cljs/

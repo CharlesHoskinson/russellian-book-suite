@@ -1,0 +1,3 @@
+# Workspace QA configuration for the Bermuda-manual example.
+# Enables D13 verification-unsat gating via the neurosym-forge/bermuda verifier.
+enable_verification: true

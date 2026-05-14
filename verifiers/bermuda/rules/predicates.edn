@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "predicates": {
+    "parishes": {
+      "patterns": [
+        "(?P<n>\\d+|nine|eight|seven)\\s+(traditional|major)?\\s*parishes?",
+        "the\\s+(?P<n>\\d+|nine|eight)\\s+parishes"
+      ],
+      "predicate": ":parishes-count",
+      "subject": ":Bermuda",
+      "value_kind": "int",
+      "word_to_int": {"nine": 9, "eight": 8, "seven": 7}
+    },
+    "named_islands": {
+      "patterns": [
+        "(?P<n>\\d+)\\s+(named\\s+)?islands?\\s+and\\s+rocks?",
+        "around\\s+(?P<n>\\d+)\\s+islands?",
+        "approximately\\s+(?P<n>\\d+)\\s+islands?"
+      ],
+      "predicate": ":named-islands-and-rocks",
+      "subject": ":Bermuda",
+      "value_kind": "int"
+    },
+    "currency_peg": {
+      "patterns": [
+        "Bermudian\\s+dollar.*?pegged.*?(?:US|United States)\\s+dollar",
+        "BMD.*?(?:pegged|parity).*?USD"
+      ],
+      "predicate": ":currency-pegged-at-parity",
+      "subject": ":BMD",
+      "value_kind": "bool",
+      "value": true
+    },
+    "airport_island": {
+      "patterns": [
+        "L\\.?\\s*F\\.?\\s*Wade.*?(?P<island>St\\.?\\s+David's|St\\.?\\s+George's|Bermuda)\\s+Island",
+        "(?:airport|aerodrome).*?(?:on|at)\\s+(?P<island>St\\.?\\s+David's|St\\.?\\s+George's)\\s+Island"
+      ],
+      "predicate": ":airport-on-island",
+      "subject": ":L_F_Wade",
+      "value_kind": "entity"
+    },
+    "cedar_binomial": {
+      "patterns": [
+        "Bermuda\\s+cedar\\s*\\(\\s*\\*?(?P<binomial>[A-Z][a-z]+\\s+[a-z]+)\\*?",
+        "\\*(?P<binomial>Juniperus\\s+[a-z]+)\\*"
+      ],
+      "predicate": ":binomial",
+      "subject": ":Bermuda_cedar",
+      "value_kind": "string"
+    }
+  }
+}

@@ -113,3 +113,22 @@ def test_cli_round_trip(tmp_path: Path, skill_root: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert (out / "package.json").exists()
+
+
+def test_bridge_flag_emits_ingest_ledger(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(
+        project_name="Test", project_slug="test_bridge",
+        out_dir=tmp_project_root, skill_root=skill_root,
+        has_book_knowledge_bridge=True,
+    )
+    assert (tmp_project_root / "scripts" / "ingest_ledger.py").exists()
+    assert (tmp_project_root / "scripts" / "__init__.py").exists()
+
+
+def test_no_bridge_omits_ingest_ledger(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(
+        project_name="Test", project_slug="test_nobridge",
+        out_dir=tmp_project_root, skill_root=skill_root,
+        has_book_knowledge_bridge=False,
+    )
+    assert not (tmp_project_root / "scripts" / "ingest_ledger.py").exists()

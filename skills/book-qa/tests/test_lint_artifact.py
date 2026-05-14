@@ -307,3 +307,82 @@ def test_d12_unadvanced_sub_argument_picked_up(stage_release):
     assert "history-shapes-government" in nodes
     assert summary["by_class"].get("D12") == 2
     assert summary["by_severity"].get("important") == 2
+
+
+# --------------------------------------------------------------------- D13
+
+import yaml
+from scripts.lint_artifact import lint_d13_verification_unsat
+
+
+def _enable_verification(workspace: Path) -> None:
+    """Write qa-config.yaml with enable_verification: true into *workspace*."""
+    (workspace / "qa-config.yaml").write_text(
+        yaml.dump({"enable_verification": True}), encoding="utf-8"
+    )
+
+
+def test_d13_no_file_returns_empty(tmp_path: Path) -> None:
+    assert lint_d13_verification_unsat(tmp_path) == []
+
+
+def test_d13_sat_returns_empty(tmp_path: Path) -> None:
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "sat", "core": [], "explanation": "",
+    }), encoding="utf-8")
+    assert lint_d13_verification_unsat(tmp_path) == []
+
+
+def test_d13_unknown_returns_empty(tmp_path: Path) -> None:
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "unknown", "core": [], "reason": "smt timeout",
+    }), encoding="utf-8")
+    assert lint_d13_verification_unsat(tmp_path) == []
+
+
+def test_d13_unsat_emits_one_defect_per_core_member(tmp_path: Path) -> None:
+    _enable_verification(tmp_path)
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "unsat",
+        "core": ["clm-2026-000008", "prose-ch-02-001"],
+        "explanation": "Chapter 2 prose says 8 parishes; ledger says 9.",
+    }), encoding="utf-8")
+    defects = lint_d13_verification_unsat(tmp_path)
+    assert len(defects) == 2
+    assert all(d.class_ == "D13" for d in defects)
+    assert all(d.severity == "critical" for d in defects)
+    ids = {d.where for d in defects}
+    assert "clm-2026-000008" in ids
+
+
+def test_d13_disabled_by_default(tmp_path: Path) -> None:
+    """No qa-config.yaml → D13 is silent even with an unsat file."""
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "unsat",
+        "core": ["clm-2026-000001"],
+        "explanation": "contradiction",
+    }), encoding="utf-8")
+    assert lint_d13_verification_unsat(tmp_path) == []
+
+
+def test_d13_disabled_explicitly(tmp_path: Path) -> None:
+    """qa-config.yaml with enable_verification: false → D13 is silent."""
+    (tmp_path / "qa-config.yaml").write_text(
+        yaml.dump({"enable_verification": False}), encoding="utf-8"
+    )
+    qa = tmp_path / "qa"
+    qa.mkdir()
+    (qa / "verification-defects.json").write_text(json.dumps({
+        "verdict": "unsat",
+        "core": ["clm-2026-000002"],
+        "explanation": "contradiction",
+    }), encoding="utf-8")
+    assert lint_d13_verification_unsat(tmp_path) == []

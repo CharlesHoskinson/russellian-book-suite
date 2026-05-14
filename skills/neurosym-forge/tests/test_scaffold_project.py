@@ -182,3 +182,27 @@ def test_relative_dotdot_escaping_cwd_rejected(tmp_path: Path, skill_root: Path,
             out_dir=Path("..") / ".." / ".." / ".." / "escape",
             skill_root=skill_root,
         )
+
+
+def test_scaffolded_axioms_rs_exists(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    axioms = tmp_project_root / "rust-verifier" / "src" / "axioms.rs"
+    assert axioms.exists()
+    text = axioms.read_text(encoding="utf-8")
+    assert "pub fn assert_axioms" in text
+
+
+def test_scaffolded_lib_rs_includes_mod_axioms(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    lib = (tmp_project_root / "rust-verifier" / "src" / "lib.rs").read_text(encoding="utf-8")
+    assert "mod axioms;" in lib
+
+
+def test_scaffolded_cargo_toml_has_features(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    cargo = (tmp_project_root / "rust-verifier" / "Cargo.toml").read_text(encoding="utf-8")
+    assert "[features]" in cargo
+    assert "pdf" in cargo

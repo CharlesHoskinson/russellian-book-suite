@@ -1,0 +1,15 @@
+{
+  "name": "{{ project_slug }}",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build:cljs":   "shadow-cljs release main",
+    "build:rust":   "cd rust-verifier && napi build --platform --release ../cljs-orchestrator/native",
+    "build":        "npm run build:rust && npm run build:cljs",
+    "verify":       "node cljs-orchestrator/dist/main.js"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.28.20",
+    "@napi-rs/cli": "^3.0.0"
+  }
+}

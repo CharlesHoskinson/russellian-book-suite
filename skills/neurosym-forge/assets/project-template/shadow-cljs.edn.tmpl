@@ -1,0 +1,10 @@
+{:source-paths ["cljs-orchestrator/src/main"]
+ :dependencies [[org.clojure/core.logic   "1.1.1"]
+                [meander/epsilon          "0.0.650"]
+                [metosin/malli            "0.16.4"]]
+ :builds
+ {:main {:target     :node-script
+         :output-to  "cljs-orchestrator/dist/main.js"
+         :main       {{ project_slug }}.core/main
+         :compiler-options {:optimizations :simple
+                            :infer-externs :auto}}}}

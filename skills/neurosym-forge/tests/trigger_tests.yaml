@@ -1,0 +1,20 @@
+# Each case is (prompt, should_trigger).
+# Used to sanity-check that SKILL.md trigger phrases cover positive cases
+# and exclude negative ones.
+positive:
+  - "scaffold a neurosymbolic verifier"
+  - "verify these claims with Z3"
+  - "add a rewrite rule for commutativity"
+  - "ground this predicate in Rust"
+  - "extend the atomspace IR"
+  - "build a CLJS+Rust verifier"
+  - "FOL verifier"
+  - "SMT solver hookup"
+  - "e-graph saturation"
+  - "MeTTa-style modeling"
+negative:
+  - "rewrite this paragraph in Russell style"
+  - "ingest this PDF into the claim ledger"
+  - "review chapter 4 with personas"
+  - "build the book release"
+  - "lint the manuscript for D1 defects"

@@ -13,7 +13,8 @@
     "ingested_by_run": {"type": "string"},
     "page_count":  {"type": "integer", "minimum": 0},
     "node_count":  {"type": "integer", "minimum": 0},
-    "tree_root":   {"type": "string"}
+    "tree_root":   {"type": "string"},
+    "trust":       {"type": "number", "minimum": 0.0, "maximum": 1.0}
   },
   "additionalProperties": false
 }

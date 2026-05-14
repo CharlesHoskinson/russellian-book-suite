@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 
 from .lint_common import load_markdown, load_rules
@@ -193,6 +194,76 @@ def _paragraph_distance(line_a: int, line_b: int, paragraphs: list[tuple[int, st
     return abs(idx_b - idx_a)
 
 
+@lru_cache(maxsize=1)
+def _nlp_parser():
+    import spacy
+    return spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
+
+
+def _subject_lemma(sentence_doc) -> str | None:
+    for token in sentence_doc:
+        if token.dep_ == "nsubj":
+            return token.lower_
+    return None
+
+
+def _abstract_subject_run(paragraphs: list[tuple[int, str]], cfg: dict) -> list[dict]:
+    """Flag runs of N+ consecutive sentences whose nsubj is the same stoplist noun."""
+    stoplist = {w.lower() for w in cfg["abstract_subject_stoplist"]}
+    min_run = cfg["abstract_subject_min_run"]
+    nlp = _nlp_parser()
+    findings: list[dict] = []
+    for start_line, text in paragraphs:
+        doc = nlp(text)
+        sents = list(doc.sents)
+        if len(sents) < min_run:
+            continue
+        run_subj: str | None = None
+        run_len = 0
+        run_start_idx = 0
+        for idx, sent in enumerate(sents):
+            subj = _subject_lemma(sent)
+            if subj is not None and subj in stoplist:
+                if subj == run_subj:
+                    run_len += 1
+                else:
+                    if run_subj is not None and run_len >= min_run:
+                        findings.append(_abstract_run_finding(
+                            run_subj, run_len, start_line
+                        ))
+                    run_subj = subj
+                    run_len = 1
+                    run_start_idx = idx
+            else:
+                if run_subj is not None and run_len >= min_run:
+                    findings.append(_abstract_run_finding(
+                        run_subj, run_len, start_line
+                    ))
+                run_subj = None
+                run_len = 0
+        if run_subj is not None and run_len >= min_run:
+            findings.append(_abstract_run_finding(
+                run_subj, run_len, start_line
+            ))
+    return findings
+
+
+def _abstract_run_finding(subject: str, run_length: int, para_start_line: int) -> dict:
+    return {
+        "rule": "abstract-subject-run",
+        "tier": "important",
+        "severity": "advisory",
+        "line": para_start_line,
+        "subject": subject,
+        "run_length": run_length,
+        "message": (
+            f"{run_length} consecutive sentences share the same abstract subject "
+            f"'{subject}'. Vary the agent — particular subjects (an author, a censor, "
+            "the worker, the philosopher) keep prose alive."
+        ),
+    }
+
+
 def lint_ai_staccato(path: Path) -> list[dict]:
     text = load_markdown(path)
     paras = _paragraphs(text)
@@ -201,6 +272,7 @@ def lint_ai_staccato(path: Path) -> list[dict]:
     findings.extend(_staccato_paragraph_run(paras, cfg))
     findings.extend(_negation_affirmation_template(paras, cfg))
     findings.extend(_this_is_conclusion_overuse(paras, cfg))
+    findings.extend(_abstract_subject_run(paras, cfg))
     return findings
 
 

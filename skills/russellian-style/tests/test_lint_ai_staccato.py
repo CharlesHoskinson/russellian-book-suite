@@ -50,3 +50,19 @@ def test_this_is_conclusion_overuse_silent_on_clean():
     findings = lint_ai_staccato(FIXTURES / "this_is_stacking_clean.md")
     hits = [f for f in findings if f["rule"] == "this-is-conclusion-overuse"]
     assert hits == []
+
+
+def test_abstract_subject_run_fires():
+    from scripts.lint_ai_staccato import lint_ai_staccato
+    findings = lint_ai_staccato(FIXTURES / "abstract_subject_run.md")
+    hits = [f for f in findings if f["rule"] == "abstract-subject-run"]
+    assert hits, "expected abstract-subject-run to fire"
+    assert hits[0]["subject"] in {"system", "protocol", "ledger"}
+    assert hits[0]["run_length"] >= 4
+
+
+def test_abstract_subject_run_silent_on_varied_subjects():
+    from scripts.lint_ai_staccato import lint_ai_staccato
+    findings = lint_ai_staccato(FIXTURES / "abstract_subject_run_clean.md")
+    hits = [f for f in findings if f["rule"] == "abstract-subject-run"]
+    assert hits == []

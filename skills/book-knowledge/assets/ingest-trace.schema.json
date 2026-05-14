@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ingest-trace",
+  "title": "Symbolic ingestion trace",
+  "type": "object",
+  "required": ["version", "book_id", "events"],
+  "properties": {
+    "version": {"type": "integer", "const": 1},
+    "book_id": {"type": "string", "minLength": 1},
+    "events": {"type": "array", "items": {"$ref": "#/$defs/event"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "event": {
+      "type": "object",
+      "required": ["head", "payload"],
+      "properties": {
+        "head": {
+          "type": "string",
+          "enum": [
+            "source/ingested",
+            "claim/proposed",
+            "claim/verified",
+            "claim/disputed",
+            "claim/superseded",
+            "claim/refuted"
+          ]
+        },
+        "payload": {"type": "object"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

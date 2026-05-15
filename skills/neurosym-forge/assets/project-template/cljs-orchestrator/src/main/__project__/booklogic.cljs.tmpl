@@ -166,13 +166,22 @@
 
 (defn- infer-value-kind
   "Determine the value-kind from the :emit form's body.
-   (fact ?id :Subject :pred (parse-int ?n)) → :int
-   (fact ?id :Subject :pred (parse-float ?x)) → :real
-   (fact ?id :Subject :pred true)             → :bool
-   (fact ?id :Subject :pred ?s)               → :string  (best-effort default)"
+
+   The body sits at index 4 of the (fact ...) form:
+     index 0: 'fact
+     index 1: claim-id var (e.g. ?claim-id)
+     index 2: subject keyword (e.g. :Subject)
+     index 3: predicate keyword (e.g. :pred)
+     index 4: body (e.g. (parse-int ?n))
+
+   Mapping:
+     (parse-int ?n)   → :int
+     (parse-float ?x) → :real
+     true / false     → :bool
+     anything else    → :string  (best-effort default)"
   [emit-form]
   (when (and (sequential? emit-form) (= (first emit-form) 'fact))
-    (let [body (nth emit-form 3 nil)]
+    (let [body (nth emit-form 4 nil)]
       (cond
         (and (sequential? body) (= (first body) 'parse-int))   :int
         (and (sequential? body) (= (first body) 'parse-float)) :real

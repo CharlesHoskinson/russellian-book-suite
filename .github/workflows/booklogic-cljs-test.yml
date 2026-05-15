@@ -16,7 +16,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+        # No cache directive: the only package.json in this repo lives in
+        # scaffolded test fixtures, not at repo root, so cache: npm has
+        # nothing to anchor on. nbb installs in ~30s; caching is YAGNI.
       - name: Install neurosym-forge in editable mode
         run: |
           cd skills/neurosym-forge

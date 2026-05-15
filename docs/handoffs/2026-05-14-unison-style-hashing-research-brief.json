@@ -1,0 +1,286 @@
+{
+  "$schema": "https://example.org/deep-research-brief-v1",
+  "title": "Unison-style content-addressed hashing for the BookLogic DSL",
+  "for_model": "Gemini Pro 3.1 (deep research mode)",
+  "audience": "Architect designing v0.5 of the russellian-book-suite verification pipeline",
+  "expected_output_format": "Long-form engineering analysis modelled on the prior 'Neurosymbolic Trace and DSL Design' deep-research output: executive summary, repository-grounded current-state assessment, evaluation of specific hypotheses, problem statement and design goals, proposed architecture (with diagram), canonicalization algorithm, hashing strategy, content-addressed store design, compiler/interpreter pipeline, integration with each existing skill, claim-debugger / evidence-card / audit-report extensions, migration roadmap, ADRs, risk register, top recommendations, and works-cited.",
+
+  "executive_summary": "The russellian-book-suite has shipped v0.4 PR-1 and PR-2 of a four-language neurosymbolic verification stack (Python → ClojureScript → Rust → ClojureScript). Claims are extracted, lifted to typed atomspace EDN, asserted to Z3 with assert_and_track, and unsat cores feed a book-qa D13 defect class. Today claims are identified by sequential strings (clm-2026-NNNNNN). The mission spec for v0.5 needs to decide whether to adopt Unison-style content-addressed naming for claims and BookLogic forms. Unison hashes the alpha-normalized AST of every definition, making a function's identity its content; renames are free, refactor-immune, and distributed retrieval-by-hash is natural. The question this brief asks: what does Unison-style hashing mean concretely for the seven BookLogic form families (defsort, defpredicate, deflift, defrule, defconstraint, defquery, defremedy), for the ingest-trace EDN artifact, for the verifier's unsat-core reporting, and for the book-knowledge claim ledger? What canonicalization rules apply to S-expression atoms specifically (alpha-normalization of variables, commutativity, associativity, normalization of nested predicates)? What does the content-addressed store look like, and how does the migration from sequential IDs proceed without breaking the existing 46-claim Bermuda corpus?",
+
+  "context": {
+    "repo": {
+      "url": "https://github.com/CharlesHoskinson/russellian-book-suite",
+      "default_branch": "main",
+      "recent_merges_relevant_to_this_brief": [
+        {"pr": 14, "merge_sha": "99fbe59", "summary": "v0.1 of neurosym-forge scaffolder skill"},
+        {"pr": 18, "merge_sha": "bb3a65f", "summary": "Bermuda verifier scaffold + book-qa D13 hook"},
+        {"pr": 21, "merge_sha": "10b1a2b", "summary": "v0.3 hardening: axioms hook, tectonic feature-gated, --out policy relaxed, real Z3 walk template"},
+        {"pr": 25, "merge_sha": "f7af2c6", "summary": "v0.4 PR-1: real EDN at every Python↔CLJS↔Rust boundary (replaces JSON-stamped-.edn)"},
+        {"pr": 27, "merge_sha": "80ed5e2", "summary": "v0.4 PR-2: ingest-trace.edn exporter + EDN reader Symbol + #inst tagged literals + Rust verdict EDN emission"}
+      ],
+      "key_files": {
+        "umbrella_spec": "docs/specs/2026-05-14-booklogic-v0.4-mission-design.md",
+        "pr2_spec": "docs/specs/2026-05-14-booklogic-v0.4-pr2-design.md",
+        "edn_reader": "skills/neurosym-forge/scripts/_edn_reader.py",
+        "edn_writer": "skills/neurosym-forge/scripts/_edn_writer.py",
+        "trace_exporter": "skills/book-knowledge/scripts/export_symbolic_trace.py",
+        "trace_loader": "skills/book-knowledge/scripts/load_symbolic_trace.py",
+        "trace_schema": "skills/book-knowledge/assets/ingest-trace.schema.json",
+        "bermuda_workspace": "examples/bermuda-manual/",
+        "bermuda_verifier": "verifiers/bermuda/",
+        "claim_ledger_format": "examples/bermuda-manual/claims/ledger.jsonl",
+        "live_trace_artifact": "examples/bermuda-manual/analysis/ingest-trace.edn",
+        "metta_idioms_reference": "skills/neurosym-forge/references/metta-idioms.md"
+      }
+    },
+
+    "current_claim_identity": {
+      "scheme": "sequential opaque string",
+      "example_ids": ["clm-2026-000001", "clm-2026-000008", "clm-2026-000099"],
+      "generation": "book-knowledge assigns monotonically increasing integers; the year prefix is informational",
+      "implication": "Two re-ingestions of the same source can produce different claim_ids; claim_id is not content-derived; deduplication across paraphrases requires explicit checks"
+    },
+
+    "current_atom_shape": {
+      "kinds": ["symbol", "variable", "grounded", "expression"],
+      "example_expression_atom_edn": "{:kind :expression :id \"clm-2026-000001\" :sort :formula :head {:kind :symbol :name :parishes-count :sort {:kind :fn :args [:entity] :ret :int}} :args [{:kind :symbol :name :Bermuda :sort :entity}] :value 9}",
+      "example_variable_naming": "Variables use ?-prefixed strings like \"?a\" \"?x\" \"?s\"",
+      "current_hash_used_for": "File-level checksums in rules/.checksums.edn (SHA-256 of file bytes) — detects unsanctioned manual edits to BookLogic rule files. NOT used to identify individual atoms.",
+      "implication": "Two BookLogic forms that differ only in variable name (alpha-equivalent) hash differently as files; structurally identical claims expressed in different prose hash differently as ledger rows"
+    },
+
+    "booklogic_dsl_forms": {
+      "spec_location": "docs/specs/2026-05-14-booklogic-v0.4-mission-design.md § D3",
+      "seven_forms": [
+        {"name": "defsort", "shape": "(defsort :sort/Person)", "purpose": "declare a sort/type"},
+        {"name": "defpredicate", "shape": "(defpredicate :parishes-count [:entity] :int)", "purpose": "declare a typed relation"},
+        {"name": "deflift", "shape": "(deflift L001 :from :claim/canonical-text :when #\"regex\" :emit (fact ?id :Bermuda :parishes-count (parse-int ?n)) :provenance :inherit)", "purpose": "lift NL text into typed atoms"},
+        {"name": "defrule", "shape": "(defrule R001 (= (entity \"St. David's Island\") :St_Davids_Island) :tags [:normalization])", "purpose": "term-rewrite for normalization"},
+        {"name": "defconstraint", "shape": "(defconstraint C001 :backend :z3 :assert (= (:parishes-count :Bermuda) 9) :track :claim/id :on-unsat {:defect :D13 :severity :critical})", "purpose": "solver assertion with unsat-core hook"},
+        {"name": "defquery", "shape": "(defquery Q001 :backend :cozo :find [?claim] :where [(load-bearing ?claim true)] :on-result {:defect :posterior-floor})", "purpose": "Datalog query over the claim graph"},
+        {"name": "defremedy", "shape": "(defremedy W001 :when (unsat-core ?claim) :propose (ledger/transition ?claim :refuted) :requires :human-review)", "purpose": "writeback proposal triggered by verdict pattern"}
+      ],
+      "compilation_targets": {
+        "defsort": "EDN entries in rules/seed.edn sort registry",
+        "defpredicate": "EDN entries in rules/predicates.edn (codegen target for Python regex coercion)",
+        "deflift": "meander.epsilon/rewrite clauses in CLJS",
+        "defrule": "egg::Rewrite structures in Rust",
+        "defconstraint": "z3::Solver::assert_and_track calls in generated axioms.rs",
+        "defquery": "CozoDB Datalog query string",
+        "defremedy": "rule entry in book-qa.scripts.propose_writeback.py"
+      },
+      "evaluation_model": "Pure data DSL: cljs.reader/read-string + hand-written expander; NO clojure.core/eval; NO macro expansion of source-doc inputs"
+    },
+
+    "ingest_trace_shape": {
+      "file_location": "examples/<workspace>/analysis/ingest-trace.edn",
+      "event_heads": ["source/ingested", "claim/proposed", "claim/verified", "claim/disputed", "claim/superseded", "claim/refuted"],
+      "example_event": "(claim/proposed {:claim/id \"clm-2026-000001\" :text \"Bermuda has nine traditional parishes including St. George's.\" :source/spans [{:doc/id \"alpha\" :locator-text \"...\"}] :confidence 0.95 :proposed-at #inst \"2026-05-12T16:14:01Z\"})",
+      "regenerability": "Currently regenerable from authoritative book-knowledge sources; sorted deterministically; idempotent.",
+      "not_yet_content_addressed": "Each event references claim_id strings, not content hashes. The recommendation from a prior deep-research output (item #8: 'Seed UUIDs Deterministically') flagged this; v0.4 deferred to v0.5."
+    },
+
+    "prior_deep_research_output": {
+      "filename": "Neurosymbolic Trace and DSL Design.txt (user-supplied)",
+      "scope_audited_in_v0.4": "29 distinct recommendations; ~48% fully implemented, ~14% partial, ~38% deferred",
+      "items_deferred_that_motivate_this_brief": [
+        "Content-hashed UUIDs for deterministic trace diffing",
+        "Cross-workspace claim sharing",
+        "Trace-diff regression CI",
+        "Evidence cards"
+      ]
+    }
+  },
+
+  "primary_question": "What does Unison-style content-addressed naming mean — concretely — for the seven BookLogic DSL form families, for the ingest-trace event stream, for the verifier's unsat-core reporting, and for the book-knowledge claim ledger? Produce a complete v0.5 mission-spec-quality engineering analysis.",
+
+  "research_objectives": [
+    "Audit Unison's actual hashing algorithm: how it normalizes ASTs before hashing; how it handles alpha-equivalence of bound variables; how it handles cycles and recursive references; how its 'namespace' interacts with hashes; the role of Unison Cloud / shared codebase formats.",
+    "Translate Unison's algorithm to the BookLogic DSL specifically — propose canonicalization rules per form family. Identify which BookLogic constructs are naturally alpha-equivalent (deflift bindings, defrule LHS/RHS variables) and which are not (defsort, defpredicate names, defconstraint :track keywords).",
+    "Design a content-addressed store layout that lives alongside book-knowledge's claim ledger without replacing it. Sequential claim_ids remain the human-readable handle; content hashes become the machine-stable identity. Specify the migration path.",
+    "Decide what's hashed: just the atom's S-expression form, or the atom + its provenance + its dependencies (Merkle-DAG)? Argue both options; recommend one.",
+    "Address Unison's distributed-retrieval property — would multi-book sharing of canonical-fact claims be valuable for the russellian-book-suite, and if so, what does the import-by-hash UX look like?",
+    "Specify how this interacts with the deferred recommendations: trace-diff CI, evidence cards, defexplanation. The hash gives the natural primary key for each.",
+    "Quantify risk: hash collisions (cryptographic vs structural), canonicalization bugs (false dedups), migration breakage of the existing 46-claim Bermuda ledger and the live verification-report.md."
+  ],
+
+  "specific_questions": [
+    {
+      "id": "Q1",
+      "question": "What is Unison's exact algorithm for hashing a function definition? Describe each canonicalization step (alpha-normalization, namespace stripping, dependency-by-hash substitution, term-tree serialization). Cite Unison source or RFC.",
+      "expected_depth": "Algorithm pseudocode + the actual format of a Unison hash (base32 / SHA-512 truncated / etc.)"
+    },
+    {
+      "id": "Q2",
+      "question": "For each of the seven BookLogic forms, what subset of its content participates in the hash? E.g., does the docstring? The :tags? The :doc? The :backend metadata in defconstraint? The :on-unsat block? Argue inclusion vs. exclusion for each.",
+      "expected_depth": "Table per form: field → in-hash | out-of-hash | conditional, with rationale"
+    },
+    {
+      "id": "Q3",
+      "question": "How are bound variables alpha-normalized in deflift and defrule? Specifically: ?a vs ?x; named-capture groups in regex; nested quantifier bindings if BookLogic ever supports them. Propose a deterministic naming scheme (e.g., 'first occurrence in pre-order traversal becomes ?v0, second becomes ?v1').",
+      "expected_depth": "Concrete algorithm + worked example showing two equivalent rules hashing identically and two inequivalent rules hashing differently"
+    },
+    {
+      "id": "Q4",
+      "question": "How are commutative and associative operators handled? In our atomspace, :+, :and, :or, :∧ are commutative; (= ?a ?b) is symmetric. Should (+ a b) and (+ b a) hash identically? What about (= a b) vs (= b a)? Where do we draw the line — only on operators tagged commutative in BookLogic, or by default?",
+      "expected_depth": "Decision framework + worked examples"
+    },
+    {
+      "id": "Q5",
+      "question": "Should the hash cover only the form's body, or also its dependencies-by-hash (Merkle-style)? If a defconstraint references a defpredicate by name, does changing the predicate's hash bubble up into the constraint's hash? What are the trade-offs?",
+      "expected_depth": "Both options spec'd; recommendation with rationale; reference to similar systems (Nix derivations, Git tree hashes, IPLD)"
+    },
+    {
+      "id": "Q6",
+      "question": "Design the content-addressed store. Where does it live on disk (<workspace>/.store/?, separate Git repo, single .edn file?)? What's the lookup API from Python, CLJS, Rust? How are hashes encoded (base32, hex)? How do we surface them to humans (full hash, prefix, name-or-hash-or-id)?",
+      "expected_depth": "Concrete file layout + API signatures for each language + UX for hash display"
+    },
+    {
+      "id": "Q7",
+      "question": "Migration path: today claim_ids are sequential strings; the 46-claim Bermuda ledger is the source of truth. After v0.5 lands, what's stable? Proposal: keep claim_ids as the human-readable handle, add :claim/hash as a parallel identifier, use hashes for the verifier's tracker names. What schema changes does book-knowledge need? Does ledger.jsonl gain a :claim/hash field, or does the hash live in the ingest-trace only?",
+      "expected_depth": "Migration plan with phases; schema diff; backward compatibility approach"
+    },
+    {
+      "id": "Q8",
+      "question": "Cross-workspace claim sharing: if Bermuda and a hypothetical Cayman-Islands workspace both assert (fact :BMD :pegged-to :USD :at 1.0), is that one claim shared between workspaces or two? Argue both sides; recommend one. Specify the import-by-hash UX.",
+      "expected_depth": "Use case analysis + UX mockup + storage implications"
+    },
+    {
+      "id": "Q9",
+      "question": "What changes operationally in the verifier's unsat-core reporting? Today the core is a list of claim_id strings. After Unison-style hashing, is it a list of hashes? A list of hash + canonical-form pairs? How does book-qa's D13 ticket look?",
+      "expected_depth": "Before/after JSON shape + worked example of a ch-02 parish-count drift fire"
+    },
+    {
+      "id": "Q10",
+      "question": "Evidence cards under hash-addressed claims: today a card cites claim_id. With hashes, does it cite the hash, the claim_id, or both? How does the card link back to source spans when the source itself has been re-ingested and now hashes differently?",
+      "expected_depth": "Evidence card schema + rendering example"
+    },
+    {
+      "id": "Q11",
+      "question": "Trace-diff CI: with content-addressed events, a trace diff becomes a hash-set diff. Specify the CI gate algorithm. What constitutes a 'breaking change' (a claim's hash disappeared? a claim's hash appeared? a previously-supported claim's hash now lacks a supporting source-span hash?). What about timestamp drift in ingestion?",
+      "expected_depth": "CI gate decision tree + worked failure modes"
+    },
+    {
+      "id": "Q12",
+      "question": "Risk register: hash collisions (SHA-256 vs SHA-512 vs blake3), canonicalization correctness bugs (false dedups), version drift between the canonicalization algorithm in two different sessions (one running v0.5 canonicalizer, one running v0.5.1). Specify mitigations.",
+      "expected_depth": "Risk register modelled on the prior deep-research output's risk register"
+    },
+    {
+      "id": "Q13",
+      "question": "How does this interact with the existing MeTTa-style scaffold (skills/neurosym-forge/references/metta-idioms.md)? Specifically: does Unison-style hashing align with MeTTa's atomspace model? Does Hyperon have prior art on hashing atomspace expressions?",
+      "expected_depth": "Cross-reference analysis citing OpenCog Hyperon docs"
+    },
+    {
+      "id": "Q14",
+      "question": "What's the implementation effort? Decompose into PRs analogous to the v0.4 mission's six-PR slate. Estimate days per PR.",
+      "expected_depth": "Multi-PR roadmap with dependency graph"
+    },
+    {
+      "id": "Q15",
+      "question": "What's the recommended starting point — a minimal flavour first (PR-1 of v0.5: hash atoms only, not Merkle-by-dependency) or the full architecture in one mission? What's the smallest cohesive deliverable?",
+      "expected_depth": "Decision + rationale + minimum-viable-content-addressing scope"
+    }
+  ],
+
+  "domain_areas_to_investigate": [
+    "Unison language documentation (unisonweb.org), specifically the Hashing and Namespace sections",
+    "The Unison RFC repository for any 'content-addressed' or 'canonicalization' proposals",
+    "Existing implementations of structural hashing for S-expressions: Common Lisp's hash-cons, Racket's contract-aware hash, Clojure's value-based equality semantics",
+    "Nix derivation hashing (input-addressed vs content-addressed) for comparison",
+    "Git's Merkle tree model and how it handles renames (it doesn't — tree hashes are stable across renames only when content is unchanged)",
+    "IPLD / IPFS content-addressed data formats and their canonicalization rules",
+    "DAG-CBOR and DAG-JSON: deterministic encoding rules that make hashing meaningful",
+    "Cryptographic hash function choice: SHA-256 (interop), SHA-512 (length), blake3 (speed)",
+    "Multihash (multiformats.io) as a self-describing hash format",
+    "Academic literature on hash-consing and term-rewriting normalization for shared subterm representation",
+    "OpenCog Hyperon's atomspace and any hashing it does internally",
+    "Mathematical theory: alpha-equivalence in lambda calculus, de Bruijn indices for variable-name independence",
+    "Practical examples of content-addressed code/data sharing: Smalltalk image hashing, Pharo's content-addressed code archive, Roc programming language's distributable types"
+  ],
+
+  "constraints": [
+    "Preserve book-knowledge's authoritative sequential-ID ledger; do not break the existing 46-claim Bermuda corpus",
+    "Preserve append-only / regenerable semantics already established for ingest-trace.edn",
+    "Preserve the 'no eval' safety property of BookLogic — pure data DSL, parsed via cljs.reader/read-string, never via clojure.core/eval",
+    "Local-only execution; no network calls during ingestion, hashing, or verification",
+    "Maintain skill boundaries: book-knowledge owns ingestion; neurosym-forge owns the verification pipeline; book-qa owns defect emission",
+    "The hash must be reproducible across re-ingestions of the same source — content-addressed, not timestamp-addressed",
+    "The hash must round-trip through the existing EDN reader/writer: must serialize cleanly into the trace artifact and be re-parseable",
+    "If two writers disagree on canonicalization (Python and CLJS), the hash must still be identical; the canonicalization algorithm must be language-independent",
+    "Should integrate cleanly with the deferred recommendations from the prior deep research (trace-diff CI, evidence cards, defexplanation), not foreclose them",
+    "Should not require replacing the existing Python EDN reader/writer (skills/neurosym-forge/scripts/_edn_reader.py and _edn_writer.py) — extending them is acceptable"
+  ],
+
+  "out_of_scope": [
+    "Implementing the full Unison standard library or runtime (we only need the hashing/naming concept, not the language itself)",
+    "Distributed clouds or cross-machine sync (local-only repos for now; cross-workspace import is a maybe)",
+    "Replacing Z3 with a different solver",
+    "Replacing book-knowledge's RDF / SHACL projections",
+    "Macro evaluation, code execution, or any form of dynamic DSL extension at runtime",
+    "WASM target for the Rust verifier (still v0.6+)",
+    "Bayesian belief integration with the symbolic layer (deferred to v0.5+ but separate concern)"
+  ],
+
+  "deliverable_format": {
+    "shape": "Long-form Markdown engineering analysis, modelled on the 'Neurosymbolic Trace and DSL Design' document the user previously commissioned",
+    "minimum_sections": [
+      "Executive Summary",
+      "Repository-Grounded Current-State Assessment",
+      "Evaluation of Each Hypothesis (one section per primary_question Q1..Q15)",
+      "Problem Statement and Design Goals",
+      "Proposed Architecture with ASCII diagram",
+      "Canonicalization Algorithm (alpha-normalization, commutativity handling, dependency-by-hash substitution)",
+      "Hashing Strategy (choice of hash function, encoding, prefix display rules)",
+      "Content-Addressed Store Design (file layout, lookup APIs in Python/CLJS/Rust)",
+      "BookLogic DSL Form-by-Form Mapping (what's in-hash vs out-of-hash per form)",
+      "Compiler/Interpreter Pipeline Changes",
+      "Integration with book-knowledge, neurosym-forge, book-qa, book-thesis, verifiers/bermuda",
+      "Evidence Card / Claim Debugger / Audit Report Extensions",
+      "Migration Path from sequential claim_ids (specific phases for the existing 46-claim Bermuda corpus)",
+      "Cross-Workspace Sharing Analysis",
+      "Decision Records (ADRs) modelled on the prior deep-research document",
+      "Risk Register",
+      "Implementation Roadmap with multi-PR decomposition and effort estimates",
+      "Top 10 Recommendations (prioritized)",
+      "Open Design Questions",
+      "Works Cited"
+    ],
+    "length_guidance": "Comparable to the prior 'Neurosymbolic Trace and DSL Design' output (~400 lines / 25-35KB of Markdown)",
+    "code_examples": "Include concrete EDN snippets for: (a) a before/after BookLogic defconstraint with hash; (b) a hashed ingest-trace event; (c) the content-addressed store file layout; (d) the unsat-core report with hash references",
+    "citations": "Cite Unison documentation, OpenCog Hyperon, Nix manual, IPLD specs, and any academic literature on structural hashing or alpha-normalization"
+  },
+
+  "key_references_to_consult": [
+    {"name": "Unison Language", "url": "https://www.unisonweb.org/"},
+    {"name": "Unison Hashing", "url": "https://www.unisonweb.org/docs/the-big-idea/"},
+    {"name": "Unison RFCs", "url": "https://github.com/unisonweb/unison/tree/trunk/docs/rfcs"},
+    {"name": "OpenCog Hyperon atomspace", "url": "https://hyperon.opencog.org/"},
+    {"name": "Hyperon Atomspace wiki", "url": "https://wiki.opencog.org/w/Hyperon:Atomspace"},
+    {"name": "Nix Reference Manual — Hashing", "url": "https://nix.dev/manual/nix/2.25/protocols/store-path"},
+    {"name": "IPLD specs", "url": "https://ipld.io/docs/"},
+    {"name": "DAG-CBOR canonical encoding", "url": "https://ipld.io/specs/codecs/dag-cbor/spec/"},
+    {"name": "Multihash spec", "url": "https://github.com/multiformats/multihash"},
+    {"name": "Blake3", "url": "https://github.com/BLAKE3-team/BLAKE3"},
+    {"name": "Hash-consing surveys (academic)", "url": "search Google Scholar for 'hash consing term rewriting' + 'maximally shared graph representation'"},
+    {"name": "Russellian Book Suite repo", "url": "https://github.com/CharlesHoskinson/russellian-book-suite"},
+    {"name": "BookLogic v0.4 mission spec", "url": "https://github.com/CharlesHoskinson/russellian-book-suite/blob/main/docs/specs/2026-05-14-booklogic-v0.4-mission-design.md"},
+    {"name": "BookLogic PR-2 spec (ingest-trace)", "url": "https://github.com/CharlesHoskinson/russellian-book-suite/blob/main/docs/specs/2026-05-14-booklogic-v0.4-pr2-design.md"},
+    {"name": "MeTTa idioms reference (skill-internal)", "url": "https://github.com/CharlesHoskinson/russellian-book-suite/blob/main/skills/neurosym-forge/references/metta-idioms.md"}
+  ],
+
+  "success_criteria_for_the_research_output": [
+    "Each of Q1..Q15 receives a substantive, sourced answer.",
+    "A canonicalization algorithm is specified at pseudocode level for at least four of the seven BookLogic forms (defsort, defpredicate, deflift, defconstraint).",
+    "A migration path is laid out as a phased sequence of PRs with effort estimates.",
+    "ADRs explicitly settle: hash function choice, encoding, in-hash vs out-of-hash field membership per form, dependency hashing scope (Merkle vs flat), and migration scheme.",
+    "The risk register lists at least: cryptographic collision risk, canonicalization bug risk, version-drift risk between language implementations, and migration-rollback risk.",
+    "The recommended starting PR is minimal-but-cohesive — something that could land in 1-2 days and unblock the rest of the v0.5 mission."
+  ],
+
+  "non_goals_for_the_research_output": [
+    "Do not produce running code; this is a design document, not an implementation.",
+    "Do not redesign the verifier stack from scratch; only the hashing/identity layer changes.",
+    "Do not propose adopting Unison the language itself; we want the hashing concept, not the runtime.",
+    "Do not propose anything that requires network access at ingestion or verification time."
+  ]
+}

@@ -29,6 +29,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+# Resolve npm to its full path. On Windows, `npm` is a `.cmd` batch wrapper;
+# subprocess on Windows uses CreateProcess which doesn't auto-resolve `.cmd`
+# unless given an absolute path. shutil.which() finds the .cmd correctly.
+NPM = shutil.which("npm") or "npm"
+
+
 SORTS_EDN = """{:forms [(defsort :entity)
                         (defsort :int)]}
 """
@@ -44,9 +50,15 @@ LIFTS_EDN = """{:forms [(deflift L001
 """
 
 
-@pytest.fixture()
-def scaffolded_project(tmp_path: Path, skill_root: Path) -> Path:
-    out = tmp_path / "demo"
+@pytest.fixture(scope="module")
+def scaffolded_project(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Module-scoped: scaffold + npm install once, reuse across both tests.
+
+    Cold `npm install` of nbb is ~50MB and 1-3 minutes; doing it per test
+    triples the wall time of this suite for no test-isolation benefit.
+    """
+    skill_root = Path(__file__).resolve().parent.parent
+    out = tmp_path_factory.mktemp("cljs_integration") / "demo"
     scaffold_project(
         project_name="Demo", project_slug="demo",
         out_dir=out, skill_root=skill_root,
@@ -54,13 +66,14 @@ def scaffolded_project(tmp_path: Path, skill_root: Path) -> Path:
     (out / "rules" / "booklogic" / "sorts.edn").write_text(SORTS_EDN, encoding="utf-8")
     (out / "rules" / "booklogic" / "predicates.edn").write_text(PREDICATES_EDN, encoding="utf-8")
     (out / "rules" / "booklogic" / "lifts.edn").write_text(LIFTS_EDN, encoding="utf-8")
+    _npm_install(out)
     return out
 
 
 def _npm_install(project: Path) -> None:
     result = subprocess.run(
-        ["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"],
-        cwd=str(project), capture_output=True, text=True, timeout=180,
+        [NPM, "install", "--no-audit", "--no-fund", "--loglevel=error"],
+        cwd=str(project), capture_output=True, text=True, timeout=600,
     )
     if result.returncode != 0:
         pytest.fail(f"npm install failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
@@ -68,10 +81,8 @@ def _npm_install(project: Path) -> None:
 
 def test_booklogic_compile_emits_predicates_edn(scaffolded_project: Path) -> None:
     """The compiler reads booklogic/*.edn, writes predicates.edn at rules root."""
-    _npm_install(scaffolded_project)
-
     result = subprocess.run(
-        ["npm", "run", "booklogic-compile"],
+        [NPM, "run", "booklogic-compile"],
         cwd=str(scaffolded_project), capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:
@@ -89,10 +100,8 @@ def test_booklogic_compile_emits_predicates_edn(scaffolded_project: Path) -> Non
 
 def test_booklogic_nbb_test_fixture_passes(scaffolded_project: Path) -> None:
     """The CLJS test fixture exercises expand and predicates.edn shape from inside nbb."""
-    _npm_install(scaffolded_project)
-
     result = subprocess.run(
-        ["npm", "run", "test:booklogic"],
+        [NPM, "run", "test:booklogic"],
         cwd=str(scaffolded_project), capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:

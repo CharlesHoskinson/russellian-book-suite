@@ -7,7 +7,7 @@
 **Review protocol:** [`docs/operations/codex-review-protocol.md`](../operations/codex-review-protocol.md)
 **Repo guidance:** [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md)
 
-You implement. A Claude session reviews each PR. The user merges.
+You implement and push branches. A Claude session opens the PR, reviews, files `PR-N-REVIEW.md`, and merges. You do not need `gh` auth and you never invoke `gh`.
 
 ---
 
@@ -15,18 +15,18 @@ You implement. A Claude session reviews each PR. The user merges.
 
 These apply across every phase. Internalise them before reading the phase work.
 
-1. **One problem per PR.** No grab-bags. If you find something out of scope mid-PR, write it to `docs/codex-wiki/99-lessons.md` and keep moving.
-2. **Real QA before opening any PR.** Run pytest, run nbb integration tests, run cargo if Rust changed. Paste counts in the PR body under `### Local QA evidence`. PRs without QA evidence are rejected.
-3. **Never push to main.** Branch, push, open PR. Wait for review. Address review comments with new commits — never `--amend` on published commits.
+1. **One problem per branch.** No grab-bags. If you find something out of scope mid-branch, write it to `docs/codex-wiki/99-lessons.md` and keep moving.
+2. **Real QA before pushing any branch.** Run pytest, run nbb integration tests, run cargo if Rust changed. Put counts in your final commit message body under `### Local QA evidence` (Claude reads the commit and uses it as the PR body). Branches without QA evidence get a request-changes PR opened by Claude.
+3. **Never push to main.** Branch, push, stop. Claude opens the PR, reviews, and merges. If review feedback requires a fix, push to a follow-up branch (`codex/<phase>-fixes`) — never `--amend` on a pushed commit.
 4. **Never skip hooks.** No `--no-verify`. No `-c commit.gpgsign=false`. If a pre-commit hook fails, fix the underlying issue.
-5. **No AI attribution.** No `Co-Authored-By`. No "AI-generated" markers. No `Co-Authored-By: Claude` in commits or files. Terse, human-style commit messages. Imperative mood. ≤72 char subject line. Body only when the why isn't obvious.
+5. **No AI attribution.** No `Co-Authored-By`. No "AI-generated" markers. No `Co-Authored-By: Claude` in commits or files. Terse, human-style commit messages. Imperative mood. ≤72 char subject line. Body only when the why isn't obvious (or when carrying the For-reviewer section on the final commit).
 6. **No AI smells.** Don't write `## Main theorem:` or `**Proof strategy:**` or "key insight" or numbered proof steps or six-level emoji-bulleted lists. Read CLAUDE.md if uncertain.
-7. **Skill ownership is sacred.** `book-knowledge` owns `claims/`, `wiki/`, `raw/`, `graph/`. `book-compose` owns `chapters/`, `book/`. `book-qa` owns `qa/`. Mission PRs touch `skills/neurosym-forge/`, `skills/book-knowledge/` (only the symbolic-trace pieces), `verifiers/bermuda/`, and the worked-example READMEs.
+7. **Skill ownership is sacred.** `book-knowledge` owns `claims/`, `wiki/`, `raw/`, `graph/`. `book-compose` owns `chapters/`, `book/`. `book-qa` owns `qa/`. Mission branches touch `skills/neurosym-forge/`, `skills/book-knowledge/` (only the symbolic-trace pieces), `verifiers/bermuda/`, and the worked-example READMEs.
 8. **Append-only ledgers.** `claims/ledger.jsonl`, `claims/counter-claims.jsonl`, `claims/events.jsonl` are append-only. Use `book-knowledge/scripts/io_utils.py` (`read_jsonl`, `latest_per`).
-9. **No outbound network.** `gh` and `npm install` are allowed. No curl, no wget, no API calls. The verifier is local-only by design.
+9. **No outbound network.** `npm install` and `git push origin <branch>` are allowed. No `gh`, curl, wget, API calls. The verifier is local-only by design.
 10. **Patch, don't rewrite.** Use `apply_patch` with minimal diffs. Don't regenerate a 400-line file to change three lines.
 
-If you violate any of these, expect Claude's review to reject the PR.
+If you violate any of these, expect Claude's PR-N-REVIEW.md to flag it as a P1 and the merge to be blocked.
 
 ---
 
@@ -49,9 +49,10 @@ python --version          # 3.13.x
 node --version            # v22 or v24
 npm --version
 git --version
-gh --version
-gh auth status
+git config --get remote.origin.url   # confirm git push will work
 ```
+
+You do not need `gh`. Claude opens, reviews, and merges PRs.
 
 Skill venvs are junction-linked from `~/.claude/skills/<name>/.venv`. If `skills/neurosym-forge/.venv/Scripts/python.exe` is missing, run:
 
@@ -93,9 +94,9 @@ Steps:
 9. Stub the per-phase wiki files (`01-audit-findings.md`, `02-pr3.5-notes.md`, etc.) with the section template from the spec.
 10. Update `docs/codex-wiki/00-index.md` to reflect "Phase 0 complete, Phase 1 starting."
 
-Open a small bootstrap PR (`codex/phase-0-bootstrap` → main) containing only the seeded wiki files. PR title: `docs: seed Codex working-wiki for v0.4 mission remainder`. PR body includes baseline test counts.
+Push branch `codex/phase-0-bootstrap` containing only the seeded wiki files. Final commit message body should include the For-reviewer section so Claude can use it as the PR body verbatim. Suggested PR title: `docs: seed Codex working-wiki for v0.4 mission remainder`. The For-reviewer section's Local QA evidence carries the baseline test counts.
 
-This PR exists so Claude can sanity-check the wiki structure before any real code lands.
+This branch exists so Claude can sanity-check the wiki structure before any real code lands.
 
 ---
 
@@ -145,7 +146,7 @@ For each Python ingester slated for CLJS port (PR-3.5), one paragraph covering:
 - Test fixtures that must survive the port
 ```
 
-Open Phase 1 PR (`codex/phase-1-audit` → main). PR title: `docs/codex-wiki: deep audit of neurosym-forge and CLJS surface`. PR body summarises Critical/Important counts only. Wait for Claude's review and the user's go/no-go on Phase 2 before proceeding.
+Push branch `codex/phase-1-audit` with `01-audit-findings.md` and the wiki housekeeping. Final commit's For-reviewer body lists Critical/Important counts. Suggested PR title: `docs/codex-wiki: deep audit of neurosym-forge and CLJS surface`. Stop after pushing. Wait for `openspec/changes/codex-phase-1/PR-<N>-REVIEW.md` to land on main, then read it and the user's go/no-go signal before starting Phase 2.
 
 ---
 
@@ -161,9 +162,9 @@ Open Phase 1 PR (`codex/phase-1-audit` → main). PR title: `docs/codex-wiki: de
 - **No refactoring beyond what each fix demands.** If a finding says "split this function," that's the work. Don't also rename three variables.
 - **Update the audit document.** As you fix each finding, change its status in `01-audit-findings.md` from `Open` to `Fixed: <commit-sha>`. Ship the audit-doc change in the same PR.
 
-Open Phase 2 PR (`codex/phase-2-remediation` → main). PR title: `fix: address audit Critical and Important findings`. PR body lists each finding ID and one-line fix description. Phase 8 QA section mandatory.
+Push branch `codex/phase-2-remediation`. Final commit's For-reviewer body lists each finding ID and one-line fix description. Suggested PR title: `fix: address audit Critical and Important findings`. Phase 8 QA section in the commit body is mandatory.
 
-Wait for Claude's review and merge before starting Phase 3.
+Wait for the merged PR-N-REVIEW.md before starting Phase 3.
 
 ---
 
@@ -204,7 +205,7 @@ Wait for Claude's review and merge before starting Phase 3.
 
 9. **Wiki update.** Fill in `02-pr3.5-notes.md`: design decisions, hardest port, test-fixture choices, lessons.
 
-10. **Open PR.** Title: `verifiers/bermuda: port Python ingesters to CLJS (PR-3.5)`. Body includes spec link, plan link, wiki link, Phase 8 evidence.
+10. **Push branch** `codex/phase-3-pr-3.5`. Final commit's For-reviewer body includes spec link, plan link, wiki link, Phase 8 evidence. Suggested PR title: `verifiers/bermuda: port Python ingesters to CLJS (PR-3.5)`.
 
 ---
 
@@ -243,7 +244,7 @@ Wait for Claude's review and merge before starting Phase 3.
 
 10. **Wiki update.** Fill in `03-pr4-notes.md`. Pay special attention to surprises in the cross-form validation logic.
 
-11. **Open PR.** Title: `skills/neurosym-forge: BookLogic active forms (defrule/defconstraint/defquery/defremedy) (PR-4)`.
+11. **Push branch** `codex/phase-4-pr-4`. Suggested PR title: `skills/neurosym-forge: BookLogic active forms (defrule/defconstraint/defquery/defremedy) (PR-4)`.
 
 ---
 
@@ -279,7 +280,7 @@ Wait for Claude's review and merge before starting Phase 3.
 
 8. **Wiki update.** Fill in `04-pr5-notes.md`. Z3 has subtle behaviors (integer vs real, divide-by-zero, unknown verdicts); record what you learned.
 
-9. **Open PR.** Title: `verifiers/bermuda: migrate to BookLogic v0.4 + real Z3 + quantitative predicates (PR-5)`.
+9. **Push branch** `codex/phase-5-pr-5`. Suggested PR title: `verifiers/bermuda: migrate to BookLogic v0.4 + real Z3 + quantitative predicates (PR-5)`.
 
 ---
 
@@ -315,7 +316,7 @@ Wait for Claude's review and merge before starting Phase 3.
 
 8. **Wiki update.** Fill in `05-pr6-notes.md`. Capture which parts of the v0.4 vocabulary felt awkward in practice — this informs v0.5.
 
-9. **Open PR.** Title: `worked-examples/osmotic-pressure: end-to-end BookLogic v0.4 showcase (PR-6)`.
+9. **Push branch** `codex/phase-6-pr-6`. Suggested PR title: `worked-examples/osmotic-pressure: end-to-end BookLogic v0.4 showcase (PR-6)`.
 
 ---
 
@@ -333,13 +334,15 @@ If you can't think of anything to write, you probably need to do more work befor
 
 ---
 
-## Working with Claude (the PR reviewer)
+## Working with Claude (the PR opener / reviewer / merger)
 
-After you open a PR:
+After you push a branch:
 
-1. Tag the PR for review by appending the `## For reviewer (Claude)` section. Use this template, verbatim:
+1. **Make the final commit on the branch carry the For-reviewer body.** Claude reads the last commit on the branch and uses its message body verbatim as the PR body. Use this template:
 
-```markdown
+```
+<terse subject — used as PR title if Claude doesn't override>
+
 ## For reviewer (Claude)
 
 **Phase:** N — <title>
@@ -357,30 +360,22 @@ After you open a PR:
 
 ### Local QA evidence
 
-```
+\`\`\`
 <paste pytest output: counts and key suite names>
 <paste npm run test:* output if applicable>
-<paste ruff output if applicable>
-```
-```
-
-2. **Poll for review.** After ~10 minutes (Claude reviews are not real-time), check:
-
-```bash
-gh pr view <n> --json reviews,comments
+<paste python -m ruff check output if applicable>
+\`\`\`
 ```
 
-3. **Address each comment with a fresh commit.** Never `--amend` a pushed commit. Push, then reply to the comment thread:
+2. **Stop after pushing.** Do not invoke `gh`. Do not poll. Do not open the PR yourself. Tell the user "Phase N branch pushed at <SHA>" via your last session output.
 
-```bash
-gh pr comment <n> --body "Addressed in <sha>. <one-sentence what changed>"
-```
+3. **Read review feedback on your next session via `git pull origin main`.** Claude lands the review as a separate `review:` PR that adds `openspec/changes/codex-phase-<N>/PR-<N>-REVIEW.md`. Read that file at session start.
 
-4. **If a comment requires a discussion before code changes,** reply with your reasoning. Wait for Claude's response.
+4. **Address P0/P1 follow-ups by pushing a new branch.** Name it `codex/phase-<N>-fixes` (or similar). The same handoff cycle applies: push, stop, wait for the merged review file.
 
-5. **Never argue past two rounds.** If you and Claude disagree after two exchanges, surface to the user via a top-level PR comment: `@user: Claude and I disagree on <X>. Brief positions: <one sentence each>. Need a tiebreaker.`
+5. **Never argue past two rounds of feedback.** If you and Claude disagree after two PR-N-REVIEW.md cycles on the same point, write a `## Disagreement` section to `docs/codex-wiki/<phase-file>.md` summarising both positions and stop. The user breaks ties.
 
-6. **Never merge.** That's the user's job.
+6. **Never open or merge PRs. Never push to main. Never `--amend` published commits.**
 
 ---
 
@@ -408,7 +403,7 @@ gh pr comment <n> --body "Addressed in <sha>. <one-sentence what changed>"
 - A test you didn't change starts failing and you can't explain why.
 - You're about to do something the brief forbids but it seems necessary.
 
-Surface format: top-level PR comment or, if no PR is open, a one-paragraph status in `docs/codex-wiki/00-index.md` under a new `## BLOCKED` section.
+Surface format: append a one-paragraph status to `docs/codex-wiki/00-index.md` under a new `## BLOCKED` section, commit, push, and stop. Claude will see the BLOCKED section when opening or reviewing the PR and will route the question back to the user.
 
 ---
 
@@ -434,13 +429,13 @@ npm install
 npm run booklogic-compile
 npm run test:booklogic
 
-# Open a PR
-gh pr create --title "<title>" --body "$(cat pr-body.md)"
+# Push a branch (you do NOT open the PR; Claude does)
+git push -u origin codex/phase-N-<slug>
 
-# Address review comments
+# Address review comments after a merged PR-N-REVIEW.md flagged P1 follow-ups
+git checkout -b codex/phase-N-fixes origin/main
 git add . && git commit -m "fix(C-001): tighten subject validation in deflift"
-git push
-gh pr comment <n> --body "Addressed in $(git rev-parse --short HEAD). Tightened keyword check; added regression test."
+git push -u origin codex/phase-N-fixes
 ```
 
 ---

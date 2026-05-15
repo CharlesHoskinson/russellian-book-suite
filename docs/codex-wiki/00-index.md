@@ -50,3 +50,7 @@ When resuming after a break, read this file first, then the in-progress per-phas
 ## Decision log (cross-phase)
 
 - 2026-05-15 - Mission switched from single-agent (Claude implements + reviews) to two-agent (Codex implements, Claude reviews). Spec: `docs/specs/2026-05-15-codex-handoff-design.md`.
+
+## BLOCKED
+
+2026-05-15 — Phase 1 preflight is blocked before audit. `gh auth status` reports that the GitHub token for `CharlesHoskinson` is invalid, so Codex cannot open the required Phase 1 PR. `ruff` is also not on PATH in this shell, although `python -m ruff --version` works and reports `ruff 0.15.13`. Question: should I continue after GitHub CLI authentication is refreshed, using `python -m ruff` for the ruff evidence if `ruff` remains off PATH?

@@ -1,0 +1,30 @@
+name: BookLogic CLJS integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  cljs-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+        # No cache directive: the only package.json in this repo lives in
+        # scaffolded test fixtures, not at repo root, so cache: npm has
+        # nothing to anchor on. nbb installs in ~30s; caching is YAGNI.
+      - name: Install neurosym-forge in editable mode
+        run: |
+          cd skills/neurosym-forge
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+      - name: Run live nbb integration test
+        run: |
+          cd skills/neurosym-forge
+          .venv/bin/python -m pytest tests/test_cljs_integration.py -v

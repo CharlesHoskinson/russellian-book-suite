@@ -1,0 +1,42 @@
+(ns {{ project_slug }}.booklogic-test
+  "Live nbb test fixture for the BookLogic compiler.
+   Invoked by the Python integration harness via nbb."
+  (:require [cljs.test :refer-macros [deftest is run-tests]]
+            [{{ project_slug }}.booklogic :as bl]
+            ["fs" :as fs]
+            ["path" :as path]))
+
+(deftest expand-three-forms
+  (let [src      {:sorts      [(list 'defsort :entity)
+                               (list 'defsort :int)]
+                  :predicates [(list 'defpredicate :parishes-count [:entity] :int)]
+                  :lifts      [(list 'deflift 'L001
+                                     :from :claim/canonical-text
+                                     :when "(?i)(?<n>\\d+)\\s+parishes?"
+                                     :emit (list 'fact '?claim-id :Bermuda :parishes-count
+                                                 (list 'parse-int '?n)))]}
+        expanded (bl/expand src)]
+    (is (= 2 (count (:sort-registry expanded))))
+    (is (= 1 (count (:predicate-registry expanded))))
+    (is (= 1 (count (:lift-rules expanded))))
+    (is (= :parishes-count (-> expanded :predicate-registry first :name)))))
+
+(deftest predicates-edn-shape
+  (let [src      {:sorts      [(list 'defsort :entity)]
+                  :predicates [(list 'defpredicate :parishes-count [:entity] :int)]
+                  :lifts      [(list 'deflift 'L001
+                                     :from :claim/canonical-text
+                                     :when "(?i)(?<n>\\d+)\\s+parishes?"
+                                     :emit (list 'fact '?claim-id :Bermuda :parishes-count
+                                                 (list 'parse-int '?n))
+                                     :word-to-int {"nine" 9})]}
+        expanded (bl/expand src)
+        text     (#'{{ project_slug }}.booklogic/emit-predicates-edn-string expanded)]
+    (is (re-find #":parishes-count" text))
+    (is (re-find #":value-kind :int" text))
+    (is (re-find #"\"nine\" 9" text))))
+
+(defn -main [& _]
+  (let [{:keys [fail error]} (run-tests)]
+    (when (or (pos? fail) (pos? error))
+      (.exit js/process 1))))

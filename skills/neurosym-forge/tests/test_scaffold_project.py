@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -208,3 +209,23 @@ def test_scaffolded_cargo_toml_has_features(tmp_project_root: Path, skill_root: 
     cargo = (tmp_project_root / "rust-verifier" / "Cargo.toml").read_text(encoding="utf-8")
     assert "[features]" in cargo
     assert "pdf" in cargo
+
+
+def test_scaffolded_package_json_has_nbb(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    pkg = json.loads((tmp_project_root / "package.json").read_text(encoding="utf-8"))
+    assert "nbb" in pkg.get("devDependencies", {})
+    assert "booklogic-compile" in pkg.get("scripts", {})
+    assert "test:booklogic" in pkg.get("scripts", {})
+
+
+def test_scaffolded_booklogic_rules_directory(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    booklogic = tmp_project_root / "rules" / "booklogic"
+    assert (booklogic / "sorts.edn").exists()
+    assert (booklogic / "predicates.edn").exists()
+    assert (booklogic / "lifts.edn").exists()
+    contents = (booklogic / "sorts.edn").read_text(encoding="utf-8")
+    assert "{:forms []}" in contents

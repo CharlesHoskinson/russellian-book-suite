@@ -4,9 +4,9 @@ Conventions and operating guidance for autonomous coding agents (Codex, Claude C
 
 ## What this repo is
 
-A monorepo of Python skills that compose into a non-fiction book pipeline. Seven core skills (Python ≥3.11 baseline; `book-thesis` is ≥3.12):
+A monorepo of Python skills that compose into a non-fiction book pipeline. Seven core skills (Python ≥3.11 baseline):
 `book-knowledge`, `russellian-style`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`.
-Plus an optional eighth, `neurosym-forge` (Python ≥3.13), that scaffolds verifier projects but does not gate the book pipeline.
+Plus an optional eighth, `neurosym-forge` (Python ≥3.11), that scaffolds verifier projects but does not gate the book pipeline.
 Each skill ships its own pytest suite. RDF/SPARQL/SHACL via rdflib + pyshacl. LLM tooling is parameterized — production code accepts a `Callable[[str], str]` so tests pass stub responses.
 
 For human-targeted context and design conventions, also read `CLAUDE.md` at repo root.

@@ -1,12 +1,14 @@
 """Counter-claim records — append-only parallel ledger keyed by cc-XXXX-XXXXXX."""
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from pathlib import Path
 
 import jsonschema
 
-from .io_utils import read_jsonl
+from .io_utils import latest_per, read_jsonl
 from .workspace import WorkspaceLayout
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
@@ -46,3 +48,29 @@ def next_counter_claim_id(workspace_root: Path) -> str:
     from datetime import datetime, timezone
     year = datetime.now(timezone.utc).year
     return f"cc-{year}-{secrets.token_hex(3)}"
+
+
+def _main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m scripts.counter_claims",
+        description="List counter-claims in a workspace (latest revision per id).",
+        usage="python -m scripts.counter_claims <workspace> [--status STATUS] [--target CLAIM_ID]",
+    )
+    parser.add_argument("workspace", type=Path, help="Workspace root.")
+    parser.add_argument("--status", help="Filter by status (e.g. open, addressed).")
+    parser.add_argument("--target", help="Filter by target_claim_id.")
+    args = parser.parse_args(argv)
+    records = list(latest_per(read_counter_claims(args.workspace.resolve()), "id").values())
+    if args.status:
+        records = [r for r in records if r.get("status") == args.status]
+    if args.target:
+        records = [r for r in records if r.get("target_claim_id") == args.target]
+    records.sort(key=lambda r: r.get("id", ""))
+    for r in records:
+        print(f"{r['id']}\t{r.get('status', '?')}\t{r.get('target_claim_id', '?')}\t{r.get('text', '')}")
+    print(f"total: {len(records)}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv[1:]))

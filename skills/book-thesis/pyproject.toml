@@ -2,7 +2,7 @@
 name = "book-thesis"
 version = "0.1.0"
 description = "Metabook reasoning layer: thesis spine + entailment loop + Datalog consistency"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
     "pyyaml>=6.0",

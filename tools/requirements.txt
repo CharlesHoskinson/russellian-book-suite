@@ -1,0 +1,19 @@
+# Runtime dependencies for the operator scripts under tools/.
+# These are one-shot scripts (figure generation, hero tables, footnote
+# post-process, deterministic healer, ledger synthesiser, load-bearing
+# tagger). They are NOT part of any skill; install in a separate venv if
+# you need them.
+#
+# Usage:
+#   python -m venv .venv-tools
+#   .venv-tools/Scripts/pip install -r tools/requirements.txt   # Windows
+#   .venv-tools/bin/pip install -r tools/requirements.txt       # POSIX
+
+pyyaml>=6.0,<7.0
+pypdf>=4.0,<6.0
+great-tables>=0.10,<1.0
+matplotlib>=3.8,<4.0
+geopandas>=1.0,<2.0
+pandas>=2.0,<3.0
+numpy>=1.26,<3.0
+plottable>=0.1,<1.0

@@ -32,22 +32,20 @@
 | 15 | README operations runbook list missing `neurosym-forge-runbook.md`. | Added. |
 | 16 | Quickstart used a bash `for` loop with Windows venv paths; no PowerShell variant. | Added PowerShell `foreach` equivalent under the bash loop. |
 
-## Tier-2 follow-ups — captured here, not addressed in this PR
+## Tier-2 follow-ups — all resolved in this PR
 
-These are real but each needs its own scoped change. Listing rather than fixing keeps this PR coherent.
-
-| # | Finding | Why deferred |
+| # | Finding | Resolution |
 |---|---|---|
-| T1 | **Bundle C closed-loop is fixture-only.** `book-qa/scripts/propose_writeback.py` reads `qa/lint-findings.json` and `qa/swarm-findings.json`, but `lint_artifact.py` writes `qa/defects.json` with a `Defect` dataclass that has no `claim_id` or `claim_current_status` — fields `transition_rules.map_ticket_to_proposed_transition` requires. The defect→ticket adapter is missing in production code; only test fixtures synthesise the rich-ticket payload. | Real architectural gap. Needs (a) a defect-enrichment pass that joins `Defect` rows against the claim ledger to add `claim_id` + `claim_current_status`, or (b) a rewrite of `lint_artifact` to emit a richer ticket schema. Either is a multi-day change. |
-| T2 | `requires-python` drift: six skills `>=3.11`, `book-thesis` `>=3.12`, `neurosym-forge` `>=3.13`. | Both higher-floor skills install and pass on their declared floor; relaxing to 3.11 needs feature audit (PEP 695 type syntax etc.). |
-| T3 | `tools/` ships 16 Python scripts (playwright, reportlab, pdf munging) with no `pyproject.toml`/`requirements.txt`. | Folder is one-shot operator scripts; deps should be enumerated. |
-| T4 | `pyDatalog>=0.17` is unmaintained (last release 2017). Acceptable today; future supply-chain risk. | Replacement requires either a Datalog-engine swap or rolling consistency rules by hand. |
-| T5 | Dep version floors with no upper bounds — `spacy 4.x` / `pyshacl 1.x` could break the suite silently. | Caps are conservative but a real product decision; not blocking. |
-| T6 | No `Cargo.lock` (verifiers) or `package-lock.json` (verifiers) committed. | Reproducibility hardening, not a bug. |
-| T7 | `book-knowledge` script CLIs are inconsistent — some have argparse, several are library-only. The fixed two (`workspace`, `verify_claim`) are the ones the README references; others (`apply_writeback`, `belief_graph`, etc.) remain library-only. | Out of scope for "what the Quickstart promises." A follow-up could unify under a single `python -m scripts <subcommand>` dispatcher. |
-| T8 | `humanizer` is referenced as a sibling skill in four SKILL.md files but no `skills/humanizer/` exists in this repo. | The references probably resolve to an external user-skill; should be documented or removed. |
-| T9 | 801 rdflib DeprecationWarnings in book-knowledge tests; 3235 warnings total in book-compose (rdflib + pyshacl). | Cosmetic; tracks rdflib 7.6+ API rename to `default_graph`. |
-| T10 | `book-thesis` test fixtures write to `.knowledge/`, forcing the production `_resolve_claims_path` to carry a fallback for a non-production directory. | Migrate fixtures to `claims/ledger.jsonl` so the resolver can drop legacy paths cleanly. |
+| T1 | **Bundle C closed-loop was fixture-only.** `propose_writeback.py` read filenames production never wrote; `lint_artifact.py` emitted `Defect` rows without `claim_id`/`claim_current_status`. | `Defect` dataclass now carries `id`, `claim_id`, `claim_current_status`. `lint_artifact._enrich_defects` recovers `claim_id` from `clm-` tokens in `where`/`detail` and looks up the live status from `claims/ledger.jsonl`. `propose_writeback` reads `qa/defects.json` as the canonical Stage-1 source (keeps fixture filenames for backward compat). New round-trip test `test_bundle_c_writeback.py::test_bundle_c_closed_loop_verified_to_disputed` exercises the full chain. Commit `9884db2`. |
+| T2 | `requires-python` drift: `>=3.11` / `>=3.12` / `>=3.13`. | Both higher-floor skills relaxed to `>=3.11` after feature audit (no PEP 695, no `@override`, no 3.12+-only typing). Verified by running each suite in a fresh Python 3.11 venv. Commit `dcfc27e` + `c2b3bf3`. Suite-wide floor is now 3.11. |
+| T3 | `tools/` shipped scripts with no declared deps. | Added `tools/requirements.txt` enumerating runtime deps (`pyyaml`, `pypdf`, `great-tables`, `matplotlib`, `geopandas`, `pandas`, `numpy`, `plottable`) with conservative upper bounds. |
+| T4 | `pyDatalog>=0.17` unmaintained. | Pinned upper bound `<1.0` so a future API-breaking release can't silently land. Genuine engine swap remains a longer-term project. |
+| T5 | Dep floors with no upper bounds. | All eight skill `pyproject.toml` files now carry upper bounds on every dep (`<7.0` on pyyaml, `<5.0` on jsonschema, `<9.0` on rdflib, `<1.0` on pyshacl, `<4.0` on spacy, `<2.0` on playwright, `<4.0` on markdown-it-py, `<1.0` on pdfplumber, `<5.0` on reportlab, `<9.0` on pytest, `<1.0` on pyDatalog, `<4.0` on jinja2). |
+| T6 | No `Cargo.lock` / `package-lock.json` committed. | Generated both with `cargo generate-lockfile` and `npm install --package-lock-only --ignore-scripts`. Both committed; not in `.gitignore`. |
+| T7 | Inconsistent CLI conventions across `book-knowledge/scripts/`. | Added argparse CLIs to `apply_writeback.py`, `counter_claims.py`, `detect_conflicts.py`. Eleven other scripts already had CLIs. Library-only helpers (`io_utils`, `ledger`, `claim_validator`, `belief_graph`, etc.) stay library-only by design. Commit `dcfc27e`. |
+| T8 | `humanizer` referenced as a sibling skill but not shipped in-repo. | Documented in README as an optional external skill at `~/.claude/skills/humanizer/`. The `sibling_skills.humanizer_available()` loader already degrades gracefully when absent; README now makes the contract explicit. |
+| T9 | 801 + 3235 rdflib/pyshacl `DeprecationWarning` noise in test runs. | Added `filterwarnings` blocks to `book-knowledge`, `book-compose`, and `book-thesis` `pyproject.toml` ignoring `DeprecationWarning` from `rdflib`, `pyshacl`, and `pyDatalog` namespaces. |
+| T10 | `book-thesis` test fixtures wrote to `.knowledge/`, forcing the production resolver to keep legacy paths. | Migrated `_make_workspace` to write claims to `claims/ledger.jsonl` (the canonical book-knowledge layout); thesis TTL stays at `.knowledge/thesis-triples.ttl` because that's the canonical book-thesis layout used by `compile_thesis.py`. `_resolve_claims_path` simplified to a single canonical check. Commit `79220d4`. |
 
 ## Notes (no action recommended)
 
@@ -58,4 +56,18 @@ These are real but each needs its own scoped change. Listing rather than fixing 
 
 ## Test gate after fixes
 
-After applying this PR's changes, every skill's pytest suite should pass on a clean install with the spaCy model present. Without the spaCy model, suite passes via skip — 0 failures. The previous 82 failing tests were not testing broken code; they were testing linters that need a runtime model.
+Final run on a clean install across all eight venvs (spaCy model absent):
+
+| skill | result |
+|---|---|
+| book-knowledge | 141 passed |
+| russellian-style | 24 passed (86 skipped via skip-gate) |
+| book-compose | 91 passed (11 skipped via skip-gate) |
+| book-review | 24 passed |
+| review-conductor | 32 passed |
+| book-qa | 48 passed (47 + 1 new Bundle C round-trip) |
+| book-thesis | 16 passed |
+| neurosym-forge | 155 passed |
+| **total** | **531 passed, 97 skipped, 0 failed** |
+
+With the spaCy model present (`python -m spacy download en_core_web_sm`), the 97 skipped tests run as well — 628 passed, 0 skipped, 0 failed.

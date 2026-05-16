@@ -8,15 +8,15 @@ version = "0.1.0"
 description = "Russell-style linters for the russellian-style Claude Code skill"
 requires-python = ">=3.11"
 dependencies = [
-    "spacy>=3.7",
-    "markdown-it-py>=3.0",
+    "spacy>=3.7,<4.0",
+    "markdown-it-py>=3.0,<4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "pyyaml>=6.0",
-    "jsonschema>=4.21",
+    "pytest>=8.0,<9.0",
+    "pyyaml>=6.0,<7.0",
+    "jsonschema>=4.21,<5.0",
 ]
 
 [tool.setuptools]

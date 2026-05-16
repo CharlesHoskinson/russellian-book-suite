@@ -8,13 +8,13 @@ version = "0.1.0"
 description = "Panel-orchestration sibling for book-review; runs configurable multi-persona review panels"
 requires-python = ">=3.11"
 dependencies = [
-    "pyyaml>=6.0",
-    "jsonschema>=4.21",
+    "pyyaml>=6.0,<7.0",
+    "jsonschema>=4.21,<5.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
+    "pytest>=8.0,<9.0",
 ]
 
 [tool.setuptools]

@@ -10,15 +10,15 @@ authors = [{name = "Charles Hoskinson"}]
 license = {text = "MIT"}
 requires-python = ">=3.11"
 dependencies = [
-    "jsonschema>=4.21",
-    "pyyaml>=6.0.1",
-    "jinja2>=3.1.3",
+    "jsonschema>=4.21,<5.0",
+    "pyyaml>=6.0.1,<7.0",
+    "jinja2>=3.1.3,<4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "pytest-cov>=4.1",
+    "pytest>=8.0,<9.0",
+    "pytest-cov>=4.1,<8.0",
 ]
 
 [tool.setuptools]

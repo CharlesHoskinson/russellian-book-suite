@@ -117,6 +117,12 @@ Seven skills compose the book pipeline. An eighth, `neurosym-forge`, is an optio
 
 Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest tests/ -q` from a skill directory.
 
+### Optional external siblings
+
+A few skills look for sibling skills outside this repo at `~/.claude/skills/<name>/`:
+
+- **`humanizer`** — referenced by `russellian-style` (AI-vocabulary linter overlay) and `book-compose` (per-section humanizer pass). If installed, its 24-pattern "Signs of AI writing" catalog augments the russellian-style vitality linter. If not installed, the pipeline runs without it: `russellian-style/scripts/sibling_skills.py:humanizer_available()` returns False and callers degrade gracefully. The humanizer skill is not part of this repo; install separately if you want it.
+
 ## Verifiers (optional)
 
 Neurosymbolic verifier projects scaffolded by `neurosym-forge` carry

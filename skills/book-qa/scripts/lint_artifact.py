@@ -34,17 +34,21 @@ import statistics
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
 
 @dataclass
 class Defect:
-    class_: str        # "D1" .. "D12"
-    severity: str      # "critical" | "important" | "minor"
-    where: str         # human-readable location
-    detail: str        # one-line description
+    class_: str                                   # "D1" .. "D13"
+    severity: str                                 # "critical" | "important" | "minor"
+    where: str                                    # human-readable location
+    detail: str                                   # one-line description
     fix_hint: str = ""
+    id: str = ""                                  # stable per-build defect id, assigned by main
+    claim_id: Optional[str] = None                # populated when defect is bound to a specific claim
+    claim_current_status: Optional[str] = None    # status read from claims/ledger.jsonl at lint time
 
 
 CRITICAL = "critical"
@@ -55,6 +59,9 @@ MINOR = "minor"
 # ----------------------------------------------------------------- D1 helpers
 
 CLM_TOKEN_RE = re.compile(r"\[?clm-\d{4}-\d{6}\]?")
+# Bare claim id without surrounding brackets — used to recover a claim_id from
+# `where` or `detail` text on enriched defects.
+CLM_BARE_RE = re.compile(r"clm-\d{4}-\d{6}")
 CLAIM_LEDGER_RE = re.compile(r"Claim ledger:", re.IGNORECASE)
 NUMERIC_FN_CLM_RE = re.compile(r"^\[\^\d+\]:\s*clm-\d{4}-\d{6}", re.MULTILINE)
 
@@ -478,6 +485,64 @@ def lint_d13_verification_unsat(workspace: Path) -> list[Defect]:
     ]
 
 
+# ----------------------------------------------------------------- claim binding
+
+def _load_latest_claim_statuses(workspace: Path) -> dict[str, str]:
+    """Return a {claim_id: latest_status} map from claims/ledger.jsonl.
+
+    Reads the ledger inline (no sibling-skill import) to keep book-qa
+    standalone. Returns an empty dict if the ledger is missing or
+    unreadable. The ledger is append-only, so last record wins.
+    """
+    path = workspace / "claims" / "ledger.jsonl"
+    if not path.exists():
+        return {}
+    out: dict[str, str] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        cid = rec.get("claim_id")
+        status = rec.get("status")
+        if isinstance(cid, str) and isinstance(status, str):
+            out[cid] = status
+    return out
+
+
+def _extract_claim_id(defect: Defect) -> Optional[str]:
+    """Return the first clm-YYYY-NNNNNN token found in where+detail, else None."""
+    blob = f"{defect.where}\n{defect.detail}"
+    m = CLM_BARE_RE.search(blob)
+    return m.group(0) if m else None
+
+
+def _enrich_defects(defects: list[Defect], workspace: Path) -> None:
+    """Populate ``id``, ``claim_id``, ``claim_current_status`` in-place.
+
+    ``id`` is a stable ``defect-<class>-<NNNN>`` per-build slug using the
+    defect's position in the emitted list. ``claim_id`` is recovered from
+    the defect's ``where``/``detail`` text via the clm regex. When a
+    claim_id is bound and the workspace ledger knows that id, the current
+    status is attached so propose_writeback can decide on a transition.
+    """
+    statuses = _load_latest_claim_statuses(workspace)
+    for i, d in enumerate(defects):
+        d.id = f"defect-{d.class_}-{i:04d}"
+        cid = _extract_claim_id(d)
+        if cid is None:
+            continue
+        d.claim_id = cid
+        d.claim_current_status = statuses.get(cid)
+
+
 # ----------------------------------------------------------------- main
 
 def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
@@ -500,6 +565,8 @@ def lint_artifact(workspace: Path, version: str) -> tuple[list[Defect], dict]:
     defects += lint_d8_asset_404s(md, html, release_dir)
     defects += lint_d9_d12(workspace)
     defects.extend(lint_d13_verification_unsat(workspace))
+
+    _enrich_defects(defects, workspace)
 
     summary = {
         "release": version,

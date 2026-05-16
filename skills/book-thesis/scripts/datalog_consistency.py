@@ -1,11 +1,11 @@
 """Layer 4: Datalog consistency pass over the thesis tree and claim ledger.
 
-Reads ``<workspace>/.knowledge/thesis-triples.ttl`` and a verified-claim ledger
-from ``<workspace>/.knowledge/claims.jsonl`` (fallbacks: ``.knowledge/ledger.jsonl``
-then ``claims/ledger.jsonl``), asserts pyDatalog facts, loads the rules in
-``rules/consistency.dl``, and writes derived defects to
-``<workspace>/qa/datalog-defects.json``. Defect classes: D9 paragraph-orphan,
-D10 (transitive) contradiction, D11 invariant-violation, D12 unadvanced sub-arg.
+Reads ``<workspace>/.knowledge/thesis-triples.ttl`` and the verified-claim
+ledger at ``<workspace>/claims/ledger.jsonl`` (the canonical book-knowledge
+layout), asserts pyDatalog facts, loads the rules in ``rules/consistency.dl``,
+and writes derived defects to ``<workspace>/qa/datalog-defects.json``. Defect
+classes: D9 paragraph-orphan, D10 (transitive) contradiction, D11
+invariant-violation, D12 unadvanced sub-arg.
 Exit codes: 0 clean, 1 D10/D11 finding (gate fail), 2 CLI error.
 """
 from __future__ import annotations
@@ -72,9 +72,10 @@ def _local(uri: Any) -> str:
 
 
 def _resolve_claims_path(workspace: Path) -> Path | None:
-    for rel in (".knowledge/claims.jsonl", ".knowledge/ledger.jsonl", "claims/ledger.jsonl"):
-        path = workspace / rel
-        if path.exists() and path.stat().st_size > 0: return path
+    # Canonical book-knowledge layout. Tests and production share this path.
+    path = workspace / "claims" / "ledger.jsonl"
+    if path.exists() and path.stat().st_size > 0:
+        return path
     return None
 
 

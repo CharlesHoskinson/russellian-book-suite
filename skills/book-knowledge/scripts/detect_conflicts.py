@@ -6,10 +6,13 @@ This is a coarse first pass.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from itertools import combinations
+from pathlib import Path
 
 from .ledger import read_claims, transition_status
 from .workspace import WorkspaceLayout
@@ -72,3 +75,24 @@ def detect_conflicts(layout: WorkspaceLayout) -> list[dict]:
             )
 
     return conflicts
+
+
+def _main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m scripts.detect_conflicts",
+        description="Find pairwise antonym contradictions across verified claims "
+                    "and transition the involved claims to 'disputed'.",
+        usage="python -m scripts.detect_conflicts <workspace>",
+    )
+    parser.add_argument("workspace", type=Path, help="Workspace root.")
+    args = parser.parse_args(argv)
+    layout = WorkspaceLayout(root=args.workspace.resolve())
+    conflicts = detect_conflicts(layout)
+    print(f"detected {len(conflicts)} conflict(s)")
+    for c in conflicts:
+        print(f"  {c['conflict_id']}: {c['claims'][0]} <> {c['claims'][1]}")
+    return 1 if conflicts else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv[1:]))

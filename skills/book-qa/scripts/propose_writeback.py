@@ -7,14 +7,52 @@ from pathlib import Path
 from .transition_rules import map_ticket_to_proposed_transition
 
 
+def _defect_to_ticket(defect: dict, index: int) -> dict | None:
+    """Translate a row from ``qa/defects.json`` into a writeback ticket.
+
+    Only defects that carry a ``claim_id`` are candidates for writeback;
+    everything else (mechanical D1-D8 manuscript hygiene, etc.) is skipped
+    here and surfaces via Sentinel/Healer instead. The ``class`` is
+    preserved verbatim so ``transition_rules`` can dispatch on its
+    existing synonym sets (notably ``D11`` -> ``unsupported_claim``).
+    """
+    if not isinstance(defect, dict):
+        return None
+    claim_id = defect.get("claim_id")
+    if not claim_id:
+        return None
+    cls = defect.get("class") or defect.get("class_") or "D?"
+    tid = defect.get("id") or f"defect-{cls}-{index:04d}"
+    return {
+        "id": tid,
+        "class": cls,
+        "claim_id": claim_id,
+        "claim_current_status": defect.get("claim_current_status"),
+        "severity": defect.get("severity", "important"),
+    }
+
+
 def _load_tickets(qa_dir: Path) -> list[dict]:
     tickets: list[dict] = []
+    # Legacy fixture filenames retained for backwards-compatible test fixtures
+    # and any external pipeline still emitting them. Production currently writes
+    # neither file; the new defects.json source below is the canonical input.
     for name in ("lint-findings.json", "swarm-findings.json"):
         p = qa_dir / name
         if not p.exists():
             continue
         payload = json.loads(p.read_text(encoding="utf-8"))
         tickets.extend(payload.get("tickets", []))
+    # Canonical Stage-1 source: defects.json emitted by lint_artifact.py.
+    # Only defects bound to a claim_id become writeback tickets; the rest are
+    # filtered out by _defect_to_ticket.
+    defects_path = qa_dir / "defects.json"
+    if defects_path.exists():
+        payload = json.loads(defects_path.read_text(encoding="utf-8"))
+        for i, d in enumerate(payload.get("defects", [])):
+            t = _defect_to_ticket(d, i)
+            if t is not None:
+                tickets.append(t)
     return tickets
 
 

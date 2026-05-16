@@ -1,8 +1,10 @@
 """Cross-check claim source spans against raw/ files; promote proposed -> verified."""
 from __future__ import annotations
 
+import argparse
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -64,3 +66,42 @@ def verify_claim(layout: WorkspaceLayout, claim_id: str) -> VerificationResult:
     if claim["status"] == "proposed":
         transition_status(layout, claim_id, "verified", note="locator-text confirmed")
     return VerificationResult(claim_id=claim_id, ok=True, new_status="verified")
+
+
+def verify_all_proposed(layout: WorkspaceLayout) -> list[VerificationResult]:
+    """Run verify_claim against every claim currently in the `proposed` state."""
+    results: list[VerificationResult] = []
+    seen: set[str] = set()
+    for record in read_claims(layout):
+        cid = record["claim_id"]
+        if cid in seen or record["status"] != "proposed":
+            continue
+        seen.add(cid)
+        results.append(verify_claim(layout, cid))
+    return results
+
+
+def _main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m scripts.verify_claim",
+        description="Verify claim source spans against raw/ files and promote proposed -> verified.",
+    )
+    parser.add_argument("workspace", type=Path, help="Workspace root.")
+    parser.add_argument("--claim-id", help="Verify a single claim by id (default: every proposed claim).")
+    args = parser.parse_args(argv)
+    layout = WorkspaceLayout(root=args.workspace.resolve())
+    if args.claim_id:
+        results = [verify_claim(layout, args.claim_id)]
+    else:
+        results = verify_all_proposed(layout)
+    promoted = sum(1 for r in results if r.ok)
+    failed = sum(1 for r in results if not r.ok)
+    print(f"verified {len(results)} claim(s): {promoted} promoted, {failed} failed")
+    for r in results:
+        if not r.ok:
+            print(f"  FAIL {r.claim_id}: {r.reason}", file=sys.stderr)
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv[1:]))

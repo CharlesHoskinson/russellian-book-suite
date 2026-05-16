@@ -7,7 +7,7 @@ metadata:
   version: 0.1.0
   category: writing
   workspace-aware: true
-  invokes: russellian-style
+  invokes: russellian-style, book-review, review-conductor
 ---
 
 # book-compose

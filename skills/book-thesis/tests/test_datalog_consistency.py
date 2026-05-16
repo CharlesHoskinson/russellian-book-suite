@@ -6,8 +6,8 @@ Three round-trip cases:
   - clean pass (well-formed thesis + non-conflicting verified claims)
 
 Each test builds a minimal workspace under tmp_path, copies the shared thesis
-TTL fixture into ``.knowledge/``, writes a custom ``claims.jsonl``, and asserts
-on the resulting ``qa/datalog-defects.json``.
+TTL fixture into ``.knowledge/``, writes a custom ``claims/ledger.jsonl``, and
+asserts on the resulting ``qa/datalog-defects.json``.
 """
 from __future__ import annotations
 
@@ -25,11 +25,18 @@ FIXTURE_TTL = Path(__file__).parent / "fixtures" / "datalog_thesis.ttl"
 
 
 def _make_workspace(tmp_path: Path, claims: list[dict]) -> Path:
-    """Lay out a workspace with the shared thesis TTL and the given claim ledger."""
+    """Lay out a workspace with the shared thesis TTL and the given claim ledger.
+
+    Thesis TTL lives at ``.knowledge/thesis-triples.ttl`` — the canonical path
+    that ``compile_thesis.py`` writes to and every book-thesis script reads.
+    Claims live at ``claims/ledger.jsonl`` — the canonical book-knowledge layout.
+    """
     knowledge = tmp_path / ".knowledge"
     knowledge.mkdir(parents=True)
     shutil.copy(FIXTURE_TTL, knowledge / "thesis-triples.ttl")
-    with (knowledge / "claims.jsonl").open("w", encoding="utf-8") as fh:
+    claims_dir = tmp_path / "claims"
+    claims_dir.mkdir(parents=True)
+    with (claims_dir / "ledger.jsonl").open("w", encoding="utf-8") as fh:
         for rec in claims:
             fh.write(json.dumps(rec) + "\n")
     return tmp_path

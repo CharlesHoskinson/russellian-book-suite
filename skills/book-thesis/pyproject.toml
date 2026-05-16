@@ -2,16 +2,16 @@
 name = "book-thesis"
 version = "0.1.0"
 description = "Metabook reasoning layer: thesis spine + entailment loop + Datalog consistency"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
-    "pyyaml>=6.0",
-    "pyDatalog>=0.17",
-    "rdflib>=7.0",
+    "pyyaml>=6.0,<7.0",
+    "pyDatalog>=0.17,<1.0",
+    "rdflib>=7.0,<9.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0,<9.0"]
 
 [tool.setuptools]
 packages = ["scripts"]
@@ -19,6 +19,10 @@ packages = ["scripts"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q"
+filterwarnings = [
+    "ignore::DeprecationWarning:rdflib.*",
+    "ignore::DeprecationWarning:pyDatalog.*",
+]
 
 [build-system]
 requires = ["setuptools>=61"]

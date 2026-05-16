@@ -612,7 +612,7 @@ for skill in russellian-style book-knowledge book-compose book-review review-con
   cp -r skills/$skill ~/.claude/skills/$skill
 done
 
-# Add neurosym-forge if you plan to use the verifier track (requires Python ≥3.13)
+# Add neurosym-forge if you plan to use the verifier track
 cp -r skills/neurosym-forge ~/.claude/skills/neurosym-forge
 ```
 

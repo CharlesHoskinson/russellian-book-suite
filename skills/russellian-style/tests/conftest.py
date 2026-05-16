@@ -20,4 +20,6 @@ if not _spacy_model_available():
     collect_ignore_glob = [
         "test_lint_*.py",
         "test_style_pass_*.py",
+        "test_bitcoin_samples.py",
+        "test_skill_integration.py",
     ]

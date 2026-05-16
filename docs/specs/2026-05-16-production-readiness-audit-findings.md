@@ -22,7 +22,7 @@
 | 5 | `python -m scripts.workspace init <path>` silently exits 0 with no `__main__`. | Added `argparse`-based CLI to `workspace.py`. |
 | 6 | `python -m scripts.verify_claim <ws>` silently exits 0 with no `__main__`. | Added CLI to `verify_claim.py`; new `verify_all_proposed()` helper. |
 | 7 | 71/110 russellian-style tests and 11/102 book-compose tests fail because `en_core_web_sm` is not installed and no skip-gate exists. | Added `collect_ignore_glob` in both `conftest.py` files; documented `python -m spacy download en_core_web_sm` in the README Quickstart. |
-| 8 | `skills/book-thesis/scripts/datalog_consistency.py` resolves `.knowledge/claims.jsonl` / `.knowledge/ledger.jsonl` paths that no other skill writes — dead legacy. | Simplified `_resolve_claims_path` to the canonical `claims/ledger.jsonl`. |
+| 8 | `skills/book-thesis/scripts/datalog_consistency.py` resolves `.knowledge/claims.jsonl` / `.knowledge/ledger.jsonl` paths that no production code writes. | Kept the resolver (the book-thesis test fixtures write to `.knowledge/`); added an inline comment naming the test-vs-production split. Tier-2 follow-up: migrate the test fixtures to the canonical layout so the legacy paths can be retired. |
 | 9 | README "78-page book … manuscript.pdf 78 pages, 1.4 MB" — actual v6.0.0 PDF is 41 KB / 1 page (the body render is broken; cover/TOC only). | Reframed as "ten-chapter, ~28,000-word manuscript", noted the PDF render limitation, and corrected the release-bundle listing. |
 | 10 | README pipeline diagram and release-tree listed `claims-bibliography.md`; actual file is `.jsonl`. | Renamed both references and added the missing `claims-bibliography.jsonl` line to the tree. |
 | 11 | README quickstart promises `shacl_conforms: True`; actual report text is `Conforms: True`. | Updated the documented expectation. |
@@ -47,6 +47,7 @@ These are real but each needs its own scoped change. Listing rather than fixing 
 | T7 | `book-knowledge` script CLIs are inconsistent — some have argparse, several are library-only. The fixed two (`workspace`, `verify_claim`) are the ones the README references; others (`apply_writeback`, `belief_graph`, etc.) remain library-only. | Out of scope for "what the Quickstart promises." A follow-up could unify under a single `python -m scripts <subcommand>` dispatcher. |
 | T8 | `humanizer` is referenced as a sibling skill in four SKILL.md files but no `skills/humanizer/` exists in this repo. | The references probably resolve to an external user-skill; should be documented or removed. |
 | T9 | 801 rdflib DeprecationWarnings in book-knowledge tests; 3235 warnings total in book-compose (rdflib + pyshacl). | Cosmetic; tracks rdflib 7.6+ API rename to `default_graph`. |
+| T10 | `book-thesis` test fixtures write to `.knowledge/`, forcing the production `_resolve_claims_path` to carry a fallback for a non-production directory. | Migrate fixtures to `claims/ledger.jsonl` so the resolver can drop legacy paths cleanly. |
 
 ## Notes (no action recommended)
 

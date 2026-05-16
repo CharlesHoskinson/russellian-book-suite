@@ -72,9 +72,11 @@ def _local(uri: Any) -> str:
 
 
 def _resolve_claims_path(workspace: Path) -> Path | None:
-    path = workspace / "claims" / "ledger.jsonl"
-    if path.exists() and path.stat().st_size > 0:
-        return path
+    # `.knowledge/` is the test-fixture convention (see tests/test_datalog_consistency.py);
+    # `claims/ledger.jsonl` is the production layout written by book-knowledge.
+    for rel in (".knowledge/claims.jsonl", ".knowledge/ledger.jsonl", "claims/ledger.jsonl"):
+        path = workspace / rel
+        if path.exists() and path.stat().st_size > 0: return path
     return None
 
 

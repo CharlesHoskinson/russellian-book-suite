@@ -1,7 +1,9 @@
 """Book workspace location, creation, and layout helpers."""
 from __future__ import annotations
 
+import argparse
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -111,3 +113,23 @@ class WorkspaceLayout:
 
     @property
     def graph_reports(self) -> Path: return self.root / "graph" / "reports"
+
+
+def _main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m scripts.workspace",
+        description="Manage a book workspace.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    init = sub.add_parser("init", help="Create a new workspace at TARGET.")
+    init.add_argument("target", type=Path, help="Path to the new workspace.")
+    args = parser.parse_args(argv)
+    if args.command == "init":
+        root = init_workspace(args.target)
+        print(f"initialized workspace at {root}")
+        return 0
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv[1:]))

@@ -72,9 +72,9 @@ def _local(uri: Any) -> str:
 
 
 def _resolve_claims_path(workspace: Path) -> Path | None:
-    for rel in (".knowledge/claims.jsonl", ".knowledge/ledger.jsonl", "claims/ledger.jsonl"):
-        path = workspace / rel
-        if path.exists() and path.stat().st_size > 0: return path
+    path = workspace / "claims" / "ledger.jsonl"
+    if path.exists() and path.stat().st_size > 0:
+        return path
     return None
 
 

@@ -1,6 +1,6 @@
 ---
 name: book-review
-description: Run multi-persona editorial reviews on a drafted chapter. Five personas (Robert Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader) read the chapter and return severity-tagged feedback. Critical findings soft-gate chapter release. Use when user says "review chapter X with personas", "Gottlieb pass on this chapter", "run the editorial reviews", "what would Gottlieb say about this draft", "is this chapter ready for review", "soft-gate this chapter". Do NOT use for source ingestion (use book-knowledge), prose-only style fixes (use russellian-style), chapter drafting (use book-compose), or persona reviews on prose outside the book pipeline.
+description: Run multi-persona editorial reviews on a drafted chapter. Seven personas (Robert Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader, AI-Slop Detector, First-Time Visitor) read the chapter and return severity-tagged feedback. Critical findings soft-gate chapter release. Use when user says "review chapter X with personas", "Gottlieb pass on this chapter", "run the editorial reviews", "what would Gottlieb say about this draft", "is this chapter ready for review", "soft-gate this chapter". Do NOT use for source ingestion (use book-knowledge), prose-only style fixes (use russellian-style), chapter drafting (use book-compose), or persona reviews on prose outside the book pipeline.
 license: MIT
 metadata:
   author: charles-hoskinson
@@ -11,7 +11,7 @@ metadata:
 
 # book-review
 
-Qualitative editorial review for chapter drafts. Dispatches five persona subagents in parallel, aggregates severity-tagged findings, soft-gates release on `persona_critical_count == 0`.
+Qualitative editorial review for chapter drafts. Dispatches up to seven persona subagents in parallel, aggregates severity-tagged findings, soft-gates release on `persona_critical_count == 0`. Panel composition is set per workspace; see `review-conductor/panels/`.
 
 ## What it owns
 
@@ -35,6 +35,8 @@ Qualitative editorial review for chapter drafts. Dispatches five persona subagen
 - **Domain Expert** (`personas/domain-expert.md`) — factual accuracy against the claim ledger.
 - **Copyeditor** (`personas/copyeditor.md`) — cross-chapter consistency, mechanics.
 - **Enjoyment Reader** (`personas/enjoyment-reader.md`) — momentum, where the reader stops.
+- **AI-Slop Detector** (`personas/ai-slop-detector.md`) — 24-pattern Wikipedia catalog of AI-writing tells.
+- **First-Time Visitor** (`personas/first-time-visitor.md`) — 30-second drive-by; does the opening earn the read?
 
 ## Severity rubric
 

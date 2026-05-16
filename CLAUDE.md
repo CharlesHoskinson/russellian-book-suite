@@ -4,11 +4,11 @@ This file orients any AI agent working in this repo. Read it first.
 
 ## What this repo is
 
-A family of seven Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts (`book-knowledge`, `russellian-style`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`). See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
+A family of seven core Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts (`book-knowledge`, `russellian-style`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`), plus an optional eighth verifier-scaffolder skill `neurosym-forge`. See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
 
 ## Per-skill conventions
 
-Each `skills/<name>/` is self-contained: `SKILL.md`, `scripts/`, `tests/`, optional `assets/`, optional `personas/` / `checklists/`. Each skill has its own `.venv` and `pyproject.toml` (except `book-qa`, which is dependency-light and uses the system Python).
+Each `skills/<name>/` is self-contained: `SKILL.md`, `scripts/`, `tests/`, optional `assets/`, optional `personas/` / `checklists/`. Each skill has its own `.venv` and `pyproject.toml`.
 
 Run tests for a single skill:
 

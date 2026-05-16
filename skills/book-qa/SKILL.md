@@ -1,3 +1,14 @@
+---
+name: book-qa
+description: Post-build mechanical and editorial quality gate for non-fiction book artifacts. Runs after build_book and before shipping; the last gate. Deterministic linting (D1-D8) plus per-chapter agent swarm (C1-C15) plus optional metabook defects (D9-D12 from book-thesis) plus optional verifier defects (D13). Use after book-compose builds manuscripts to lint, aggregate QA findings, and drive bounded fixes. Do NOT use for source ingestion (use book-knowledge), prose rewrites (use russellian-style), persona reviews (use book-review), or chapter drafting (use book-compose).
+license: MIT
+metadata:
+  author: charles-hoskinson
+  version: 0.1.0
+  category: writing
+  workspace-aware: true
+---
+
 # book-qa
 
 Post-build mechanical and editorial defect-gating for non-fiction book artefacts. Runs after `book-compose.build_book` and before shipping; the last gate.

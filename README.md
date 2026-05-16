@@ -2,7 +2,7 @@
 
 You give the suite a folder of sources and a chapter contract. It fact-checks every claim against the sources and drafts the chapter. Then it lints the prose against Bertrand Russell's analytic style, dispatches a seven-persona editorial panel to review the draft, and refuses to ship until every gate passes. The output is a non-fiction book — Markdown, HTML, and PDF — that did not roll off an AI prose mill.
 
-The `examples/bermuda-manual/` workspace is the proof: a 78-page book on contemporary Bermuda compiled end-to-end through the pipeline, with a SHACL-conformant knowledge graph and zero open competency-query failures at release.
+The `examples/bermuda-manual/` workspace is the proof: a ten-chapter, ~28,000-word book on contemporary Bermuda compiled end-to-end through the pipeline, with a SHACL-conformant knowledge graph and zero open competency-query failures at release.
 
 > *"A book by Bertrand Russell may be hard to follow, but it cannot be misunderstood."* — A. J. Ayer
 >
@@ -94,7 +94,7 @@ The fix is not a smarter prompt. The fix is a pipeline that separates fact inges
                   release/
                     manuscript.{md,html,pdf}
                     chapter-bundles/
-                    claims-bibliography.md
+                    claims-bibliography.jsonl
                     qa/swarm-findings.md
 ```
 
@@ -607,34 +607,52 @@ cd ~/.claude/skills/book-qa
 python -m venv .venv
 .venv/Scripts/python -m pip install -e .[dev]
 
-# Or install all seven
+# Or install all seven core skills (omit neurosym-forge unless you need the verifier side-channel)
 for skill in russellian-style book-knowledge book-compose book-review review-conductor book-qa book-thesis; do
   cp -r skills/$skill ~/.claude/skills/$skill
 done
+
+# Add neurosym-forge if you plan to use the verifier track (requires Python ≥3.13)
+cp -r skills/neurosym-forge ~/.claude/skills/neurosym-forge
 ```
+
+PowerShell equivalent of the loop:
+
+```powershell
+foreach ($skill in 'russellian-style','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis') {
+  Copy-Item -Recurse "skills\$skill" "$env:USERPROFILE\.claude\skills\$skill"
+}
+```
+
+The russellian-style and book-compose linters use spaCy's English model. After installing those skills, run once:
+
+```bash
+.venv/Scripts/python -m spacy download en_core_web_sm
+```
+
 
 The skills are now discoverable in a Claude Code session. Invoke them by slash name: `/russellian-style`, `/book-qa`, and so on.
 
-Initialise a book workspace:
+Initialise a book workspace (run from the `book-knowledge` skill directory):
 
 ```bash
-.venv/Scripts/python.exe -m scripts.workspace init /path/to/my-book
+.venv/Scripts/python -m scripts.workspace init /path/to/my-book
 ```
 
 Ingest the first source and project the graph:
 
 ```bash
-.venv/Scripts/python.exe -m scripts.ingest_pdf source.pdf /path/to/my-book
-.venv/Scripts/python.exe -m scripts.verify_claim /path/to/my-book
-.venv/Scripts/python.exe -m scripts.project_graph /path/to/my-book
-.venv/Scripts/python.exe -m scripts.validate_shacl /path/to/my-book
+.venv/Scripts/python -m scripts.ingest_pdf source.pdf /path/to/my-book
+.venv/Scripts/python -m scripts.verify_claim /path/to/my-book
+.venv/Scripts/python -m scripts.project_graph /path/to/my-book
+.venv/Scripts/python -m scripts.validate_shacl /path/to/my-book
 ```
 
 After these commands you should see:
 - `raw/pdf/source.pdf` and `raw/manifests/source.json` (the ingested file plus its manifest)
-- new entries in `claims/ledger.jsonl` (one JSON object per extracted claim, status `proposed` then promoted to `verified`)
+- new entries in `claims/ledger.jsonl` (one JSON object per extracted claim, status `proposed` then promoted to `verified` when locator text is confirmed against the source)
 - `graph/dataset.trig` with the projected RDF graph
-- `graph/reports/shacl-latest.txt` reporting `shacl_conforms: True`
+- `graph/reports/shacl-latest.txt` reporting `Conforms: True`
 
 Now write a chapter contract at `chapters/contracts/ch-01.yaml` listing the topic, must-include claims, must-not-do constraints, evidence requirements, and acceptance thresholds. The contract may declare an optional `prose_mode` field (one of `technical-exposition`, `narrative-editorial`, or `polemic`; defaults to `technical-exposition`); `book-compose`'s drafter loads the matching system prompt from `russellian-style/assets/system-prompts/` and passes it to the LLM as the system message. Then in Claude Code: `"draft chapter ch-01"`. The orchestrator runs stages 1-7 of the pipeline and writes `chapters/drafts/ch-01/draft.md`.
 
@@ -642,7 +660,7 @@ When all chapters pass: `"build the book release v1.0"`. `book-compose` assemble
 
 ## End-to-end: the Bermuda manual
 
-A 78-page non-fiction book on contemporary Bermuda was produced end-to-end through this pipeline. The workspace at `examples/bermuda-manual/` is the proof.
+A ten-chapter, ~28,000-word non-fiction book on contemporary Bermuda was produced end-to-end through this pipeline. The workspace at `examples/bermuda-manual/` is the proof.
 
 A note on what "proof" means here. The current Bermuda ledger was **synthesised from a thesis YAML**, not ingested from a PDF corpus. The thesis describes the argument structure; `tools/synthesize_bermuda_ledger.py` produced a claim ledger matching that argument, which the rest of the pipeline then drafted, reviewed, and shipped end-to-end. This validates the pipeline's drafting → review → release chain on a real-shaped workload. The PDF-ingest path is exercised by `book-knowledge`'s own test suite but not yet by a full Bermuda-scale build. A future release will rebuild the workspace from primary sources (Bermuda Government statistics, Department of Tourism reports, Association of Bermuda Insurers and Reinsurers (ABIR) data).
 
@@ -659,9 +677,10 @@ examples/bermuda-manual/
 ├── book/releases/
 │   ├── 3.0.0/                         # earlier release for comparison
 │   └── 6.0.0/                         # current release
-│       ├── manuscript.pdf             # 78 pages, 1.4 MB
+│       ├── manuscript.md              # 10 chapters, ~28,000 words
 │       ├── manuscript.html            # React/Tailwind browser
-│       ├── manuscript.md
+│       ├── manuscript.pdf             # Playwright render (cover/TOC only in v6.0.0; full-body PDF render is a known limitation)
+│       ├── claims-bibliography.jsonl  # one record per claim cited in the release
 │       ├── book-manifest.yaml
 │       ├── summary.json
 │       └── chapter-bundles/ch-01..10-v6/
@@ -720,7 +739,8 @@ russellian-book-suite/
 │   ├── book-review/                7-persona definitions
 │   ├── review-conductor/           panel orchestration
 │   ├── book-thesis/                metabook reasoning
-│   └── russellian-style/           prose discipline
+│   ├── russellian-style/           prose discipline
+│   └── neurosym-forge/             optional verifier scaffolder
 ├── tools/                          one-shot scripts (figure generation, hero tables,
 │                                   footnote post-process, deterministic healer,
 │                                   ledger synthesiser, load-bearing tagger)
@@ -737,25 +757,30 @@ Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest 
 
 ## Documentation
 
-Design specs in `docs/specs/`:
+Design specs in `docs/specs/` — major designs (the directory holds additional booklogic/anti-staccato/handoff specs not listed here):
 
 - `2026-05-10-book-craft-v4-design.md` — `book-craft` skill (chapter craft, scene structure, visuals manifest, narrative-craft persona)
 - `2026-05-11-book-qa-v5-design.md` — `book-qa` Generator-Verifier with Sentinel-Healer pattern
 - `2026-05-11-book-thesis-v6-design.md` — `book-thesis` four-layer metabook reasoning
 - `2026-05-11-bundle-c-closed-loop-ledger-design.md` — closed-loop ledger with abductive counter-claims and Bayesian propagation
+- `2026-05-13-neurosym-forge-design.md` — neurosymbolic verifier scaffolder
 - `2026-05-13-review-conductor-design.md` — multi-panel review orchestration
+- `2026-05-14-bermuda-verifier-design.md` — Bermuda-specific verifier instantiation
 - `2026-05-14-russellian-vitality-design.md` — vitality layer for russellian-style: five advisory linters, corpus retrieval, mode-keyed system prompts
 
-Implementation plans in `docs/plans/`:
+Implementation plans in `docs/plans/` — major plans (the directory holds additional booklogic phase plans and follow-ups not listed here):
 
 - `2026-05-10-book-craft-v4-and-bermuda-regen.md` — 28-task TDD plan
 - `2026-05-11-bundle-c-closed-loop-ledger.md` — 30-task TDD plan
+- `2026-05-13-neurosym-forge.md` — verifier scaffolder TDD plan
 - `2026-05-13-review-conductor-and-personas.md` — review-conductor + personas + outcomes
+- `2026-05-14-bermuda-verifier.md` — Bermuda verifier instantiation
 - `2026-05-14-russellian-vitality.md` — vitality-layer TDD plan, 14 tasks across 5 phases
 
 Operator runbooks in `docs/operations/`:
 
 - `2026-05-12-bundle-c-runbook.md` — Phase-4 operator runbook for Bundle C end-to-end
+- `neurosym-forge-runbook.md` — operator workflow for the verifier side-channel
 - `codex-review-protocol.md` — autonomous whole-repo review protocol for Codex-style agents
 
 Retrospective in `docs/retros/`:

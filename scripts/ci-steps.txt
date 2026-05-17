@@ -1,0 +1,9 @@
+clj-kondo --lint $(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn')
+ruff check .
+cargo fmt --check
+nixpkgs-fmt --check $(git ls-files '*.nix')
+pytest skills/neurosym-forge/tests/test_scaffold_bake.py -x
+pytest skills/neurosym-forge/tests/regression/ -x
+cargo nextest run --workspace --no-fail-fast
+make -C verifiers/bermuda ci
+make -C verifiers/osmotic_pressure ci

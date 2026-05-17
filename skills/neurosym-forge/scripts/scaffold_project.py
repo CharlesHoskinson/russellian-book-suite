@@ -92,6 +92,29 @@ def scaffold_project(
         checksums[p.name] = file_checksum(p)
     write_edn_file(out_dir / "rules" / ".checksums.edn", {CHECKSUMS_KEY: checksums})
 
+    # Vendor the codegen library into the scaffolded project's scripts/ so
+    # that `python scripts/codegen_axioms.py` works without PYTHONPATH tricks.
+    # We copy the canonical library as `_codegen_axioms_lib.py` alongside the
+    # rendered shim (`codegen_axioms.py`). The shim's fallback path picks this up.
+    import shutil as _shutil
+    scripts_src  = Path(__file__).resolve().parent
+    scripts_dest = out_dir / "scripts"
+    scripts_dest.mkdir(parents=True, exist_ok=True)
+    # Create __init__.py so scripts/ is a proper package importable from
+    # the project root (needed by `python scripts/codegen_axioms.py`).
+    _init = scripts_dest / "__init__.py"
+    if not _init.exists():
+        _init.write_text("", encoding="utf-8")
+    for _dep_src, _dep_dst in (
+        ("_edn_reader.py",   "_edn_reader.py"),
+        ("_edn_writer.py",   "_edn_writer.py"),
+        ("_io.py",           "_io.py"),
+        ("codegen_axioms.py","_codegen_axioms_lib.py"),
+    ):
+        _src = scripts_src / _dep_src
+        if _src.exists():
+            _shutil.copy2(str(_src), str(scripts_dest / _dep_dst))
+
     # Run BookLogic codegen for projects that declare active forms. The
     # codegen scripts are inert when their source EDN is missing or empty.
     try:

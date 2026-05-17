@@ -39,3 +39,7 @@ def tmp_project_root(tmp_path: Path) -> Path:
     """Where scaffold_project writes its output during tests."""
     root = tmp_path / "verifiers" / "demo"
     return root
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")

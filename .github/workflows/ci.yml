@@ -391,3 +391,70 @@ jobs:
             examples/bermuda-manual/qa/defects.json
             verifiers/bermuda/work/verdict.edn
           if-no-files-found: warn
+
+  osmotic-pressure-smoke:
+    name: smoke (osmotic-pressure verifier)
+    runs-on: ubuntu-latest
+    needs: [test-book-qa]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: verifiers/osmotic_pressure/rust-verifier
+      - name: install python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+      - name: install nbb
+        run: npm install -g nbb
+      - name: install z3 build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+      - name: confirm scaffold present in tree
+        run: |
+          test -d verifiers/osmotic_pressure || (echo "scaffold missing"; exit 1)
+          test -f verifiers/osmotic_pressure/rules/booklogic/constraints.edn \
+            || (echo "constraints.edn missing"; exit 1)
+      - name: install project npm deps
+        working-directory: verifiers/osmotic_pressure
+        run: npm install
+      - name: compile booklogic source
+        working-directory: verifiers/osmotic_pressure
+        run: nbb -m osmotic_pressure.booklogic .
+      - name: regenerate axioms.rs from constraints.edn
+        working-directory: verifiers/osmotic_pressure
+        run: |
+          python -m pip install --quiet edn-format || true
+          python scripts/codegen_axioms.py
+        env:
+          PYTHONPATH: ../../skills/neurosym-forge
+      - name: build rust verifier (smt feature)
+        working-directory: verifiers/osmotic_pressure/rust-verifier
+        run: cargo build --features smt
+      - name: build cljs verifier bundle
+        working-directory: verifiers/osmotic_pressure
+        run: npm run build
+      - name: pytest smoke (sat + unsat verdicts)
+        run: |
+          python -m pytest verifiers/osmotic_pressure/tests/ -v
+        env:
+          PYTHONPATH: skills/neurosym-forge
+      - name: upload verdict artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osmotic-pressure-verdicts
+          path: |
+            verifiers/osmotic_pressure/work/verdict.edn
+          if-no-files-found: warn

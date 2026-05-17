@@ -157,7 +157,61 @@ print(record.title)
 - `skills/scrapling-fetch/tests/unit/` — fixture-driven adapter tests covering all four adapters, the download path, and the exception hierarchy.
 
 </details>
-<!-- mini-tutorial: syntopical-metabook     (stage 3 task 3.2) -->
+<details>
+<summary><strong>syntopical-metabook</strong> — world model above the canonical book workspace</summary>
+
+**What it does.** The metabook sits one layer above the claim ledger without touching it. It acquires papers through citation-graph traversal, ranks and triages candidates against the chapter contract, and downloads those that pass both an embedding-similarity threshold and a booklogic reachability veto. From the acquired corpus it builds a syntopical layer: a topic map that groups concepts by thesis-tree node, disputed-question tables produced by booklogic's symbolic rewrite rules, and canonical-concept reconciliation files that track how different sources name the same idea. Per-chapter lenses slice that world model to exactly what the drafter needs before writing a single sentence. Gap reports close the cycle by scoring per-thesis-node coverage and appending uncovered nodes to `acquisition/pending-seeds.txt`, seeding the next Acquire run automatically. Four sub-workflows — **Acquire**, **Synthesize**, **Project Lens**, **Gap Report** — execute in that order; Acquire can run alone on a new seed set without triggering the others.
+
+The skill never touches the network directly. `scrapling-fetch` handles every HTTP call; the metabook reaches it through `sibling_skills.load_skill_api`. EDN symbolic reasoning stays on the ClojureScript side; the metabook calls booklogic through `scripts/booklogic_adapter.py` over a JSON subprocess wire. When `SYNTOPICAL_NO_BOOKLOGIC=1` is set, the veto step is skipped and the Synthesize workflow falls back to `book-knowledge.detect_conflicts` for disputed questions and surface-form overlap for concept reconciliation; each affected artefact carries a `Legacy mode — booklogic disabled` banner.
+
+**Inputs / outputs.**
+- Reads: `raw/`, `wiki/`, `claims/`, `graph/`, `chapters/<id>/contract.yaml` — all read-only to the metabook.
+- Writes: `syntopical/` exclusively. A pytest plugin intercepts `open()` calls from metabook scripts and fails the test if any write targets the canonical subtrees.
+- Acquisition audit trail: `syntopical/acquisition/manifest.jsonl` — append-only; every run, every candidate, every outcome.
+- Env vars: `SYNTOPICAL_NO_BOOKLOGIC=1` (legacy heuristics), `BOOKLOGIC_BIN` (override for dev stub).
+
+**When to invoke.**
+- User says "acquire papers for chapter X" — triggers the Acquire sub-workflow from a seed set.
+- User says "synthesize the metabook" — triggers Synthesize, producing topic-map, disputed-question tables, and concept files.
+- User says "project a lens for chapter Y" — produces `syntopical/lenses/ch-Y.md` ready for `book-compose`.
+- User says "show me what's uncovered in chapter Z" — triggers Gap Report, scoring per-thesis-node coverage.
+- Before drafting a chapter, when `syntopical/lenses/<chapter-id>.md` does not yet exist.
+
+**When NOT to invoke.**
+- When `book-compose` needs to draft and the lens already exists — open `syntopical/lenses/` directly.
+- To ingest a new PDF into the canonical workspace — that is `book-knowledge`'s responsibility.
+- To run symbolic rewrite queries directly against the EDN atomspace — call booklogic's CLI; the metabook adapter is a convenience wrapper, not a general-purpose symbolic shell.
+
+**Trigger phrases.** "acquire papers for chapter X", "synthesize the metabook", "project a lens for chapter Y", "show me what's uncovered in chapter Z", "self-curating world model", "citation-graph traversal".
+
+**Example walkthrough.**
+
+```bash
+# User intent: "set up the world model for chapter 3 and project a lens"
+# Assumes contract.yaml exists at chapters/ch-03/contract.yaml
+
+from sibling_skills import load_skill_api
+sm = load_skill_api("syntopical-metabook", expected_major=0)
+workspace = "/path/to/my-book"
+
+sm.acquire(workspace, chapter_id="ch-03")
+# → syntopical/acquisition/manifest.jsonl updated; PDFs in syntopical/acquisition/incoming/
+
+sm.synthesize(workspace)
+# → syntopical/topic-map.md, disputed-questions/*.md, concepts/*.md
+
+sm.project_lens(workspace, chapter_id="ch-03")
+# → syntopical/lenses/ch-03.md
+```
+
+`book-compose` reads `syntopical/lenses/ch-03.md` before drafting. The lens is a tag-filtered slice of the topic map carrying a YAML frontmatter block with the coverage score. If the score is below the contract threshold, Gap Report will have already written the uncovered nodes to `pending-seeds.txt`; the next Acquire run picks them up automatically.
+
+**Where to dive deeper.**
+- `skills/syntopical-metabook/SKILL.md`
+- `docs/superpowers/specs/2026-05-16-syntopical-metabook-design.md` and `2026-05-16-syntopical-metabook-requirements.md`
+- `skills/syntopical-metabook/tests/integration/` — integration tests covering the four sub-workflows end-to-end.
+
+</details>
 <!-- mini-tutorial: sibling_skills          (stage 3 task 3.3) -->
 <!-- mini-tutorial: booklogic (interface)   (stage 3 task 3.4) -->
 

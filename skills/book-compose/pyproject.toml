@@ -17,6 +17,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# ci extra intentionally omits spacy model (en_core_web_sm); conftest skip-gate
+# handles missing model. For full coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
+ci = [
+    "pyyaml>=6.0,<7.0",
+    "jsonschema>=4.21,<5.0",
+    "rdflib>=7.0,<9.0",
+    "pyshacl>=0.26,<1.0",
+    "spacy>=3.7,<4.0",
+    "pytest>=8.0,<9.0",
+]
 dev = [
     "pytest>=8.0,<9.0",
 ]

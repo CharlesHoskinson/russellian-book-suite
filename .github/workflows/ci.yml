@@ -69,6 +69,148 @@ jobs:
         working-directory: skills/book-thesis
         run: python -m pytest tests/ -v
 
+  test-book-knowledge:
+    name: test book-knowledge (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: skills/book-knowledge/pyproject.toml
+      - name: install book-knowledge[ci]
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e skills/book-knowledge[ci]
+      - name: pytest
+        working-directory: skills/book-knowledge
+        run: python -m pytest tests/ -v
+
+  test-book-compose:
+    name: test book-compose (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: skills/book-compose/pyproject.toml
+      - name: install book-compose[ci]
+        # en_core_web_sm not installed; conftest skip-gate skips spacy-dependent tests.
+        # For full local coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e skills/book-compose[ci]
+      - name: pytest
+        working-directory: skills/book-compose
+        run: python -m pytest tests/ -v
+
+  test-book-review:
+    name: test book-review (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: skills/book-review/pyproject.toml
+      - name: install book-review[ci]
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e skills/book-review[ci]
+      - name: pytest
+        working-directory: skills/book-review
+        run: python -m pytest tests/ -v
+
+  test-russellian-style:
+    name: test russellian-style (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: skills/russellian-style/pyproject.toml
+      - name: install russellian-style[ci]
+        # en_core_web_sm not installed; conftest skip-gate skips 86+11 linter tests.
+        # For full local coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e skills/russellian-style[ci]
+      - name: pytest
+        working-directory: skills/russellian-style
+        run: python -m pytest tests/ -v
+
+  test-review-conductor:
+    name: test review-conductor (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: skills/review-conductor/pyproject.toml
+      - name: install review-conductor[ci]
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e skills/review-conductor[ci]
+      - name: pytest
+        working-directory: skills/review-conductor
+        run: python -m pytest tests/ -v
+
+  test-neurosym-forge:
+    name: test neurosym-forge offline (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: skills/neurosym-forge/pyproject.toml
+      - name: install neurosym-forge[dev]
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e skills/neurosym-forge[dev]
+      - name: pytest (offline, excludes cljs integration)
+        working-directory: skills/neurosym-forge
+        run: python -m pytest tests/ --ignore=tests/test_cljs_integration.py -v
+
   smoke-bermuda-pipeline:
     name: smoke (Bermuda end-to-end)
     runs-on: ubuntu-latest

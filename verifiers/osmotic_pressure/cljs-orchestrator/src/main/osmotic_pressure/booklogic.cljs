@@ -207,9 +207,14 @@
 ;; ----- defconstraint expansion -----
 
 (defn- assert-form-approx?
-  "True iff the :assert form uses the ~= (approximate-equality) head."
+  "True iff the :assert form uses the approx= (approximate-equality) head.
+
+   In BookLogic source files the operator is written as `approx=` (a valid
+   EDN symbol). The Python codegen normalises it to `~=` in the axioms.rs
+   comment; the intermediate constraints.edn stores it as-is."
   [assert-form]
-  (and (sequential? assert-form) (= '~= (first assert-form))))
+  (and (sequential? assert-form)
+       (contains? #{'approx= '~=} (first assert-form))))
 
 (defn- extract-tolerance
   "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.

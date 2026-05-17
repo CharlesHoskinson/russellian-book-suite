@@ -1,9 +1,9 @@
 {:forms
  [(defconstraint C001-vant-hoff
     :backend :z3
-    :assert (~= (:osmotic-pressure-pa ?s)
-                (* (:vant-hoff-i ?s) (:molarity ?s) 8.314 (:temperature-k ?s))
-                :tolerance 0.03)
+    :assert (approx= (:osmotic-pressure-pa ?s)
+                     (* (:vant-hoff-i ?s) (:molarity ?s) 8.314 (:temperature-k ?s))
+                     :tolerance 0.03)
     :track :claim/id
     :on-unsat {:defect :D13
                :severity :critical

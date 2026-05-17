@@ -16,22 +16,31 @@ from pathlib import Path
 import pytest
 
 
-def _have_nbb() -> bool:
-    return shutil.which("nbb") is not None or shutil.which("nbb.cmd") is not None
+def _nbb_cmd() -> str | None:
+    """Return the nbb executable name if available, or None."""
+    for name in ("nbb", "nbb.cmd"):
+        if shutil.which(name) is not None:
+            return name
+    return None
 
 
-pytestmark = pytest.mark.skipif(not _have_nbb(),
+pytestmark = pytest.mark.skipif(_nbb_cmd() is None,
                                 reason="nbb not on PATH; CI installs it")
 
 
 def _run_compiler(project_root: Path) -> subprocess.CompletedProcess:
     """Invoke the CLJS booklogic compiler on the project root."""
+    import sys
+    nbb = _nbb_cmd() or "nbb"
+    # On Windows, .cmd wrappers require shell=True to be executable via subprocess.
+    use_shell = sys.platform == "win32"
     return subprocess.run(
-        ["nbb", "-m", "osmotic_pressure.booklogic", str(project_root)],
+        [nbb, "-m", "osmotic_pressure.booklogic", str(project_root)],
         cwd=str(project_root),
         check=False,
         capture_output=True,
         text=True,
+        shell=use_shell,
     )
 
 

@@ -119,8 +119,10 @@ def _emit_z3_block(c: dict) -> str:
     head_node = assert_[0]
     head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
     lhs_raw, rhs_raw = assert_[1], assert_[2]
-    if head == "~=":
+    if head in ("~=", "approx="):
         # Approx-equality is numeric; use the generic emitter.
+        # `approx=` is the EDN-safe spelling used in BookLogic source files;
+        # `~=` is accepted from intermediate forms or string-encoded assert forms.
         lhs = _emit_expr(lhs_raw)
         rhs = _emit_expr(rhs_raw)
         return _emit_approx_block(cid, lhs, rhs, tolerance)
@@ -131,7 +133,8 @@ def _emit_z3_block(c: dict) -> str:
         rhs = _emit_expr_typed(rhs_raw, z3_type)
         return _emit_equality_block(cid, lhs, rhs)
     raise CodegenError(
-        f"constraint {cid!r}: assert head {head!r} not supported in v0.4 (use '=' or '~=')"
+        f"constraint {cid!r}: assert head {head!r} not supported in v0.4 "
+        f"(use '=' or 'approx=')"
     )
 
 

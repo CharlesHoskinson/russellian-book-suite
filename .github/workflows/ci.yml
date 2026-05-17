@@ -37,15 +37,10 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/book-qa/pyproject.toml
-      - name: install book-qa[ci]
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/book-qa[ci]
+          skill-path: skills/book-qa
       - name: pytest
         working-directory: skills/book-qa
         run: python -m pytest tests/ -v
@@ -60,15 +55,10 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/book-thesis/pyproject.toml
-      - name: install book-thesis[ci]
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/book-thesis[ci]
+          skill-path: skills/book-thesis
       - name: pytest
         working-directory: skills/book-thesis
         run: python -m pytest tests/ -v
@@ -83,15 +73,10 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/book-knowledge/pyproject.toml
-      - name: install book-knowledge[ci]
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/book-knowledge[ci]
+          skill-path: skills/book-knowledge
       - name: pytest
         working-directory: skills/book-knowledge
         run: python -m pytest tests/ -v
@@ -106,17 +91,12 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/book-compose/pyproject.toml
-      - name: install book-compose[ci]
+          skill-path: skills/book-compose
         # en_core_web_sm not installed; conftest skip-gate skips spacy-dependent tests.
         # For full local coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/book-compose[ci]
       - name: pytest
         working-directory: skills/book-compose
         run: python -m pytest tests/ -v
@@ -131,15 +111,10 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/book-review/pyproject.toml
-      - name: install book-review[ci]
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/book-review[ci]
+          skill-path: skills/book-review
       - name: pytest
         working-directory: skills/book-review
         run: python -m pytest tests/ -v
@@ -154,17 +129,12 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/russellian-style/pyproject.toml
-      - name: install russellian-style[ci]
+          skill-path: skills/russellian-style
         # en_core_web_sm not installed; conftest skip-gate skips 86+11 linter tests.
         # For full local coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/russellian-style[ci]
       - name: pytest
         working-directory: skills/russellian-style
         run: python -m pytest tests/ -v
@@ -179,15 +149,10 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/review-conductor/pyproject.toml
-      - name: install review-conductor[ci]
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/review-conductor[ci]
+          skill-path: skills/review-conductor
       - name: pytest
         working-directory: skills/review-conductor
         run: python -m pytest tests/ -v
@@ -202,15 +167,11 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: skills/neurosym-forge/pyproject.toml
-      - name: install neurosym-forge[dev]
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/neurosym-forge[dev]
+          skill-path: skills/neurosym-forge
+          extra: dev
       - name: pytest (offline, excludes cljs integration)
         working-directory: skills/neurosym-forge
         run: python -m pytest tests/ --ignore=tests/test_cljs_integration.py -v
@@ -221,15 +182,10 @@ jobs:
     needs: [test-book-qa, test-book-thesis]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: skills/book-thesis/pyproject.toml
-      - name: install deps
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e skills/book-thesis[ci]
+          skill-path: skills/book-thesis
       - name: compile_thesis
         run: |
           python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual

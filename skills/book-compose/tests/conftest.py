@@ -36,5 +36,6 @@ if not _sibling_skills_installed():
         "test_preflight.py",
         "test_query_chapter_evidence.py",
         "test_sibling_skills.py",
+        "test_persona_review_pass.py",
     ]
 collect_ignore_glob = _skip

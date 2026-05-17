@@ -29,7 +29,7 @@ jobs:
             -o actionlint.tar.gz
           # Verify checksum from https://github.com/rhysd/actionlint/releases/download/v1.7.7/checksums.txt
           curl -fsSL \
-            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/checksums.txt" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" \
             -o checksums.txt
           grep "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" checksums.txt | sha256sum -c -
           tar -xzf actionlint.tar.gz actionlint
@@ -236,9 +236,11 @@ jobs:
         run: |
           python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
       - name: lint_supports (informational)
+        continue-on-error: true
         run: |
           python skills/book-thesis/scripts/lint_supports.py examples/bermuda-manual 3.0.0
       - name: lint_artifact (informational, expects v6 orphans)
+        continue-on-error: true
         run: |
           python skills/book-qa/scripts/lint_artifact.py examples/bermuda-manual 3.0.0
       - name: upload informational reports

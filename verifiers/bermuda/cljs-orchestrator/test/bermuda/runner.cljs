@@ -7,7 +7,8 @@
             [bermuda.ir-test]
             [bermuda.nl-to-fol-test]
             [bermuda.phases-test]
-            [bermuda.bridge-test]))
+            [bermuda.bridge-test]
+            [bermuda.core-test]))
 
 (defn -main [& _args]
   (t/run-tests
@@ -15,4 +16,5 @@
     'bermuda.ir-test
     'bermuda.nl-to-fol-test
     'bermuda.phases-test
-    'bermuda.bridge-test))
+    'bermuda.bridge-test
+    'bermuda.core-test))

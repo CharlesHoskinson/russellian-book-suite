@@ -50,6 +50,7 @@ def scaffold_project(
     ctx = {
         "project_name": project_name,
         "project_slug": project_slug,
+        "project_slug_dashed": project_slug.replace("_", "-"),
         "neurosym_forge_version": FORGE_VERSION,
         "scaffolded_at": dt.datetime.now(dt.UTC).isoformat(),
     }

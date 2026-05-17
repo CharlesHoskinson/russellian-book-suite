@@ -518,7 +518,116 @@ The Bundle C runbook (`docs/operations/2026-05-12-bundle-c-runbook.md`) walks th
 
 ## Quickstart
 
-<!-- drafted in stage 2 task 2.9 -->
+Two audiences use this suite differently. Authors care about workspace initialisation, source ingestion, and the chapter pipeline. Engineers care about venv setup, test invocation, and the architectural sections that explain why the pieces fit as they do.
+
+### Authors
+
+Install the skills first. There is no install script; the canonical method copies each skill directory into Claude Code's skill root and builds a venv in place.
+
+1. **Clone the repo and check out `main`.**
+
+```bash
+git clone https://github.com/CharlesHoskinson/russellian-book-suite.git
+cd russellian-book-suite
+```
+
+2. **Install the skills into Claude Code.** Copy one skill at a time or run the batch loop for all seven core skills. `neurosym-forge` is optional; omit it unless you need the verifier track.
+
+```bash
+# single skill
+cp -r skills/book-qa ~/.claude/skills/book-qa
+cd ~/.claude/skills/book-qa
+python -m venv .venv
+.venv/Scripts/python -m pip install -e ".[dev]"
+
+# all seven core skills (bash)
+for skill in russellian-style book-knowledge book-compose book-review review-conductor book-qa book-thesis; do
+  cp -r skills/$skill ~/.claude/skills/$skill
+done
+
+# PowerShell equivalent
+foreach ($skill in 'russellian-style','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis') {
+  Copy-Item -Recurse "skills\$skill" "$env:USERPROFILE\.claude\skills\$skill"
+}
+```
+
+   After installing `russellian-style` and `book-compose`, download the spaCy model once — the linters won't run without it.
+
+```bash
+.venv/Scripts/python -m spacy download en_core_web_sm
+```
+
+   Skills are now discoverable in a Claude Code session by slash name: `/book-knowledge`, `/book-compose`, and so on.
+
+3. **Initialise a book workspace with `book-knowledge`.** Run from the `book-knowledge` skill directory.
+
+```bash
+.venv/Scripts/python -m scripts.workspace init /path/to/my-book
+```
+
+4. **Drop source PDFs into `<workspace>/raw/`.** Ingest each source and project the claim graph.
+
+```bash
+.venv/Scripts/python -m scripts.ingest_pdf source.pdf /path/to/my-book
+.venv/Scripts/python -m scripts.verify_claim /path/to/my-book
+.venv/Scripts/python -m scripts.project_graph /path/to/my-book
+.venv/Scripts/python -m scripts.validate_shacl /path/to/my-book
+```
+
+5. **Write a chapter contract at `<workspace>/chapters/contracts/<id>.yaml`.** The contract names the topic, the claims that must appear, the constraints that must not be violated, and the evidence thresholds. A minimal example:
+
+```yaml
+chapter_id: ch-01
+title: "The reinsurance engine"
+prose_mode: technical-exposition
+must_include_claims: [claim-001, claim-003]
+must_not_do:
+  - "Do not assert GDP figures without a source token"
+evidence_required: 2
+acceptance_threshold: 0.80
+```
+
+   `prose_mode` accepts `technical-exposition`, `narrative-editorial`, or `polemic`; it defaults to `technical-exposition`. `book-compose` loads the matching system prompt from `russellian-style/assets/system-prompts/` and passes it to the LLM as the system message.
+
+6. **Run the drafting pipeline end-to-end through `book-compose`.** In a Claude Code session:
+
+   `"draft chapter ch-01"`
+
+   The orchestrator runs stages 1–7 and writes `chapters/drafts/ch-01/draft.md`. When all chapters pass their review gate, build the release:
+
+   `"build the book release v1.0"`
+
+7. **Open the release bundle under `<workspace>/book/releases/`.** The bundle contains `manuscript.md`, `manuscript.html` (React/Tailwind browser), `manuscript.pdf` (Playwright render), and `claims-bibliography.jsonl`.
+
+### Engineers
+
+The suite has no monorepo venv. Each skill owns its own venv; `sibling_skills` is a shared dependency installed into whichever venv needs it.
+
+1. **Clone the repo.**
+
+```bash
+git clone https://github.com/CharlesHoskinson/russellian-book-suite.git
+cd russellian-book-suite
+```
+
+2. **Set up the venv for the skill you need.** Each skill lives at `skills/<name>/`. Build its venv, install the skill in editable mode, then install `sibling_skills` into the same venv.
+
+```bash
+cd skills/book-knowledge
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -e ".[test]"
+.venv/Scripts/python.exe -m pip install -e ../../sibling_skills
+```
+
+3. **Run the skill's test suite.**
+
+```bash
+.venv/Scripts/python.exe -m pytest tests/ -q
+```
+
+4. **Read [The pipeline](#the-pipeline) and [The three tiers](#the-three-tiers) for architecture.** Those two sections explain the ownership boundaries and data-flow contracts that the tests enforce.
+
+5. **Read [Contributing](#contributing) before opening a PR.** The lint gate is mandatory; a PR that introduces gating violations will not be merged regardless of test status.
 
 ## End-to-end: the Bermuda manual
 

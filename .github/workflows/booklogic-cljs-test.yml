@@ -28,3 +28,58 @@ jobs:
         run: |
           cd skills/neurosym-forge
           .venv/bin/python -m pytest tests/test_cljs_integration.py -v
+
+  booklogic-template-cargo-check:
+    # REQ-VERIFIER-BUILD-022: cargo check --features smt and --features kg
+    # against a fresh scaffolded project. Runs on ubuntu-latest because
+    # Cozo (compact) and Z3 (bundled) both require a C++ toolchain;
+    # Windows timeouts are expected (OQ#5 deferral).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install neurosym-forge in editable mode
+        run: |
+          cd skills/neurosym-forge
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+      - name: Scaffold smoke project
+        run: |
+          cd skills/neurosym-forge
+          .venv/bin/python -m scripts.scaffold_project \
+            --name "CI-Smoke" --slug ci_smoke \
+            --out /tmp/ci_smoke
+      - name: Install npm deps in smoke project
+        run: |
+          cd /tmp/ci_smoke
+          npm install --no-audit --no-fund --loglevel=error
+      - name: Write defconstraint + defquery fixtures
+        run: |
+          echo '{:forms [(defconstraint C001 :backend :z3 :assert (= (:parishes-count :Bermuda) 9) :track :claim/id :on-unsat {:defect :D13 :severity :critical :message "test"})]}' \
+            > /tmp/ci_smoke/rules/booklogic/constraints.edn
+          echo '{:forms [(defquery Q001 :backend :cozo :find [(claim)] :where [(claim/load-bearing (claim) true)] :on-result {:defect :posterior-floor :severity :warning})]}' \
+            > /tmp/ci_smoke/rules/booklogic/queries.edn
+      - name: Run booklogic-compile + codegen
+        run: |
+          cd /tmp/ci_smoke
+          npm run booklogic-compile
+          npm run codegen-axioms
+          npm run codegen-kg
+      - name: cargo check --features smt
+        # REQ-VERIFIER-BUILD-011: smt feature must compile cleanly.
+        run: |
+          cargo check \
+            --manifest-path /tmp/ci_smoke/rust-verifier/Cargo.toml \
+            --features smt
+      - name: cargo check --features kg
+        # REQ-VERIFIER-BUILD-021: kg feature must compile cleanly.
+        run: |
+          cargo check \
+            --manifest-path /tmp/ci_smoke/rust-verifier/Cargo.toml \
+            --features kg

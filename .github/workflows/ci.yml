@@ -177,12 +177,14 @@ jobs:
         run: python -m scripts.codegen_axioms --project-root .
         env:
           PYTHONPATH: ../../skills/neurosym-forge
+      - name: build rust verifier (napi → cljs-orchestrator/native/)
+        # napi build must precede shadow-cljs — bermuda/bridge.cljs requires
+        # the produced .node addon as a JS dependency at compile time.
+        working-directory: verifiers/bermuda
+        run: npm run build:rust
       - name: build cljs orchestrator
         working-directory: verifiers/bermuda
         run: npx shadow-cljs release main
-      - name: build rust verifier
-        working-directory: verifiers/bermuda/rust-verifier
-        run: cargo build --features smt --release
       - name: run verifier end-to-end
         working-directory: verifiers/bermuda
         run: |

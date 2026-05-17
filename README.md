@@ -15,7 +15,45 @@ Engineers who want to understand how the skills compose, what the dependency con
 
 ## Reader questions
 
-<!-- drafted in stage 2 task 2.2 -->
+### For authors
+
+<!-- lint-disable: listicle-abstract, listicle-anaphora reason=reader-questions index by design -->
+
+- **Q1.** Will this write my book for me, or am I doing the work? → [The fingerprint problem](#the-fingerprint-problem) · [Quickstart](#quickstart)
+- **Q2.** What's the minimum I have to provide? → [Quickstart](#quickstart)
+- **Q3.** What does local-only mean — do I host my own LLM? → [Local-only constraint](#local-only-constraint)
+- **Q4.** Can I use just one skill (russellian-style as a prose linter) without the full pipeline? → [The skills](#the-skills)
+- **Q5.** Does this only work for technical manuals like Bermuda? Novels, grant proposals, academic papers? → [End-to-end: the Bermuda manual](#end-to-end-the-bermuda-manual)
+- **Q6.** What gets shipped at the end? PDF? Editable Markdown? Both? → [The book workspace](#the-book-workspace)
+- **Q7.** How do I revise after the first draft? → [Bundle C: the closed-loop ledger](#bundle-c-the-closed-loop-ledger)
+- **Q8.** What happens when two sources contradict each other? → [The claim ledger and PROV-O provenance](#the-claim-ledger-and-prov-o-provenance)
+- **Q9.** What does Russell voice actually mean? Is this just no AI fluff? → [Russellian prose discipline](#russellian-prose-discipline)
+- **Q10.** Can I customise the linters or style rules? → [The skills](#the-skills)
+- **Q11.** The Bermuda example — where is it? How do I read it? → [End-to-end: the Bermuda manual](#end-to-end-the-bermuda-manual)
+
+### For engineers
+
+<!-- lint-disable: listicle-abstract, listicle-anaphora reason=reader-questions index by design -->
+
+- **Q12.** How do the skills compose? Subprocess? Python import? Message passing? → [The pipeline](#the-pipeline) · [The skills](#the-skills)
+- **Q13.** Can I use `scrapling-fetch` standalone (not as part of the suite)? → [The skills](#the-skills)
+- **Q14.** What's the dependency tree between skills? → [The skills](#the-skills) · [Repository layout](#repository-layout)
+- **Q15.** How are skill APIs versioned? What's the compatibility story? → [The skills](#the-skills)
+- **Q16.** How does the JSON/EDN bridge to booklogic work? → [The booklogic JSON/EDN boundary](#the-booklogic-jsonedn-boundary)
+- **Q17.** Where do I add a new linter? A new persona? → [The skills](#the-skills)
+- **Q18.** How are tests organised? Test count? Fast or slow? → [Contributing](#contributing)
+- **Q19.** Is there CI? What are the gates? → [Contributing](#contributing)
+- **Q20.** How does the closed-loop ledger work, concretely? → [Bundle C: the closed-loop ledger](#bundle-c-the-closed-loop-ledger)
+- **Q21.** Releases — semantic versioning? → [Contributing](#contributing)
+- **Q22.** PR review style? Memory feedback files? OpenSpec change folders? → [Contributing](#contributing)
+
+### For both
+
+<!-- lint-disable: listicle-abstract, listicle-anaphora reason=reader-questions index by design -->
+
+- **Q23.** What's the relationship between this suite and Anthropic's Claude Code? → [For readers in a hurry](#for-readers-in-a-hurry)
+- **Q24.** What other tools are like this? How is this different? → [The fingerprint problem](#the-fingerprint-problem)
+- **Q25.** License — MIT? Are persona texts also MIT? → [License and acknowledgements](#license-and-acknowledgements)
 
 ## The fingerprint problem
 

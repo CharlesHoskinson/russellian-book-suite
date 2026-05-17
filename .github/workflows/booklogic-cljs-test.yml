@@ -2,6 +2,10 @@ name: BookLogic CLJS integration
 
 on:
   pull_request:
+    paths:
+      - 'skills/neurosym-forge/**'
+      - 'verifiers/**'
+      - '.github/workflows/booklogic-cljs-test.yml'
   push:
     branches: [main]
 
@@ -31,9 +35,9 @@ jobs:
 
   booklogic-template-cargo-check:
     # REQ-VERIFIER-BUILD-022: cargo check --features smt and --features kg
-    # against a fresh scaffolded project. Runs on ubuntu-latest because
-    # Cozo (compact) and Z3 (bundled) both require a C++ toolchain;
-    # Windows timeouts are expected (OQ#5 deferral).
+    # against a fresh scaffolded project. Uses system Z3 (apt libz3-dev)
+    # to avoid the 10-min bundled C++ build; Cozo still bundles but is
+    # cached by Swatinem/rust-cache between runs.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +48,10 @@ jobs:
         with:
           node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install system Z3
+        # Skips the bundled-Z3 C++ build (~10 min) — z3-rs links to libz3.so
+        # when the `bundled` feature is absent.
+        run: sudo apt-get update && sudo apt-get install -y libz3-dev
       - name: Install neurosym-forge in editable mode
         run: |
           cd skills/neurosym-forge
@@ -55,6 +63,12 @@ jobs:
           .venv/bin/python -m scripts.scaffold_project \
             --name "CI-Smoke" --slug ci_smoke \
             --out /tmp/ci_smoke
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: /tmp/ci_smoke/rust-verifier
+          # Cache key hash on Cargo.toml.tmpl + codegen scripts so a
+          # template-shape change busts cleanly.
+          shared-key: booklogic-template-cargo-check
       - name: Install npm deps in smoke project
         run: |
           cd /tmp/ci_smoke

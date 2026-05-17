@@ -3,7 +3,8 @@
   (:require [bermuda.ir         :as ir]
             [bermuda.nl-to-fol  :as t]
             [bermuda.bridge     :as b]
-            [malli.core                    :as m]))
+            [malli.core                    :as m]
+            ["fs" :as fs]))
 
 (def MAX-REMEDIES 3)
 
@@ -18,4 +19,4 @@
   (b/verify-formulas (pr-str formulas)))
 
 (defn typeset [report-path out-path]
-  (b/render-pdf (slurp report-path) out-path))
+  (b/render-pdf (.toString (.readFileSync fs report-path)) out-path))

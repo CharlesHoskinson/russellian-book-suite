@@ -1,0 +1,21 @@
+(ns osmotic_pressure.phases
+  "Phase driver with malli pre/post contracts."
+  (:require [osmotic_pressure.ir         :as ir]
+            [osmotic_pressure.nl-to-fol  :as t]
+            [osmotic_pressure.bridge     :as b]
+            [malli.core                    :as m]))
+
+(def MAX-REMEDIES 3)
+
+(defn translate [claims]
+  {:pre  (m/validate [:vector ir/Claim] claims)
+   :post (m/validate [:vector ir/Formula] %)}
+  (t/translate-corpus claims))
+
+(defn verify [formulas]
+  {:pre  (m/validate [:vector ir/Formula] formulas)
+   :post (m/validate ir/Verdict %)}
+  (b/verify-formulas (pr-str formulas)))
+
+(defn typeset [report-path out-path]
+  (b/render-pdf (slurp report-path) out-path))

@@ -77,7 +77,39 @@ Logical verification sits outside the default pipeline, enabled by a single flag
 
 ## The pipeline
 
-<!-- drafted in stage 2 task 2.5 -->
+The pipeline is sequential within each tier: stage N reads stage N-1's outputs and writes its own, and no stage reaches backwards. Tier 1 produces the acquisition manifest and the world-model slice; Tier 2 consumes both and drives a chapter contract through claim extraction, thesis validation, drafting, persona review, and release gating; Tier 3 sits outside the default path, activated by setting `enable_verification: true` in `qa-config.yaml`.
+
+Two side-arrows and a feed-back path close the loop. Persona findings can return a chapter to drafting before a release clears its gate. Post-build QA can write back to the claim ledger, so a defect surfaced at the release stage corrects the underlying facts for the next run. The syntopical layer has its own cycle: Gap Report appends uncovered thesis-node statements to `acquisition/pending-seeds.txt`, seeding the next Acquire run and tightening coverage before the following draft begins.
+
+```
+   sources, papers (PDFs · papers · URLs)
+        │
+        ▼
+┌────────────────────────────────────────────┐
+│   Tier 1                                   │  scrapling-fetch · syntopical-metabook
+│   acquisition + world model                │  (sibling_skills loader · booklogic veto)
+└────────┬───────────────────────────────────┘
+         │ syntopical/lenses/*.md
+         ▼
+┌────────────────────────────────────────────┐
+│   Tier 2                                   │  book-knowledge → book-thesis → book-compose
+│   drafting pipeline                        │  ↕ russellian-style · book-review · review-conductor
+│                                            │  ↓ book-qa (D1-D12 · C1-C15)
+└────────┬───────────────────────────────────┘
+         │ manuscript.md · manuscript.html · manuscript.pdf
+         ▼
+   release bundle
+
+   ┌─ optional ─┐
+   │  Tier 3    │  neurosym-forge → verifier project → D13 defects (claim-set-unsatisfiable)
+   └────────────┘
+```
+
+```
+book-qa  ─→  proposed-transitions.jsonl  ─→  book-knowledge.apply_writeback
+review-conductor  ─→  verdict.json  ─→  book-compose (redraft if soft-gate-fail)
+syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  next Acquire run
+```
 
 ## The skills
 

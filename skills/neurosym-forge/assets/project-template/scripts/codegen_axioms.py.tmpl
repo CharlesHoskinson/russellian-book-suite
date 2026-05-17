@@ -1,0 +1,42 @@
+"""Scaffolded copy of neurosym-forge codegen_axioms.
+
+Re-imports the canonical library from the installed `neurosym_forge`
+package; falls back to a vendored relative path if that package is not
+on sys.path (offline scaffolds use the fallback)."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+def _import_canonical():
+    try:
+        from scripts.codegen_axioms import run as _run
+        return _run
+    except ImportError:
+        pass
+    # Fallback: look for neurosym-forge alongside this scaffolded project.
+    here = Path(__file__).resolve().parent.parent
+    candidates = [
+        here.parent / "neurosym-forge" / "scripts",
+        here.parent.parent / "skills" / "neurosym-forge" / "scripts",
+        here.parent.parent.parent / "skills" / "neurosym-forge" / "scripts",
+    ]
+    for c in candidates:
+        if (c / "codegen_axioms.py").exists():
+            sys.path.insert(0, str(c.parent))
+            from scripts.codegen_axioms import run as _run
+            return _run
+    raise RuntimeError("cannot locate neurosym-forge.scripts.codegen_axioms")
+
+
+def main() -> int:
+    run = _import_canonical()
+    project_root = Path(__file__).resolve().parent.parent
+    run(project_root)
+    print(f"[codegen-axioms] {project_root}/rust-verifier/src/axioms.rs regenerated")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

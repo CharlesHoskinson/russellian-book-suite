@@ -92,6 +92,22 @@ def scaffold_project(
         checksums[p.name] = file_checksum(p)
     write_edn_file(out_dir / "rules" / ".checksums.edn", {CHECKSUMS_KEY: checksums})
 
+    # Run BookLogic codegen for projects that declare active forms. The
+    # codegen scripts are inert when their source EDN is missing or empty.
+    try:
+        from scripts.codegen_axioms import run as _run_axioms
+        _run_axioms(out_dir)
+    except Exception as e:
+        # Codegen failure during scaffold is non-fatal: the project still
+        # has the no-op axioms.rs stub. Surface the error so the user
+        # sees the codegen is broken but the scaffold completes.
+        print(f"[scaffold] codegen_axioms warning: {e}", file=sys.stderr)
+    try:
+        from scripts.codegen_kg import run as _run_kg
+        _run_kg(out_dir)
+    except Exception as e:
+        print(f"[scaffold] codegen_kg warning: {e}", file=sys.stderr)
+
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()

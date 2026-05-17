@@ -117,6 +117,62 @@
                                                    :message "x"})]
                     :queries [] :remedies []}))))
 
+(deftest expand-defquery-basic
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules [] :constraints []
+                  :queries
+                    [(list 'defquery 'Q001-low-confidence-load-bearing
+                           :backend :cozo
+                           :find [(list 'claim)]
+                           :where [(list 'claim/load-bearing (list 'claim) true)
+                                   (list 'claim/posterior   (list 'claim) (list 'p))
+                                   (list '<  (list 'p) 0.80)]
+                           :on-result {:defect :posterior-floor
+                                       :severity :warning})]
+                  :remedies []}
+        expanded (bl/expand src)]
+    (is (= 1 (count (:query-decls expanded))))
+    (let [q (first (:query-decls expanded))]
+      (is (= 'Q001-low-confidence-load-bearing (:name q)))
+      (is (= :cozo                              (:backend q)))
+      (is (= :posterior-floor (-> q :on-result :defect))))))
+
+(deftest expand-defquery-missing-where-throws
+  (is (thrown-with-msg?
+        js/Error #"defquery.*:where"
+        (bl/expand {:sorts [] :predicates [] :lifts [] :rules [] :constraints []
+                    :queries [(list 'defquery 'QX
+                                    :backend :cozo
+                                    :find [(list 'x)]
+                                    :on-result {:defect :x :severity :warning})]
+                    :remedies []}))))
+
+(deftest expand-defremedy-basic
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules []
+                  :constraints [] :queries []
+                  :remedies
+                    [(list 'defremedy 'W001-unsat-core-to-refutation
+                           :when (list 'unsat-core '?claim)
+                           :propose (list 'ledger/transition '?claim :refuted)
+                           :requires :human-review)]}
+        expanded (bl/expand src)]
+    (is (= 1 (count (:remedy-decls expanded))))
+    (let [r (first (:remedy-decls expanded))]
+      (is (= 'W001-unsat-core-to-refutation (:name r)))
+      (is (= :human-review                   (:requires r)))
+      (is (some? (:when r)))
+      (is (some? (:propose r))))))
+
+(deftest expand-defremedy-no-requires-defaults-to-auto-apply
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules []
+                  :constraints [] :queries []
+                  :remedies
+                    [(list 'defremedy 'W002-low-conf-disputed
+                           :when (list 'low-confidence '?claim)
+                           :propose (list 'ledger/transition '?claim :disputed))]}
+        expanded (bl/expand src)]
+    (let [r (first (:remedy-decls expanded))]
+      (is (= :auto-apply (:requires r))))))
+
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests)]
     (when (or (pos? fail) (pos? error))

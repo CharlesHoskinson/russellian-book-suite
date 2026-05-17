@@ -17,7 +17,7 @@ use crate::ir::{Atom, ClaimId, Error, Verdict};
 
 #[cfg(feature = "smt")]
 use z3::{
-    ast::{Ast, Bool, Int, Real, String as Z3String},
+    ast::{Bool, Int, Real, String as Z3String},
     SatResult, Solver,
 };
 #[cfg(feature = "smt")]
@@ -65,23 +65,23 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
         let assertion: Bool = match value {
             Edn::Int(n) => {
                 let z3_var = Int::new_const(var_name.as_str());
-                z3_var._eq(&Int::from_i64(*n))
+                z3_var.eq(&Int::from_i64(*n))
             }
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);
                 let z3_var = Real::new_const(var_name.as_str());
                 let numerator = (v * 1_000_000.0) as i64;
-                z3_var._eq(&Real::from_rational(numerator, 1_000_000))
+                z3_var.eq(&Real::from_rational(numerator, 1_000_000))
             }
             Edn::Str(s) => {
                 let z3_var = Z3String::new_const(var_name.as_str());
                 let lit = Z3String::from_str(s)
                     .map_err(|_| Error::Smt(format!("invalid string literal: {s:?}")))?;
-                z3_var._eq(&lit)
+                z3_var.eq(&lit)
             }
             Edn::Bool(b) => {
                 let z3_var = Bool::new_const(var_name.as_str());
-                z3_var._eq(&Bool::from_bool(*b))
+                z3_var.eq(&Bool::from_bool(*b))
             }
             _ => continue,
         };

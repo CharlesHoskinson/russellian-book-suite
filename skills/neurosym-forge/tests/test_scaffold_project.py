@@ -187,6 +187,16 @@ def test_relative_dotdot_escaping_cwd_rejected(tmp_path: Path, skill_root: Path,
         )
 
 
+def test_scaffolded_booklogic_active_form_seeds(tmp_project_root: Path, skill_root: Path) -> None:
+    scaffold_project(project_name="X", project_slug="x",
+                     out_dir=tmp_project_root, skill_root=skill_root)
+    booklogic = tmp_project_root / "rules" / "booklogic"
+    for fname in ("rules.edn", "constraints.edn", "queries.edn", "remedies.edn"):
+        p = booklogic / fname
+        assert p.exists(), f"missing scaffold seed: {p}"
+        assert p.read_text(encoding="utf-8").strip() == "{:forms []}"
+
+
 def test_scaffolded_axioms_rs_exists(tmp_project_root: Path, skill_root: Path) -> None:
     scaffold_project(project_name="X", project_slug="x",
                      out_dir=tmp_project_root, skill_root=skill_root)

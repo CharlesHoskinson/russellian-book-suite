@@ -58,6 +58,9 @@ use z3::{
 };
 #[cfg(feature = "smt")]
 use std::str::FromStr as _;
+#[cfg(feature = "smt")]
+#[allow(unused_imports)]
+use std::ops::{Add as _, Mul as _, Sub as _};
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {
@@ -120,11 +123,14 @@ def _emit_z3_block(c: dict) -> str:
     head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
     lhs_raw, rhs_raw = assert_[1], assert_[2]
     if head in ("~=", "approx="):
-        # Approx-equality is numeric; use the generic emitter.
+        # Approx-equality is numeric. If anything in either subtree is a
+        # float literal, the whole expression must be Real-typed so that
+        # `.sub()` matches across operands.
         # `approx=` is the EDN-safe spelling used in BookLogic source files;
         # `~=` is accepted from intermediate forms or string-encoded assert forms.
-        lhs = _emit_expr(lhs_raw)
-        rhs = _emit_expr(rhs_raw)
+        z3_type = "Real" if (_subtree_has_float(lhs_raw) or _subtree_has_float(rhs_raw)) else "Int"
+        lhs = _emit_expr_typed(lhs_raw, z3_type)
+        rhs = _emit_expr_typed(rhs_raw, z3_type)
         return _emit_approx_block(cid, lhs, rhs, tolerance)
     if head == "=":
         # Infer Z3 type from the RHS literal to emit correct variable declarations.
@@ -162,6 +168,8 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
     if isinstance(node, bool):
         return f"Bool::from_bool({str(node).lower()})"
     if isinstance(node, int):
+        if z3_type == "Real":
+            return f"Real::from_rational({node}, 1)"
         return f"Int::from_i64({node})"
     if isinstance(node, float):
         num, den = _rational_approx(node)
@@ -189,7 +197,23 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
             if z3_type == "Z3String":
                 return f'Z3String::new_const("{var_name}")'
             return f'Int::new_const("{var_name}")'
+        head_str = str(head)
+        if head_str in {"*", "+", "-"} and len(node) >= 3:
+            children = [_emit_expr_typed(n, z3_type) for n in node[1:]]
+            method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
+            return _left_fold(method, children)
     return _emit_expr(node)
+
+
+def _subtree_has_float(node: Any) -> bool:
+    """True if any leaf in the expression tree is a float literal."""
+    if isinstance(node, bool):
+        return False
+    if isinstance(node, float):
+        return True
+    if isinstance(node, list):
+        return any(_subtree_has_float(child) for child in node)
+    return False
 
 
 def _parse_assert(assert_form: Any) -> tuple[str, str, str]:

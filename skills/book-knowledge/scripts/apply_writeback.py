@@ -31,6 +31,9 @@ def apply_writeback(workspace_root: Path, auto_apply: bool = False) -> dict:
     for p in proposed:
         if not auto_apply:
             continue
+        # REQ-QA-PIPE-012: :requires :human-review blocks auto-apply per proposal.
+        if p.get("requires") == "human-review" or p.get("auto_apply") is False:
+            continue
         if p["kind"] == "claim":
             if p.get("severity") != "critical":
                 continue

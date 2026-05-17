@@ -128,7 +128,7 @@ This phase ships the namespace declaration, the EDN reader plumbing, and the `de
 (ns {{ project_slug }}.booklogic
   "BookLogic v0.4 declaration-form compiler. Reads rules/booklogic/*.edn,
    produces atomspace IR + codegens rules/predicates.edn for the legacy
-   Python ingester (deprecated in PR-3.5).
+   Python ingester.
 
    Forms supported in PR-3: defsort, defpredicate, deflift.
    Active forms (defrule, defconstraint, defquery, defremedy) land in PR-4."
@@ -1008,7 +1008,7 @@ git push -u origin spec/booklogic-pr3
 gh pr create --title "BookLogic v0.4 PR-3: CLJS compiler for defsort, defpredicate, deflift" --body "$(cat <<'EOF'
 ## Summary
 
-Pure CLJS BookLogic compiler shipping the three declaration forms (`defsort`, `defpredicate`, `deflift`). No Python BookLogic semantics anywhere; the existing Python ingester reads the codegen'd `rules/predicates.edn` exactly as it does today. PR-3.5 ports the Python ingester to CLJS in a focused follow-up.
+Pure CLJS BookLogic compiler shipping the three declaration forms (`defsort`, `defpredicate`, `deflift`). No Python BookLogic semantics anywhere; the existing Python ingester reads the codegen'd `rules/predicates.edn` exactly as it does today.
 
 - New: `cljs-orchestrator/src/main/__project__/booklogic.cljs.tmpl` — the compiler (~280 lines)
 - New: `cljs-orchestrator/src/test/__project__/booklogic_test.cljs.tmpl` — nbb test fixture
@@ -1035,7 +1035,6 @@ Local QA results: `skills/neurosym-forge/tests/smoke-results-pr3.md`.
 ## Out of scope
 
 - Active forms (`defrule`, `defconstraint`, `defquery`, `defremedy`) — PR-4
-- Porting Python ingesters to CLJS — PR-3.5
 - Bermuda migration — PR-5
 - osmotic-pressure verifier — PR-6
 EOF

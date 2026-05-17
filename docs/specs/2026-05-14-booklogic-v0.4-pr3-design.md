@@ -4,7 +4,7 @@ Date: 2026-05-14
 Author: Charles
 Status: Draft, pending user approval
 Parent spec: `docs/specs/2026-05-14-booklogic-v0.4-mission-design.md`
-Revision: 2026-05-14 — directional decision: pure CLJS + Rust for the verifier path; no new Python BookLogic semantics. PR-3.5 will follow to port the existing Python ingesters.
+Revision: 2026-05-14 — directional decision: pure CLJS + Rust for the verifier path; no new Python BookLogic semantics.
 
 ## Problem
 
@@ -13,7 +13,7 @@ After PR-1 and PR-2 of v0.4 shipped, two pieces of the umbrella mission remain u
 1. **Predicate definitions live in three files.** Bermuda's `rules/predicates.edn` carries the regex catalog; `verifiers/bermuda/scripts/ingest_ledger.py` carries the predicate-to-value coercion; `rust-verifier/src/canonical.rs` carries the Z3 axiom. Adding a predicate requires editing three files in lockstep with no schema enforcing they agree.
 2. **No BookLogic compiler exists.** The DSL is defined in the umbrella spec but no code consumes its forms. The first three declaration forms (`defsort`, `defpredicate`, `deflift`) are the foundation; without them, the active forms in PR-4 have nothing to attach to.
 
-A third, architectural, decision: PR-3 commits the verifier path to pure CLJS + Rust. Python remains only where it already lives (`book-knowledge` upstream; the scaffolder's templating; `book-qa` downstream). The BookLogic compiler is CLJS. The existing Python ingesters in `verifiers/bermuda/scripts/` keep running unchanged in PR-3 — they consume the `predicates.edn` the new CLJS compiler emits — and get ported to CLJS in a dedicated PR-3.5 before PR-4.
+A third, architectural, decision: PR-3 commits the verifier path to pure CLJS + Rust. Python remains only where it already lives (`book-knowledge` upstream; the scaffolder's templating; `book-qa` downstream). The BookLogic compiler is CLJS. The existing Python ingesters in `verifiers/bermuda/scripts/` keep running unchanged — they consume the `predicates.edn` the new CLJS compiler emits.
 
 ## Mission
 
@@ -47,7 +47,7 @@ Five concrete deliverables:
    │   - expands deflift     → meander rewrite rules │
    │   - emits atomspace IR (in memory)              │
    │   - codegens rules/predicates.edn (for Python   │
-   │     ingester until PR-3.5 ports it)             │
+   │     ingester for D1-D3 forms)                   │
    │                                                 │
    └─────────┬──────────────────────┬───────────────┘
              │                      │
@@ -87,7 +87,7 @@ New template file `skills/neurosym-forge/assets/project-template/cljs-orchestrat
 
 (defn emit-predicates-edn
   "Codegen the predicates.edn artifact for the legacy Python ingester.
-   Will be deprecated in PR-3.5 when ingest_ledger.py is ported to CLJS."
+   Generated for compatibility with the existing Python ingest_ledger.py."
   [expanded out-path])
 
 (defn -main
@@ -308,7 +308,6 @@ This is fewer tests than the previous draft (24 → 7) because the heavy lifting
 - **The four active forms** (`defrule`, `defconstraint`, `defquery`, `defremedy`) — PR-4
 - **Bermuda migration to BookLogic** — PR-5
 - **osmotic-pressure verifier built on BookLogic** — PR-6
-- **Porting Python ingest_ledger.py / extract_prose.py / verdict_to_qa.py to CLJS** — PR-3.5 (new, slots between PR-3 and PR-4)
 - **Regex literal (`#"..."`) support in the EDN reader** — v0.5; regex is a string in v0.4
 - **defentity, defgate, defbackend, defmetric** — out of scope per umbrella spec
 - **SCI sandbox** — "no eval" stance preserved; CLJS runs in vanilla nbb, no dynamic code
@@ -324,7 +323,7 @@ PR-3 touches:
 
 PR-3 does NOT touch:
 
-- `verifiers/bermuda/scripts/*.py` (preserved; PR-3.5 ports them)
+- `verifiers/bermuda/scripts/*.py` (preserved)
 - `verifiers/bermuda/rules/predicates.edn` (preserved; Bermuda has no `rules/booklogic/` so the new compiler is inert for it)
 - `examples/bermuda-manual/` (read-only as always)
 - `skills/book-knowledge/` (no changes; the trace exporter shipped in PR-2)
@@ -333,24 +332,12 @@ PR-3 does NOT touch:
 
 ## Revised v0.4 mission slate
 
-PR-3.5 is inserted between PR-3 and PR-4:
-
-| PR | Scope | Days |
-|---|---|---|
-| PR-1 | EDN boundary fix | ✓ merged |
-| PR-2 | Ingest-trace + EDN extensions + Rust verdict EDN | ✓ merged |
-| **PR-3 (this spec)** | **CLJS BookLogic compiler (defsort, defpredicate, deflift)** | **2.5** |
-| **PR-3.5 (new)** | **Port ingest_ledger.py / extract_prose.py / verdict_to_qa.py to CLJS** | **2** |
-| PR-4 | BookLogic active forms (defrule, defconstraint, defquery, defremedy) | 2.5 |
-| PR-5 | Bermuda migration to BookLogic + real Z3 run | 2 |
-| PR-6 | osmotic-pressure showcase | 1.5 |
-
-Mission total grows from ~11 days to ~12.5 days. The added PR-3.5 buys "pure CLJS + Rust verifier path" as the end state — the architectural goal driving this revision.
+PR-3.5 was floated as a "port Python ingesters to CLJS" follow-up but is not part of the v0.4 mission slate; PR-cleanup (see docs/specs/2026-05-17-booklogic-claude-only-finish-design.md) closes the remaining D1 hygiene gap instead. The mission slate is the six-PR set in the v0.4 mission spec. The "pure CLJS + Rust verifier path" remains an aspirational end state but is not gated by this PR.
 
 ## Risks
 
 1. **Node toolchain in CI (new dependency).** The existing CI doesn't use Node; PR-3 introduces it via a separate job. Mitigation: the new job is isolated from the existing Python CI; if Node fails, only the live integration test fails, not the full suite.
-2. **Cross-platform EDN regex semantics.** Node's regex engine (V8) differs from Python's `re` module on some edge cases (lookbehind, character classes). Mitigation: the BookLogic regex strings are written once in `lifts.edn` and consumed by both the CLJS compiler (Node regex) and the legacy Python ingester (Python regex). For PR-3, only the CLJS side runs the regex during compilation (it just stores the string for codegen); Python still applies it at ingest. The regex must work in BOTH engines. The integration test exercises only the CLJS pathway; PR-3.5 will add Python-side cross-checks during the ingester port.
+2. **Cross-platform EDN regex semantics.** Node's regex engine (V8) differs from Python's `re` module on some edge cases (lookbehind, character classes). Mitigation: the BookLogic regex strings are written once in `lifts.edn` and consumed by both the CLJS compiler (Node regex) and the legacy Python ingester (Python regex). For PR-3, only the CLJS side runs the regex during compilation (it just stores the string for codegen); Python still applies it at ingest. The regex must work in BOTH engines. The integration test exercises only the CLJS pathway.
 3. **nbb startup latency (~3-5s).** The integration test runs once per PR; acceptable.
 4. **Template-rendering for tests.** The `.tmpl` files use jinja `{{ project_slug }}`. The integration test renders them via the scaffolder before nbb runs. Straightforward.
 5. **Accidental Bermuda regeneration.** Bermuda has no `rules/booklogic/`; the compiler is silent. A smoke test asserts Bermuda's `predicates.edn` byte-stability across the PR.
@@ -369,11 +356,10 @@ Mission total grows from ~11 days to ~12.5 days. The added PR-3.5 buys "pure CLJ
 2. PR-3 plan (next, via writing-plans)
 3. Merged PR
 4. New CI job recording green
-5. Updated mission slate documenting PR-3.5 as a new milestone
 
 ## Open questions
 
-1. **Should `npm run booklogic-compile` run automatically as part of `npm install` (via npm's `prepare` lifecycle hook)?** Recommendation: NO for PR-3. Keep it as an explicit command so developers see what's happening. The PR-3.5 port can revisit if helpful.
+1. **Should `npm run booklogic-compile` run automatically as part of `npm install` (via npm's `prepare` lifecycle hook)?** Recommendation: NO for PR-3. Keep it as an explicit command so developers see what's happening.
 2. **What happens if `rules/booklogic/sorts.edn` exists but `rules/booklogic/predicates.edn` is missing?** The compiler treats each file independently: missing = empty list of forms. No error. The detection rule is the *directory* existence, not all three files.
-3. **Should the compiler emit the OLD `predicates.edn` or also write a NEW canonical file at `rules/booklogic/.compiled.edn`?** Recommendation: emit only the legacy location for PR-3, so Python keeps working. PR-3.5 deletes the Python consumer and the legacy file goes with it. Future BookLogic outputs (atomspace IR, etc.) are in-memory only until PR-5 needs them on-disk for the Rust verifier.
+3. **Should the compiler emit the OLD `predicates.edn` or also write a NEW canonical file at `rules/booklogic/.compiled.edn`?** Recommendation: emit only the legacy location for PR-3, so Python keeps working. PR-5 (Bermuda migration) revisits when Bermuda's rules/ becomes BookLogic-sourced. Future BookLogic outputs (atomspace IR, etc.) are in-memory only until PR-5 needs them on-disk for the Rust verifier.
 4. **How are nbb's CLJS errors surfaced to the integration test?** stderr piped to the Python test; test asserts the exit code AND searches stderr for any "Error:" / "Exception:" prefixes. Acceptable for v0.4.

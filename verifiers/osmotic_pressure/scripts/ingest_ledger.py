@@ -77,10 +77,23 @@ def _kind_str(v: Any) -> str:
     return str(v) if v is not None else ""
 
 
+_JS_NAMED_GROUP = re.compile(r"\(\?<([A-Za-z_][A-Za-z0-9_]*)>")
+
+
+def _to_python_regex(pat: str) -> str:
+    """Translate JS-style `(?<name>...)` named groups to Python `(?P<name>...)`.
+
+    BookLogic lifts.edn authors patterns in JS syntax (the CLJS compiler
+    consumes them via JS regex). Python's `re` module uses the older
+    Perl-style `(?P<name>...)` form.
+    """
+    return _JS_NAMED_GROUP.sub(r"(?P<\1>", pat)
+
+
 def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | None:
     for _name, spec in predicates.items():
         for pat in spec.get(_KW_PATTERNS, []):
-            m = re.search(pat, text, flags=re.IGNORECASE | re.DOTALL)
+            m = re.search(_to_python_regex(pat), text, flags=re.IGNORECASE | re.DOTALL)
             if not m:
                 continue
             value_kind = _kind_str(_get_spec(spec, _KW_VALUE_KIND, _KW_VALUE_KIND_H))

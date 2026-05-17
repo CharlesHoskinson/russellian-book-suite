@@ -12,6 +12,16 @@
 
 ## Pre-flight
 
+**Hard prerequisite:** PR #39 (branch `plan/booklogic-claude-only-finish`) must be merged to `main` **before** this plan executes. PR #39 lands the five `docs/plans/2026-05-17-booklogic-{cleanup,d2-wiring,pr4,pr5,pr6}.md` files that this plan's spec scaffolds and Task 10.3's link-integrity smoke check assume on disk. Without PR #39 merged, every change `proposal.md` and `design.md` written here links to non-existent paths and Task 10.3 hard-fails.
+
+Verify the prerequisite before starting:
+
+```bash
+git ls-files | grep "docs/plans/2026-05-17-booklogic-" | wc -l
+```
+
+Expected: `5`. If `0`, stop — merge PR #39 first.
+
 Read these before starting:
 
 - `C:\work\russellian-book-suite\docs\specs\2026-05-17-ears-openspec-roadmap-design.md` — the design this plan implements
@@ -266,6 +276,12 @@ Each REQ in `specs/*/spec.md` carries the pattern label in its heading
 (e.g. `### REQ-EDN-001 — Ubiquitous`).
 
 ## Workflow
+
+This repo adopts the OpenSpec directory + spec-delta convention manually via `git`
+and `gh`. The canonical OpenSpec slash-command interface (`/opsx:propose`,
+`/opsx:apply`, `/opsx:archive`) is a Node-based CLI; adopting it is a follow-up
+post-v0.4.0 (deferred; tracked as Open Question 6 in the roadmap design doc).
+The manual cycle is identical to the CLI's:
 
 1. **Propose.** Create `changes/<change>/proposal.md` (and optionally `design.md`,
    `tasks.md`, `specs/` deltas). Open a draft PR.
@@ -1449,13 +1465,15 @@ git commit -m "openspec: cleanup delta — bermuda-rules REQs"
 
 ### REQ-CLJS-ORCH-001 — Ubiquitous
 
-The `verifiers/bermuda/cljs-orchestrator/` project shall expose a `shadow-cljs`
-test target named `:test` that compiles to a Node-runnable script invoked by
-`npx shadow-cljs compile test && node target/node-test.js`.
+The `verifiers/bermuda/cljs-orchestrator/shadow-cljs.edn` configuration shall
+declare a `:node-test` build target named `:test` with `:output-to "target/node-test.js"`
+and `:ns-regexp "-test$"`, so that `npx shadow-cljs compile test` produces the
+file at the path the CI job invokes.
 
-**Rationale:** Without a test target, the six in-tree CLJS modules have no
-test runner. Cleanup adds the target as the foundation for every module test.
-**Tested by:** `.github/workflows/ci.yml` job `cljs-bermuda-test` running the compile + node command (added in cleanup T5.1)
+**Rationale:** Without an explicit `:output-to`, the path the CI job runs would
+be undefined; the test runner needs both the target declaration and a stable
+output path.
+**Tested by:** Existence check in `verifiers/bermuda/cljs-orchestrator/shadow-cljs.edn` plus the `cljs-bermuda-test` CI job that runs `npx shadow-cljs compile test && node target/node-test.js` (added in cleanup T3.1)
 
 ### REQ-CLJS-ORCH-002 — Ubiquitous
 
@@ -1527,12 +1545,13 @@ Fixing the rule is REQ-CLJS-ORCH-008.
 
 The `.github/workflows/ci.yml` workflow shall include a job named
 `cljs-bermuda-test` that on every PR runs `npx shadow-cljs compile test &&
-node target/node-test.js` from `verifiers/bermuda/cljs-orchestrator/` and
-fails the PR if any test fails.
+node target/node-test.js` from `verifiers/bermuda/cljs-orchestrator/` (the
+path matches the `:output-to` declared in `shadow-cljs.edn` per REQ-CLJS-ORCH-001)
+and fails the PR if any test fails.
 
 **Rationale:** Without a CI gate, the new test target is best-effort. CI
 makes the gate canonical.
-**Tested by:** Workflow run; manually invoked via `gh run rerun` on the PR (added in cleanup T5.1)
+**Tested by:** Workflow run on the PR (added in cleanup T5.1)
 
 ## MODIFY
 
@@ -1703,7 +1722,7 @@ argument.
 defects map back to constraints.
 **Tested by:** `skills/neurosym-forge/tests/test_codegen_axioms.py::test_one_constraint_one_assert_and_track` (added in pr4 T2.3, T2.4)
 
-### REQ-DSL-022 — Optional
+### REQ-DSL-022 — Optional feature
 
 Where a `defconstraint` carries `~=` (approximate-equality), the codegen
 shall desugar to `|lhs - rhs| <= tolerance * |rhs|` for relative
@@ -2075,7 +2094,7 @@ PR and fail loudly if the regenerated `axioms.rs` byte-differs from the
 committed file.
 
 **Rationale:** Drift detection.
-**Tested by:** PR CI gate (added in pr5 T2.2)
+**Tested by:** `verifiers/bermuda/tests/test_axioms_lockstep.py::test_regen_matches_committed` plus the `.github/workflows/ci.yml` `bermuda-z3-build` job that invokes it (added in pr5 T2.2)
 
 ### REQ-VERIFIER-BUILD-040 — Ubiquitous
 
@@ -2149,11 +2168,19 @@ claim id `clm-2026-000008` (parishes=9).
 
 ### REQ-QA-PIPE-021 — Ubiquitous
 
-The book-qa pipeline shall include the ch-02 drift fixture in its end-to-end
-smoke; CI exercises the fixture on every PR.
+The book-qa end-to-end smoke suite shall include the ch-02 drift fixture as
+one of its scenarios.
 
 **Rationale:** Smoke regression for the headline mission deliverable.
-**Tested by:** CI job `bermuda-z3-verify` plus `test_ch02_drift_e2e.py` (added in pr5 T6.1)
+**Tested by:** `verifiers/bermuda/tests/test_ch02_drift_e2e.py::test_drift_fixture_present` (added in pr5 T6.1)
+
+### REQ-QA-PIPE-024 — Ubiquitous
+
+The `.github/workflows/ci.yml` `bermuda-z3-verify` job shall execute the
+ch-02 drift fixture on every PR.
+
+**Rationale:** CI must gate the regression on every change.
+**Tested by:** `.github/workflows/ci.yml` job `bermuda-z3-verify` step that invokes `pytest verifiers/bermuda/tests/test_ch02_drift_e2e.py` (added in pr5 T6.1)
 
 ### REQ-QA-PIPE-022 — Event-driven
 
@@ -2475,22 +2502,22 @@ Sprint 1 of 5 in the BookLogic v0.4 finish.
 
 **OpenSpec change:** [`openspec/changes/booklogic-cleanup/`](../tree/main/openspec/changes/booklogic-cleanup)
 
-**Branch:** \`feat/booklogic-cleanup\`
+**Branch:** `feat/booklogic-cleanup`
 
-**Implementation notes:** [\`docs/plans/2026-05-17-booklogic-cleanup.md\`](../blob/main/docs/plans/2026-05-17-booklogic-cleanup.md)
+**Implementation notes:** [`docs/plans/2026-05-17-booklogic-cleanup.md`](../blob/main/docs/plans/2026-05-17-booklogic-cleanup.md)
 
 ## REQ IDs closed by this sprint
 
 - REQ-EDN-010, REQ-EDN-011 — seed.edn / grounded.edn round-trip real EDN
 - REQ-BERMUDA-RULES-001, REQ-BERMUDA-RULES-002 — data files preserve semantics across migration
-- REQ-CLJS-ORCH-001 — shadow-cljs \`:test\` target
+- REQ-CLJS-ORCH-001 — shadow-cljs `:test` target
 - REQ-CLJS-ORCH-002..007 — module-level cljs.test coverage
-- REQ-CLJS-ORCH-008 — \`claim->formula\` schema-collision fix
-- REQ-CLJS-ORCH-009 — \`cljs-bermuda-test\` CI job
+- REQ-CLJS-ORCH-008 — `claim->formula` schema-collision fix
+- REQ-CLJS-ORCH-009 — `cljs-bermuda-test` CI job
 
 ## Done when
 
-- All REQs above are test-covered and passing on \`main\`
+- All REQs above are test-covered and passing on `main`
 - This issue is closed by the PR merge
 EOF
 )"
@@ -2522,9 +2549,9 @@ gh issue create \
   --body "$(cat <<'EOF'
 Sprint 2 of 5.
 
-**OpenSpec change:** [\`openspec/changes/booklogic-d2-wiring/\`](../tree/main/openspec/changes/booklogic-d2-wiring)
-**Branch:** \`feat/booklogic-d2-wiring\`
-**Implementation notes:** [\`docs/plans/2026-05-17-booklogic-d2-wiring.md\`](../blob/main/docs/plans/2026-05-17-booklogic-d2-wiring.md)
+**OpenSpec change:** [`openspec/changes/booklogic-d2-wiring/`](../tree/main/openspec/changes/booklogic-d2-wiring)
+**Branch:** `feat/booklogic-d2-wiring`
+**Implementation notes:** [`docs/plans/2026-05-17-booklogic-d2-wiring.md`](../blob/main/docs/plans/2026-05-17-booklogic-d2-wiring.md)
 
 ## REQ IDs closed
 
@@ -2533,13 +2560,22 @@ Sprint 2 of 5.
 
 ## Done when
 
-- All REQs are test-covered and passing on \`main\`
+- All REQs are test-covered and passing on `main`
 - This issue is closed by the PR merge
 EOF
 )"
 ```
 
-- [ ] **Step 2: Run + verify same as 5.1.**
+- [ ] **Step 2: Run the appended `gh issue create` invocation.**
+
+Run: `bash tools/_ears_roadmap_helpers/create_tracking_issues.sh` (executes every appended invocation in the helper; the sprint-1 invocation from Task 5.1 has already run, but `gh issue create` is idempotent only by best effort — if rerun, it creates a duplicate, so comment-out the already-run invocations or run a single fresh invocation manually with the exact command above).
+
+Expected: prints the new issue URL (`https://github.com/CharlesHoskinson/russellian-book-suite/issues/N`).
+
+- [ ] **Step 3: Verify.**
+
+Run: `gh issue list --repo CharlesHoskinson/russellian-book-suite --milestone "booklogic-d2-wiring" --json number,title`
+Expected: one issue with title `[sprint-2] booklogic-d2-wiring`.
 
 ### Task 5.3: Tracking Issue for `booklogic-pr4-active-forms`
 
@@ -2554,9 +2590,9 @@ gh issue create \
   --body "$(cat <<'EOF'
 Sprint 3 of 5. **Long pole** — pre-declared a/b split available.
 
-**OpenSpec change:** [\`openspec/changes/booklogic-pr4-active-forms/\`](../tree/main/openspec/changes/booklogic-pr4-active-forms)
-**Branch:** \`feat/booklogic-pr4\` (or \`feat/booklogic-pr4a\` + \`feat/booklogic-pr4b\` if split)
-**Implementation notes:** [\`docs/plans/2026-05-17-booklogic-pr4.md\`](../blob/main/docs/plans/2026-05-17-booklogic-pr4.md)
+**OpenSpec change:** [`openspec/changes/booklogic-pr4-active-forms/`](../tree/main/openspec/changes/booklogic-pr4-active-forms)
+**Branch:** `feat/booklogic-pr4` (or `feat/booklogic-pr4a` + `feat/booklogic-pr4b` if split)
+**Implementation notes:** [`docs/plans/2026-05-17-booklogic-pr4.md`](../blob/main/docs/plans/2026-05-17-booklogic-pr4.md)
 
 ## REQ IDs closed
 
@@ -2570,7 +2606,7 @@ Sprint 3 of 5. **Long pole** — pre-declared a/b split available.
 
 ## Split criteria (decided after Phase 2 acceptance)
 
-See \`design.md\` in the OpenSpec change directory.
+See `design.md` in the OpenSpec change directory.
 
 ## Done when
 
@@ -2580,6 +2616,17 @@ See \`design.md\` in the OpenSpec change directory.
 EOF
 )"
 ```
+
+- [ ] **Step 2: Run the appended invocation.**
+
+Run the same `gh issue create` command manually (or extract it into a one-shot script) — `bash` against the full helper would re-run prior issues. The cleanest approach is to copy the sprint-3 invocation block into a standalone command and execute.
+
+Expected: prints the new issue URL.
+
+- [ ] **Step 3: Verify.**
+
+Run: `gh issue list --repo CharlesHoskinson/russellian-book-suite --milestone "booklogic-pr4-active-forms" --json number,title`
+Expected: one issue with title `[sprint-3] booklogic-pr4-active-forms`.
 
 ### Task 5.4: Tracking Issue for `booklogic-pr5-bermuda-migration`
 
@@ -2594,9 +2641,9 @@ gh issue create \
   --body "$(cat <<'EOF'
 Sprint 4 of 5.
 
-**OpenSpec change:** [\`openspec/changes/booklogic-pr5-bermuda-migration/\`](../tree/main/openspec/changes/booklogic-pr5-bermuda-migration)
-**Branch:** \`feat/booklogic-pr5\`
-**Implementation notes:** [\`docs/plans/2026-05-17-booklogic-pr5.md\`](../blob/main/docs/plans/2026-05-17-booklogic-pr5.md)
+**OpenSpec change:** [`openspec/changes/booklogic-pr5-bermuda-migration/`](../tree/main/openspec/changes/booklogic-pr5-bermuda-migration)
+**Branch:** `feat/booklogic-pr5`
+**Implementation notes:** [`docs/plans/2026-05-17-booklogic-pr5.md`](../blob/main/docs/plans/2026-05-17-booklogic-pr5.md)
 
 ## REQ IDs closed
 
@@ -2609,12 +2656,23 @@ Sprint 4 of 5.
 ## Done when
 
 - All REQs are test-covered
-- \`bermuda-z3-build\` and \`bermuda-z3-verify\` CI jobs are green
+- `bermuda-z3-build` and `bermuda-z3-verify` CI jobs are green
 - Mission spec § D4 footer updated with merge SHA
 - This issue closed
 EOF
 )"
 ```
+
+- [ ] **Step 2: Run the appended invocation.**
+
+Run the sprint-4 invocation as a standalone command (see Task 5.3 Step 2 for the pattern).
+
+Expected: prints the new issue URL.
+
+- [ ] **Step 3: Verify.**
+
+Run: `gh issue list --repo CharlesHoskinson/russellian-book-suite --milestone "booklogic-pr5-bermuda-migration" --json number,title`
+Expected: one issue with title `[sprint-4] booklogic-pr5-bermuda-migration`.
 
 ### Task 5.5: Tracking Issue for `booklogic-pr6-osmotic-showcase`
 
@@ -2629,9 +2687,9 @@ gh issue create \
   --body "$(cat <<'EOF'
 Sprint 5 of 5. **Publishes v0.4.0 GitHub Release on merge.**
 
-**OpenSpec change:** [\`openspec/changes/booklogic-pr6-osmotic-showcase/\`](../tree/main/openspec/changes/booklogic-pr6-osmotic-showcase)
-**Branch:** \`feat/booklogic-pr6\`
-**Implementation notes:** [\`docs/plans/2026-05-17-booklogic-pr6.md\`](../blob/main/docs/plans/2026-05-17-booklogic-pr6.md)
+**OpenSpec change:** [`openspec/changes/booklogic-pr6-osmotic-showcase/`](../tree/main/openspec/changes/booklogic-pr6-osmotic-showcase)
+**Branch:** `feat/booklogic-pr6`
+**Implementation notes:** [`docs/plans/2026-05-17-booklogic-pr6.md`](../blob/main/docs/plans/2026-05-17-booklogic-pr6.md)
 
 ## REQ IDs closed
 
@@ -2645,21 +2703,24 @@ Sprint 5 of 5. **Publishes v0.4.0 GitHub Release on merge.**
 ## Done when
 
 - All REQs are test-covered
-- \`osmotic-pressure-smoke\` CI job is green
+- `osmotic-pressure-smoke` CI job is green
 - Mission spec § D5 footer updated with merge SHA
-- \`v0.4.0\` GitHub Release published
+- `v0.4.0` GitHub Release published
 - This issue closed
 EOF
 )"
 ```
 
-- [ ] **Step 2: Run all + verify.**
+- [ ] **Step 2: Run the appended invocation.**
 
-Run: `bash tools/_ears_roadmap_helpers/create_tracking_issues.sh`
-Expected: five issues created.
+Run the sprint-5 invocation as a standalone command.
+
+Expected: prints the new issue URL.
+
+- [ ] **Step 3: Final cross-sprint verification.**
 
 Run: `gh issue list --repo CharlesHoskinson/russellian-book-suite --label sprint --json number,title`
-Expected: five entries.
+Expected: five entries (one per sprint, titles `[sprint-1]` through `[sprint-5]`).
 
 ---
 
@@ -2713,7 +2774,7 @@ BookLogic v0.4 — the full DSL landing.
 
 ## Acceptance
 
-This release is published after sprint 5 (booklogic-pr6-osmotic-showcase) merges to main with the \`osmotic-pressure-smoke\` CI job green.
+This release is published after sprint 5 (booklogic-pr6-osmotic-showcase) merges to main with the `osmotic-pressure-smoke` CI job green.
 EOF
 )"
 ```
@@ -2739,6 +2800,15 @@ is documented if the API path fails.
 
 **Files:**
 - Note in: `tools/_ears_roadmap_helpers/create_project_board.sh` (scratch)
+
+- [ ] **Step 0: Refresh the `gh` token with the `project` scope.**
+
+The default `gh` token (issued for `repo, gist, read:org, workflow`) cannot call Projects v2 mutations. Add the scope:
+
+Run: `gh auth refresh -s project`
+Expected: opens a browser for one-time consent; on return prints `✓ Configured git credential helper for github.com` and `✓ Logged in to github.com as CharlesHoskinson`. Re-run `gh auth status` to confirm `project` is in the scope list.
+
+If the browser cannot open (headless), use `gh auth refresh -s project --hostname github.com --skip-ssh-key` and follow the device-code prompt printed to stdout.
 
 - [ ] **Step 1: Get the owner ID.**
 
@@ -2768,7 +2838,7 @@ echo "Project created. ID: $PROJECT_ID"
 # Link project to the repo
 gh api graphql -f query="
 mutation {
-  linkRepositoryToProject(input: {
+  linkProjectV2ToRepository(input: {
     projectId: \"$PROJECT_ID\",
     repositoryId: \"$(gh api repos/CharlesHoskinson/russellian-book-suite --jq '.node_id')\"
   }) {
@@ -3013,31 +3083,34 @@ git commit -m "agents: document OpenSpec workflow + EARS conventions"
 
 ## Phase 10: Delete orphan + smoke + PR
 
-### Task 10.1: Delete `openspec/changes/codex-phase-0/`
+### Task 10.1: Delete `openspec/changes/codex-phase-0/` (idempotent)
 
 **Files:**
-- Delete: `C:\work\russellian-book-suite\openspec\changes\codex-phase-0\`
+- Delete (if present): `C:\work\russellian-book-suite\openspec\changes\codex-phase-0\`
 
-- [ ] **Step 1: Confirm contents.**
+**Note on merge ordering:** PR #39's sprint-1 plan (`docs/plans/2026-05-17-booklogic-cleanup.md` Task T1.5) also deletes this directory. Whichever PR's execution runs first owns the delete; the second sees a no-op. This task handles both cases.
 
-Run: `ls C:/work/russellian-book-suite/openspec/changes/codex-phase-0/`
-Expected: contains only `PR-33-REVIEW.md` (one file).
+- [ ] **Step 1: Check whether the directory still exists.**
 
-- [ ] **Step 2: Delete.**
+Run: `test -d C:/work/russellian-book-suite/openspec/changes/codex-phase-0 && echo PRESENT || echo ALREADY-GONE`
 
-Run: `git rm -r C:/work/russellian-book-suite/openspec/changes/codex-phase-0/`
-Expected: `rm 'openspec/changes/codex-phase-0/PR-33-REVIEW.md'`.
+- [ ] **Step 2a: If PRESENT, delete and commit.**
+
+```bash
+git rm -r C:/work/russellian-book-suite/openspec/changes/codex-phase-0/
+git commit -m "openspec: delete orphan codex-phase-0 vestige"
+```
+
+Expected: `rm 'openspec/changes/codex-phase-0/PR-33-REVIEW.md'` then commit success.
+
+- [ ] **Step 2b: If ALREADY-GONE, skip with a note.**
+
+No commit. The deletion already landed (either via this branch's earlier iteration or via PR #39's sprint-1 execution that preceded this one). Append a one-line entry to the PR description noting the no-op.
 
 - [ ] **Step 3: Verify.**
 
 Run: `ls C:/work/russellian-book-suite/openspec/changes/codex-phase-0/ 2>&1`
 Expected: `No such file or directory`.
-
-- [ ] **Step 4: Commit.**
-
-```bash
-git commit -m "openspec: delete orphan codex-phase-0 vestige"
-```
 
 ### Task 10.2: README.md link to openspec
 
@@ -3069,6 +3142,8 @@ git commit -m "readme: link to OpenSpec convention"
 
 **Files:**
 - None (read-only check)
+
+**Shell:** Tasks 10.3, 10.4, 10.5 use Bash `for`-loops with `grep` / `find`. On Windows, run inside Git Bash or WSL — they do not work in PowerShell. (PowerShell equivalents are out of scope; the executing session can translate if needed.)
 
 - [ ] **Step 1: List every markdown link to `openspec/` in `docs/specs/2026-05-17-*` and confirm targets exist.**
 

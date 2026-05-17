@@ -152,6 +152,7 @@ The TDD plans become a legacy artifact format. New work uses OpenSpec from propo
 ## Risks
 
 - **GitHub Projects v2 API** is GraphQL-only and rate-limited. The Project board creation is a one-shot; if it fails, fall back to manually creating it via the GitHub UI and noting the URL in `AGENTS.md`.
+- **Projects v2 OAuth scope.** The default `gh` token issued for `repo, gist, read:org, workflow` cannot call `createProjectV2` or `linkProjectV2ToRepository` — Projects v2 mutations require the `project` scope. The plan's Phase 7 begins with `gh auth refresh -s project`; if a future executor skips it, the GraphQL call returns a 403 and the UI fallback kicks in. Not silent; not blocking.
 - **EARS extraction is interpretive.** Different readers can write different REQ wordings for the same TDD step. The first sprint (cleanup) sets the house style; subsequent sprints' EARS extraction must match.
 - **Tracking-Issue staleness.** If a Tracking Issue isn't updated as tasks complete, it diverges from `tasks.md`. Convention: `tasks.md` is the source of truth; the Tracking Issue is generated from it at PR-open time and updated only at significant milestones.
 - **Spec-delta merge into steady-state.** When a sprint merges, its `specs/<capability>/spec.md` delta must be merged into the top-level `openspec/specs/<capability>/spec.md`. This is a manual step in the archive flow. Risk: forgetting it leaves the steady-state file stale.
@@ -163,6 +164,8 @@ The TDD plans become a legacy artifact format. New work uses OpenSpec from propo
 3. **Should TDD plans be deleted after sprint 0?** No. They stay as detailed implementation notes. Future sprints (post-v0.4) may not produce them at all — `tasks.md` plus `design.md` suffices for most work.
 4. **GitHub Project board: classic or v2?** Projects v2 — supports timeline view, custom fields, and is the GitHub-recommended path. Worth the API friction.
 5. **Per-PR EARS-coverage CI gate?** Future enhancement. v0.4.0 ships without it; v0.4.x may add a CI job that greps tests for REQ IDs and fails the PR if a new REQ is unreferenced.
+
+6. **OpenSpec slash-command interface (`/opsx:propose`, `/opsx:apply`, `/opsx:archive`)?** Deferred. The canonical OpenSpec CLI is a Node-based tool; this PR adopts the directory + spec-delta convention without the CLI. The workflow in `AGENTS.md § OpenSpec workflow` describes the manual `git` + `gh` equivalents. Adopting the CLI is a separate, scoped change post-v0.4.0 (would add a Node tool dep and a `.opsx/` config dir). Tracked as a follow-up; not blocking the convention adoption.
 
 ## Deliverables
 

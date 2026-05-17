@@ -1,0 +1,13 @@
+[project]
+name = "sibling_skills"
+version = "0.1.0"
+description = "Shared loader for cross-skill API calls in the russellian-book-suite"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sibling_skills*"]

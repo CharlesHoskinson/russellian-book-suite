@@ -1,10 +1,17 @@
-# russellian-book-suite
+﻿# russellian-book-suite
 
-<!-- HERO: drafted in stage 2 task 2.1 -->
+You give the suite a folder of sources and a chapter contract. Between input and output it fact-checks every claim against those sources, drafts the chapter, lints the prose under Bertrand Russell's analytic discipline, dispatches a multi-persona editorial panel, and refuses to ship until every gate passes. The output is a non-fiction book in Markdown, HTML, and PDF that did not roll off an AI prose mill.
+
+<!-- lint-disable: no-hedging, active-voice reason="A.J. Ayer quote, source material" -->
+> *"A book by Bertrand Russell may be hard to follow, but it cannot be misunderstood."* — A. J. Ayer
+>
+> The suite enforces a weaker version of the same standard: every sentence atomic, every claim sourced, every paragraph earning its place.
 
 ## For readers in a hurry
 
-<!-- drafted in stage 2 task 2.1 -->
+Authors want a working book, not an architecture tour. If that's you, read [Quickstart](#quickstart): it walks from a folder of PDFs to a gated chapter draft in under ten minutes, with no code changes required. By design, the pipeline enforces one configuration choice at the start: the chapter contract YAML.
+
+Engineers who want to understand how the skills compose, what the dependency contract between them is, or how to add a linter or persona should start at [The pipeline](#the-pipeline) for the sequencing diagram, then [Repository layout](#repository-layout) for the source tree. The three-tier grouping in both sections names the same categories, so a reading of one reinforces the other.
 
 ## Reader questions
 

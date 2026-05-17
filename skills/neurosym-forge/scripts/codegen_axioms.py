@@ -53,19 +53,19 @@ HEADER = """\
 
 #[cfg(feature = "smt")]
 use z3::{
-    ast::{Ast, Bool, Int, Real},
-    Context, Solver,
+    ast::{Bool, Int, Real},
+    Solver,
 };
 
 #[cfg(feature = "smt")]
-pub fn assert_axioms(ctx: &Context, solver: &Solver) {
+pub fn assert_axioms(solver: &Solver) {
 """
 
 FOOTER = """\
 }
 
 #[cfg(not(feature = "smt"))]
-pub fn assert_axioms() {
+pub fn assert_axioms(_solver: &()) {
     // No-op: built without smt feature.
 }
 """
@@ -154,10 +154,10 @@ def _emit_expr(node: Any) -> str:
     subtree.
     """
     if isinstance(node, int) and not isinstance(node, bool):
-        return f"Int::from_i64(ctx, {node})"
+        return f"Int::from_i64({node})"
     if isinstance(node, float):
         num, den = _rational_approx(node)
-        return f"Real::from_real(ctx, {num}, {den})"
+        return f"Real::from_rational({num}, {den})"
     if isinstance(node, list) and node:
         head = node[0]
         # (:predicate ...)
@@ -170,7 +170,7 @@ def _emit_expr(node: Any) -> str:
             else:
                 sub_str = "val"
             var_name = f"{head.name}_{sub_str}"
-            return f'Int::new_const(ctx, "{var_name}")'
+            return f'Int::new_const("{var_name}")'
         # (* a b ...) / (+ ...) / (- a b)
         head_str = str(head)
         if head_str in {"*", "+", "-"} and len(node) >= 3:
@@ -196,14 +196,14 @@ def _rational_approx(f: float, denom: int = 1_000_000) -> tuple[int, int]:
 
 
 def _emit_equality_block(cid: str, lhs: str, rhs: str) -> str:
-    """Emit a `solver.assert_and_track(lhs._eq(rhs), tracker)` block."""
+    """Emit a `solver.assert_and_track(lhs.eq(rhs), tracker)` block."""
     return (
         f"    // constraint {cid}\n"
         f"    {{\n"
         f"        let lhs = {lhs};\n"
         f"        let rhs = {rhs};\n"
-        f'        let tracker = Bool::new_const(ctx, "{cid}");\n'
-        f"        solver.assert_and_track(&lhs._eq(&rhs), &tracker);\n"
+        f'        let tracker = Bool::new_const("{cid}");\n'
+        f"        solver.assert_and_track(&lhs.eq(&rhs), &tracker);\n"
         f"    }}\n"
     )
 
@@ -224,12 +224,12 @@ def _emit_approx_block(cid: str, lhs: str, rhs: str, tolerance: float | None) ->
         f"        let lhs = {lhs};\n"
         f"        let rhs = {rhs};\n"
         f"        let diff = lhs.sub(&rhs);\n"
-        f"        let eps  = Real::from_real(ctx, {eps_num}, {eps_den});\n"
-        f"        let neg_eps = Real::from_real(ctx, -{eps_num}, {eps_den});\n"
+        f"        let eps  = Real::from_rational({eps_num}, {eps_den});\n"
+        f"        let neg_eps = Real::from_rational(-{eps_num}, {eps_den});\n"
         f"        let upper = diff.le(&eps);\n"
         f"        let lower = neg_eps.le(&diff);\n"
-        f"        let bounded = Bool::and(ctx, &[&upper, &lower]);\n"
-        f'        let tracker = Bool::new_const(ctx, "{cid}");\n'
+        f"        let bounded = Bool::and(&[&upper, &lower]);\n"
+        f'        let tracker = Bool::new_const("{cid}");\n'
         f"        solver.assert_and_track(&bounded, &tracker);\n"
         f"    }}\n"
     )

@@ -56,8 +56,8 @@ fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
     for c in claims {
         let script = format!(
             "?[id, source] <- [['{}', '{}']] :put claim {{id, source}}",
-            c.id.replace('\'', "\\'"),
-            c.source.replace('\'', "\\'"),
+            c.id.replace("'", "\\\\'"),
+            c.source.replace("'", "\\\\'"),
         );
         db.run_script(&script, Default::default(), cozo::ScriptMutability::Mutable)
             .map_err(|e| Error::Kg(format!("cozo insert: {e}")))?;

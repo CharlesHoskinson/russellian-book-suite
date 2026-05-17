@@ -2,10 +2,11 @@
 
 You give the suite a folder of sources and a chapter contract. Between input and output it fact-checks every claim against those sources, drafts the chapter, lints the prose under Bertrand Russell's analytic discipline, dispatches a multi-persona editorial panel, and refuses to ship until every gate passes. The output is a non-fiction book in Markdown, HTML, and PDF that did not roll off an AI prose mill.
 
-<!-- lint-disable: no-hedging, active-voice reason="A.J. Ayer quote, source material" -->
-> *"A book by Bertrand Russell may be hard to follow, but it cannot be misunderstood."* — A. J. Ayer
->
-> The suite enforces a weaker version of the same standard: every sentence atomic, every claim sourced, every paragraph earning its place.
+```text
+"A book by Bertrand Russell may be hard to follow, but it cannot be misunderstood." — A. J. Ayer
+```
+
+The suite enforces a weaker version of the same standard: every sentence atomic, every claim sourced, every paragraph earning its place.
 
 ## For readers in a hurry
 
@@ -57,7 +58,7 @@ Engineers who want to understand how the skills compose, what the dependency con
 
 ## The fingerprint problem
 
-Hosted AI prose tools leave a signature that trained readers identify in under a paragraph. Sentences average eighteen words [Hugging Face Prose Survey, 2024]. Paragraphs cluster in threes. The first adjective is "comprehensive" or "robust," and em-dashes carry connective work that a colon or period should do instead. A domain editor at a serious publisher, opening a manuscript at page one, sees the pattern before the second heading and stops trusting the facts that follow it.
+Hosted AI prose tools leave a recognisable signature that any trained reader identifies within the first paragraph. Sentences average eighteen words [Hugging Face Prose Survey, 2024]. Paragraphs cluster in threes. The first adjective is "comprehensive" or "robust," and em-dashes carry connective work that a colon or period should do instead. A domain editor at a serious publisher, opening a manuscript at page one, sees the pattern before the second heading and stops trusting the facts that follow it.
 
 Separate stages defeat the pattern. Fact ingestion, drafting, prose linting, persona review, and defect gating each run under their own discipline; each stage refuses to pass the artefact forward until its gate clears. No single prompt can enforce that discipline across five distinct tasks, which is the reason the fix is a pipeline and not a smarter system message.
 
@@ -118,24 +119,15 @@ syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  n
 <details>
 <summary><strong>scrapling-fetch</strong> — sole network boundary of the suite</summary>
 
-**What it does.** Every outbound HTTP call in the suite passes through this skill. It wraps Scrapling 0.4.8 — a Python scraping library — and exposes four source-specific adapters: `arxiv` parses abstract pages, `openalex` queries the OpenAlex JSON API, `semantic_scholar` falls back to HTML when the API is unavailable, and `doi` resolves redirect chains to canonical URLs. On top of those adapters sits a streaming `download_pdf` function that checks content-type before writing to disk and verifies the completed file's sha256 against the value returned in the response header. Three fetch modes ship: `plain` for standard sessions, `stealth` for StealthySession (fingerprint-randomised), and `dynamic` for DynamicSession (Playwright-backed). Per-host rate limits and politeness defaults are wired at session construction, not scattered across caller code. The skill does not fetch data for callers outside the suite; the import-linter contract in CI enforces this as a hard rule.
+**What it does.** Every outbound HTTP call in the suite passes through this skill. It wraps Scrapling 0.4.8 — a Python scraping library — and exposes four source-specific adapters: `arxiv` parses abstract pages, `openalex` queries the OpenAlex JSON API, `semantic_scholar` falls back to HTML when the API is unavailable, and `doi` resolves redirect chains to canonical URLs. On top of those adapters sits a streaming `download_pdf` function that checks content-type before writing to disk and verifies the completed file's sha256 against the value returned in the response header. Three fetch modes ship: `plain` for standard sessions, `stealth` for StealthySession (fingerprint-randomised), and `dynamic` for DynamicSession (Playwright-backed). Session construction wires per-host rate limits and politeness defaults; nothing scatters them across caller code. The skill does not fetch data for callers outside the suite; the import-linter contract in CI enforces this as a hard rule.
 
 **Inputs / outputs.**
-- Inputs: a URL or arXiv ID, a fetch mode, optional per-call rate-limit overrides.
-- Outputs: structured metadata (`PaperRecord` dataclass), a downloaded PDF at a caller-specified path, or a typed exception from the hierarchy `FetchFailed | RateLimitExceeded | BlockedRequest | NotAPdf | OfflineMiss | ArxivIdNotFound`.
-- Cache: on-disk response cache keyed by URL; cache directory is configurable.
-- Env var: `SCRAPLING_OFFLINE=1` forces cache-only mode — no network socket is opened.
 
-**When to invoke.**
-- Fetching an arXiv abstract page or downloading an arXiv PDF by ID.
-- Querying OpenAlex for a paper's metadata, references, or citing works.
-- Resolving a DOI to its final landing URL before a downstream parser reads it.
-- Any point in the acquisition pipeline where a URL must be fetched and the caller is not `scrapling-fetch` itself.
+The skill takes a URL or arXiv ID, a fetch mode, and optional per-call rate-limit overrides. It returns either a `PaperRecord` dataclass, a PDF written to a caller-specified path, or a typed exception from the hierarchy `FetchFailed | RateLimitExceeded | BlockedRequest | NotAPdf | OfflineMiss | ArxivIdNotFound`. Responses land in an on-disk cache keyed by URL; the cache directory is configurable. Setting `SCRAPLING_OFFLINE=1` forces cache-only mode: the skill opens no network socket.
 
-**When NOT to invoke.**
-- General-purpose web scraping outside the book suite — this skill is dedicated infrastructure, not a generic scraper.
-- Fetching local files or workspace directories; use `pathlib` directly.
-- When `SCRAPLING_OFFLINE=1` is set and the resource is not cached — `OfflineMiss` will be raised; either seed the cache first or clear the env var.
+**When to invoke.** Use this skill whenever the acquisition pipeline needs a URL fetched and the caller is not `scrapling-fetch` itself — arXiv abstract pages, arXiv PDFs by ID, OpenAlex metadata or reference lookups, and DOI resolution to final landing URLs all route through here.
+
+**When NOT to invoke.** This skill is dedicated infrastructure, not a generic scraper; callers outside the book suite should not route through it. For local files or workspace directories, use `pathlib` directly. With `SCRAPLING_OFFLINE=1` active and the resource absent from cache, the skill raises `OfflineMiss`; seed the cache first or clear the env var before calling.
 
 **Trigger phrases.** "fetch a URL", "get this paper's metadata", "download this PDF", "what does this paper cite", "what cites this paper", "scrape this URL", "traverse a citation graph".
 
@@ -150,7 +142,7 @@ print(record.title)
 # → "Lossless LLM Compression via Quantization-Aware Pruning"
 ```
 
-`fetch_arxiv` dispatches to the `arxiv` adapter, which parses the abstract page at `arxiv.org/abs/2310.04673`, returns a `PaperRecord` with `title`, `authors`, `abstract`, and `year` populated, and writes the raw HTML to the on-disk cache. No PDF is downloaded unless the caller also calls `download_pdf`. Rate limiting fires automatically; a second call to the same URL within the TTL window returns from cache without opening a socket.
+`fetch_arxiv` dispatches to the `arxiv` adapter, which parses the abstract page at `arxiv.org/abs/2310.04673`, returns a `PaperRecord` with `title`, `authors`, `abstract`, and `year` populated, and writes the raw HTML to the on-disk cache. The skill downloads no PDF unless the caller also calls `download_pdf`. Rate limiting fires automatically; a second call to the same URL within the TTL window returns from cache without opening a socket.
 
 **Where to dive deeper.**
 - `skills/scrapling-fetch/SKILL.md`
@@ -162,27 +154,17 @@ print(record.title)
 
 **What it does.** The metabook sits one layer above the claim ledger without touching it. It acquires papers through citation-graph traversal, ranks and triages candidates against the chapter contract, and downloads those that pass both an embedding-similarity threshold and a booklogic reachability veto. From the acquired corpus it builds a syntopical layer: a topic map that groups concepts by thesis-tree node, disputed-question tables produced by booklogic's symbolic rewrite rules, and canonical-concept reconciliation files that track how different sources name the same idea. Per-chapter lenses slice that world model to exactly what the drafter needs before writing a single sentence. Gap reports close the cycle by scoring per-thesis-node coverage and appending uncovered nodes to `acquisition/pending-seeds.txt`, seeding the next Acquire run automatically. Four sub-workflows — **Acquire**, **Synthesize**, **Project Lens**, **Gap Report** — execute in that order; Acquire can run alone on a new seed set without triggering the others.
 
-The skill never touches the network directly. `scrapling-fetch` handles every HTTP call; the metabook reaches it through `sibling_skills.load_skill_api`. EDN symbolic reasoning stays on the ClojureScript side; the metabook calls booklogic through `scripts/booklogic_adapter.py` over a JSON subprocess wire. When `SYNTOPICAL_NO_BOOKLOGIC=1` is set, the veto step is skipped and the Synthesize workflow falls back to `book-knowledge.detect_conflicts` for disputed questions and surface-form overlap for concept reconciliation; each affected artefact carries a `Legacy mode — booklogic disabled` banner.
+The skill never touches the network directly. `scrapling-fetch` handles every HTTP call; the metabook reaches it through `sibling_skills.load_skill_api`. EDN symbolic reasoning stays on the ClojureScript side; the metabook calls booklogic through `scripts/booklogic_adapter.py` over a JSON subprocess wire. With `SYNTOPICAL_NO_BOOKLOGIC=1` active, the Synthesize workflow skips the veto step and falls back to `book-knowledge.detect_conflicts` for disputed questions, plus surface-form overlap for concept reconciliation; each affected artefact carries a `Legacy mode — booklogic disabled` banner.
 
 **Inputs / outputs.**
-- Reads: `raw/`, `wiki/`, `claims/`, `graph/`, `chapters/<id>/contract.yaml` — all read-only to the metabook.
-- Writes: `syntopical/` exclusively. A pytest plugin intercepts `open()` calls from metabook scripts and fails the test if any write targets the canonical subtrees.
-- Acquisition audit trail: `syntopical/acquisition/manifest.jsonl` — append-only; every run, every candidate, every outcome.
-- Env vars: `SYNTOPICAL_NO_BOOKLOGIC=1` (legacy heuristics), `BOOKLOGIC_BIN` (override for dev stub).
 
-**When to invoke.**
-- User says "acquire papers for chapter X" — triggers the Acquire sub-workflow from a seed set.
-- User says "synthesize the metabook" — triggers Synthesize, producing topic-map, disputed-question tables, and concept files.
-- User says "project a lens for chapter Y" — produces `syntopical/lenses/ch-Y.md` ready for `book-compose`.
-- User says "show me what's uncovered in chapter Z" — triggers Gap Report, scoring per-thesis-node coverage.
-- Before drafting a chapter, when `syntopical/lenses/<chapter-id>.md` does not yet exist.
+The metabook reads `raw/`, `wiki/`, `claims/`, `graph/`, and `chapters/<id>/contract.yaml` — all read-only; it writes exclusively to `syntopical/`. A pytest plugin intercepts `open()` calls from metabook scripts and fails any test where a write targets the canonical subtrees. The acquisition audit trail lives in `syntopical/acquisition/manifest.jsonl`, which is append-only and records every run, every candidate, and every outcome. Two env vars: `SYNTOPICAL_NO_BOOKLOGIC=1` for legacy heuristics, `BOOKLOGIC_BIN` to override the binary path.
 
-**When NOT to invoke.**
-- When `book-compose` needs to draft and the lens already exists — open `syntopical/lenses/` directly.
-- To ingest a new PDF into the canonical workspace — that is `book-knowledge`'s responsibility.
-- To run symbolic rewrite queries directly against the EDN atomspace — call booklogic's CLI; the metabook adapter is a convenience wrapper, not a general-purpose symbolic shell.
+**When to invoke.** The natural-language triggers are phrases like "acquire papers for chapter X" (Acquire sub-workflow), "synthesize the metabook" (Synthesize, producing topic-map, disputed-question tables, and concept files), "project a lens for chapter Y" (writes `syntopical/lenses/ch-Y.md`), and "show coverage gaps in chapter Z" (Gap Report). Invoke it before drafting any chapter whose lens file does not yet exist.
 
-**Trigger phrases.** "acquire papers for chapter X", "synthesize the metabook", "project a lens for chapter Y", "show me what's uncovered in chapter Z", "self-curating world model", "citation-graph traversal".
+**When NOT to invoke.** When `book-compose` needs to draft and the lens already exists, open `syntopical/lenses/` directly — the metabook is not a gatekeeper for the drafting step. PDF ingestion into the canonical workspace belongs to `book-knowledge`. Symbolic rewrite queries against the EDN atomspace go through booklogic's CLI; the metabook adapter is a convenience wrapper, not a general-purpose symbolic shell.
+
+**Trigger phrases.** "acquire papers for chapter X", "synthesize the metabook", "project a lens for chapter Y", "show coverage gaps in chapter Z", "self-curating world model", "citation-graph traversal".
 
 **Example walkthrough.**
 
@@ -217,23 +199,15 @@ sm.project_lens(workspace, chapter_id="ch-03")
 
 **What it does.** `sibling_skills` is a Python package, not a Claude Code skill. It does one thing: load another skill's `skill_api.py` module by name and validate the major version before any skill code executes. The package is under twenty lines of meaningful logic — `loader.py` plus an `__init__.py` re-export — yet it is the only sanctioned import path between skills in the suite. CI enforces this: a PR that imports a sibling skill root directly fails the import-linter gate before tests run. The consequence of that discipline is that a skill's internal refactor cannot silently break a caller; the version check catches the mismatch at load time, not at the call site.
 
-Each skill declares `API_VERSION: tuple[int, int]` in its `skill_api.py`. The loader checks the major component against the caller's `expected_major` argument; a mismatch raises `IncompatibleSkillApiVersion` before the module is returned. The cross-skill ABI contract (REQ-ABI-1 through REQ-ABI-5), specified in `openspec/changes/add-syntopical-metabook/specs/skill-abi/spec.md`, is enforced here and nowhere else. Skills root defaults to `~/.claude/skills/`; set `SIBLING_SKILLS_ROOT` to override, which is what the test suite does to point at fixture skill trees.
+Each skill declares `API_VERSION: tuple[int, int]` in its `skill_api.py`. When the major component mismatches the caller's `expected_major` argument, the loader raises `IncompatibleSkillApiVersion` before returning the module. This loader enforces the cross-skill ABI contract (REQ-ABI-1 through REQ-ABI-5, specified in `openspec/changes/add-syntopical-metabook/specs/skill-abi/spec.md`); nothing else does. Skills root defaults to `~/.claude/skills/`; set `SIBLING_SKILLS_ROOT` to override, which is what the test suite does to point at fixture skill trees.
 
 **Inputs / outputs.**
-- Input: a skill name string and an optional `expected_major` integer.
-- Output: the imported `skill_api` module, ready to call.
-- Exception: `IncompatibleSkillApiVersion` on major-version mismatch or absent `API_VERSION`.
-- Exception: `FileNotFoundError` when no `skill_api.py` exists at the resolved path.
 
-**When to invoke.**
-- Any skill that needs to call a function from another skill's public surface.
-- Writing a new skill that will call `scrapling-fetch`, `book-knowledge`, `book-thesis`, or any other suite member.
-- Upgrading a dependency skill and needing to gate the caller on a specific major version.
+The package takes a skill name string and an optional `expected_major` integer. It returns the imported `skill_api` module ready to call, or raises one of two exceptions: `IncompatibleSkillApiVersion` on major-version mismatch or absent `API_VERSION`, and `FileNotFoundError` when no `skill_api.py` exists at the resolved path.
 
-**When NOT to invoke.**
-- Importing utilities from the same skill's own `scripts/` — use a relative import.
-- Calling `booklogic` — that interface goes through `scripts/booklogic_adapter.py`, which uses `subprocess`, not `sibling_skills`.
-- General Python module loading unrelated to the suite's skill boundary.
+**When to invoke.** Any skill in the suite that needs to call a function from another skill's public surface should use this loader — including new skills calling `scrapling-fetch`, `book-knowledge`, or `book-thesis`, and any caller that needs to gate on a specific major version of a dependency skill.
+
+**When NOT to invoke.** Utilities within the same skill's `scripts/` directory take a relative import, not this loader. The `booklogic` interface goes through `scripts/booklogic_adapter.py` over a subprocess wire, bypassing `sibling_skills` entirely. General Python module loading outside the suite's skill boundary has nothing to do with this package.
 
 **Trigger phrases.** Not a routable Claude Code skill — no trigger phrases. Import it directly in Python: `from sibling_skills import load_skill_api`.
 

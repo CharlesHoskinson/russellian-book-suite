@@ -254,7 +254,41 @@ claims = bk.query_claims({"state": "verified"}, workspace_root)
 - `openspec/changes/add-syntopical-metabook/specs/skill-abi/spec.md` — the ABI contract (REQ-ABI-1..5) this loader enforces.
 
 </details>
-<!-- mini-tutorial: booklogic (interface)   (stage 3 task 3.4) -->
+<details>
+<summary><strong>booklogic</strong> — CLJS-on-Node reasoning CLI: interface contract for the metabook</summary>
+
+**What it does.** `booklogic` is not a Claude Code skill in this repository. It is an external ClojureScript-on-Node CLI authored in parallel, discoverable on PATH after its documented install step. The metabook calls it over stdin/stdout on a JSON wire; it never imports it. Given a corpus of verified claims or concept atoms, `booklogic` applies its local EDN ruleset to detect disputed questions, reconcile concept clusters, test candidate reachability against a thesis tree, and report its own version. The Python side consumes JSON only. EDN is the canonical on-disk form; the JSON wire format is a deterministic, bijective projection, and `scripts/booklogic_adapter.py` never sees raw EDN. Requirement IF-BL-15 is the round-trip guarantee: `edn → json → edn` is the identity function for every atom shape in the protocol.
+
+**Inputs / outputs.** The wire is JSON. Stdin carries the JSON-projected EDN input atom; pass `--io json` explicitly. Stdout returns the output atom plus three provenance keys on every non-error response: `:booklogic-version`, `:ruleset-checksum`, and `:produced-at`. Stderr receives an `:error` atom whose `:code` determines the exit code — 0 success, 1 schema violation, 2 rule failure, 3 internal, 4 timeout, 5 api-version mismatch. Set `BOOKLOGIC_BIN` to override the executable path.
+
+**When to invoke.** Use `booklogic` when the metabook needs disputed-question detection (`disputed-questions`), concept reconciliation across sources (`reconcile-concepts`), thesis-reachability vetting for a candidate paragraph (`reachable-from-thesis`), or a wire-format version atom for CI health-check (`version`).
+
+**When NOT to invoke.** Skip `booklogic` for Python-side claim ingestion or ledger writes — that is `book-knowledge`. Skip it for sentence-grain prose checks — that is `russellian-style`. Skip it for any task that requires network I/O: `booklogic` makes zero network calls by contract; all evaluation runs locally against `rules/*.edn`.
+
+**Trigger phrases.** `booklogic`, `disputed questions`, `reachable from thesis`.
+
+**Example walkthrough.** The stub ships before the real CLI exists. Set `BOOKLOGIC_BIN="python booklogic_stub.py"` in the test environment and run:
+
+```bash
+BOOKLOGIC_BIN="python skills/syntopical-metabook/tests/fixtures/booklogic_stub.py" \
+  python -c "
+import sys; sys.path.insert(0, 'skills/syntopical-metabook/scripts')
+import booklogic_adapter as bl
+v = bl.version()
+print(v)
+"
+# BooklogicVersion(booklogic_version='0.0.0-stub', api_version=(0, 1), ruleset_checksum='stub-no-rules')
+```
+
+The stub returns `"0.0.0-stub"` and the adapter strips the JSON quote layer, handing back a typed Python dataclass. To swap to the real CLI: `unset BOOKLOGIC_BIN`. A conformance suite at `tests/conformance/booklogic/` runs golden JSON I/O pairs against the stub on every commit and nightly against the real binary once it ships.
+
+**Where to dive deeper.**
+- `openspec/changes/add-syntopical-metabook/specs/booklogic/spec.md` — the 15-requirement interface contract.
+- `skills/syntopical-metabook/scripts/booklogic_adapter.py` — consumer-side adapter.
+- `skills/syntopical-metabook/tests/conformance/booklogic/` — golden I/O suite.
+- `skills/syntopical-metabook/tests/fixtures/booklogic_stub.py` — dev stub.
+
+</details>
 
 ### Tier 2 — Drafting pipeline
 

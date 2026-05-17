@@ -164,3 +164,44 @@ def test_run_verification_uses_legacy_ledger_when_no_trace(
     assert "clm-LEGACY-1" in ids
     # No synthesised file should have been written either
     assert not (sandbox_project / "work" / "ledger-from-trace.jsonl").exists()
+
+
+def test_run_verification_end_to_end_with_synth_trace_writes_qa(
+    tmp_path: Path, project_root: Path,
+) -> None:
+    """Full Phase-1->4 run on a synth trace, with stubbed verifier, lands a
+    verification-defects.json under qa/ with the expected verdict shape."""
+    workspace = _seed_workspace(tmp_path, with_legacy_ledger=False)
+    _write_trace(workspace, [
+        (Symbol("ingested", namespace="source"), {Keyword("doc/id"): "alpha"}),
+        (Symbol("proposed", namespace="claim"), {
+            Keyword("claim/id"): "clm-E2E-1",
+            Keyword("text"): "Bermuda has nine traditional parishes.",
+            Keyword("confidence"): 0.99,
+        }),
+        (Symbol("verified", namespace="claim"), {
+            Keyword("claim/id"): "clm-E2E-1",
+            Keyword("from"): Keyword("proposed"),
+            Keyword("to"): Keyword("verified"),
+        }),
+    ])
+    sandbox_project = tmp_path / "project_root_clone"
+    sandbox_project.mkdir()
+    (sandbox_project / "rules").mkdir()
+    (sandbox_project / "rules" / "predicates.edn").write_text(
+        (project_root / "rules" / "predicates.edn").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    rc = run(
+        workspace=workspace, release_version="1.0.0",
+        project_root=sandbox_project, stub_verifier=True, stub_verdict="sat",
+    )
+    assert rc == 0
+
+    qa_out = workspace / "qa" / "verification-defects.json"
+    assert qa_out.exists()
+    payload = json.loads(qa_out.read_text(encoding="utf-8"))
+    assert payload["verdict"] == "sat"
+    assert "core" in payload
+    assert isinstance(payload["core"], list)

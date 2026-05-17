@@ -1,4 +1,4 @@
-(ns osmotic_pressure.unify
+(ns osmotic-pressure.unify
   "core.logic-based variable unification across atoms."
   (:require [clojure.core.logic :as l]))
 

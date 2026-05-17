@@ -1,4 +1,4 @@
-(ns osmotic_pressure.booklogic
+(ns osmotic-pressure.booklogic
   "BookLogic v0.4 declaration-form compiler. Reads rules/booklogic/*.edn,
    produces atomspace IR + codegens rules/predicates.edn for the legacy
    Python ingester (deprecated in PR-3.5).
@@ -474,10 +474,10 @@
      :query-decls        query-decls
      :remedy-decls       remedy-decls}))
 
-;; ----- CLI entry: nbb -m osmotic_pressure.booklogic <project-root> -----
+;; ----- CLI entry: nbb -m osmotic-pressure.booklogic <project-root> -----
 
 (defn -main
-  "CLI: nbb -m osmotic_pressure.booklogic <project-root>
+  "CLI: nbb -m osmotic-pressure.booklogic <project-root>
    Reads rules/booklogic/*.edn, expands, writes rules/predicates.edn +
    rules/rules.edn + intermediate constraints/queries/remedies files.
    Prints a one-line report. Exits 0 on success."

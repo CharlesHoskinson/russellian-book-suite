@@ -1,8 +1,8 @@
-(ns osmotic_pressure.phases
+(ns osmotic-pressure.phases
   "Phase driver with malli pre/post contracts."
-  (:require [osmotic_pressure.ir         :as ir]
-            [osmotic_pressure.nl-to-fol  :as t]
-            [osmotic_pressure.bridge     :as b]
+  (:require [osmotic-pressure.ir         :as ir]
+            [osmotic-pressure.nl-to-fol  :as t]
+            [osmotic-pressure.bridge     :as b]
             [malli.core                    :as m]))
 
 (def MAX-REMEDIES 3)

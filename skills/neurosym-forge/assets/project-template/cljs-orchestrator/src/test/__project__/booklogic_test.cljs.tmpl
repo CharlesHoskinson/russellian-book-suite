@@ -1,8 +1,8 @@
-(ns {{ project_slug }}.booklogic-test
+(ns {{ project_slug_dashed }}.booklogic-test
   "Live nbb test fixture for the BookLogic compiler.
    Invoked by the Python integration harness via nbb."
   (:require [cljs.test :refer-macros [deftest is run-tests]]
-            [{{ project_slug }}.booklogic :as bl]
+            [{{ project_slug_dashed }}.booklogic :as bl]
             ["fs" :as fs]
             ["path" :as path]))
 
@@ -39,7 +39,7 @@
                   :queries     []
                   :remedies    []}
         expanded (bl/expand src)
-        text     (#'{{ project_slug }}.booklogic/emit-predicates-edn-string expanded)]
+        text     (#'{{ project_slug_dashed }}.booklogic/emit-predicates-edn-string expanded)]
     (is (re-find #":parishes-count" text))
     (is (re-find #":value-kind :int" text))
     (is (re-find #"\"nine\" 9" text))))

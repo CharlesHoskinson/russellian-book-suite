@@ -1,6 +1,6 @@
-(ns osmotic_pressure.core
+(ns osmotic-pressure.core
   "CLI entry. Dispatches: translate, verify, typeset."
-  (:require [osmotic_pressure.phases :as p]
+  (:require [osmotic-pressure.phases :as p]
             [cljs.reader :as edn]
             ["fs" :as fs]))
 

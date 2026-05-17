@@ -1,6 +1,6 @@
-(ns osmotic_pressure.bridge
+(ns osmotic-pressure.bridge
   "Calls into the native Rust addon built by napi-rs."
-  (:require ["../native/osmotic_pressure-verifier.node" :as native]
+  (:require ["../native/osmotic-pressure-verifier.node" :as native]
             [cljs.reader :as edn]))
 
 (defn verify-formulas [formulas-edn]

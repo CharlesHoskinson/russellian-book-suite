@@ -1,4 +1,4 @@
-(ns osmotic_pressure.ir
+(ns osmotic-pressure.ir
   "Atomspace IR — malli schemas for Atom, Formula, Claim, Verdict."
   (:require [malli.core :as m]
             [malli.instrument :as mi]))

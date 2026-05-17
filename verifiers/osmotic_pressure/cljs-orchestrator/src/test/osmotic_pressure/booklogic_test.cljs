@@ -1,8 +1,8 @@
-(ns osmotic_pressure.booklogic-test
+(ns osmotic-pressure.booklogic-test
   "Live nbb test fixture for the BookLogic compiler.
    Invoked by the Python integration harness via nbb."
   (:require [cljs.test :refer-macros [deftest is run-tests]]
-            [osmotic_pressure.booklogic :as bl]
+            [osmotic-pressure.booklogic :as bl]
             ["fs" :as fs]
             ["path" :as path]))
 
@@ -39,7 +39,7 @@
                   :queries     []
                   :remedies    []}
         expanded (bl/expand src)
-        text     (#'osmotic_pressure.booklogic/emit-predicates-edn-string expanded)]
+        text     (#'osmotic-pressure.booklogic/emit-predicates-edn-string expanded)]
     (is (re-find #":parishes-count" text))
     (is (re-find #":value-kind :int" text))
     (is (re-find #"\"nine\" 9" text))))

@@ -1,4 +1,4 @@
-(ns osmotic_pressure.nl-to-fol
+(ns osmotic-pressure.nl-to-fol
   "Phase 2: meander rewrite of Claim → Formula."
   (:require [meander.epsilon :as m]))
 

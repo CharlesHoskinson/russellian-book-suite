@@ -4,7 +4,7 @@
   "type": "commonjs",
   "scripts": {
     "build:cljs":        "shadow-cljs release main",
-    "build:rust":        "cd rust-verifier && npx napi build --platform --release --output-dir ../cljs-orchestrator/native",
+    "build:rust":        "cargo build --manifest-path rust-verifier/Cargo.toml --release --features smt,kg && mkdir -p cljs-orchestrator/native && cp rust-verifier/target/release/libbermuda_verifier.so cljs-orchestrator/native/bermuda-verifier.node",
     "build":             "npm run build:rust && npm run build:cljs",
     "verify":            "node cljs-orchestrator/dist/main.js",
     "booklogic-compile": "nbb -m bermuda.booklogic ."

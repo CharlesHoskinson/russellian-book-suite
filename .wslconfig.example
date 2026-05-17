@@ -1,0 +1,23 @@
+# Copy to %USERPROFILE%\.wslconfig and edit `memory` + `processors` for your box.
+# After editing, run `wsl --shutdown` once so the new config takes effect.
+
+[wsl2]
+# Adjust to ~half your physical RAM. JVM + cargo + rust-analyzer add up fast.
+memory=24GB
+# Leave at least 2 cores for Windows.
+processors=12
+swap=8GB
+
+# Mirrored mode (Win11 22H2+) — fixes localhost across VPNs and broken DNS.
+networkingMode=mirrored
+dnsTunneling=true
+autoProxy=true
+
+# Auto-reclaim free pages back to Windows instead of holding them indefinitely.
+vmIdleTimeout=60000
+
+# Auto-shrink the ext4 VHDX so deletions reclaim disk.
+sparseVhd=true
+
+[experimental]
+autoMemoryReclaim=gradual

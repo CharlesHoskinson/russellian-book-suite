@@ -37,10 +37,12 @@ fi
 # 4. direnv hook
 if ! grep -q 'direnv hook bash' ~/.bashrc 2>/dev/null; then
   log "Wiring direnv into ~/.bashrc…"
+  # shellcheck disable=SC2016  # literal $(...) is intentional — evaluated at shell startup
   echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
 fi
 mkdir -p ~/.config/direnv
 if [ ! -f ~/.config/direnv/direnvrc ]; then
+  # shellcheck disable=SC2016  # literal $HOME is intentional — evaluated by direnv at load
   echo 'source $HOME/.nix-profile/share/nix-direnv/direnvrc' > ~/.config/direnv/direnvrc
 fi
 

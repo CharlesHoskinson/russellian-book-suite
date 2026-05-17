@@ -22,4 +22,5 @@ if not _spacy_model_available():
         "test_style_pass_*.py",
         "test_bitcoin_samples.py",
         "test_skill_integration.py",
+        "unit/test_skill_api.py",
     ]

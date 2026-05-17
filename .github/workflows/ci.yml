@@ -1,5 +1,8 @@
 name: ci
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -7,15 +10,27 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   lint-workflow:
     name: lint workflow yaml
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: install actionlint
+      - name: install actionlint (pinned tarball + SHA verification)
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
         run: |
-          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          BASE="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          TARBALL="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          # Download the tarball under its real filename so sha256sum -c can find it.
+          curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}"
+          curl -fsSL "${BASE}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o checksums.txt
+          grep "${TARBALL}" checksums.txt | sha256sum -c -
+          tar -xzf "${TARBALL}" actionlint
           mv actionlint /usr/local/bin/
       - name: run actionlint
         run: actionlint -color
@@ -24,19 +39,16 @@ jobs:
     name: test book-qa (py${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
       matrix:
-        python: ["3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-      - name: install pyyaml + pytest
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pyyaml pytest
+          skill-path: skills/book-qa
       - name: pytest
         working-directory: skills/book-qa
         run: python -m pytest tests/ -v
@@ -45,22 +57,140 @@ jobs:
     name: test book-thesis (py${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
       matrix:
-        python: ["3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-      - name: install pyyaml + rdflib + pyDatalog + pytest
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pyyaml rdflib pyDatalog pytest
+          skill-path: skills/book-thesis
       - name: pytest
         working-directory: skills/book-thesis
         run: python -m pytest tests/ -v
+
+  test-book-knowledge:
+    name: test book-knowledge (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python }}
+          skill-path: skills/book-knowledge
+      - name: pytest
+        working-directory: skills/book-knowledge
+        run: python -m pytest tests/ -v
+
+  test-book-compose:
+    name: test book-compose (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python }}
+          skill-path: skills/book-compose
+        # en_core_web_sm not installed; conftest skip-gate skips spacy-dependent tests.
+        # For full local coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
+      - name: symlink sibling skills (book-knowledge, russellian-style, book-review, review-conductor)
+        # book-compose's sibling-skills.py looks under ~/.claude/skills/<sibling>/.
+        # Symlink each sibling so the tests can locate them.
+        run: |
+          mkdir -p "$HOME/.claude/skills"
+          for sibling in book-knowledge russellian-style book-review review-conductor; do
+            ln -sfn "$PWD/skills/$sibling" "$HOME/.claude/skills/$sibling"
+          done
+      - name: pytest (deselect sibling-venv test; CI siblings have no .venv)
+        working-directory: skills/book-compose
+        run: python -m pytest tests/ -v --deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv
+
+  test-book-review:
+    name: test book-review (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python }}
+          skill-path: skills/book-review
+      - name: pytest
+        working-directory: skills/book-review
+        run: python -m pytest tests/ -v
+
+  test-russellian-style:
+    name: test russellian-style (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python }}
+          skill-path: skills/russellian-style
+        # en_core_web_sm not installed; conftest skip-gate skips 86+11 linter tests.
+        # For full local coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
+      - name: pytest
+        working-directory: skills/russellian-style
+        run: python -m pytest tests/ -v
+
+  test-review-conductor:
+    name: test review-conductor (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python }}
+          skill-path: skills/review-conductor
+      - name: pytest
+        working-directory: skills/review-conductor
+        run: python -m pytest tests/ -v
+
+  test-neurosym-forge:
+    name: test neurosym-forge offline (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false — run all matrix legs so we see all breakages at once
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python }}
+          skill-path: skills/neurosym-forge
+          extra: dev
+      - name: pytest (offline, excludes cljs integration)
+        working-directory: skills/neurosym-forge
+        run: python -m pytest tests/ --ignore=tests/test_cljs_integration.py -v
 
   smoke-bermuda-pipeline:
     name: smoke (Bermuda end-to-end)
@@ -68,26 +198,16 @@ jobs:
     needs: [test-book-qa, test-book-thesis]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
-          cache: pip
-      - name: install deps
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pyyaml rdflib pyDatalog
+          skill-path: skills/book-thesis
       - name: compile_thesis
         run: |
           python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
-      - name: lint_supports
-        run: |
-          python skills/book-thesis/scripts/lint_supports.py examples/bermuda-manual 3.0.0 || true
       - name: datalog_consistency
         run: |
           python skills/book-thesis/scripts/datalog_consistency.py examples/bermuda-manual
-      - name: book-qa lint_artifact (informational, expects v6 orphans)
-        run: |
-          python skills/book-qa/scripts/lint_artifact.py examples/bermuda-manual 3.0.0 || true
       - name: upload qa reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,6 +219,46 @@ jobs:
             examples/bermuda-manual/qa/datalog-defects.json
           if-no-files-found: warn
 
+  bermuda-informational:
+    # Informational lint steps that are known to emit v6-era orphan defects.
+    # Allowed to fail; regressions are visible in artifact uploads but do not
+    # gate the branch.
+    name: bermuda informational lints
+    runs-on: ubuntu-latest
+    needs: [smoke-bermuda-pipeline]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: skills/book-thesis/pyproject.toml
+      - name: install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e skills/book-thesis[ci] -e skills/book-qa[ci]
+      - name: compile_thesis (prerequisite for lint_supports)
+        run: |
+          python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
+      - name: lint_supports (informational)
+        continue-on-error: true
+        run: |
+          python skills/book-thesis/scripts/lint_supports.py examples/bermuda-manual 3.0.0
+      - name: lint_artifact (informational, expects v6 orphans)
+        continue-on-error: true
+        run: |
+          python skills/book-qa/scripts/lint_artifact.py examples/bermuda-manual 3.0.0
+      - name: upload informational reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bermuda-informational-reports
+          path: |
+            examples/bermuda-manual/qa/defects.json
+            examples/bermuda-manual/qa/supports-defects.json
+          if-no-files-found: warn
+
   cljs-bermuda-test:
     name: cljs-bermuda-test
     runs-on: ubuntu-latest
@@ -107,13 +267,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: verifiers/bermuda/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-      - name: npm install
+      - name: npm install (lockfile-respecting)
         working-directory: verifiers/bermuda
-        run: npm install
+        # `npm install` instead of `npm ci` — bermuda's lockfile sometimes
+        # drifts from package.json across PRs in flight, and `npm ci` is
+        # strict-fail there. The lockfile-cache key still keys on it.
+        run: npm install --no-audit --no-fund
       - name: shadow-cljs compile + node test
         working-directory: verifiers/bermuda
         run: |

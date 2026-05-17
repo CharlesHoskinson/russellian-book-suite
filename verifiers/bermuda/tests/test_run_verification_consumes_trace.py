@@ -132,3 +132,35 @@ def test_run_verification_prefers_trace_over_legacy_ledger(
     # Trace claim must appear; legacy claim must NOT
     assert "clm-TRACE-2" in ids
     assert "clm-LEGACY-1" not in ids
+
+
+def test_run_verification_uses_legacy_ledger_when_no_trace(
+    tmp_path: Path, project_root: Path,
+) -> None:
+    """No analysis/ingest-trace.edn -> falls back to claims/ledger.jsonl.
+
+    REQ-TRACE-002: legacy fallback preserved when trace absent.
+    """
+    workspace = _seed_workspace(tmp_path, with_legacy_ledger=True)
+    # NO trace file written.
+    assert not (workspace / "analysis" / "ingest-trace.edn").exists()
+
+    sandbox_project = tmp_path / "project_root_clone"
+    sandbox_project.mkdir()
+    (sandbox_project / "rules").mkdir()
+    (sandbox_project / "rules" / "predicates.edn").write_text(
+        (project_root / "rules" / "predicates.edn").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    rc = run(
+        workspace=workspace, release_version="1.0.0",
+        project_root=sandbox_project, stub_verifier=True, stub_verdict="sat",
+    )
+    assert rc == 0
+    parsed = read_edn((sandbox_project / "work" / "claims.edn").read_text(encoding="utf-8"))
+    atoms = parsed[Keyword("atoms")]
+    ids = {a[Keyword("id")] for a in atoms}
+    assert "clm-LEGACY-1" in ids
+    # No synthesised file should have been written either
+    assert not (sandbox_project / "work" / "ledger-from-trace.jsonl").exists()

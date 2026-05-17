@@ -251,15 +251,14 @@ class _Parser:
             return float(token)
         except ValueError:
             pass
-        # Symbol: starts with letter or underscore; may contain a single '/'
-        if token and (token[0].isalpha() or token[0] == "_"):
-            if "/" in token:
-                ns, _, name = token.partition("/")
-                # validate that there's no trailing '/' and name is non-empty
-                if not ns or not name or "/" in name:
-                    raise EdnReadError(
-                        f"malformed namespaced symbol {token!r} at position {start}"
-                    )
-                return Symbol(name=name, namespace=ns)
+        # Symbol: EDN allows symbols starting with letters, _, and many operator
+        # characters (=, +, -, *, /, <, >, !, ?, &, %, ~, ^, .). We accept any
+        # non-empty token that isn't a number or boolean as a symbol so that
+        # operator heads like `=`, `~=`, `*`, `+`, `-` parse correctly.
+        if token and "/" not in token:
             return Symbol(name=token)
+        if token and "/" in token:
+            ns, _, name = token.partition("/")
+            if ns and name and "/" not in name:
+                return Symbol(name=name, namespace=ns)
         raise EdnReadError(f"unrecognised atom {token!r} at position {start}")

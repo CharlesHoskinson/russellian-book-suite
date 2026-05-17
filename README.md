@@ -684,7 +684,19 @@ outputs: [manuscript.md, manuscript.html, manuscript.pdf]
 
 ## Local-only constraint
 
-<!-- drafted in stage 2 task 2.11 -->
+No paid APIs. No telemetry. The suite routes every outbound HTTP call through `scrapling-fetch`: it is the single network boundary. Only `scrapling-fetch` imports `requests`, `httpx`, `urllib3`, `aiohttp`, or `playwright`; no other skill does. The `ci/.import-linter` contract enforces the rule; a PR that imports any of those libraries from a skill other than `scrapling-fetch` fails CI before tests run. Everything else in the pipeline runs local.
+
+The booklogic CLI runs locally, against EDN rules on disk. There is no remote service. The metabook talks to it over stdin/stdout on a JSON wire.
+
+The full dependency stack:
+
+- **Python**: pdfplumber (PDF ingest), markdown-it-py (Markdown ingest), rdflib (graph), pyshacl (SHACL validation), jsonschema (claim validation), spaCy (dependency parsing for Russellian linters), pypdf (PDF post-processing), matplotlib (figures), geopandas (maps), great_tables and plottable (tables), css-inline (HTML rendering), pyDatalog (the consistency pass in book-thesis).
+- **Node**: `@mermaid-js/mermaid-cli` for Mermaid diagrams, called from Playwright's bundled Chromium.
+- **Playwright**: HTML → PDF rendering with Chromium.
+
+Image sources for visuals come from OpenStreetMap (under the Open Database Licence), Wikimedia Commons (Creative Commons licences), and programmatic charts generated from the claim ledger. No image fetch happens at runtime; assets ship with the workspace.
+
+LLM calls happen at three points in the pipeline: section drafting (`book-compose` calls a sibling skill or external agent for the first-pass prose), per-paragraph entailment (`book-thesis` Layer 3), and the per-chapter editorial swarm (`book-qa` Stage 2). Every call uses a callable parameter (`llm_call=`); tests pass fake LLM functions. No live network call runs in any test.
 
 ## Repository layout
 

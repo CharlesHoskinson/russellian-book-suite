@@ -14,7 +14,11 @@
                                      :from :claim/canonical-text
                                      :when "(?i)(?<n>\\d+)\\s+parishes?"
                                      :emit (list 'fact '?claim-id :Bermuda :parishes-count
-                                                 (list 'parse-int '?n)))]}
+                                                 (list 'parse-int '?n)))]
+                  :rules       []
+                  :constraints []
+                  :queries     []
+                  :remedies    []}
         expanded (bl/expand src)]
     (is (= 2 (count (:sort-registry expanded))))
     (is (= 1 (count (:predicate-registry expanded))))
@@ -29,12 +33,42 @@
                                      :when "(?i)(?<n>\\d+)\\s+parishes?"
                                      :emit (list 'fact '?claim-id :Bermuda :parishes-count
                                                  (list 'parse-int '?n))
-                                     :word-to-int {"nine" 9})]}
+                                     :word-to-int {"nine" 9})]
+                  :rules       []
+                  :constraints []
+                  :queries     []
+                  :remedies    []}
         expanded (bl/expand src)
         text     (#'{{ project_slug }}.booklogic/emit-predicates-edn-string expanded)]
     (is (re-find #":parishes-count" text))
     (is (re-find #":value-kind :int" text))
     (is (re-find #"\"nine\" 9" text))))
+
+(deftest expand-defrule-basic
+  (let [src      {:sorts      []
+                  :predicates []
+                  :lifts      []
+                  :rules      [(list 'defrule 'R001-normalize-st-davids
+                                     (list '= (list 'entity "St. David's Island")
+                                              :St_Davids_Island)
+                                     :tags [:normalization :entity])]
+                  :constraints []
+                  :queries     []
+                  :remedies    []}
+        expanded (bl/expand src)]
+    (is (= 1 (count (:rewrite-rules expanded))))
+    (let [rule (first (:rewrite-rules expanded))]
+      (is (= 'R001-normalize-st-davids (:name rule)))
+      (is (= [:normalization :entity]   (:tags rule)))
+      (is (some? (:lhs rule)))
+      (is (some? (:rhs rule))))))
+
+(deftest expand-defrule-missing-equation-throws
+  (is (thrown-with-msg?
+        js/Error #"defrule.*must contain.*equation"
+        (bl/expand {:sorts [] :predicates [] :lifts []
+                    :rules [(list 'defrule 'R002 :tags [:foo])]
+                    :constraints [] :queries [] :remedies []}))))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests)]

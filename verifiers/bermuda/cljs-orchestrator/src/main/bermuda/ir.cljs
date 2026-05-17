@@ -29,6 +29,22 @@
    [:modality    [:enum :assertion :hypothesis :definition :counterfactual]]
    [:confidence  [:double {:min 0.0 :max 1.0}]]])
 
+(def EventHead
+  "Symbolic head produced by the book-knowledge exporter. Stored as a
+   symbol in CLJS (cljs.reader reads `claim/verified` as a symbol)."
+  [:or :symbol :keyword])
+
+(def Event
+  "A trace event read from analysis/ingest-trace.edn. Two-element tuple:
+   the first element is the head symbol/keyword (e.g. `claim/verified`),
+   the second is a payload map."
+  [:tuple EventHead :map])
+
+(def ClaimOrEvent
+  "Phase translate input element. Backwards-compatible: either a legacy
+   Claim map, or a new Event vector."
+  [:or Claim Event])
+
 (def Verdict
   [:map
    [:status       [:enum :sat :unsat :unknown]]

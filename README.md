@@ -375,7 +375,27 @@ python scripts/lint_supports.py my-workspace v0.1
 - `skills/book-qa/` — D9–D12 defect definitions and gate configuration.
 
 </details>
-<!-- mini-tutorial: book-compose            (stage 3 task 3.7) -->
+<details>
+<summary><strong>book-compose</strong> — chapter orchestrator: contract in, gated release out</summary>
+
+**What it does.** A chapter contract enters; a gated release bundle exits. `book-compose` drives nine pipeline stages: it loads `chapters/contracts/<chapter_id>.yaml`, runs a pre-flight SHACL check, slices verified claims from the ledger, produces a section outline for user approval, drafts each section by loading a `russellian-style` system prompt, applies the `humanizer` sibling for a final AI-pattern pass, dispatches the seven-persona editorial panel, assembles a chapter bundle, and — on explicit request — builds the book-level release: `manuscript.md`, a React/Tailwind HTML browser, and a Playwright PDF. No stage reaches backwards; stage N reads only what stage N-1 wrote.
+
+**Inputs / outputs.** The skill reads `chapters/contracts/<chapter_id>.yaml` for the chapter contract, `syntopical/lenses/<chapter_id>.md` for the world-model slice, and `claims/ledger.jsonl` for the verified claim set. It writes drafts and review artefacts under `chapters/drafts/<chapter_id>/`, release bundles under `chapters/releases/<chapter_id>-<version>/`, and book-level releases under `book/releases/<version>/`. The public API function `read_lens(chapter_id, workspace)` — defined in `skill_api.py` as interface contract IF-BC-1 — reads and validates the lens file, enforcing the section order `## Topics` → `## Disputed Questions` → `## Concept Reconciliation` → `## Coverage`; any deviation raises `LensContractViolation`.
+
+**When to invoke.** Use when the user says "draft chapter ch-NN", "build release bundle for ch-NN", or "build the book release". These cover the three distinct pipeline entry points: chapter drafting (stages 1–7), chapter bundle assembly (stage 8), and full book release (stage 9).
+
+**When NOT to invoke.** Skip `book-compose` for source ingestion or claim extraction — that is `book-knowledge`. Skip it for sentence-grain prose rewrites on text that isn't inside the chapter pipeline — use `russellian-style` directly.
+
+**Trigger phrases.** The frontmatter lists: `"draft chapter X"`, `"compile chapter from contract"`, `"build release bundle for chapter X"`, `"render chapter to PDF"`, `"build the book release"`, `"publish the book"`.
+
+**Example walkthrough.** The user says "draft chapter ch-01". `book-compose` loads `chapters/contracts/ch-01.yaml`, verifies claims against the SHACL shapes, queries the ledger for the ch-01 claim slice, and presents a section outline. On approval it drafts each section: loads the `technical-exposition` system prompt via `system_prompt_loader.load("technical-exposition")`, generates a first-pass draft, calls `russellian-style` for voice discipline, calls `humanizer` for AI-pattern removal. Section drafting complete, `review-conductor` dispatches the seven-persona panel and aggregates findings into `verdict.json`. If `verdict.verdict != "soft-gate-fail"`, the bundle lands at `chapters/drafts/ch-01/draft.md`. Any gating persona — Gottlieb, Domain Expert, Copyeditor, or AI-Slop Detector — can raise a critical finding that sends the chapter back to drafting.
+
+**Where to dive deeper.**
+- `skills/book-compose/SKILL.md`
+- `skills/book-compose/skill_api.py` — IF-BC-1 (`read_lens`)
+- `skills/book-compose/tests/`
+
+</details>
 <!-- mini-tutorial: russellian-style        (stage 3 task 3.8) -->
 <!-- mini-tutorial: book-review             (stage 3 task 3.9) -->
 <!-- mini-tutorial: review-conductor        (stage 3 task 3.10) -->

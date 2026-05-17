@@ -1,0 +1,61 @@
+name: OpenSpec change proposal
+description: Propose a new OpenSpec change (a sprint, feature, or refactor)
+title: "[proposal] <change-slug>"
+labels: ["openspec", "proposal"]
+body:
+  - type: input
+    id: change-slug
+    attributes:
+      label: Change slug
+      description: kebab-case identifier; becomes openspec/changes/<slug>/
+      placeholder: e.g. booklogic-pr7-foo
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What problem does this change solve? Cite current state or audit findings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: Bullet list of the concrete changes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: Capabilities touched
+      description: |
+        List the capabilities (slugs from openspec/README.md) and what kind of delta
+        (ADD / MODIFY / REMOVE) the change makes to each.
+      placeholder: |
+        - edn-boundary: ADD
+        - cljs-orchestrator: MODIFY
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: How will you know the change is done?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: openspec-shape
+    attributes:
+      label: OpenSpec shape
+      description: After this proposal is approved, create the following.
+      options:
+        - label: openspec/changes/<slug>/proposal.md
+        - label: openspec/changes/<slug>/design.md
+        - label: openspec/changes/<slug>/tasks.md
+        - label: openspec/changes/<slug>/specs/<capability>/spec.md for each touched capability

@@ -40,6 +40,12 @@ def test_book_compose_reads_lens_from_project_lens_output(synthesized_workspace)
     if sm_path not in sys.path:
         sys.path.insert(0, sm_path)
 
+    # Clear any stale 'scripts' cache that might come from the rest of the
+    # book-compose test suite (which imports its own scripts.* subpackage).
+    for k in list(sys.modules):
+        if k == "scripts" or k.startswith("scripts."):
+            del sys.modules[k]
+
     from scripts.lens.project_lens import project_lens  # syntopical-metabook
     out = project_lens(workspace_root=synthesized_workspace, chapter_id="ch-01",
                        source_run_id="run-9-1")

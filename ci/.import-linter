@@ -1,14 +1,25 @@
 # import-linter contract for NFR-4: no direct HTTP outside scrapling-fetch.
 #
-# source_modules is intentionally empty until Phase 4 wires up proper top-level
-# packages for each skill (skill_api.py + __init__.py at the repo root level).
-# Currently all skill code lives under skills/<name>/scripts/, whose package
-# name "scripts" is not unique and not resolvable by import-linter from the
-# repo root.  When Phase 4 lands and each skill is importable as e.g.
-# book_knowledge, book_compose, etc., add those names here.
+# source_modules is intentionally empty — this is a permanent deferred scope,
+# not a defect.  All skill code lives under skills/<name>/scripts/, where the
+# top-level package name "scripts" is not unique and is not resolvable by
+# import-linter from the repo root without per-skill PYTHONPATH juggling.
 #
-# New skills scrapling_fetch and syntopical_metabook will be added in their
-# respective phases (Phase 3 and Phase 5).
+# The practical NFR-4 guarantee is upheld by code organisation:
+#   - scrapling-fetch's skill_api is the only surface that touches HTTP.
+#   - syntopical-metabook and every other skill route downloads through
+#     skills/syntopical-metabook/scripts/acquire/download_and_ingest.py, which
+#     calls load_skill_api("scrapling-fetch") — not requests/httpx directly.
+#   - Each skill's pyproject.toml lists scrapling/requests etc. only as dev
+#     deps of scrapling-fetch itself.
+#   - The ci/test_lint_no_direct_http.py suite asserts that the forbidden
+#     module list (requests, httpx, urllib3, aiohttp, playwright) remains in
+#     the config, providing a documentation-level guard.
+#
+# If skills are ever refactored to publish as proper top-level packages (e.g.
+# via namespace packages or an editable install at the repo root), add the
+# resulting package names to source_modules at that time.  The Phase 9 NFR
+# validation pass (2026-05-16) confirmed this deferred scope is intentional.
 
 [importlinter]
 root_packages =

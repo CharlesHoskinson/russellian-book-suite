@@ -1,7 +1,9 @@
 """End-to-end Acquire smoke test against a fixture workspace.
 
 Uses the booklogic stub (BOOKLOGIC_BIN) and monkeypatches the network-touching
-pieces so the test stays hermetic."""
+pieces so the test stays hermetic.
+
+rank() requires torch/sentence-transformers; test is skipped when those are absent."""
 import os
 import sys
 import json
@@ -10,6 +12,15 @@ from types import SimpleNamespace
 import pytest
 
 STUB = Path(__file__).resolve().parents[1] / "fixtures" / "booklogic_stub.py"
+
+
+def _ml_deps_available() -> bool:
+    try:
+        import torch  # noqa: F401
+        import sentence_transformers  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
 def _workspace(tmp_path):
     """Build a minimal fixture workspace with one chapter contract and thesis tree."""
@@ -38,6 +49,9 @@ def _workspace(tmp_path):
 def use_stub(monkeypatch):
     monkeypatch.setenv("BOOKLOGIC_BIN", f"{sys.executable} {STUB}")
 
+
+@pytest.mark.skipif(not _ml_deps_available(),
+                    reason="torch/sentence-transformers not installed")
 def test_e2e_acquire_with_stubbed_network(tmp_path, monkeypatch, use_stub):
     from scripts.acquire.rank_candidates import rank, Candidate
     from scripts.acquire.triage import triage, TriageConfig

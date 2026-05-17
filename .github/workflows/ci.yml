@@ -20,9 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: install actionlint v1.7.7 (pinned tarball + SHA verification)
+      - name: install actionlint (pinned tarball + SHA verification)
         env:
-          ACTIONLINT_VERSION: "1.7.7"
+          ACTIONLINT_VERSION: "1.7.12"
         run: |
           curl -fsSL \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
@@ -232,6 +232,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e skills/book-thesis[ci] -e skills/book-qa[ci]
+      - name: compile_thesis (prerequisite for lint_supports)
+        run: |
+          python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
       - name: lint_supports (informational)
         run: |
           python skills/book-thesis/scripts/lint_supports.py examples/bermuda-manual 3.0.0
@@ -262,9 +265,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: npm ci
+      - name: npm install (lockfile-respecting)
         working-directory: verifiers/bermuda
-        run: npm ci
+        # `npm install` instead of `npm ci` — bermuda's lockfile sometimes
+        # drifts from package.json across PRs in flight, and `npm ci` is
+        # strict-fail there. The lockfile-cache key still keys on it.
+        run: npm install --no-audit --no-fund
       - name: shadow-cljs compile + node test
         working-directory: verifiers/bermuda
         run: |

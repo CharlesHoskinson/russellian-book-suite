@@ -212,7 +212,48 @@ sm.project_lens(workspace, chapter_id="ch-03")
 - `skills/syntopical-metabook/tests/integration/` — integration tests covering the four sub-workflows end-to-end.
 
 </details>
-<!-- mini-tutorial: sibling_skills          (stage 3 task 3.3) -->
+<details>
+<summary><strong>sibling_skills</strong> — shared cross-skill loader package</summary>
+
+**What it does.** `sibling_skills` is a Python package, not a Claude Code skill. It does one thing: load another skill's `skill_api.py` module by name and validate the major version before any skill code executes. The package is under twenty lines of meaningful logic — `loader.py` plus an `__init__.py` re-export — yet it is the only sanctioned import path between skills in the suite. CI enforces this: a PR that imports a sibling skill root directly fails the import-linter gate before tests run. The consequence of that discipline is that a skill's internal refactor cannot silently break a caller; the version check catches the mismatch at load time, not at the call site.
+
+Each skill declares `API_VERSION: tuple[int, int]` in its `skill_api.py`. The loader checks the major component against the caller's `expected_major` argument; a mismatch raises `IncompatibleSkillApiVersion` before the module is returned. The cross-skill ABI contract (REQ-ABI-1 through REQ-ABI-5), specified in `openspec/changes/add-syntopical-metabook/specs/skill-abi/spec.md`, is enforced here and nowhere else. Skills root defaults to `~/.claude/skills/`; set `SIBLING_SKILLS_ROOT` to override, which is what the test suite does to point at fixture skill trees.
+
+**Inputs / outputs.**
+- Input: a skill name string and an optional `expected_major` integer.
+- Output: the imported `skill_api` module, ready to call.
+- Exception: `IncompatibleSkillApiVersion` on major-version mismatch or absent `API_VERSION`.
+- Exception: `FileNotFoundError` when no `skill_api.py` exists at the resolved path.
+
+**When to invoke.**
+- Any skill that needs to call a function from another skill's public surface.
+- Writing a new skill that will call `scrapling-fetch`, `book-knowledge`, `book-thesis`, or any other suite member.
+- Upgrading a dependency skill and needing to gate the caller on a specific major version.
+
+**When NOT to invoke.**
+- Importing utilities from the same skill's own `scripts/` — use a relative import.
+- Calling `booklogic` — that interface goes through `scripts/booklogic_adapter.py`, which uses `subprocess`, not `sibling_skills`.
+- General Python module loading unrelated to the suite's skill boundary.
+
+**Trigger phrases.** Not a routable Claude Code skill — no trigger phrases. Import it directly in Python: `from sibling_skills import load_skill_api`.
+
+**Example walkthrough.**
+
+```python
+from sibling_skills import load_skill_api, IncompatibleSkillApiVersion
+
+bk = load_skill_api("book-knowledge", expected_major=0)
+claims = bk.query_claims({"state": "verified"}, workspace_root)
+```
+
+`book-compose` calls this when it needs `book-knowledge.query_claims`. The loader walks `~/.claude/skills/book-knowledge/skill_api.py`, imports it, reads `API_VERSION`, and confirms the major is `0`. If `book-knowledge` later ships `API_VERSION = (1, 0)` — a breaking change — the same call raises `IncompatibleSkillApiVersion("Skill 'book-knowledge' API_VERSION is (1, 0); expected major 0")` before any skill code runs. The caller then either adapts to the new surface or pins `expected_major=0` and waits for a compatibility shim.
+
+**Where to dive deeper.**
+- `sibling_skills/loader.py` — the whole package is small enough to read in two minutes.
+- `sibling_skills/tests/test_loader.py` — unit tests for version-mismatch paths and env-var override.
+- `openspec/changes/add-syntopical-metabook/specs/skill-abi/spec.md` — the ABI contract (REQ-ABI-1..5) this loader enforces.
+
+</details>
 <!-- mini-tutorial: booklogic (interface)   (stage 3 task 3.4) -->
 
 ### Tier 2 — Drafting pipeline

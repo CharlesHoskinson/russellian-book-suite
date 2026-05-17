@@ -204,6 +204,83 @@
         (throw (ex-info (str "defpredicate " name ": unknown return sort " ret)
                         {:predicate pred :unknown ret}))))))
 
+;; ----- defconstraint expansion -----
+
+(defn- assert-form-approx?
+  "True iff the :assert form uses the ~= (approximate-equality) head."
+  [assert-form]
+  (and (sequential? assert-form) (= '~= (first assert-form))))
+
+(defn- extract-tolerance
+  "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.
+   For any other form return nil."
+  [assert-form]
+  (when (assert-form-approx? assert-form)
+    (let [pairs (drop 3 assert-form)]
+      (loop [xs pairs]
+        (cond
+          (empty? xs)               nil
+          (= :tolerance (first xs)) (second xs)
+          :else                     (recur (drop 2 xs)))))))
+
+(defn- expand-defconstraint
+  "(defconstraint NAME :backend B :assert F :track T :on-unsat OU) → constraint map.
+
+   Required: :backend, :assert, :on-unsat.
+   Optional: :track (defaults to :claim/id).
+
+   The intermediate map carries everything the Python codegen needs to
+   emit a Z3 assert_and_track call:
+     {:name       sym
+      :backend    :z3 / :egg / :cozo
+      :assert     full assert form (preserved for codegen tokenisation)
+      :tolerance  number-or-nil  (extracted when :assert head is ~=)
+      :track      :claim/id / literal
+      :on-unsat   {:defect :severity :message}}"
+  [form]
+  (let [[_ name & options] form
+        opts (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "defconstraint: name must be a symbol" {:form form})))
+    (doseq [required [:backend :assert :on-unsat]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "defconstraint " name ": missing required option " required)
+                        {:form form}))))
+    (let [on-unsat (:on-unsat opts)]
+      (when-not (and (map? on-unsat)
+                     (contains? on-unsat :defect)
+                     (contains? on-unsat :severity)
+                     (contains? on-unsat :message))
+        (throw (ex-info (str "defconstraint " name
+                             ": :on-unsat must be {:defect :severity :message}")
+                        {:form form :on-unsat on-unsat})))
+      {:name      name
+       :backend   (:backend opts)
+       :assert    (:assert opts)
+       :tolerance (extract-tolerance (:assert opts))
+       :track     (or (:track opts) :claim/id)
+       :on-unsat  on-unsat})))
+
+;; ----- constraints.edn codegen (intermediate; consumed by Python codegen_axioms) -----
+
+(defn- constraint-to-entry
+  [c]
+  {:id        (str (:name c))
+   :backend   (:backend c)
+   :assert    (:assert c)
+   :tolerance (:tolerance c)
+   :track     (:track c)
+   :on-unsat  (:on-unsat c)})
+
+(defn- emit-constraints-edn-string
+  [{:keys [constraint-decls]}]
+  (let [entries (mapv constraint-to-entry constraint-decls)]
+    (pr-str {:version 1 :constraints entries})))
+
+(defn emit-constraints-edn
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-constraints-edn-string expanded)))
+
 ;; ----- rules.edn codegen (consumed by phases.cljs) -----
 
 (defn- rewrite-rule-to-entry
@@ -287,8 +364,8 @@
         predicate-registry (mapv expand-defpredicate (filter defpredicate? predicates))
         lift-rules         (mapv expand-deflift (filter deflift? lifts))
         rewrite-rules      (mapv expand-defrule (filter defrule? rules))
-        ;; Phase 2 fills :constraints; Phase 3 fills :queries; Phase 4 fills :remedies
-        constraint-decls   []
+        constraint-decls   (mapv expand-defconstraint (filter defconstraint? constraints))
+        ;; Phase 3 fills :queries; Phase 4 fills :remedies
         query-decls        []
         remedy-decls       []]
     (validate-predicate-sorts predicate-registry sort-registry)
@@ -315,9 +392,11 @@
         rules-dir    (path/join project-root "rules")]
     (emit-predicates-edn   expanded (path/join rules-dir "predicates.edn"))
     (emit-rewrite-rules-edn expanded (path/join rules-dir "rules.edn"))
-    ;; Phase 2 wires constraints.edn; Phase 3 wires queries.edn; Phase 4 wires remedies.edn
+    (emit-constraints-edn  expanded (path/join rules-dir "constraints.edn"))
+    ;; Phase 3 wires queries.edn; Phase 4 wires remedies.edn
     (println (str "[booklogic] compiled "
                   (count (:sort-registry expanded))      " sorts, "
                   (count (:predicate-registry expanded)) " predicates, "
                   (count (:lift-rules expanded))         " lifts, "
-                  (count (:rewrite-rules expanded))      " rules"))))
+                  (count (:rewrite-rules expanded))      " rules, "
+                  (count (:constraint-decls expanded))   " constraints"))))

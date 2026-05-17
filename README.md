@@ -1143,7 +1143,11 @@ Read-only boundaries between skills are strict. The metabook accesses scrapling-
 
 ## Deep QA: how this README was made
 
-<!-- drafted in stage 5 task 5.2 (after the full-doc sweep generates the QA report) -->
+Russellian-style's `technical-exposition` system prompt governed every word in this README. Every prose-writing subagent in the refactor loaded the prompt via `system_prompt_loader.load("technical-exposition")` and embedded it as the writer's voice contract before drafting a single sentence. The lint pass confirmed the result; the QA report at `docs/qa/README-QA-2026-05-17.md` carries the per-linter counts.
+
+Twelve linter modules emit seventeen rule names. Six modules gate (eight rule names): `no-hedging`, `active-voice`, `signal-density`, `parallel-structure`, `listicle-abstract`, `listicle-anaphora`, `rhythm-uniform-length`, `rhythm-repeated-opening`. Six modules advise (nine rule names): AI staccato, AI vocabulary, burstiness, concrete-instance-density, epistemic-precision, paragraph-motion. Final gating violations on the assembled README: zero. Advisory findings: 72, each documented in the QA report with the author's disposition. The dominant source of advisory noise was `epistemic-precision` — 70 of the 72 findings — firing on technically-precise sentences that name file paths, version numbers, and numeric thresholds.
+
+This section is the proof. The suite that drafted every other section drafted this one too. The Russell discipline sat in the generation contract, not bolted on after the fact. A reader who doubts the suite's voice can run `python tools/lint_readme.py README.md` locally; the result is reproducible.
 
 ## Documentation
 

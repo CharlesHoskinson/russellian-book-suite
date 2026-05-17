@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import yaml
+from scripts.provenance import provenance_footer
 
 
 def _load_chapter_tags(ws: Path, chapter_id: str) -> set[str]:
@@ -139,6 +140,7 @@ def project_lens(workspace_root: Path, chapter_id: str, source_run_id: str = "")
         + "## Disputed Questions\n\n" + (disputed_md or "_none_") + "\n\n"
         + "## Concept Reconciliation\n\n" + (concepts_md or "_none_") + "\n\n"
         + "## Coverage\n\n" + coverage_md + "\n"
+        + provenance_footer(source_run_id)
     )
     out = workspace_root / "syntopical" / "lenses" / f"{chapter_id}.md"
     out.parent.mkdir(parents=True, exist_ok=True)

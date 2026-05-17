@@ -4,6 +4,7 @@ Per REQ-SYN-1, each row has `{slug, sources, n_verified_claims}`."""
 from __future__ import annotations
 from pathlib import Path
 from sibling_skills import load_skill_api
+from scripts.provenance import provenance_footer
 
 
 def _load_book_knowledge():
@@ -52,5 +53,5 @@ def build_topic_map(workspace_root: Path, chapter_id: str) -> Path:
         for c, n_cl in by_node["_unassigned"]:
             lines.append(f"| {c.slug} | {','.join(sorted(c.sources))} | {n_cl} |")
         lines.append("")
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out.write_text("\n".join(lines) + "\n" + provenance_footer(), encoding="utf-8")
     return out

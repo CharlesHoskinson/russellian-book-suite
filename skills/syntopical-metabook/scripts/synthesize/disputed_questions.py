@@ -6,6 +6,7 @@ from pathlib import Path
 from collections import defaultdict
 from sibling_skills import load_skill_api
 from scripts.booklogic_adapter import disputed_questions as _booklogic_disputed_questions
+from scripts.provenance import provenance_footer
 
 _LEGACY_BANNER = "> Legacy mode — booklogic disabled"
 
@@ -44,7 +45,7 @@ def _legacy_build_disputed_questions(bk, workspace_root: Path) -> list[Path]:
             src_id = getattr(pair, "source_id", "")
             lines.append(f"| {question} | — | {src_id} | {cl_id} | legacy | — |")
         out = out_dir / f"{topic}.md"
-        out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        out.write_text("\n".join(lines) + "\n" + provenance_footer(), encoding="utf-8")
         written.append(out)
     return written
 
@@ -75,6 +76,6 @@ def build_disputed_questions(workspace_root: Path) -> list[Path]:
                               f"[{p.claim_id}](../../claims/{p.claim_id}.json) | "
                               f"{p.rewrite_witness} | — |")
         out = out_dir / f"{topic}.md"
-        out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        out.write_text("\n".join(lines) + "\n" + provenance_footer(), encoding="utf-8")
         written.append(out)
     return written

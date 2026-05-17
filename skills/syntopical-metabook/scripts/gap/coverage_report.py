@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from sibling_skills import load_skill_api
+from scripts.provenance import provenance_footer
 
 
 def _load_book_knowledge():
@@ -38,5 +39,5 @@ def build_coverage_report(workspace_root: Path, chapter_id: str,
         lines.append(f"| {nid} | {s:.2f} | {k} |")
     avg = (sum(s for _, s, _ in scored) / max(1, len(scored))) if scored else 1.0
     lines += ["", f"average_coverage_score: {avg:.3f}"]
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out.write_text("\n".join(lines) + "\n" + provenance_footer(), encoding="utf-8")
     return out

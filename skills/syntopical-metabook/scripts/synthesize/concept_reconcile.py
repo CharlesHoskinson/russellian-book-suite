@@ -6,6 +6,7 @@ from pathlib import Path
 from sibling_skills import load_skill_api
 from scripts.booklogic_adapter import reconcile_concepts as _booklogic_reconcile_concepts
 from scripts.booklogic_adapter import CanonicalConcept, Alternate
+from scripts.provenance import provenance_footer
 
 _LEGACY_BANNER = "> Legacy mode — booklogic disabled"
 
@@ -84,7 +85,7 @@ def _write_concept_file(out_dir: Path, cc: CanonicalConcept, banner: str | None 
     for a in cc.alternates:
         lines.append(f"| {a.slug} | {a.surface_form} | {a.source_id} | {a.rewrite_witness} |")
     out = out_dir / f"{cc.slug}.md"
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out.write_text("\n".join(lines) + "\n" + provenance_footer(), encoding="utf-8")
     return out
 
 

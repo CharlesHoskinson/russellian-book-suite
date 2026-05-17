@@ -349,6 +349,14 @@ Two fixture ledgers:
 
 Demonstrates the DSL is reusable beyond Bermuda; demonstrates the `~=` (approximate equality) operator works.
 
+**PR-6 closure (2026-05-17):** Delivered as `verifiers/osmotic_pressure/`. The
+project ships sorts/predicates/lifts/constraints only (no queries or remedies,
+per the showcase scope). `axioms.rs` is regenerated from `constraints.edn` by
+the BookLogic compiler; both fixture verdicts (`:sat` on clean, `:unsat` on
+i=1 doctored) are gated by the `osmotic-pressure-smoke` CI job on
+`ubuntu-latest`. The design-doc `docs/specs/2026-05-17-booklogic-claude-only-finish-design.md`
+tracks this same deliverable under its own numbering as PR-6.
+
 ## Sub-PR slate
 
 Six sub-PRs:

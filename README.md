@@ -137,16 +137,201 @@ syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  n
 ## Core concepts
 
 ### The book workspace
-<!-- drafted in stage 2 task 2.6 -->
+
+A workspace is a directory. Eight subtrees, four append-only ledgers, one RDF graph: cloning the directory clones the book.
+
+```
+<workspace>/
+├── CLAUDE.md                # workspace marker; book-id and style profile
+├── raw/                     # book-knowledge owns; immutable source corpus
+│   ├── pdf/
+│   ├── markdown/
+│   └── manifests/           # one source-manifest.json per source
+├── wiki/                    # book-knowledge owns; append-only synthesis pages
+│   ├── index.md
+│   ├── log.md
+│   ├── current-status.md
+│   ├── sources/  concepts/  entities/  chapters/
+├── claims/                  # book-knowledge owns; append-only claim ledger
+│   ├── ledger.jsonl                     # claim records + state-transition records
+│   │                                    # (n.b. transitions live here in v6;
+│   │                                    #  events.jsonl below is reserved for a
+│   │                                    #  future split-out — not yet in use)
+│   ├── counter-claims.jsonl
+│   ├── conflicts.jsonl                  # (created on first conflict)
+│   ├── events.jsonl                     # (reserved; transition log split planned)
+│   ├── proposed-transitions.jsonl
+│   ├── snapshots/
+│   └── address-checks/                  # (created on first counter-claim
+│                                        #  address check; absent in bermuda v6)
+├── graph/                   # book-knowledge owns; projected RDF dataset
+│   ├── dataset.trig                     # the projected graph
+│   └── reports/                         # SHACL reports, competency-query results
+│                                        # (SHACL shapes ship with the skill at
+│                                        #  skills/book-knowledge/assets/shapes.ttl
+│                                        #  and are referenced at validate-time)
+├── chapters/                # book-compose owns
+│   ├── contracts/           # chapter-NN.yaml
+│   ├── drafts/              # chapter-NN/{outline.md, draft.md, panel-review.md, verdict.json}
+│   └── releases/            # chapter-NN-vX.Y/{draft.md, manifest.yaml, ...}
+├── book/                    # book-compose owns; book-level release bundles
+│   ├── preflight/
+│   └── releases/<version>/
+│       ├── manuscript.md
+│       ├── manuscript.html
+│       ├── manuscript.pdf
+│       ├── book-manifest.yaml
+│       └── chapter-bundles/
+├── qa/                      # book-qa owns
+│   ├── lint-findings.json
+│   ├── swarm-findings.json
+│   ├── chapter-tickets/
+│   ├── ledger-writeback-<version>.md
+│   └── panels/                          # optional per-workspace panel overrides
+│                                        # (resolved by book-compose's wrapper at
+│                                        #  scripts/persona_review_pass.py:_resolve_panel_path;
+│                                        #  absent in bermuda v6, which uses the
+│                                        #  shipped chapter-default.yaml)
+├── thesis/                  # book-thesis owns
+│   ├── <book-id>.yaml
+│   └── schema.yaml
+├── syntopical/              # syntopical-metabook owns; world-model layer
+│   ├── config.yaml
+│   ├── topic-map.md
+│   ├── disputed-questions/
+│   ├── concepts/
+│   ├── lenses/
+│   ├── reports/
+│   └── acquisition/
+└── reports/                 # cross-skill release reports
+```
+
+Five ownership invariants hold by skill contract and by test. `book-knowledge` is the only writer of `raw/`, `wiki/`, `claims/`, `graph/`. `book-compose` is the only writer of `chapters/` and `book/`. `book-qa` is the only writer of `qa/`. `book-thesis` is the only writer of `thesis/`. `syntopical-metabook` is the only writer of `syntopical/`, and its CI plugin enforces this by failing any test that opens a write handle on the other four subtrees. The SHACL shapes file (`shapes.ttl`) and the JSON Schema for the source manifest stay in lockstep: an off-by-one in the status enum would break both gates silently, so the test suite checks that the SHACL `sh:in` list and the JSON Schema enum match exactly.
 
 ### The claim ledger and PROV-O provenance
-<!-- drafted in stage 2 task 2.6 -->
+
+A claim is a statement extracted from a source: subject, predicate, object, plus a source pointer, a span, a status, and a Bayesian posterior. PROV-O is the W3C provenance ontology, which records for every fact the source, the extractor, and the timestamp. Every claim in the manuscript traces back to a specific line in a specific source because PROV-O is what makes that trace possible.
+
+The ledger is an append-only JSONL log. Each line is either a new claim or a state transition on an existing claim. `project_graph.py` projects the claim ledger into an RDF dataset in the TriG format, a flavour of Turtle with named graphs. `validate_shacl.py` runs SHACL — the W3C Shapes Constraint Language — against `shapes.ttl` to enforce the structural rules.
+
+The status field follows a five-state machine. New claims arrive `proposed`. `verify_claim.py` promotes a proposed claim to `verified` once it cross-checks the locator text against the source span. `detect_conflicts.py` flips a verified claim to `disputed` when it finds an antonym-pair contradiction; if a later ingest resolves the contradiction, the claim returns to `verified`. A newer source can supersede an older claim about the same triple, sending the older one to `superseded`. When post-build QA finds a verified claim that a later source contradicts, the write-back proposes a transition to `refuted`. Both `superseded` and `refuted` are terminal.
+
+```
+                   ┌─────────────┐
+                   │  proposed   │
+                   └──────┬──────┘
+                          │ verify_claim.py
+                          ▼
+                   ┌─────────────┐
+            ┌─────▶│  verified   │◀──── resolution restores verified
+            │      └──────┬──────┘     │
+            │             │ detect_conflicts.py
+            │             ▼            │
+            │      ┌─────────────┐     │
+            │      │  disputed   │─────┘
+            │      └──────┬──────┘
+            │             │
+            │      ┌──────┴───────┐
+            │      ▼              ▼
+            │ newer claim      refuting source
+            │ arrives          arrives
+            │      │              │
+            │      ▼              ▼
+            │ ┌─────────────┐  ┌─────────────┐
+            └─│ superseded  │  │   refuted   │
+              │ (terminal)  │  │ (terminal)  │
+              └─────────────┘  └─────────────┘
+```
+
+Every claim carries PROV-O provenance: which source, which extractor, which version, when. A SHACL violation surfaces as a warning at ingest time and as a hard fail at the release gate.
+
+Bayesian belief propagation, added in Bundle C, reads the ledger plus the conflict log and writes a posterior probability to each claim, conditioned on its supporting and refuting evidence. Claims dropping below a configurable floor receive a `pin_low_confidence` axiom and surface in the `posterior-floor` competency query — a SPARQL query that asks which claims the ledger accepted with insufficient evidence. Bundle C also introduced abductive counter-claim generation: given a load-bearing claim, the system synthesises a plausible rival hypothesis and writes it to `counter-claims.jsonl`. Any chapter whose contract references the original claim must address the rival before its release gate passes.
 
 ### Russellian prose discipline
-<!-- drafted in stage 2 task 2.6 -->
+
+Russell's sentences survive a hundred years because each one stands on its own. `russellian-style` enforces a closed catalog of analytic-prose principles covering vocabulary, voice, atomicity, flow, and structure, each backed by a deterministic Python linter that reads Markdown and emits a JSON report. The catalog lives at `skills/russellian-style/references/russellian-style-guide.md`.
+
+Russell's own prose makes the test case. Compare his sentence:
+
+> *"The point of philosophy is to start with something so simple as not to seem worth stating, and to end with something so paradoxical that no one will believe it."*
+
+with a typical AI-generated version of the same idea:
+
+```
+Philosophy can be understood as a discipline that leverages foundational simplicity
+to navigate toward profound, often counterintuitive conclusions, ensuring readers
+undergo a transformative intellectual journey.
+```
+
+The Russell version has zero hedges, zero promotional adjectives, an active verb in each clause, and a closing turn no reader anticipated. The AI version has three of the suite's hard-blocked patterns in one sentence: AI vocabulary (*leverage*, *navigate*, *transformative*), a superficial -ing analysis (*ensuring readers undergo...*), and a paragraph that does not earn its place.
+
+| Linter | What it catches |
+|---|---|
+| `lint_hedges.py` | A closed registry of hedge tokens; the full list lives in `references/russellian-style-guide.md` §2.1 |
+| `lint_passive_voice.py` | Passive constructions via spaCy dependency parse |
+| `lint_signal_density.py` | Adjective and adverb ratio per sentence against budget |
+| `lint_parallel_structure.py` | Grammatical-opening parity across bullet lists |
+| `lint_sentence_rhythm.py` | Sentence-length variance and cadence defects (e.g., five consecutive sentences with word counts within three of each other) |
+| `lint_listicle_abstract.py` | Abstract-noun listicles masquerading as argument — pattern-matched against `rests on N X` and `N Y` sentence frames |
+
+#### The vitality layer
+
+The six linters above describe the patterns to remove. Russell's prose has a second, harder dimension: motion. Concrete examples earn abstractions. Antithesis exposes a distinction. The last sentence changes pressure. The vitality layer adds five advisory linters that detect the *absence* of these moves, not the *presence* of bloat. All five are advisory in v1 — they surface in the report but do not block release. A calibration study will correlate their findings with the persona panel's verdicts before any promotion to gating.
+
+| Linter | What it measures |
+|---|---|
+| `lint_burstiness.py` | Fano factor (variance-to-mean ratio) of the sentence-length distribution; a document with sentences clustered between twelve and seventeen words carries the AI signature |
+| `lint_ai_vocabulary.py` | Three lexical pattern families: false-certainty markers, magic adverbs, and transition-adverb openers; augmented by the humanizer 24-pattern catalog when installed |
+| `lint_concrete_instance_density.py` | spaCy NER per paragraph plus an occupational-noun matcher for Russell stock figures; fires when three or more consecutive paragraphs carry zero concrete instances |
+| `lint_epistemic_precision.py` | Three-tier classification: banned-vague tokens, allowed-bounded phrases (e.g. `within five percent`), and unattributed numeric claims flagged as implicit hedges |
+| `lint_paragraph_motion.py` | Paragraph-shape rubric: assertion-only, concession-turn, contrast, definition-by-pressure, question-answer, or example-inference; fires when 70%+ of a section's paragraphs are pure assertion-stack |
+
+When a vitality linter fires, the report retrieves one paragraph reference from a fifty-paragraph index of public-domain Russell texts at `skills/russellian-style/references/russell-corpus-map.md`. The reference matches the flagged section's rhetorical mode and arrives as a citation plus a one-sentence lesson. A reader who wants the passage in front of them fetches it from Project Gutenberg using the URL and line hint in the citation.
+
+#### Mode-keyed system prompts
+
+`book-compose`'s drafter loads a system prompt matching the chapter contract's `prose_mode` field. Three prompts ship in `skills/russellian-style/assets/system-prompts/`:
+
+- `technical-exposition.md` — chapters that explain, define, or argue from evidence. Default.
+- `narrative-editorial.md` — narrative chapters and book introductions; room for hyperbaton, conjunction-starts, and concrete sensory anchors.
+- `polemic.md` — op-ed-style work; antithesis-led, sharper turns, dry irony where compression earns it.
+
+Each prompt declares banned-word registries, structural mandates, preferred rhetorical devices, and closing rules adapted from the PDF *"AI Prose: From Terseness to Cadence"* with Russell-specific overlays. A Russell pass produces `style-pass-report.md` with per-rule findings, a `vitality_metrics` block, and one or more corpus anchors when vitality linters fire. `book-compose` invokes the negative linters after each section draft; the vitality linters run on the assembled chapter; the `humanizer` sibling skill catches what the deterministic rules cannot. The positive doctrine companion lives at `skills/russellian-style/references/russellian-vitality-guide.md`: open with a difficulty not a system noun; concrete examples earn abstractions; permit exact uncertainty; antithesis to expose distinction; vary paragraph motion; let the last sentence change pressure.
 
 ### The thesis tree
-<!-- drafted in stage 2 task 2.6 -->
+
+A book has a thesis. The thesis decomposes into sub-arguments; each sub-argument cites supporting claims; every paragraph in the manuscript traces back to one sub-argument by an explicit `supports:` field. `book-thesis` owns this intent substrate and pairs it with the fact substrate that `book-knowledge` owns.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 4  Datalog consistency pass                            │
+│          (Datalog = a declarative logic-programming language │
+│          for deriving facts from rules; the pass runs ~15    │
+│          rules over the claim graph to find transitive       │
+│          contradictions like "ch-1 says A → B, ch-2 says    │
+│          B → ¬A")                                            │
+└────────────────────────┬────────────────────────────────────┘
+┌────────────────────────▼────────────────────────────────────┐
+│ Layer 3  Verifier-generator entailment loop                  │
+│          (an LLM critic asks per paragraph: does this        │
+│          paragraph actually entail what its `supports:` node │
+│          claims? verdict ∈ {entailed, weakly-entailed,       │
+│                             unrelated, contradicts})         │
+└────────────────────────┬────────────────────────────────────┘
+┌────────────────────────▼────────────────────────────────────┐
+│ Layer 2  Thesis spine                                        │
+│          YAML/RDF tree rooted at :Thesis with sub-arguments  │
+│          and required-evidence slots; every paragraph carries│
+│          a `supports: <node>` back-pointer                   │
+└────────────────────────┬────────────────────────────────────┘
+┌────────────────────────▼────────────────────────────────────┐
+│ Layer 1  Claim ledger + RDF + SHACL  (book-knowledge)        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Each layer contributes a defect class to `book-qa`. D9 fires when a paragraph carries no `supports:` field. D10 fires when the Datalog pass derives a transitive contradiction across chapters — a chain the per-chapter linter would miss because it only sees one chapter at a time. D11 fires when the entailment critic returns `contradicts` or `unrelated`. D12 fires when a node has no paragraphs advancing it.
+
+D9, D10, and D11 are critical and hard-gate the release. D12 is important and surfaces in the post-build report, but the chapter can still ship with a documented waiver — though a sub-argument with nothing advancing it is a structural admission that the book has not earned its own thesis node.
 
 ### The syntopical layer
 <!-- drafted in stage 2 task 2.7 (NEW) -->
@@ -155,13 +340,171 @@ syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  n
 <!-- drafted in stage 2 task 2.8 (NEW) -->
 
 ### Multi-persona review
-<!-- drafted in stage 2 task 2.6 -->
+
+After a chapter passes Russellian linting, seven editorial personas read it. Each persona lives in `skills/book-review/personas/*.md` as a full role description: identity, lens, severity rubric, tone, and one example review. `review-conductor` loads a panel YAML, dispatches one packet per persona to a parallel sub-agent, and aggregates the severity-tagged reports into a single verdict.
+
+| Persona | Reads for | Critical patterns | Gate |
+|---|---|---|---|
+| **Robert Gottlieb** | voice, cadence, AI-sloppy patterns | listicle abstracts; mechanical thesis enumeration; voice slips; 4+ consecutive same-shape sentences; paragraphs that do not earn their place | gating |
+| **Lay Reader** | accessibility, vocabulary, unexplained jumps | terms used without first-appearance definition; logical jumps a generalist cannot bridge; conclusions resting on undefined concepts | advisory |
+| **Domain Expert** | factual accuracy, contested-as-settled, missing nuance | claims that contradict the verified ledger; oversimplifications stated as fact; field-internal disputes elided | gating |
+| **Copyeditor** | cross-chapter consistency, mechanics | terminology drift; broken cross-references; orthography splits; unbalanced quotation marks | gating |
+| **Enjoyment Reader** | momentum, where the reader stops | unreadable passages; dead zones (4+ paragraphs of pure recitation); flat openings; flat endings | advisory |
+| **AI-Slop Detector** | 24-pattern AI-fingerprint catalog (delegates to humanizer) | inflated symbolism; listicle abstracts; mechanical thesis enumeration; superficial -ing analyses | gating |
+| **First-Time Visitor** | 30-second drive-by | first paragraph fails to say what or why; jargon density before the value prop; Quickstart looks infeasible in under ten minutes | advisory |
+
+`review-conductor` distinguishes gating personas from advisory ones: a single `critical` finding from any gating persona returns the chapter for redraft; criticals from advisory personas surface in the report but do not block. The shipped `chapter-default.yaml` makes Gottlieb, Domain Expert, Copyeditor, and AI-Slop Detector gating; the other three advisory.
+
+The personas do not rewrite. They flag. Revisions return to `book-compose` for the writer — human or agent — to apply. The conductor also injects Outcomes exemplars into each persona's prompt as few-shot context: seven exemplars drawn from a real seven-persona review run on an earlier draft of this README, each persona seeing one representative finding from its own rubric before reading the new chapter.
 
 ### The defect taxonomy
-<!-- drafted in stage 2 task 2.6 -->
+
+`book-qa` defines two parallel taxonomies. A deterministic linter or `book-thesis` catches mechanical defects (D1-D12); a per-chapter agent swarm catches editorial defects (C1-C15).
+
+```
+                   Defect Taxonomy
+                  ┌────────┴────────┐
+                  │                 │
+            Mechanical          Editorial
+            (D1-D12)            (C1-C15)
+                  │                 │
+        ┌─────────┴─────────┐       │
+        │                   │       │
+   from book-qa       from book-thesis
+   (D1-D8,            (D9-D12,
+   deterministic      routed via
+   linter)            book-qa)
+        │                   │       │
+        ▼                   ▼       ▼
+  lint_artifact.py     book-thesis  per-chapter
+                       scripts      swarm
+```
+
+Mechanical defects:
+
+<!-- lint-disable: listicle-abstract, listicle-anaphora reason="defect taxonomy table, not prose" -->
+
+| ID | Class | Source | Sev |
+|---|---|---|---|
+| D1 | orphan citation tokens (`[clm-…]`, bare `clm-NNNN-NNNNNN`, "Claim ledger:") | book-qa linter | crit |
+| D2 | raw Markdown bleed inside HTML blocks | book-qa linter | crit |
+| D3 | broken cross-references (figure paths, footnote ref/def, ToC vs heading drift) | book-qa linter | crit |
+| D4 | heading hierarchy violations | book-qa linter | crit |
+| D5 | count-contract failures (word, footnote, figure counts outside bands) | book-qa linter | imp |
+| D6 | paragraph-length variance outside [0.4, 1.2] | book-qa linter | imp |
+| D7 | CSS reset clobber (Tailwind preflight overriding heading sizes) | book-qa linter | crit |
+| D8 | asset 404s | book-qa linter | crit |
+| D9 | paragraph-orphan: missing `supports:` | book-thesis | crit |
+| D10 | transitive-contradiction | book-thesis (Datalog) | crit |
+| D11 | failed-entailment: `contradicts` or `unrelated` | book-thesis (entailment) | crit |
+| D12 | unadvanced sub-argument | book-thesis | imp |
+
+D1-D8 are the eight checks `lint_artifact.py` runs on the built artefact; these form the hard gate, and the release fails if any one returns non-zero. D9-D12 are the four classes `book-thesis` contributes. D9, D10, and D11 block release through the soft-gate path: book-qa records them on the verdict, and the operator can override with a waiver in `qa-waivers.yaml`. D12 surfaces in the post-build report. The "hard-gate: D1-D8 == 0" label on the pipeline diagram covers only the deterministic linter gate; D9-D11 add a second blocking path on top of it.
+
+Editorial defects, per-chapter swarm of fresh-context agents:
+
+<!-- lint-disable: listicle-abstract, listicle-anaphora reason="defect taxonomy table, not prose" -->
+
+| ID | Class |
+|---|---|
+| C1 | heading hierarchy |
+| C2 | cross-references |
+| C3 | footnote quality (substantive content, semantic names) |
+| C4 | citation noise (no internal IDs in print) |
+| C5 | HTML block hygiene |
+| C6 | terminology consistency against `house-style.yaml` |
+| C7 | scene anchoring |
+| C8 | sidebar quality (≤ 3 sentences) |
+| C9 | table quality (numeric right-align) |
+| C10 | paragraph length variance |
+| C11 | Russell-style discipline (hedges, em-dash-as-comma) |
+| C12 | citation completeness for numeric and surprising claims |
+| C13 | closing strength |
+| C14 | image alt-text quality |
+| C15 | print-ready format (≤ 120-char lines) |
+
+The Sentinel-Healer loop:
+
+```
+   build_book artefact
+            │
+            ▼
+   ┌──────────────────┐
+   │ 1. Linter (D)    │  lint_artifact.py
+   │    pure Python   │  hard-fail on D1-D8 critical
+   └────────┬─────────┘
+            ▼
+   ┌──────────────────┐
+   │ 2. Chapter swarm │  dispatch_chapter_qa.py
+   │    C1-C15        │  fresh-context agents, JSON tickets only
+   └────────┬─────────┘
+            ▼
+   ┌──────────────────┐
+   │ 3. Sentinel      │  sentinel.py
+   │    aggregate +   │  set-diff over D + C tickets
+   │    classify      │
+   └────────┬─────────┘
+            ▼
+   ┌──────────────────┐
+   │ 4. Healer        │  healer.py
+   │    patch         │  isolated-context agent per defect class
+   │    max 3 iters   │  sees ticket + span only
+   └────────┬─────────┘
+            ▼
+     release bundle
+```
+
+Three healer outcomes propose ledger write-backs to `book-knowledge`: `unsupported_claim` (claim lacking verified sources post-healer), `refuted_by_new_source` (claim contradicted by a source added during healing), and `addressed_rival` (counter-claim addressed in the healer patch). `propose_writeback.py` emits `claims/proposed-transitions.jsonl`; `book-knowledge.apply_writeback` is the only mutator outside the ingest path and the only consumer of that file.
 
 ### Bundle C: the closed-loop ledger
-<!-- drafted in stage 2 task 2.6 -->
+
+The pipeline as described so far is acyclic: ingest produces claims, drafting consumes them, QA gates the release. Bundle C closes the loop. Post-build QA proposes ledger transitions, abductive counter-claims become drafting targets, and Bayesian propagation re-scores claim posteriors after each new source.
+
+```
+   ┌─────────────────┐
+   │   sources       │
+   └────────┬────────┘
+            │
+            ▼
+   ┌─────────────────┐    abductive generation
+   │  claims/ledger  │────────────────────────────┐
+   └────────┬────────┘                            │
+            │ propagate_belief                    ▼
+            │ (PROV-O DAG)              ┌─────────────────┐
+            ▼                           │ counter-claims  │
+   ┌─────────────────┐                  └────────┬────────┘
+   │ p_posterior     │                           │
+   │ snapshots       │                           │
+   └────────┬────────┘                           │
+            │                                    │
+            ▼                                    ▼
+   ┌─────────────────────────────────────────────────────┐
+   │             book-compose drafts a chapter           │
+   │      must_address: open counter-claims targeting    │
+   │      claims in the chapter contract                 │
+   └────────┬────────────────────────────────────────────┘
+            │
+            ▼
+   ┌─────────────────────────────────────────────────────┐
+   │  book-qa: lint + swarm + sentinel + healer           │
+   │   →  claims/proposed-transitions.jsonl               │
+   └────────┬────────────────────────────────────────────┘
+            │
+            ▼
+   ┌─────────────────────────────────────────────────────┐
+   │  book-knowledge.apply_writeback                      │
+   │  commits transitions:                                │
+   │   · unsupported_claim     → disputed                 │
+   │   · refuted_by_new_source → refuted (terminal)       │
+   │   · addressed_rival       → counter-claim addressed  │
+   └────────┬────────────────────────────────────────────┘
+            │
+            └──────────  loops back into claims/ledger
+```
+
+Three Bundle C invariants make the loop safe. `propagate_belief.run` deduplicates counter-claims to the latest record per claim ID before damping — the Bayesian step that reduces the weight of repeated evidence so a single source cannot double-count; a promoted counter-claim must not damp twice. `apply_writeback` is the only mutator of `claims/` outside `book-knowledge`'s ingest path, preserving the ledger-ownership invariant. `BLOCKING_DEFEASIBLE = True` is the default: a critical defeasible-query result hard-fails the QA gate, blocking any chapter that cites a load-bearing claim with an unaddressed rival.
+
+The Bundle C runbook (`docs/operations/2026-05-12-bundle-c-runbook.md`) walks the four phases on the Bermuda workspace.
 
 ## Quickstart
 

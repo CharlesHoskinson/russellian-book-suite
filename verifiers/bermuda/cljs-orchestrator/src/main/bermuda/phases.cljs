@@ -7,10 +7,10 @@
 
 (def MAX-REMEDIES 3)
 
-(defn translate [claims]
-  {:pre  (m/validate [:vector ir/Claim] claims)
+(defn translate [items]
+  {:pre  (m/validate [:vector ir/ClaimOrEvent] items)
    :post (m/validate [:vector ir/Formula] %)}
-  (t/translate-corpus claims))
+  (t/translate-corpus items))
 
 (defn verify [formulas]
   {:pre  (m/validate [:vector ir/Formula] formulas)

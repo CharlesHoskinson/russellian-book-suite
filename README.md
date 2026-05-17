@@ -767,4 +767,16 @@ Project conventions accumulate in per-session memory files at `~/.claude/project
 
 ## License and acknowledgements
 
-<!-- drafted in stage 2 task 2.14 (port existing) -->
+MIT. See `LICENSE`.
+
+Acknowledgements:
+
+- **Bertrand Russell** — the analytic-prose standard the suite enforces
+- **A. J. Ayer** — for the epigraph above ("hard to follow, cannot be misunderstood"), which sets the bar this suite aims at
+- **John McPhee and Bill Bryson** — the scene-craft model behind the planned `book-craft` skill
+- **Anthropic** — the Generator-Verifier and Sentinel-Healer patterns the v5 `book-qa` skill implements, and the Parallelization pattern `review-conductor` is built on
+- **The Tufte CSS family** — typography reference for the v4.3 prose-furniture treatment
+- **The W3C PROV-O working group** — the provenance ontology the claim ledger projects into
+- **OpenStreetMap contributors (ODbL)** — base data for the parish and ferry-route maps
+- **The pyShacl, rdflib, spaCy, and pyDatalog maintainers** — the validation and parsing stack
+- **The Wikipedia editors of "Signs of AI writing"** — the AI-fingerprint catalog the `humanizer` skill encodes and the AI-Slop Detector persona delegates to

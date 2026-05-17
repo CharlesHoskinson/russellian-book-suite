@@ -63,7 +63,17 @@ Separate stages defeat the pattern. Fact ingestion, drafting, prose linting, per
 
 ## The three tiers
 
-<!-- drafted in stage 2 task 2.4 -->
+### Tier 1 — Acquisition + world model
+
+Acquisition determines what the pipeline can claim. The two skills in this tier, `scrapling-fetch` and `syntopical-metabook`, work in sequence: `scrapling-fetch` traverses citation graphs from a seed set of papers and returns structured records; `syntopical-metabook` synthesises those records into a world model above the canonical claim ledger, reconciling disputed questions, mapping concepts across sources, and projecting per-chapter lenses that the drafting pipeline reads. Both share the `sibling_skills` package for version-safe API calls. The external parallel project `booklogic` handles EDN-to-JSON projection for sources that emit Clojure data; the tier communicates with it through a four-subcommand CLI, not through Python import.
+
+### Tier 2 — Drafting pipeline
+
+A chapter contract in, a gated release out: that is the tier's scope. Seven skills carry a chapter from raw claim ledger to published manuscript. Claim extraction and verification belong to `book-knowledge`, which writes PROV-O provenance for every assertion. The argument spine is `book-thesis` territory: it runs an entailment loop that confirms each paragraph advances a sub-argument. Drafting and final assembly run through `book-compose`, which calls `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review belongs to `book-review` (seven personas dispatched in parallel) and `review-conductor` (severity aggregation and panel gate); `book-qa` closes the tier with the D1-D8 deterministic linter, D9-D12 thesis-derived defects, and the C1-C15 per-chapter agent swarm.
+
+### Tier 3 — Optional verification
+
+Logical verification sits outside the default pipeline, enabled by a single flag. The skill `neurosym-forge` scaffolds a ClojureScript-plus-Rust verifier project alongside the workspace: it emits an EDN-as-atomspace intermediate representation, an `axioms.rs` hook for Z3 hard constraints, and a per-atom walk that traces each claim to an operator-supplied assertion. When the workspace `qa-config.yaml` carries `enable_verification: true`, `book-qa` reads the verifier's output as defect class D13 (claim-set-unsatisfiable). The tier is off by default because the scaffold requires a manual domain-axiom pass before verification produces useful verdicts.
 
 ## The pipeline
 

@@ -129,18 +129,18 @@ If anything is below baseline, stop and investigate before proceeding.
 - Mission-spec OQ #4 (bidirectional traceability): **solved here** via a generated `rules/axioms-tracker-map.edn` keyed by tracker name → `{:constraint-id ... :claim-id ... :source-span ...}`. `smt.rs` already returns the tracker name; this map closes the loop. `verdict_to_qa.py` integration is left to PR-5 (Bermuda is the first real consumer).
 - Mission-spec OQ #5 (Z3 bundled build on Windows): **deferred** to PR-5. PR-4 codegen produces Rust source verified by `cargo check`, not `cargo build`, and `cargo check` skips the C++ link step. The bundled build (and any Windows-specific workarounds — vcpkg / system Z3 / CI-only build) lands in PR-5's plan.
 
-**Track structure — decision point at end of week 1:**
+**Track structure — decision point after Phase 2:**
 
-This PR is structured as two tracks the executor may ship together or split. The decision is made at the end of week 1 based on Cozo build feasibility.
+This PR is structured as two tracks the executor may ship together or split. The decision is made after Phase 2 lands, based on Cozo build feasibility.
 
-- **Track A:** Phase 1 (`defrule`) + Phase 2 (`defconstraint` + `axioms.rs` codegen) — pure Z3 path. Ships if Cozo wiring lands on time.
+- **Track A:** Phase 1 (`defrule`) + Phase 2 (`defconstraint` + `axioms.rs` codegen) — pure Z3 path. Ships if Cozo wiring lands cleanly.
 - **Track B:** Phase 3 (`defquery` + Cozo + `kg.rs`) + Phase 4 (`defremedy` + `propose_writeback` adapter) — data path.
 
-**Split criteria (decided end of week 1):** Ship as PR-4a + PR-4b if **any** of the following holds:
+**Split criteria (decided after Phase 2 acceptance):** Ship as PR-4a + PR-4b if **any** of the following holds:
 
-1. `cargo check --features kg` against the fresh template fails with a Cozo dependency error not solvable within 4 hours.
+1. `cargo check --features kg` against the fresh template fails with a Cozo dependency error that doesn't resolve in a focused investigation block.
 2. Cozo dyn-link surface differs from the documented `cozo = "0.7"` API in a way that requires upstream patching.
-3. Track A is fully green and the executor's calendar pressure requires shipping before Track B is testable.
+3. Track A is fully green and the executor needs to ship before Track B is testable.
 
 Otherwise, ship Track A + Track B together as one PR-4 with both phases' commits in a single feature branch.
 
@@ -1683,12 +1683,12 @@ git commit -m "neurosym-forge: cargo-check gate for generated axioms.rs"
 
 ---
 
-## Phase 2 decision point — end of week 1
+## Phase 2 decision point
 
 Stop here and decide:
 
-- If **Phase 1 + Phase 2 are both green** AND **Cozo Cargo build for the template completes within a 4-hour timebox** (you'll discover this at the start of Phase 3): **ship as one PR-4** covering Tracks A + B.
-- If **Cozo build is non-trivial** or **calendar pressure forces a ship**: split.
+- If **Phase 1 + Phase 2 are both green** AND **Cozo Cargo build for the template completes cleanly** (you'll discover this at the start of Phase 3): **ship as one PR-4** covering Tracks A + B.
+- If **Cozo build is non-trivial** or **executor needs to ship before Track B is testable**: split.
   - Open **PR-4a** with Phases 1 + 2 + (5) + (6) + (7) — defining (5) as a no-op (mission spec footer note moves to PR-4b).
   - Defer Phases 3 + 4 to **PR-4b**, opened immediately after PR-4a lands.
 
@@ -3470,7 +3470,7 @@ Spec coverage walkthrough against `docs/specs/2026-05-17-booklogic-claude-only-f
 | `:requires :human-review` blocks auto-apply                                                | 4.3 (`auto_apply = False`), 4.4 (writeback honours the field) |
 | Per-form tests (template-level)                                                            | 1.5 (defrule), 2.3 (axioms), 3.4 (queries), 4.3 (remedies); CLJS deftests in each phase |
 | Mission spec § D4 footer updated                                                           | 5.1 |
-| Internal split / decision point at end of week 1                                           | "Phase 2 decision point" section + Pre-flight track structure |
+| Internal split / decision point after Phase 2 acceptance                                   | "Phase 2 decision point" section + Pre-flight track structure |
 | Cargo-check path used: `cargo check --manifest-path .../rust-verifier/Cargo.toml --features <smt|kg>` | Pre-flight (locked), 2.5, 3.5 |
 | OQ disposition (OQ #1: in-scope; OQ #4: solved; OQ #5: deferred)                           | Pre-flight |
 
@@ -3482,7 +3482,7 @@ All spec items have implementing tasks.
 
 **Phase 6 is intentionally controller-executed.** Same rationale as PR-3 Phase 8. Subagents tend to optimistic-report. The local cargo-check + npm pipeline is the gate before PR open.
 
-**Effort:** ~2-3 weeks across two tracks. Track A (Phases 1, 2) ~5-7 days. Track B (Phases 3, 4) ~5-7 days. Phases 5, 6, 7 ~1-2 days. Buffer for Cozo or Z3 build surprises = +3 days.
+**Size:** 7 phases pre-declared a/b split. Track A = Phases 1-2 (defrule, defconstraint + axioms codegen). Track B = Phases 3-4 (defquery + Cozo, defremedy + writeback adapter). Phases 5 (mission spec footer), 6 (smoke), 7 (PR) execute whichever tracks landed.
 
 **Known risks.**
 

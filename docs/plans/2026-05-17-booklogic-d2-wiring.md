@@ -1370,7 +1370,7 @@ All spec items have an implementing task. No spec acceptance criterion is unaddr
 
 **Naming consistency.** `trace_to_ledger.py`, `read_trace`, `project_trace_to_ledger_rows`, `TraceProjectionError`, `_materialise_trace_as_ledger`, `ClaimOrEvent`, `Event`, `EventHead`, `event->formula`, `legacy-claim->formula`, `head-string` are used identically across all tasks that reference them.
 
-**Effort.** Spec said ~2 days. Plan is ~2 days: Phases 1-2 ~6 hours (Python), Phase 3 ~6 hours (CLJS test target setup + dispatch refactor), Phase 4 ~1 hour (regression sweeps), Phase 5 ~1 hour (smoke + PR).
+**Size.** 5 phases / 11 tasks. Phase 3 (CLJS test target + dispatch refactor) is the largest piece; Phases 1, 2 (Python trace-aware reader + legacy fallback), 4 (regression sweep), 5 (smoke + PR) are each small.
 
 **Known risks.**
 

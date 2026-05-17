@@ -496,7 +496,7 @@ Edit g3:
 
 ```text
 old_string: Mission total grows from ~11 days to ~12.5 days. The added PR-3.5 buys "pure CLJS + Rust verifier path" as the end state — the architectural goal driving this revision.
-new_string: Mission total remains ~11 days; the "pure CLJS + Rust verifier path" remains an aspirational end state but is not gated by this PR.
+new_string: PR-3.5 is dropped; the mission slate is the six-PR set in the v0.4 mission spec. The "pure CLJS + Rust verifier path" remains an aspirational end state but is not gated by this PR.
 ```
 
 Edit g4:
@@ -1963,7 +1963,7 @@ All spec items have implementing tasks.
 
 **TDD-shape audit:** Phase 2 (data hygiene) — failing test in 2.1, fix in 2.2 + 2.3, passing-test re-runs in 2.2 step 3 and 2.3 step 3. Phase 3 (CLJS harness) — each module's test ns is written before its inclusion in the runner is exercised; the first run-and-see-pass happens at compile-and-node-run time per task. Phase 4 (bug fix) — failing test in 4.1 step 2, fix in 4.1 step 3, passing-test re-run in 4.1 step 5. Phase 1 (deletes) and Phase 5 (CI) are not code-producing; the TDD shape does not apply — each delete has a confirm-existence step before `git rm` and a confirm-removal step after.
 
-**Effort estimate:** Spec said ~3-4 days. This plan: ~3 days. Phase 1 (~3 hr), Phase 2 (~2 hr), Phase 3 (~12 hr; six modules including the bridge-stub workaround), Phase 4 (~2 hr), Phase 5 (~1 hr), Phase 6 (~2 hr). Total ~22 working hours.
+**Size:** 6 phases / 20 tasks. Phase 3 (CLJS harness — six modules including the bridge-stub workaround) is the largest. Phases 1 (deletes), 2 (data hygiene), 4 (bug fix), 5 (CI), 6 (smoke) are each small.
 
 **Known risks:**
 

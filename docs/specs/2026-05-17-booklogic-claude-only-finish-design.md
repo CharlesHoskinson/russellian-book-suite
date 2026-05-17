@@ -36,7 +36,7 @@ PR-cleanup ──► PR-D2 ──► PR-4 ──► PR-5 ──► PR-6
    └─────────────────────────────────────────── strip Codex scaffolding; D1 data hygiene; CLJS test gap
 ```
 
-PR-cleanup and PR-D2 are short (~3-4 days, ~2 days). PR-4 is the long pole (~2-3 weeks). PR-5 follows (~2 weeks). PR-6 is a showcase (~1.5 days). Total ~5-6 weeks.
+PR-cleanup and PR-D2 are small (20 + 11 tasks). PR-4 is the long pole (active forms + axioms codegen + Cozo wiring + writeback adapter, pre-declared a/b split). PR-5 follows (Bermuda BookLogic rewrite + real Z3 CI). PR-6 is a showcase (osmotic-pressure scaffold + two fixture ledgers).
 
 ## PR slate
 
@@ -123,7 +123,7 @@ PR-cleanup and PR-D2 are short (~3-4 days, ~2 days). PR-4 is the long pole (~2-3
 - `propose_writeback` emits a remedy-driven transition for a fixture verdict
 - Update mission spec § D4 footer to note the active forms landed in PR-4
 
-**Internal split if needed:** if Cozo wiring is intricate, split into PR-4a (`defconstraint` + `axioms.rs` — pure Z3 path) and PR-4b (`defquery` + Cozo + `defremedy` + writeback — data path). Decision point: end of week 1.
+**Internal split if needed:** if Cozo wiring is intricate, split into PR-4a (`defconstraint` + `axioms.rs` — pure Z3 path) and PR-4b (`defquery` + Cozo + `defremedy` + writeback — data path). Decision point: after Phase 2 lands and `cargo check` with `cozo` enabled has been attempted.
 
 ### PR-5 — Bermuda migration + real Z3 (D5)
 
@@ -186,7 +186,7 @@ PR-cleanup and PR-D2 are short (~3-4 days, ~2 days). PR-4 is the long pole (~2-3
 ## Risks
 
 - **Z3 bundled build on Linux CI** — the mission spec flagged this as Open Question #5; PR-5 commits to `ubuntu-latest` as the canonical gate. Local Windows builds remain best-effort.
-- **PR-4 scope** — `defconstraint`/`axioms.rs` + `defquery`/Cozo + `defremedy`/writeback may not fit one PR. Pre-declared internal split documented above; decision point end of week 1.
+- **PR-4 scope** — `defconstraint`/`axioms.rs` + `defquery`/Cozo + `defremedy`/writeback may not fit one PR. Pre-declared internal split documented above; decision point after the Phase 2 `cargo check` gate.
 - **`nl_to_fol` latent bug** — PR-cleanup's test-first approach surfaces this. If the fix requires reshaping the IR schema, PR-cleanup grows; that's acceptable.
 - **Bermuda data migration** — the four quantitative claims appended to `ledger.jsonl` need locator-text spans in real Bermuda sources. If the existing thesis-synthesised ledger can't carry them, PR-5 either (a) extends `synthesize_bermuda_ledger.py` to emit them or (b) adds them as `:status :proposed` rather than `:verified` and notes the gap.
 - **Cozo Cargo build** — `cozo 0.7` with `compact` features has been declared but never built. If it fails on `ubuntu-latest`, PR-4 either fixes the build or makes Cozo optional via a feature flag.
@@ -205,6 +205,6 @@ PR-cleanup and PR-D2 are short (~3-4 days, ~2 days). PR-4 is the long pole (~2-3
 4. Updated mission spec § footer noting the Claude-only finish.
 5. Audit findings doc updated to reflect each closure as PRs land.
 
-## Estimated total effort
+## Sequence
 
-~5-6 weeks across 5 PRs. Four review checkpoints between PRs.
+5 PRs, executed in dependency order: cleanup → D2-wiring → PR-4 → PR-5 → PR-6. Four review checkpoints between PRs.

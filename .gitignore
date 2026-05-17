@@ -60,3 +60,6 @@ ms-playwright/
 
 # Mermaid cache
 .mmdc/
+
+# Scratch helpers for one-shot roadmap setup; never committed
+tools/_ears_roadmap_helpers/

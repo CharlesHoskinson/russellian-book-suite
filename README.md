@@ -522,7 +522,45 @@ Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.
 
 ### Tier 3 — Optional verification
 
-<!-- mini-tutorial: neurosym-forge          (stage 3 task 3.12) -->
+<details>
+<summary><strong>neurosym-forge</strong> — Tier 3 scaffolder: ClojureScript + Rust neurosymbolic verifier projects</summary>
+
+**What it does.** `neurosym-forge` is a scaffolder, not a verifier. It produces ClojureScript + Rust project skeletons under MeTTa-style atomspace conventions, then provides helpers for extending those skeletons — adding sorts, rewrite rules, and grounded atoms — without touching the host skill or the book pipeline directly. The scaffolded project does the actual verification: `shadow-cljs` and `cargo` run the ClojureScript and Rust layers; the skill only authors the inputs those tools consume. Three linters ship with the scaffold: `lint_atomspace.py` checks that every atom carries a `:sort` annotation with no unbound variables; `lint_rewrite_coverage.py` checks that every rewrite rule has a fixture test; `render_call_graph.py` draws the Claude/CLJS/Rust phase boundary as an ASCII diagram. The skill encodes MeTTa idioms — `=`, `:`, `!`, `match`, `superpose`, and grounded-atom wiring — as authoring conventions documented in `references/metta-idioms.md`.
+
+**Inputs / outputs.** `scaffold_project.py` takes a workspace name and an optional `--book-knowledge-bridge` flag; with the flag set, it accepts `claims/ledger.jsonl` from `book-knowledge` as Phase-1 input and seeds the atomspace from the claim ledger. Without it, the scaffold is a blank slate. `add_sort.py`, `add_rewrite_rule.py`, and `add_grounded_atom.py` each extend an existing scaffold in-place. The verifier emits `qa/verification-defects.json`. When the workspace sets `enable_verification: true` in `qa-config.yaml`, `book-qa` reads that file and raises D13 (claim-set-unsatisfiable) on any unsatisfied constraint.
+
+**When to invoke.** Use when a workspace needs logical verification beyond what prose linters catch — Z3 constraints on date arithmetic, e-graph rewriting for algebraic claims, or Datalog consistency over cross-chapter assertions. Off by default; explicit opt-in per workspace.
+
+**When NOT to invoke.** Skip `neurosym-forge` for prose reviews, claim ingestion, or chapter drafting. Skip it for any workspace where the prose linters and persona reviews are sufficient — most manuscripts do not need this tier.
+
+**Trigger phrases.** The frontmatter lists: `"scaffold a neurosymbolic project"`, `"verify these claims with Z3"`, `"add a rewrite rule"`, `"ground this predicate in Rust"`, `"extend the atomspace IR"`.
+
+**Example walkthrough.** Scaffold a verifier for the Bermuda workspace, add a `Date` sort and a date-ordering rule, then run.
+
+```bash
+python -m scripts.scaffold_project --workspace workspaces/bermuda --out verifiers/bermuda
+python -m scripts.add_sort --project verifiers/bermuda --sort Date --doc "calendar date"
+python -m scripts.add_rewrite_rule \
+  --project verifiers/bermuda \
+  --rule "(= (date-before? (Date ?d1) (Date ?d2)) (< ?d1 ?d2))"
+```
+
+Override `verifiers/bermuda/src/axioms.rs` with the Z3 date-arithmetic constraints, then run the scaffolded project:
+
+```bash
+cd verifiers/bermuda && npm run build && node dist/verify.js
+```
+
+`qa/verification-defects.json` exits with zero entries; `book-qa` reads it and D13 stays silent. A contradictory date claim would produce one D13 entry and block the release gate.
+
+**Where to dive deeper.**
+- `skills/neurosym-forge/SKILL.md`
+- `skills/neurosym-forge/references/` — MeTTa idioms, atomspace EDN IR, grounded-atom wiring
+- `docs/concepts/neurosym-forge.md` — scope, layers, and integration boundary
+- `docs/operations/neurosym-forge-runbook.md` — operator workflow for the verifier side-channel
+- `verifiers/bermuda/` — reference implementation
+
+</details>
 
 ## Core concepts
 

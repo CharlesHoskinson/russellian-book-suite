@@ -1,0 +1,20 @@
+(ns bermuda.runner
+  "cljs.test entry. shadow-cljs :node-test build auto-discovers
+   namespaces matching :ns-regexp \"-test$\"; this file exists so
+   downstream consumers can require a single load target if needed."
+  (:require [cljs.test :as t]
+            [bermuda.unify-test]
+            [bermuda.ir-test]
+            [bermuda.nl-to-fol-test]
+            [bermuda.phases-test]
+            [bermuda.bridge-test]
+            [bermuda.core-test]))
+
+(defn -main [& _args]
+  (t/run-tests
+    'bermuda.unify-test
+    'bermuda.ir-test
+    'bermuda.nl-to-fol-test
+    'bermuda.phases-test
+    'bermuda.bridge-test
+    'bermuda.core-test))

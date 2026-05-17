@@ -30,3 +30,30 @@ def map_ticket_to_proposed_transition(ticket: dict) -> dict | None:
                 "chapter_id": ticket.get("chapter_id"),
                 "cause_ticket_id": ticket["id"], "cause_class": cls}
     return None
+
+
+def map_remedy_proposal_to_transition(proposal: dict) -> dict | None:
+    """Normalise a BookLogic remedy proposal into the propose_writeback dict shape.
+
+    REQ-QA-PIPE-011: proposed transitions carry :cause-remedy-id.
+    REQ-QA-PIPE-012: :requires :human-review threads through as auto_apply=False.
+
+    The remedy proposal already carries :transition with kind/claim_id/to;
+    this function only renames keys to match the rest of the pipeline and
+    threads :requires / :auto_apply through.
+    """
+    t = proposal.get("transition")
+    if not isinstance(t, dict):
+        return None
+    if t.get("kind") != "claim":
+        return None
+    return {
+        "kind":            "claim",
+        "claim_id":        t["claim_id"],
+        "to":              t["to"],
+        # Remedy proposals have no `from`; apply_writeback decides based on current status.
+        "cause_ticket_id": proposal["remedy_id"],
+        "cause_class":     "booklogic_remedy",
+        "requires":        proposal["requires"],
+        "auto_apply":      proposal["auto_apply"],
+    }

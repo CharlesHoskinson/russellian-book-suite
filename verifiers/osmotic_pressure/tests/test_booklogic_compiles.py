@@ -1,7 +1,7 @@
 """BookLogic source compiles cleanly via the CLJS expander.
 
 Each test runs the nbb-driven compiler entrypoint
-(`nbb -m osmotic_pressure.booklogic <project-root>`) against the project's
+(`nbb -m osmotic-pressure.booklogic <project-root>`) against the project's
 rules/booklogic/ directory and asserts exit code 0. The compiler enforces
 the structural validation rules (defsort/defpredicate/deflift/defconstraint
 shapes; predicate sort references; lift -> predicate references; tolerance
@@ -35,7 +35,7 @@ def _run_compiler(project_root: Path) -> subprocess.CompletedProcess:
     # On Windows, .cmd wrappers require shell=True to be executable via subprocess.
     use_shell = sys.platform == "win32"
     return subprocess.run(
-        [nbb, "-m", "osmotic_pressure.booklogic", str(project_root)],
+        [nbb, "-m", "osmotic-pressure.booklogic", str(project_root)],
         cwd=str(project_root),
         check=False,
         capture_output=True,

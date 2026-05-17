@@ -4,15 +4,16 @@
 
 ### REQ-CLJS-ORCH-001 — Ubiquitous
 
-The `verifiers/bermuda/cljs-orchestrator/shadow-cljs.edn` configuration shall
-declare a `:node-test` build target named `:test` with `:output-to "target/node-test.js"`
-and `:ns-regexp "-test$"`, so that `npx shadow-cljs compile test` produces the
-file at the path the CI job invokes.
+The `verifiers/bermuda/shadow-cljs.edn` configuration shall declare a
+`:node-test` build target named `:test` with `:output-to "cljs-orchestrator/dist/test.js"`
+and `:ns-regexp "-test$"`, so that `npx shadow-cljs compile test` (run from
+`verifiers/bermuda/`) produces the file at the path the CI job invokes.
 
 **Rationale:** Without an explicit `:output-to`, the path the CI job runs would
 be undefined; the test runner needs both the target declaration and a stable
-output path.
-**Tested by:** Existence check in `verifiers/bermuda/cljs-orchestrator/shadow-cljs.edn` plus the `cljs-bermuda-test` CI job that runs `npx shadow-cljs compile test && node target/node-test.js` (added in cleanup T3.1)
+output path. Output co-located with the existing `:main` build under
+`cljs-orchestrator/dist/` matches the project's existing convention.
+**Tested by:** Existence check in `verifiers/bermuda/shadow-cljs.edn` plus the `cljs-bermuda-test` CI job that runs `npx shadow-cljs compile test && node cljs-orchestrator/dist/test.js` (added in cleanup T3.1)
 
 ### REQ-CLJS-ORCH-002 — Ubiquitous
 
@@ -84,8 +85,8 @@ Fixing the rule is REQ-CLJS-ORCH-008.
 
 The `.github/workflows/ci.yml` workflow shall include a job named
 `cljs-bermuda-test` that on every PR runs `npx shadow-cljs compile test &&
-node target/node-test.js` from `verifiers/bermuda/cljs-orchestrator/` (the
-path matches the `:output-to` declared in `shadow-cljs.edn` per REQ-CLJS-ORCH-001)
+node cljs-orchestrator/dist/test.js` from `verifiers/bermuda/` (the path
+matches the `:output-to` declared in `shadow-cljs.edn` per REQ-CLJS-ORCH-001)
 and fails the PR if any test fails.
 
 **Rationale:** Without a CI gate, the new test target is best-effort. CI

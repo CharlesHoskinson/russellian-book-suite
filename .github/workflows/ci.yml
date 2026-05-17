@@ -112,10 +112,10 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: npm install
-        working-directory: verifiers/bermuda/cljs-orchestrator
+        working-directory: verifiers/bermuda
         run: npm install
       - name: shadow-cljs compile + node test
-        working-directory: verifiers/bermuda/cljs-orchestrator
+        working-directory: verifiers/bermuda
         run: |
           npx shadow-cljs compile test
-          node target/node-test.js
+          node cljs-orchestrator/dist/test.js

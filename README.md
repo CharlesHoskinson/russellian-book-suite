@@ -115,7 +115,48 @@ syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  n
 
 ### Tier 1 — Acquisition + world model
 
-<!-- mini-tutorial: scrapling-fetch         (stage 3 task 3.1) -->
+<details>
+<summary><strong>scrapling-fetch</strong> — sole network boundary of the suite</summary>
+
+**What it does.** Every outbound HTTP call in the suite passes through this skill. It wraps Scrapling 0.4.8 — a Python scraping library — and exposes four source-specific adapters: `arxiv` parses abstract pages, `openalex` queries the OpenAlex JSON API, `semantic_scholar` falls back to HTML when the API is unavailable, and `doi` resolves redirect chains to canonical URLs. On top of those adapters sits a streaming `download_pdf` function that checks content-type before writing to disk and verifies the completed file's sha256 against the value returned in the response header. Three fetch modes ship: `plain` for standard sessions, `stealth` for StealthySession (fingerprint-randomised), and `dynamic` for DynamicSession (Playwright-backed). Per-host rate limits and politeness defaults are wired at session construction, not scattered across caller code. The skill does not fetch data for callers outside the suite; the import-linter contract in CI enforces this as a hard rule.
+
+**Inputs / outputs.**
+- Inputs: a URL or arXiv ID, a fetch mode, optional per-call rate-limit overrides.
+- Outputs: structured metadata (`PaperRecord` dataclass), a downloaded PDF at a caller-specified path, or a typed exception from the hierarchy `FetchFailed | RateLimitExceeded | BlockedRequest | NotAPdf | OfflineMiss | ArxivIdNotFound`.
+- Cache: on-disk response cache keyed by URL; cache directory is configurable.
+- Env var: `SCRAPLING_OFFLINE=1` forces cache-only mode — no network socket is opened.
+
+**When to invoke.**
+- Fetching an arXiv abstract page or downloading an arXiv PDF by ID.
+- Querying OpenAlex for a paper's metadata, references, or citing works.
+- Resolving a DOI to its final landing URL before a downstream parser reads it.
+- Any point in the acquisition pipeline where a URL must be fetched and the caller is not `scrapling-fetch` itself.
+
+**When NOT to invoke.**
+- General-purpose web scraping outside the book suite — this skill is dedicated infrastructure, not a generic scraper.
+- Fetching local files or workspace directories; use `pathlib` directly.
+- When `SCRAPLING_OFFLINE=1` is set and the resource is not cached — `OfflineMiss` will be raised; either seed the cache first or clear the env var.
+
+**Trigger phrases.** "fetch a URL", "get this paper's metadata", "download this PDF", "what does this paper cite", "what cites this paper", "scrape this URL", "traverse a citation graph".
+
+**Example walkthrough.**
+
+```bash
+# From a skill that has sibling_skills installed in its venv:
+from sibling_skills import load_skill_api
+sf = load_skill_api("scrapling-fetch", expected_major=0)
+record = sf.fetch_arxiv("2310.04673")
+print(record.title)
+# → "Lossless LLM Compression via Quantization-Aware Pruning"
+```
+
+`fetch_arxiv` dispatches to the `arxiv` adapter, which parses the abstract page at `arxiv.org/abs/2310.04673`, returns a `PaperRecord` with `title`, `authors`, `abstract`, and `year` populated, and writes the raw HTML to the on-disk cache. No PDF is downloaded unless the caller also calls `download_pdf`. Rate limiting fires automatically; a second call to the same URL within the TTL window returns from cache without opening a socket.
+
+**Where to dive deeper.**
+- `skills/scrapling-fetch/SKILL.md`
+- `skills/scrapling-fetch/tests/unit/` — fixture-driven adapter tests covering all four adapters, the download path, and the exception hierarchy.
+
+</details>
 <!-- mini-tutorial: syntopical-metabook     (stage 3 task 3.2) -->
 <!-- mini-tutorial: sibling_skills          (stage 3 task 3.3) -->
 <!-- mini-tutorial: booklogic (interface)   (stage 3 task 3.4) -->

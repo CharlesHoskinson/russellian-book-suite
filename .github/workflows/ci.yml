@@ -431,7 +431,7 @@ jobs:
         run: npm install
       - name: compile booklogic source
         working-directory: verifiers/osmotic_pressure
-        run: nbb -m osmotic_pressure.booklogic .
+        run: nbb -m osmotic-pressure.booklogic .
       - name: regenerate axioms.rs from constraints.edn
         working-directory: verifiers/osmotic_pressure
         run: |

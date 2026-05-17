@@ -70,6 +70,53 @@
                     :rules [(list 'defrule 'R002 :tags [:foo])]
                     :constraints [] :queries [] :remedies []}))))
 
+(deftest expand-defconstraint-basic
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules []
+                  :constraints
+                    [(list 'defconstraint 'C001-bermuda-parishes
+                           :backend :z3
+                           :assert (list '= (list :parishes-count :Bermuda) 9)
+                           :track :claim/id
+                           :on-unsat {:defect :D13
+                                      :severity :critical
+                                      :message "Claim contradicts canonical Bermuda parish count."})]
+                  :queries [] :remedies []}
+        expanded (bl/expand src)]
+    (is (= 1 (count (:constraint-decls expanded))))
+    (let [c (first (:constraint-decls expanded))]
+      (is (= 'C001-bermuda-parishes (:name c)))
+      (is (= :z3                    (:backend c)))
+      (is (= :claim/id              (:track c)))
+      (is (= :D13                   (-> c :on-unsat :defect)))
+      (is (= :critical              (-> c :on-unsat :severity))))))
+
+(deftest expand-defconstraint-approx-equality
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules []
+                  :constraints
+                    [(list 'defconstraint 'C002-vant-hoff
+                           :backend :z3
+                           :assert (list '~= (list :osmotic-pressure-pa :sample)
+                                            (list '* (list :vant-hoff-i :sample) 8.314)
+                                            :tolerance 0.03)
+                           :on-unsat {:defect :D13 :severity :critical
+                                      :message "van 't Hoff violated"})]
+                  :queries [] :remedies []}
+        expanded (bl/expand src)]
+    (let [c (first (:constraint-decls expanded))]
+      (is (= 'C002-vant-hoff (:name c)))
+      (is (= '~=             (first (:assert c))))
+      (is (= 0.03            (:tolerance c))))))
+
+(deftest expand-defconstraint-missing-backend-throws
+  (is (thrown-with-msg?
+        js/Error #"defconstraint.*:backend"
+        (bl/expand {:sorts [] :predicates [] :lifts [] :rules []
+                    :constraints [(list 'defconstraint 'CX
+                                        :assert (list '= 1 1)
+                                        :on-unsat {:defect :D13 :severity :critical
+                                                   :message "x"})]
+                    :queries [] :remedies []}))))
+
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests)]
     (when (or (pos? fail) (pos? error))

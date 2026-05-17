@@ -763,6 +763,8 @@ Each skill ships its own pytest suite under `skills/<name>/tests/`; run `pytest 
 
 ## Documentation
 
+The repository follows the [OpenSpec convention](https://github.com/Fission-AI/OpenSpec) for change management. See `openspec/README.md` for the spec-driven workflow and the EARS requirement-ID convention.
+
 Design specs in `docs/specs/` — major designs (the directory holds additional booklogic/anti-staccato/handoff specs not listed here):
 
 - `2026-05-10-book-craft-v4-design.md` — `book-craft` skill (chapter craft, scene structure, visuals manifest, narrative-craft persona)

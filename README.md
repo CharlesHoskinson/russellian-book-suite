@@ -257,7 +257,7 @@ claims = bk.query_claims({"state": "verified"}, workspace_root)
 <details>
 <summary><strong>booklogic</strong> — CLJS-on-Node reasoning CLI: interface contract for the metabook</summary>
 
-**What it does.** `booklogic` is not a Claude Code skill in this repository. It is an external ClojureScript-on-Node CLI authored in parallel, discoverable on PATH after its documented install step. The metabook calls it over stdin/stdout on a JSON wire; it never imports it. Given a corpus of verified claims or concept atoms, `booklogic` applies its local EDN ruleset to detect disputed questions, reconcile concept clusters, test candidate reachability against a thesis tree, and report its own version. The Python side consumes JSON only. EDN is the canonical on-disk form; the JSON wire format is a deterministic, bijective projection, and `scripts/booklogic_adapter.py` never sees raw EDN. Requirement IF-BL-15 is the round-trip guarantee: `edn → json → edn` is the identity function for every atom shape in the protocol.
+**What it does.** `booklogic` is not a Claude Code skill in this repository. It is an external ClojureScript-on-Node CLI authored in parallel, discoverable on PATH after its documented install step. The metabook calls it over stdin/stdout on a JSON wire; it never imports it. Given a corpus of verified claims or concept atoms, `booklogic` applies its local EDN ruleset to detect disputed questions, reconcile concept clusters, test candidate reachability against a thesis tree, and report its own version. The Python side consumes JSON only. EDN is the canonical on-disk form; the JSON wire format is a deterministic, bijective projection, and `scripts/booklogic_adapter.py` never sees raw EDN. Requirement IF-BL-15 is the round-trip guarantee: `edn → json → edn` is the identity function for every atom shape in the protocol. The four subcommands partition the reasoning surface: `disputed-questions` finds claim conflicts, `reconcile-concepts` clusters alternates under a canonical slug, `reachable-from-thesis` tests whether a candidate paragraph has any rewrite path to any thesis node, and `version` emits a provenance atom for CI sanity checks. Each output atom carries `:ruleset-checksum` — the sha256 of all `rules/*.edn` files in lexicographic order — so consumers can detect silent ruleset drift.
 
 **Inputs / outputs.** The wire is JSON. Stdin carries the JSON-projected EDN input atom; pass `--io json` explicitly. Stdout returns the output atom plus three provenance keys on every non-error response: `:booklogic-version`, `:ruleset-checksum`, and `:produced-at`. Stderr receives an `:error` atom whose `:code` determines the exit code — 0 success, 1 schema violation, 2 rule failure, 3 internal, 4 timeout, 5 api-version mismatch. Set `BOOKLOGIC_BIN` to override the executable path.
 
@@ -295,7 +295,7 @@ The stub returns `"0.0.0-stub"` and the adapter strips the JSON quote layer, han
 <details>
 <summary><strong>book-knowledge</strong> — epistemic compiler: claim ingestion, provenance, RDF graph</summary>
 
-**What it does.** The claim ledger starts here. `book-knowledge` reads local PDF and Markdown sources, extracts claims with PROV-O provenance, projects them into an RDF dataset, validates the graph with SHACL, and runs competency queries that confirm the knowledge base answers the questions the book contract requires. The ledger appends; nothing deletes. A claim enters `claims/ledger.jsonl` once, then its state advances through `proposed → verified → disputed → superseded` and stops there. Belief propagation runs a Bayesian damping pass over the provenance DAG so a single source cannot double-count by appearing twice in the witness chain. The metabook reads this ledger as ground truth; no other skill writes to it.
+**What it does.** The claim ledger starts here. `book-knowledge` reads local PDF and Markdown sources, extracts claims with PROV-O provenance, projects them into an RDF dataset, validates the graph with SHACL, and runs competency queries that confirm the knowledge base answers the questions the book contract requires. The ledger appends; nothing deletes. A claim enters `claims/ledger.jsonl` once, then its state advances through `proposed → verified → disputed → superseded` and stops there. Belief propagation runs a Bayesian damping pass over the provenance DAG so a single source cannot double-count by appearing twice in the witness chain. The metabook reads this ledger as ground truth; no other skill writes to it. Three services sit below the public API: `verify_claim.py` promotes a proposed claim to verified by checking the locator text against the raw source; `detect_conflicts.py` runs antonym-pair contradiction detection across the ledger; `project_graph.py` and `validate_shacl.py` together write and check the TriG dataset that downstream skills treat as authoritative. Every SPARQL competency query ships in `assets/` alongside the SHACL shapes, so the entire gate configuration travels with the skill.
 
 **Inputs / outputs.** Four public functions cross the skill boundary (IF-BK-1..4): `ingest_pdf(path, workspace)` adds a source and returns an `IngestResult`; `query_claims(filter, workspace)` returns filtered `ClaimRecord` objects from the ledger; `is_source_ingested(sha256, workspace)` checks deduplication by content hash; `list_concepts(workspace)` returns every `ConceptRef` from `wiki/concepts/`. The skill owns `raw/`, `wiki/`, `claims/`, and `graph/` exclusively — no sibling writes there.
 
@@ -330,7 +330,51 @@ print(len(verified), "verified claims in ledger")
 - `skills/book-knowledge/tests/` — pytest suite covering every script.
 
 </details>
-<!-- mini-tutorial: book-thesis             (stage 3 task 3.6) -->
+<details>
+<summary><strong>book-thesis</strong> — argument spine: thesis tree, entailment loop, Datalog consistency</summary>
+
+**What it does.** Every paragraph in a manuscript must earn its place. `book-thesis` owns the intent substrate — the thesis tree, paragraph back-pointers to thesis nodes, a per-paragraph entailment loop, and a Datalog consistency pass that derives transitive contradictions across chapter-level claim triples. It sits as Layer 2–4 above `book-knowledge`'s Layer 1: Layer 2 holds the YAML/RDF thesis spine; Layer 3 dispatches an LLM critic per paragraph that returns `entailed | weakly-entailed | unrelated | contradicts`; Layer 4 runs Datalog rules against the full claim set to surface contradictions that span chapter boundaries. Four defect classes flow from here into `book-qa`: D9 orphan-paragraph, D10 transitive-contradiction, D11 failed-entailment, D12 unadvanced sub-argument. `book-thesis` does not ingest claims or draft prose; those belong elsewhere.
+
+**Inputs / outputs.** One public function (IF-BT-1): `read_thesis_tree(chapter_id, workspace) → ThesisTree`. It reads `chapters/<chapter_id>/thesis-tree.yaml` and returns a `ThesisTree` dataclass holding a list of `ThesisNode` objects, each carrying `node_id`, `statement`, `tags`, `required_evidence_kind`, and `parent_id`. The function raises `ThesisNotDefined` when no tree file exists for the requested chapter. Each chapter owns its own `thesis-tree.yaml`; the tree is the interface between intent and evidence.
+
+**When to invoke.** `book-thesis` owns argument structure, not facts. Invoke it to compile a new thesis spec into RDF triples, lint paragraph back-pointers against the tree, run the Datalog consistency pass after a ledger update, generate exemplar packs for the drafter, or prepare entailment payloads for an LLM critic.
+
+**When NOT to invoke.** Skip `book-thesis` for claim ingestion or ledger writes — that is `book-knowledge`. Skip it for sentence-grain linting (hedges, passive voice) — that is `russellian-style`. Skip it for chapter orchestration — that is `book-compose`. And skip it for qualitative editorial review by personas — that is `book-review`.
+
+**Trigger phrases.** `thesis tree`, `entailment loop`, `orphan paragraph`, `transitive contradiction`.
+
+**Example walkthrough.** Write a minimal thesis tree for chapter `ch-01` with two nodes, then run the entailment pass:
+
+```yaml
+# chapters/ch-01/thesis-tree.yaml
+chapter_id: ch-01
+nodes:
+  - node_id: root
+    statement: "Bitcoin's fixed supply creates disinflationary pressure over long horizons."
+    tags: [monetary-policy]
+    required_evidence_kind: empirical
+    parent_id: null
+  - node_id: supply-cap
+    statement: "The 21M cap is enforced by consensus rules, not policy."
+    tags: [protocol]
+    required_evidence_kind: formal
+    parent_id: root
+```
+
+```bash
+python scripts/compile_thesis.py my-workspace ch-01
+python scripts/lint_supports.py my-workspace v0.1
+```
+
+`compile_thesis.py` writes RDF triples into the book-knowledge graph; `lint_supports.py` flags any paragraph whose `supports:` field names a node that doesn't exist or whose chain doesn't reach `:Thesis`. A detected D11 failure — an LLM critic returning `contradicts` — blocks release through the soft-gate path in `book-qa`.
+
+**Where to dive deeper.**
+- `skills/book-thesis/SKILL.md` — architecture diagram, layer inventory, usage commands.
+- `skills/book-thesis/skill_api.py` — IF-BT-1 public surface.
+- `skills/book-thesis/tests/` — fixture cases for compile, lint, Datalog, and entailment dispatch.
+- `skills/book-qa/` — D9–D12 defect definitions and gate configuration.
+
+</details>
 <!-- mini-tutorial: book-compose            (stage 3 task 3.7) -->
 <!-- mini-tutorial: russellian-style        (stage 3 task 3.8) -->
 <!-- mini-tutorial: book-review             (stage 3 task 3.9) -->

@@ -1,0 +1,27 @@
+# Default to LF for all text; never let core.autocrlf mangle source.
+* text=auto eol=lf
+
+# Explicit binary annotations — Git stops trying to diff or convert these.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.node binary
+*.so   binary
+*.dll  binary
+*.dylib binary
+*.jar  binary
+*.zip  binary
+*.tar  binary
+*.gz   binary
+*.tgz  binary
+*.7z   binary
+*.wasm binary
+
+# Shell + Nix files must stay LF even on Windows checkouts
+*.sh   text eol=lf
+*.nix  text eol=lf
+flake.lock text eol=lf
+lefthook.yml text eol=lf

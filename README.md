@@ -8,6 +8,10 @@ You give the suite a folder of sources and a chapter contract. Between input and
 
 The suite enforces a weaker version of the same standard: every sentence atomic, every claim sourced, every paragraph earning its place.
 
+## Setting up your environment
+
+This repo runs CI on Ubuntu Linux. To avoid "works on my machine" drift, see [`docs/dev-environment.md`](docs/dev-environment.md) for the WSL2 + Nix bootstrap. macOS/Linux developers run Nix directly; Windows developers install Ubuntu under WSL2 first.
+
 ## For readers in a hurry
 
 Authors want a working book, not an architecture tour. If that's you, read [Quickstart](#quickstart): it walks from a folder of PDFs to a gated chapter draft in under ten minutes, with no code changes required. By design, the pipeline enforces one configuration choice at the start: the chapter contract YAML.

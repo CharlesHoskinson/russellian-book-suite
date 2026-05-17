@@ -1,0 +1,35 @@
+# import-linter contract for NFR-4: no direct HTTP outside scrapling-fetch.
+#
+# source_modules is intentionally empty until Phase 4 wires up proper top-level
+# packages for each skill (skill_api.py + __init__.py at the repo root level).
+# Currently all skill code lives under skills/<name>/scripts/, whose package
+# name "scripts" is not unique and not resolvable by import-linter from the
+# repo root.  When Phase 4 lands and each skill is importable as e.g.
+# book_knowledge, book_compose, etc., add those names here.
+#
+# New skills scrapling_fetch and syntopical_metabook will be added in their
+# respective phases (Phase 3 and Phase 5).
+
+[importlinter]
+root_packages =
+    # (empty until Phase 4 — see comment above)
+
+[importlinter:contract:no-direct-http-outside-scrapling-fetch]
+name = No direct HTTP outside scrapling-fetch
+type = forbidden
+source_modules =
+    # (empty until Phase 4 — see comment above)
+    # Future entries:
+    #   syntopical_metabook
+    #   book_knowledge
+    #   book_thesis
+    #   russellian_style
+    #   book_compose
+    #   book_review
+    #   book_qa
+forbidden_modules =
+    requests
+    httpx
+    urllib3
+    aiohttp
+    playwright

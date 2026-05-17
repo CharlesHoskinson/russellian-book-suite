@@ -1,0 +1,1 @@
+{:forms [(defpredicate :count [:thing] :int)]}

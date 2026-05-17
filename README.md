@@ -745,11 +745,25 @@ Read-only boundaries between skills are strict. The metabook accesses scrapling-
 
 ## Documentation
 
-<!-- drafted in stage 2 task 2.13 -->
+The repo's prose documentation lives in three places. Conceptual docs at `docs/concepts/` cover each skill's design reasoning in one file per topic. Operational runbooks at `docs/operations/` cover deploying, running, and recovering pipeline components. QA reports from the README pass live at `docs/qa/`. Find each skill's `SKILL.md` and its `references/` linked from that skill's mini-tutorial in [The skills](#the-skills).
+
+- `docs/concepts/neurosym-forge.md` — neurosymbolic verifier scaffolder: scope, layers, and integration boundary
+- `docs/operations/2026-05-12-bundle-c-runbook.md` — Phase-4 operator runbook for Bundle C end-to-end
+- `docs/operations/codex-review-protocol.md` — autonomous whole-repo review protocol for Codex-style agents
+- `docs/operations/neurosym-forge-runbook.md` — operator workflow for the verifier side-channel
+- `docs/qa/` — README QA reports (generated at Stage 5 of the README refactor)
 
 ## Contributing
 
-<!-- drafted in stage 2 task 2.13 -->
+PR reviews use three severity buckets: **P0** (blocker — broken invariant, build failure, security issue), **P1** (must fix before merge — broken doc refs, contract-runtime mismatches, tautological test gates), **P2** (post-merge polish — comment clarity, test strengthening with no current bug). Every finding cites `file:line`. The reviewer writes the verdict to `openspec/changes/<change>/PR-<N>-REVIEW.md`; PR-33-REVIEW.md under `changes/codex-phase-1/` and PR-47-REVIEW.md under `changes/add-syntopical-metabook/` are the standing examples. The verdict line is one of: `approve`, `approve with follow-ups`, `request changes`, `block`.
+
+Every cross-cutting change lives under `openspec/changes/<change-name>/` with four files: `proposal.md`, `design.md`, `tasks.md`, and one `specs/<domain>/spec.md` per affected domain. When the change merges, `openspec archive <change>` folds the delta specs into `openspec/specs/` and moves the change folder to `openspec/changes/archive/<date>-<change>/`. The `changes/add-syntopical-metabook/` folder illustrates a complete lifecycle from proposal through archive.
+
+Each skill ships its own venv at `skills/<name>/.venv/` and its own pytest suite at `skills/<name>/tests/`. Run `pytest tests/ -q` from the skill directory. Tests carrying the `live` marker hit real upstreams — OpenAlex, Scrapling targets, booklogic binary — and run nightly. Unit tests use a fake `llm_call=` callable and touch no network. Any PR that lets a live-only failure reach the standard suite gets a P1.
+
+Six checks gate every PR: `cljs-bermuda-test` and `cljs-integration` compile and run the ClojureScript booklogic layer; `lint-workflow-yaml` runs actionlint on the workflow file; `smoke (Bermuda end-to-end)` runs the thesis-to-graph pipeline end-to-end; `test book-qa py3.12+py3.13` and `test book-thesis py3.12+py3.13` cover both supported Python versions. The `ci/.import-linter` contract and `ci/lint_no_shadow_writes.py` plugin both execute inside those test suites, not as separate jobs.
+
+Project conventions accumulate in per-session memory files at `~/.claude/projects/.../memory/feedback_*.md`; `feedback_pr_review_style.md` is the primary source this section abstracts. Each skill owns its version in `pyproject.toml`; the suite as a whole declares none. The `API_VERSION` field in each `skill_api.py` governs compatibility; `sibling_skills.load_skill_api(name, expected_major)` raises `IncompatibleSkillApiVersion` on a major mismatch before any skill code executes.
 
 ## License and acknowledgements
 

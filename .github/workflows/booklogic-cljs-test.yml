@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  cljs-integration:
+  test-cljs-integration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,12 +39,20 @@ jobs:
         run: |
           cd skills/neurosym-forge
           .venv/bin/python -m pytest tests/test_cljs_integration.py -v
+      - name: upload cljs test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cljs-integration-logs
+          path: skills/neurosym-forge/.pytest_cache/
+          if-no-files-found: warn
 
-  booklogic-template-cargo-check:
+  test-booklogic-template-cargo-check:
     # REQ-VERIFIER-BUILD-022: cargo check --features smt and --features kg
     # against a fresh scaffolded project. Uses system Z3 (apt libz3-dev)
     # to avoid the 10-min bundled C++ build; Cozo still bundles but is
     # cached by Swatinem/rust-cache between runs.
+    needs: [test-cljs-integration]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -104,3 +112,10 @@ jobs:
           cargo check \
             --manifest-path /tmp/ci_smoke/rust-verifier/Cargo.toml \
             --features kg
+      - name: upload cargo logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-check-logs
+          path: /tmp/ci_smoke/rust-verifier/target/
+          if-no-files-found: warn

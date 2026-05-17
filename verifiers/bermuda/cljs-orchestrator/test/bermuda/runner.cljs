@@ -3,7 +3,10 @@
    namespaces matching :ns-regexp \"-test$\"; this file exists so
    downstream consumers can require a single load target if needed."
   (:require [cljs.test :as t]
-            [bermuda.unify-test]))
+            [bermuda.unify-test]
+            [bermuda.ir-test]))
 
 (defn -main [& _args]
-  (t/run-tests 'bermuda.unify-test))
+  (t/run-tests
+    'bermuda.unify-test
+    'bermuda.ir-test))

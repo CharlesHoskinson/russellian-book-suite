@@ -140,13 +140,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: verifiers/bermuda/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-      - name: npm install
+      - name: npm ci
         working-directory: verifiers/bermuda
-        run: npm install
+        run: npm ci
       - name: shadow-cljs compile + node test
         working-directory: verifiers/bermuda
         run: |

@@ -453,7 +453,42 @@ The first draft triggers `active-voice` on the passive construction; the rewrite
 - `skills/book-review/tests/`
 
 </details>
-<!-- mini-tutorial: review-conductor        (stage 3 task 3.10) -->
+<details>
+<summary><strong>review-conductor</strong> — multi-persona panel orchestrator: YAML config in, verdict out</summary>
+
+**What it does.** `book-review` dispatches one persona at a time; `review-conductor` dispatches them all at once. The conductor loads a panel YAML (`panels/<panel-id>.yaml`), constructs one dispatch packet per persona via `dispatch_panel.py`, fires every packet in parallel through the caller-provided dispatcher, and aggregates the results through per-persona severity gates. Two artefacts exit every run: `panel-review.md`, the human-readable aggregate with substring-deduplicated findings, and `verdict.json`, the machine-readable record with per-persona critical counts and a top-level `decision` field — either `ship` or `redraft`. If `verdict.json.decision == "redraft"`, `book-compose` returns the chapter to its drafting stage.
+
+**Inputs / outputs.** The conductor reads a panel YAML from `panels/`, a chapter draft from `chapters/drafts/<chapter_id>/draft.md`, and Outcomes exemplars from `book-review/references/outcomes/` to inject as few-shot context into each persona packet. It calls `book-review`'s `dispatch_review` primitive for each persona, then writes `chapters/drafts/<chapter_id>/panel-review.md` and `chapters/drafts/<chapter_id>/verdict.json`. The verdict carries `per_persona_counts`, `decision`, and `soft_gate_triggered`.
+
+**When to invoke.** Use when the user says "run the panel", "review chapter with the conductor", or "soft-gate this chapter via review-conductor". The conductor is the right entry point whenever the full panel — not a single persona — needs to run.
+
+**When NOT to invoke.** Skip `review-conductor` for a single-persona targeted pass — invoke `book-review` directly. Skip it for source ingestion, prose linting, or chapter drafting.
+
+**Trigger phrases.** The frontmatter lists: `"run the panel"`, `"review chapter with the conductor"`, `"run the seven-persona panel"`, `"soft-gate this chapter via review-conductor"`.
+
+**Example walkthrough.** A panel YAML declares five personas: Gottlieb and Domain Expert are `gating`; Lay Reader, Enjoyment Reader, and First-Time Visitor are `advisory`. The conductor fires all five in parallel.
+
+```bash
+python -c "
+from review_conductor.conductor import run_panel
+from pathlib import Path
+verdict = run_panel(
+    workspace=Path('workspaces/bermuda'),
+    chapter_id='ch-02',
+    panel_path=Path('panels/five-persona.yaml'),
+    dispatcher=None,
+)
+print(verdict['decision'], verdict['soft_gate_triggered'])
+"
+```
+
+Expected output: `redraft True`. Gottlieb found one `critical` AI-sloppy pattern; `soft_gate_rule: any_critical_from_gating` fires. `verdict.json` records `per_persona_counts.gottlieb.critical = 1`; `panel-review.md` surfaces the finding with a deduplicated excerpt. The three advisory personas logged findings that appear in the report but did not trigger the gate.
+
+**Where to dive deeper.**
+- `skills/review-conductor/SKILL.md`
+- `skills/review-conductor/tests/` — 29 tests: schema validation, panel loading, dispatch construction, aggregation
+
+</details>
 <!-- mini-tutorial: book-qa                 (stage 3 task 3.11) -->
 
 ### Tier 3 — Optional verification

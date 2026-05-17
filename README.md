@@ -489,7 +489,36 @@ Expected output: `redraft True`. Gottlieb found one `critical` AI-sloppy pattern
 - `skills/review-conductor/tests/` — 29 tests: schema validation, panel loading, dispatch construction, aggregation
 
 </details>
-<!-- mini-tutorial: book-qa                 (stage 3 task 3.11) -->
+<details>
+<summary><strong>book-qa</strong> — post-build defect gate: D1-D13, C1-C15, Sentinel-Healer loop</summary>
+
+**What it does.** Every artefact that `book-compose.build_book` produces enters this gate before it ships. The gate runs four stages. `lint_artifact.py` applies deterministic mechanical rules: eight D-class rules covering orphan citation tokens, raw Markdown bleed inside HTML, broken cross-references, heading hierarchy violations, count-contract failures, paragraph-length variance, CSS reset clobber, and asset 404s. `dispatch_chapter_qa.py` fires a swarm of fresh-context agents — ten per chapter — each checking one chapter against all fifteen C-class editorial dimensions, returning JSON tickets only. The sentinel script aggregates D and C tickets into a single defect ledger, classifying each as critical, important, or minor. `healer.py` opens an isolated-context agent per defect class, proposes a minimal patch, and hands it back to the sentinel for verification; the sentinel confirms the original failing check now passes before writing the change. Three iterations is the maximum.
+
+**Inputs / outputs.** The skill reads a built artefact (the release directory that `build_book` writes), `checklists/house-style.yaml`, and an optional `qa-waivers.yaml` at the workspace root. Book-thesis contributes D9-D12 inputs: `qa/supports-defects.json` (D9, D12), `qa/datalog-defects.json` (D10), and `qa/entailment-results.json` (D11). With `enable_verification: true` set in `qa-config.yaml`, the gate reads `qa/verification-defects.json` for D13. Outputs are `qa/lint-findings.json` (D-class), `qa/swarm-findings.json` (C-class), `claims/proposed-transitions.jsonl`, and a `qa/ledger-writeback-<version>.md` summary for `book-knowledge`.
+
+**When to invoke.** Use after `book-compose.build_book` completes and before the release bundle ships. The `--qa` flag on `book-compose` skips this gate during iteration; remove the flag for release builds.
+
+**When NOT to invoke.** Skip `book-qa` for anything before `build_book` has produced an artefact — source ingestion, chapter drafting, and prose linting all run earlier in the pipeline. Skip it for qualitative persona judgement; that is `book-review`.
+
+**Trigger phrases.** The frontmatter lists `"run book-qa"` and `"gate this release"`. Invocation is automatic from `build_book`; direct invocation is for re-running a failed gate without rebuilding.
+
+**Example walkthrough.** The Bermuda manuscript v0.4 enters the gate.
+
+```bash
+python scripts/lint_artifact.py workspaces/bermuda v0.4
+python scripts/dispatch_chapter_qa.py workspaces/bermuda v0.4
+python scripts/sentinel.py workspaces/bermuda
+python scripts/healer.py workspaces/bermuda --max-iterations 3
+```
+
+Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.2] band in chapter 3) and C7 (scene anchoring absent in chapter 5's opening section). For each, the healer opens a fresh-context agent: D6 splits the overlong paragraph at a natural clause boundary; C7 inserts a two-sentence locating phrase. Sentinel re-runs both checks, confirms zero violations, and writes the patched artefact. Release exits clean.
+
+**Where to dive deeper.**
+- `skills/book-qa/SKILL.md`
+- `skills/book-qa/references/` — defect taxonomy detail and waiver format
+- `skills/book-qa/tests/` — `test_lint_artifact.py`, `test_sentinel_writeback.py`, `test_propose_writeback.py`, `test_transition_rules.py`
+
+</details>
 
 ### Tier 3 — Optional verification
 

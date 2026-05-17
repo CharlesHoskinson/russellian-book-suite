@@ -113,9 +113,9 @@ jobs:
           for sibling in book-knowledge russellian-style book-review review-conductor; do
             ln -sfn "$PWD/skills/$sibling" "$HOME/.claude/skills/$sibling"
           done
-      - name: pytest
+      - name: pytest (deselect sibling-venv test; CI siblings have no .venv)
         working-directory: skills/book-compose
-        run: python -m pytest tests/ -v
+        run: python -m pytest tests/ -v --deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv
 
   test-book-review:
     name: test book-review (py${{ matrix.python }})

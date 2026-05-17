@@ -153,8 +153,9 @@ seeds on the next Acquire run.
 The syntopical-metabook skill SHALL invoke
 `booklogic_adapter.reachable_from_thesis` against the target chapter's thesis
 tree when triage marks a candidate as auto-approve, and SHALL demote the
-candidate to manual-review with a `booklogic-veto` annotation if the returned
-ReachabilityVerdict has `reachable` equal to false.
+candidate to manual-review with a `booklogic-veto` annotation and the
+verdict's `:rule-trace` if the returned ReachabilityVerdict has `reachable`
+equal to false.
 
 #### Scenario: High-scoring candidate vetoed by booklogic
 - GIVEN a candidate with embedding score 0.82 (above T_high) that has no rewrite path to any thesis node
@@ -171,13 +172,18 @@ ReachabilityVerdict has `reachable` equal to false.
 ### Requirement: Booklogic Veto Bypass via Env Var
 Where `SYNTOPICAL_NO_BOOKLOGIC=1` is set, the syntopical-metabook skill SHALL
 skip the booklogic veto, retain the embedding-only triage outcome, and SHALL
-append a warning record of kind `booklogic-veto-skipped` to
-`syntopical/acquisition/manifest.jsonl`.
+append a warning record `{kind: "booklogic-veto-skipped", candidate_ids: [...], reason: "env"}`
+to `syntopical/acquisition/manifest.jsonl`.
 
 #### Scenario: Veto bypassed and warning recorded
 - GIVEN `SYNTOPICAL_NO_BOOKLOGIC=1` is set and an auto-approve candidate exists
 - WHEN triage runs
 - THEN no booklogic subprocess is invoked, the candidate keeps its triage bucket, and a `booklogic-veto-skipped` record appears in `manifest.jsonl`
+
+#### Scenario: Warning record carries full kind, candidate_ids, and reason fields
+- GIVEN `SYNTOPICAL_NO_BOOKLOGIC=1` is set and three auto-approve candidates exist
+- WHEN Acquire triage runs
+- THEN `manifest.jsonl` gains one record with `kind="booklogic-veto-skipped"`, `candidate_ids` listing the three candidate IDs, and `reason="env"`
 
 ---
 

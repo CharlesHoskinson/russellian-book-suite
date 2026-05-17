@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/book-qa
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/book-thesis
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/neurosym-forge
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: cargo
+    directory: /verifiers/bermuda/rust-verifier
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /verifiers/bermuda
+    schedule:
+      interval: weekly

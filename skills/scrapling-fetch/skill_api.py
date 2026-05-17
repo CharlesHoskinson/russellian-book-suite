@@ -8,10 +8,12 @@ from scripts.exceptions import (
     FetchFailed, RateLimitExceeded, BlockedRequest,
     NotAPdf, OfflineMiss, ArxivIdNotFound,
 )
+from scripts.adapters import arxiv, openalex, semantic_scholar, doi
 
 __all__ = [
     "fetch", "Page",
     "download_pdf", "DownloadResult",
     "FetchFailed", "RateLimitExceeded", "BlockedRequest",
     "NotAPdf", "OfflineMiss", "ArxivIdNotFound",
+    "arxiv", "openalex", "semantic_scholar", "doi",
 ]

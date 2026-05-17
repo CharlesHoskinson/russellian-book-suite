@@ -16,22 +16,25 @@
      :o  {:kind :quantity :value ?v :unit ?u}
      :c  [!conds ...]}
     {:kind :expression :sort :formula
-     :head {:kind :symbol :name :forall :sort :rule}
-     :args [{:kind :variable :name "?subj" :sort :entity}
+     :head {:kind :symbol :sort :rule}
+     :args [{:kind :variable :sort :entity}
             {:kind :expression :sort :formula
-             :head {:kind :symbol :name :implies :sort :rule}
+             :head {:kind :symbol :sort :rule}
              :args [{:kind :expression :sort :formula
-                     :head {:kind :symbol :name :and :sort :rule}
+                     :head {:kind :symbol :sort :rule}
                      :args [!conds ...]}
                     {:kind :expression :sort :formula
-                     :head {:kind :symbol :name := :sort :rule}
+                     :head {:kind :symbol :sort :rule}
                      :args [{:kind :expression :sort :real
-                             :head {:kind :symbol :name ~?pred :sort :real}
-                             :args [{:kind :variable :name "?subj" :sort :entity}]}
+                             :head {:kind :grounded
+                                    :sort {:kind :fn :args [:entity] :ret :real}
+                                    :name ~?pred
+                                    :grounded {:lib "predicate" :fn "lookup"}}
+                             :args [{:kind :variable :sort :entity}]}
                             {:kind :grounded :sort :real
                              :name ~(to-si ?v ?u)
                              :grounded {:lib "literal" :fn "value"}}]}]}]}
-    ?other {:kind :symbol :sort :formula :name :OPAQUE}))
+    ?other {:kind :symbol :sort :formula}))
 
 (defn translate-corpus [claims]
   (mapv claim->formula claims))

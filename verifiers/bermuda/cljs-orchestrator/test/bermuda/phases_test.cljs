@@ -44,3 +44,23 @@
 (deftest translate-empty-vector-ok
   (testing "an empty input returns an empty vector"
     (is (= [] (nl/translate-corpus [])))))
+
+;;; ----- translate-corpus with mixed Claim+Event input (REQ-CLJS-ORCH-010) -----
+
+(deftest translate-accepts-mixed-claim-and-event-input
+  (testing "REQ-CLJS-ORCH-010: translate-corpus handles mixed Claim maps and Event vectors"
+    (let [verified-ev  [(symbol "claim" "verified")
+                        {:claim/id "clm-X" :text "x"
+                         :from :proposed :to :verified}]
+          out (nl/translate-corpus [claim verified-ev])]
+      (is (vector? out))
+      (is (= 2 (count out))))))
+
+(deftest translate-accepts-event-only-input
+  (testing "REQ-CLJS-ORCH-011: translate-corpus works on an event-only vector"
+    (let [verified-ev [(symbol "claim" "verified")
+                       {:claim/id "clm-X" :text "x"
+                        :from :proposed :to :verified}]
+          out (nl/translate-corpus [verified-ev])]
+      (is (= 1 (count out)))
+      (is (= :expression (:kind (first out)))))))

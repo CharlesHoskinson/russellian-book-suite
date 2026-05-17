@@ -24,6 +24,18 @@
 (defn- deflift? [form]
   (= (form-head form) 'deflift))
 
+(defn- defrule? [form]
+  (= (form-head form) 'defrule))
+
+(defn- defconstraint? [form]
+  (= (form-head form) 'defconstraint))
+
+(defn- defquery? [form]
+  (= (form-head form) 'defquery))
+
+(defn- defremedy? [form]
+  (= (form-head form) 'defremedy))
+
 ;; ----- defsort expansion -----
 
 (defn- expand-defsort
@@ -53,9 +65,9 @@
   (try (.existsSync fs path) (catch :default _ false)))
 
 (defn load-booklogic
-  "Read project-root/rules/booklogic/{sorts,predicates,lifts}.edn.
-   Returns {:sorts [forms] :predicates [forms] :lifts [forms]}. Missing
-   files contribute empty form lists."
+  "Read project-root/rules/booklogic/{sorts,predicates,lifts,rules,
+   constraints,queries,remedies}.edn. Returns a map with one key per
+   form family; missing files contribute empty form lists."
   [project-root]
   (let [dir   (path/join project-root "rules" "booklogic")
         load  (fn [name]
@@ -63,9 +75,13 @@
                   (if (exists? p)
                     (or (:forms (read-edn-file p)) [])
                     [])))]
-    {:sorts      (load "sorts.edn")
-     :predicates (load "predicates.edn")
-     :lifts      (load "lifts.edn")}))
+    {:sorts       (load "sorts.edn")
+     :predicates  (load "predicates.edn")
+     :lifts       (load "lifts.edn")
+     :rules       (load "rules.edn")
+     :constraints (load "constraints.edn")
+     :queries     (load "queries.edn")
+     :remedies    (load "remedies.edn")}))
 
 ;; ----- deflift expansion -----
 
@@ -96,6 +112,39 @@
      :word-to-int (:word-to-int opts)
      :provenance  (or (:provenance opts) :inherit)
      :confidence  (or (:confidence opts) :inherit)}))
+
+;; ----- defrule expansion -----
+
+(defn- expand-defrule
+  "(defrule R001-name (= LHS RHS) :tags [...]) → rewrite-rule map.
+
+   The (= LHS RHS) equation is the only mandatory positional argument
+   after the name; options (currently just :tags) are a trailing
+   even-arity key-value section.
+
+   Returns:
+     {:name   sym
+      :lhs    pattern
+      :rhs    pattern
+      :tags   [...]}
+
+   The shape mirrors v0.2's rules.edn entries; downstream meander code in
+   `phases.cljs` consumes :lhs / :rhs directly."
+  [form]
+  (let [[_ name equation & options] form
+        opts (if (seq options) (option-map options) {})]
+    (when-not (symbol? name)
+      (throw (ex-info "defrule: name must be a symbol" {:form form})))
+    (when-not (and (sequential? equation)
+                   (= '= (first equation))
+                   (= 3 (count equation)))
+      (throw (ex-info "defrule: must contain an equation of form (= LHS RHS)"
+                      {:form form})))
+    (let [[_ lhs rhs] equation]
+      {:name name
+       :lhs  lhs
+       :rhs  rhs
+       :tags (or (:tags opts) [])})))
 
 ;; ----- validation: lifts reference known predicates -----
 
@@ -155,6 +204,26 @@
         (throw (ex-info (str "defpredicate " name ": unknown return sort " ret)
                         {:predicate pred :unknown ret}))))))
 
+;; ----- rules.edn codegen (consumed by phases.cljs) -----
+
+(defn- rewrite-rule-to-entry
+  [r]
+  {:id   (str (:name r))
+   :lhs  (:lhs r)
+   :rhs  (:rhs r)
+   :tags (:tags r)})
+
+(defn- emit-rewrite-rules-edn-string
+  [{:keys [rewrite-rules]}]
+  (let [entries (mapv rewrite-rule-to-entry rewrite-rules)]
+    (pr-str {:version 1 :rules entries})))
+
+(defn emit-rewrite-rules-edn
+  "Write rules/rules.edn at out-path."
+  [expanded out-path]
+  (let [text (emit-rewrite-rules-edn-string expanded)]
+    (.writeFileSync fs out-path text)))
+
 ;; ----- predicates.edn codegen (legacy compat for Python ingester) -----
 
 (defn- infer-subject
@@ -212,29 +281,43 @@
 ;; ----- main expansion driver -----
 
 (defn expand
-  [{:keys [sorts predicates lifts]}]
+  [{:keys [sorts predicates lifts rules constraints queries remedies]
+    :or   {rules [] constraints [] queries [] remedies []}}]
   (let [sort-registry      (mapv expand-defsort (filter defsort? sorts))
         predicate-registry (mapv expand-defpredicate (filter defpredicate? predicates))
-        lift-rules         (mapv expand-deflift (filter deflift? lifts))]
+        lift-rules         (mapv expand-deflift (filter deflift? lifts))
+        rewrite-rules      (mapv expand-defrule (filter defrule? rules))
+        ;; Phase 2 fills :constraints; Phase 3 fills :queries; Phase 4 fills :remedies
+        constraint-decls   []
+        query-decls        []
+        remedy-decls       []]
     (validate-predicate-sorts predicate-registry sort-registry)
     (validate-lifts lift-rules predicate-registry)
     {:sort-registry      sort-registry
      :predicate-registry predicate-registry
-     :lift-rules         lift-rules}))
+     :lift-rules         lift-rules
+     :rewrite-rules      rewrite-rules
+     :constraint-decls   constraint-decls
+     :query-decls        query-decls
+     :remedy-decls       remedy-decls}))
 
 ;; ----- CLI entry: nbb -m {{ project_slug }}.booklogic <project-root> -----
 
 (defn -main
   "CLI: nbb -m {{ project_slug }}.booklogic <project-root>
-   Reads rules/booklogic/*.edn, expands, writes rules/predicates.edn,
-   prints a one-line report. Exits 0 on success."
+   Reads rules/booklogic/*.edn, expands, writes rules/predicates.edn +
+   rules/rules.edn + intermediate constraints/queries/remedies files.
+   Prints a one-line report. Exits 0 on success."
   [& args]
   (let [project-root (or (first args) ".")
         booklogic    (load-booklogic project-root)
         expanded     (expand booklogic)
-        out-path     (path/join project-root "rules" "predicates.edn")]
-    (emit-predicates-edn expanded out-path)
+        rules-dir    (path/join project-root "rules")]
+    (emit-predicates-edn   expanded (path/join rules-dir "predicates.edn"))
+    (emit-rewrite-rules-edn expanded (path/join rules-dir "rules.edn"))
+    ;; Phase 2 wires constraints.edn; Phase 3 wires queries.edn; Phase 4 wires remedies.edn
     (println (str "[booklogic] compiled "
                   (count (:sort-registry expanded))      " sorts, "
                   (count (:predicate-registry expanded)) " predicates, "
-                  (count (:lift-rules expanded))         " lifts → " out-path))))
+                  (count (:lift-rules expanded))         " lifts, "
+                  (count (:rewrite-rules expanded))      " rules"))))

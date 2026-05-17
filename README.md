@@ -396,7 +396,42 @@ python scripts/lint_supports.py my-workspace v0.1
 - `skills/book-compose/tests/`
 
 </details>
-<!-- mini-tutorial: russellian-style        (stage 3 task 3.8) -->
+<details>
+<summary><strong>russellian-style</strong> — generation contract first, checker second</summary>
+
+**What it does.** The skill is a generation contract first, a checker second. The contract runs before prose exists: three mode-keyed system prompts live at `assets/system-prompts/technical-exposition.md`, `assets/system-prompts/narrative-editorial.md`, and `assets/system-prompts/polemic.md`. `system_prompt_loader.load(mode)` reads the matching file and returns it as the LLM system message, conditioning the writer to the Russellian structural mandates before drafting begins. Those mandates hold four requirements: vary sentence length deliberately, with at least one sentence under ten words and at least one exceeding twenty-five per screen; favour compound-complex sentences with short declarative beats; open paragraphs with the conclusion the paragraph will earn; end paragraphs by changing argumentative pressure, not by restating what the paragraph just said. The checker side — twelve linter modules emitting seventeen rule names — audits prose already in existence. Six modules emit gating rules: `lint_hedges.py` covering `no-hedging`, `lint_passive_voice.py` covering `active-voice`, `lint_signal_density.py` covering `signal-density`, `lint_parallel_structure.py` covering `parallel-structure`, `lint_listicle_abstract.py` covering `listicle-abstract` and `listicle-anaphora`, and `lint_sentence_rhythm.py` covering `rhythm-uniform-length` and `rhythm-repeated-opening`. Six modules emit advisory rules: `lint_ai_staccato.py` covering `staccato-paragraph-run` and three variant patterns, `lint_ai_vocabulary.py` covering `ai-vocabulary`, `lint_burstiness.py` covering `burstiness`, `lint_concrete_instance_density.py` covering `concrete-instance-density`, `lint_epistemic_precision.py` covering `epistemic-precision`, and `lint_paragraph_motion.py` covering `paragraph-motion`. The `humanizer` sibling skill extends the checker with a 24-pattern Wikipedia catalog of AI writing tells when installed.
+
+**Inputs / outputs.** On the generation side, the skill loads one of three system-prompt Markdown files from `assets/system-prompts/` and returns its text as a string for the caller to pass to the LLM. On the linting side, it accepts a text fragment and a list of rule names, writes the text to a temporary Markdown file, runs the requested linters, and returns a list of `LintIssue` dataclasses — one per violation — carrying linter name, line, column, and a human-readable message. The output artefact for a full chapter pass is `style-pass-report.md`, which records per-rule findings, a `vitality_metrics` block, and corpus anchors when vitality linters fire.
+
+**When to invoke.** Use when the user says "apply Russell style", "run the linters on chapter 3", or "Russell pass on draft.md". Also use when `book-compose` loads the system prompt at drafting time and calls `lint_fragment` after each section.
+
+**When NOT to invoke.** Skip `russellian-style` for marketing copy, fiction, launch announcements, or any genre where accuracy is not the primary contract. Skip it for source ingestion, claim ledger writes, or chapter orchestration — those belong to other skills.
+
+**Trigger phrases.** The frontmatter lists: `"apply Russell style"`, `"rewrite in Russellian style"`, `"tighten this prose"`, `"remove hedging"`, `"atomize this paragraph"`, `"Russell pass on this draft"`.
+
+**Example walkthrough.** Load the generation contract, draft a paragraph, lint it, fix it, re-lint.
+
+```python
+from skills.russellian_style.scripts.system_prompt_loader import load
+from skills.russellian_style.skill_api import lint_fragment, LintIssue
+
+prompt = load("technical-exposition")   # returns the system-prompt string
+draft = "Hedges weaken a sentence in ways that passive prose also does."
+issues: list[LintIssue] = lint_fragment(draft, linters=["no-hedging", "active-voice"])
+# issues[0] => LintIssue(linter="active-voice", line=1, col=1, message=...)
+fixed = "Hedges and passive constructions both erode signal density."
+assert lint_fragment(fixed, linters=["no-hedging", "active-voice"]) == []
+```
+
+The first draft triggers `active-voice` on the passive construction; the rewrite commits to a direct claim and clears both rules. The same cycle — run, read, rewrite, re-run — applies to all six gating rules until zero violations remain.
+
+**Where to dive deeper.**
+- `skills/russellian-style/SKILL.md`
+- `skills/russellian-style/assets/system-prompts/` — three mode-keyed generation contracts
+- `skills/russellian-style/assets/russell-corpus/` — 50-paragraph Russell corpus index
+- `skills/russellian-style/tests/`
+
+</details>
 <!-- mini-tutorial: book-review             (stage 3 task 3.9) -->
 <!-- mini-tutorial: review-conductor        (stage 3 task 3.10) -->
 <!-- mini-tutorial: book-qa                 (stage 3 task 3.11) -->

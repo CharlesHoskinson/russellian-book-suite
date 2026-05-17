@@ -1,0 +1,12 @@
+{
+ :version 1
+ :tracker-map {
+               :C001-vant-hoff {
+                                :constraint-id "C001-vant-hoff"
+                                :track :claim/id
+                                :defect :D13
+                                :severity :critical
+                                :message "van 't Hoff equation violated"
+                               }
+              }
+}

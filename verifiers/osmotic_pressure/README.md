@@ -1,0 +1,38 @@
+# Osmotic pressure
+
+A neurosymbolic verification project scaffolded by [neurosym-forge](../../skills/neurosym-forge/).
+Four-phase pipeline: Claude → ClojureScript (rewrite) → Rust (verify) → Claude (synthesise) → Rust (typeset).
+
+## Build
+
+```bash
+npm install
+npm run build
+```
+
+## Verify
+
+```bash
+npm run verify work/claims.edn work/verdict.edn
+```
+
+## Extend
+
+Add a rewrite rule from the parent repo:
+
+```bash
+cd ../../skills/neurosym-forge
+.venv/Scripts/python.exe -m scripts.add_rewrite_rule \
+  --project ../../verifiers/osmotic_pressure \
+  --rule-file new-rule.edn
+```
+
+Add a grounded atom:
+
+```bash
+.venv/Scripts/python.exe -m scripts.add_grounded_atom \
+  --project ../../verifiers/osmotic_pressure \
+  --name :my-fn --lib custom --sort :verdict
+```
+
+See `../../skills/neurosym-forge/references/` for the full conventions.

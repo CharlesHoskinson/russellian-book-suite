@@ -5,6 +5,6 @@
  :builds
  {:main {:target     :node-script
          :output-to  "cljs-orchestrator/dist/main.js"
-         :main       {{ project_slug }}.core/main
+         :main       {{ project_slug_dashed }}.core/main
          :compiler-options {:optimizations :simple
                             :infer-externs :auto}}}}

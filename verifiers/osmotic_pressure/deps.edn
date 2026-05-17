@@ -1,0 +1,2 @@
+{:paths ["cljs-orchestrator/src/main"]
+ :deps  {org.clojure/clojurescript {:mvn/version "1.11.132"}}}

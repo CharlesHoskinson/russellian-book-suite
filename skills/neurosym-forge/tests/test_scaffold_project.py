@@ -58,7 +58,10 @@ def test_slug_substitution(tmp_project_root: Path, skill_root: Path) -> None:
         skill_root=skill_root,
     )
     core = (tmp_project_root / "cljs-orchestrator/src/main/osmotic_pressure/core.cljs").read_text()
-    assert "(ns osmotic_pressure.core" in core
+    # CLJS namespace is dashed (osmotic-pressure.core) even though the file
+    # path uses underscores (osmotic_pressure/core.cljs) — standard
+    # ClojureScript convention for `_`<->`-` inversion.
+    assert "(ns osmotic-pressure.core" in core
     cargo = (tmp_project_root / "rust-verifier/Cargo.toml").read_text()
     assert 'name    = "osmotic_pressure-verifier"' in cargo
 

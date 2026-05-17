@@ -1,0 +1,4 @@
+{"claim_id": "osm-doc-001", "claim_type": "fact", "canonical_text": "van 't Hoff factor i = 1", "status": "verified", "confidence": 1.0, "source_spans": [{"doc_id": "doctored", "locator_text": "wrongly recorded as non-dissociating"}], "supports_chapters": []}
+{"claim_id": "osm-doc-002", "claim_type": "fact", "canonical_text": "Molarity M = 0.154", "status": "verified", "confidence": 1.0, "source_spans": [{"doc_id": "doctored", "locator_text": "M unchanged"}], "supports_chapters": []}
+{"claim_id": "osm-doc-003", "claim_type": "fact", "canonical_text": "Temperature T = 298.15 K", "status": "verified", "confidence": 1.0, "source_spans": [{"doc_id": "doctored", "locator_text": "T unchanged"}], "supports_chapters": []}
+{"claim_id": "osm-doc-004", "claim_type": "fact", "canonical_text": "Osmotic pressure = 780202.5 Pa", "status": "verified", "confidence": 1.0, "source_spans": [{"doc_id": "doctored", "locator_text": "pi unchanged"}], "supports_chapters": []}

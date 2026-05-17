@@ -1,0 +1,5 @@
+{:forms
+ [(defpredicate :osmotic-pressure-pa [:solution] :real)
+  (defpredicate :vant-hoff-i         [:solution] :real)
+  (defpredicate :molarity            [:solution] :real)
+  (defpredicate :temperature-k       [:solution] :real)]}

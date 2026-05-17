@@ -1,0 +1,2 @@
+{:forms
+ [(defsort :solution)]}

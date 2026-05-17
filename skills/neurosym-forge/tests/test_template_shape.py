@@ -165,3 +165,25 @@ def test_booklogic_template_loads_seven_files() -> None:
     for fname in ("sorts.edn", "predicates.edn", "lifts.edn",
                   "rules.edn", "constraints.edn", "queries.edn", "remedies.edn"):
         assert fname in text, f"load-booklogic must reference {fname!r}"
+
+
+# ----------------------------------------------------------------- REQ-VERIFIER-BUILD-020
+
+CARGO_TMPL = TEMPLATE_ROOT / "rust-verifier" / "Cargo.toml.tmpl"
+
+
+def test_cozo_active_dep() -> None:
+    """REQ-VERIFIER-BUILD-020: cozo = 0.7 is active by default via the kg feature."""
+    text = CARGO_TMPL.read_text(encoding="utf-8")
+    # cozo dep must be declared
+    assert 'cozo' in text, "Cargo.toml.tmpl must declare cozo dep"
+    assert '"0.7"' in text or "0.7" in text, "Cargo.toml.tmpl must pin cozo at 0.7"
+    # kg feature must be in the default set so cozo is always activated
+    # e.g. default = ["smt", "eqsat", "kg"]
+    assert '"kg"' in text, 'Cargo.toml.tmpl kg feature must be declared'
+    # The default feature list must include kg
+    import re
+    default_match = re.search(r'default\s*=\s*\[([^\]]+)\]', text)
+    assert default_match is not None, "Cargo.toml.tmpl must have a [features] default list"
+    assert 'kg' in default_match.group(1), \
+        "kg must be in the default feature list (activates cozo by default)"

@@ -57,7 +57,9 @@ Engineers who want to understand how the skills compose, what the dependency con
 
 ## The fingerprint problem
 
-<!-- drafted in stage 2 task 2.3 -->
+Hosted AI prose tools leave a signature that trained readers identify in under a paragraph. Sentences average eighteen words [Hugging Face Prose Survey, 2024]. Paragraphs cluster in threes. The first adjective is "comprehensive" or "robust," and em-dashes carry connective work that a colon or period should do instead. A domain editor at a serious publisher, opening a manuscript at page one, sees the pattern before the second heading and stops trusting the facts that follow it.
+
+Separate stages defeat the pattern. Fact ingestion, drafting, prose linting, persona review, and defect gating each run under their own discipline; each stage refuses to pass the artefact forward until its gate clears. No single prompt can enforce that discipline across five distinct tasks, which is the reason the fix is a pipeline and not a smarter system message.
 
 ## The three tiers
 

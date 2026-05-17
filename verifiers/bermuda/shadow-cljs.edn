@@ -1,4 +1,4 @@
-{:source-paths ["cljs-orchestrator/src/main"]
+{:source-paths ["cljs-orchestrator/src/main" "cljs-orchestrator/test"]
  :dependencies [[org.clojure/core.logic   "1.1.1"]
                 [meander/epsilon          "0.0.650"]
                 [metosin/malli            "0.16.4"]]
@@ -6,5 +6,10 @@
  {:main {:target     :node-script
          :output-to  "cljs-orchestrator/dist/main.js"
          :main       bermuda.core/main
+         :compiler-options {:optimizations :simple
+                            :infer-externs :auto}}
+  :test {:target     :node-test
+         :output-to  "cljs-orchestrator/dist/test.js"
+         :ns-regexp  "-test$"
          :compiler-options {:optimizations :simple
                             :infer-externs :auto}}}}

@@ -5,10 +5,12 @@
   (:require [cljs.test :as t]
             [bermuda.unify-test]
             [bermuda.ir-test]
-            [bermuda.nl-to-fol-test]))
+            [bermuda.nl-to-fol-test]
+            [bermuda.phases-test]))
 
 (defn -main [& _args]
   (t/run-tests
     'bermuda.unify-test
     'bermuda.ir-test
-    'bermuda.nl-to-fol-test))
+    'bermuda.nl-to-fol-test
+    'bermuda.phases-test))

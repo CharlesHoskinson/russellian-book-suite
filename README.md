@@ -432,7 +432,27 @@ The first draft triggers `active-voice` on the passive construction; the rewrite
 - `skills/russellian-style/tests/`
 
 </details>
-<!-- mini-tutorial: book-review             (stage 3 task 3.9) -->
+<details>
+<summary><strong>book-review</strong> — seven editorial personas, dispatched in parallel, severity-gated</summary>
+
+**What it does.** A chapter draft that clears style linting still fails if a real editor would stop trusting it. `book-review` closes that gap: seven editorial personas read the draft in parallel, each from a distinct critical lens, and return severity-tagged findings that either block release or surface as advisory. The gate is binary — `persona_critical_count == 0` to ship — but the evidence is qualitative: each persona's full Markdown report lives under `chapters/drafts/<chapter_id>/reviews/`, and the conductor's aggregation produces `persona-review.md` with a verdict table, substring-deduplicated findings, and final counts by severity.
+
+**Inputs / outputs.** The skill reads a chapter draft from `chapters/drafts/<chapter_id>/draft.md` and the chapter contract from `chapters/contracts/<chapter_id>.yaml`. It constructs one dispatch packet per persona, issues parallel Task subagent calls, and writes individual reports to `chapters/drafts/<chapter_id>/reviews/<persona>.md`. The aggregation script merges those into `chapters/drafts/<chapter_id>/persona-review.md` and writes `verdict.json` with the `persona_critical_count` field that `book-compose` reads at stage 7.
+
+**When to invoke.** Use when the user says "review chapter X with personas", "Gottlieb pass on this chapter", or "is this chapter ready for review". Single-persona dispatch is a valid entry point for targeted feedback.
+
+**When NOT to invoke.** Skip `book-review` for source ingestion, prose-grain linting, or chapter drafting — each belongs to a different skill. Skip it for qualitative review of prose that lives outside the book pipeline.
+
+**Trigger phrases.** The frontmatter lists: `"review chapter X with personas"`, `"Gottlieb pass on this chapter"`, `"run the editorial reviews"`, `"what would Gottlieb say about this draft"`, `"soft-gate this chapter"`.
+
+**Example walkthrough.** The user says "Gottlieb pass on chapter ch-03". `book-review` loads `chapters/drafts/ch-03/draft.md`, constructs a Gottlieb dispatch packet (persona role description, severity rubric, draft text, contract metadata), issues a single Task subagent call, and writes findings to `chapters/drafts/ch-03/reviews/gottlieb.md`. The report tags each finding by severity: `critical` blocks release, while `important` and `minor` are advisory. If Gottlieb marks any finding `critical` — cadence collapse, AI-sloppy pattern density above threshold, or a structural defect the rubric defines as blocking — `persona_critical_count` increments and the chapter's release gate fails. The writer reads `gottlieb.md`, revises through `book-compose`, and re-runs the pass.
+
+**Where to dive deeper.**
+- `skills/book-review/SKILL.md`
+- `skills/book-review/personas/` — one Markdown role file per persona
+- `skills/book-review/tests/`
+
+</details>
 <!-- mini-tutorial: review-conductor        (stage 3 task 3.10) -->
 <!-- mini-tutorial: book-qa                 (stage 3 task 3.11) -->
 

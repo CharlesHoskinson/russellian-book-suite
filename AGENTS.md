@@ -106,6 +106,44 @@ Per the user's `~/.claude/CLAUDE.md` (which applies to this repo):
 - **Never push to main directly**: always via PR
 - **Never use `--no-verify`** or skip hooks/signing unless explicitly instructed
 
+## OpenSpec workflow
+
+Every change to this repo follows the [OpenSpec convention](https://github.com/Fission-AI/OpenSpec).
+See `openspec/README.md` for the directory and REQ-ID conventions.
+
+### Cycle
+
+1. **Propose.** Create `openspec/changes/<change>/proposal.md` (and `design.md`, `tasks.md`,
+   `specs/` deltas). Open a draft PR.
+2. **Refine.** Iterate until requirements are crisp and spec deltas are agreed.
+3. **Execute.** Implement against `tasks.md`. Each test cites the REQ ID(s) it satisfies
+   in its docstring or test name (e.g. `def test_REQ_EDN_010_seed_round_trip():`).
+4. **Merge.** Squash-merge to `main`. Milestone auto-closes if the PR carries the
+   Milestone tag.
+5. **Archive.** Move `openspec/changes/<change>/` to `openspec/changes/archive/YYYY-MM-DD-<change>/`.
+   Merge the spec deltas into `openspec/specs/<capability>/spec.md`. Publish a GitHub
+   Release if the change is a milestone.
+
+### Conventions
+
+- **EARS for requirements.** Five patterns: Ubiquitous, Event-driven, State-driven,
+  Optional, Unwanted. See `openspec/README.md` for examples.
+- **REQ IDs.** `REQ-<CAPABILITY-SLUG>-<NNN>`. Numbers are stable across PRs.
+- **One change = one Milestone = one Tracking Issue = one PR.** (Exceptions: pre-declared
+  internal splits like PR-4a / PR-4b.)
+- **Implementation notes vs tasks.md.** When a sprint already has an exhaustive TDD plan
+  at `docs/plans/`, the OpenSpec `tasks.md` is the lightweight checklist; the plan is
+  the source-and-command reference. New sprints (post-v0.4) typically skip the verbose
+  plan and let `tasks.md` carry the full content.
+
+### Roadmap visibility
+
+- GitHub Milestones — one per OpenSpec change
+- Tracking Issues — one per Milestone, listing the REQ IDs the sprint closes
+- Releases — alpha per merged sprint (`v0.4.0-alpha.N`); final release published with the
+  last sprint
+- GitHub Project "BookLogic v0.4" — Kanban + Timeline view of all sprint issues
+
 ## Known pitfalls
 
 - **Append-only ledgers.** `claims/ledger.jsonl`, `claims/counter-claims.jsonl`, `claims/events.jsonl` are append-only. Use `book-knowledge/scripts/io_utils.py` (`read_jsonl`, `latest_per`) when reading them. Never use `open("w")` on a ledger file.

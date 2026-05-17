@@ -145,3 +145,23 @@ def test_booklogic_template_emits_predicates_edn() -> None:
     text = BOOKLOGIC_TMPL.read_text(encoding="utf-8")
     assert "emit-predicates-edn" in text
     assert "writeFileSync" in text, "booklogic.cljs.tmpl must write predicates.edn to disk"
+
+
+def test_booklogic_template_dispatches_seven_forms() -> None:
+    text = BOOKLOGIC_TMPL.read_text(encoding="utf-8")
+    for sym in ("defsort", "defpredicate", "deflift",
+                "defrule", "defconstraint", "defquery", "defremedy"):
+        assert sym in text, f"booklogic.cljs.tmpl must reference {sym!r}"
+
+
+def test_booklogic_template_emits_rules_edn() -> None:
+    text = BOOKLOGIC_TMPL.read_text(encoding="utf-8")
+    assert "emit-rewrite-rules-edn" in text
+    assert "rules.edn" in text
+
+
+def test_booklogic_template_loads_seven_files() -> None:
+    text = BOOKLOGIC_TMPL.read_text(encoding="utf-8")
+    for fname in ("sorts.edn", "predicates.edn", "lifts.edn",
+                  "rules.edn", "constraints.edn", "queries.edn", "remedies.edn"):
+        assert fname in text, f"load-booklogic must reference {fname!r}"

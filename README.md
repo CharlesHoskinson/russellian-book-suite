@@ -292,7 +292,44 @@ The stub returns `"0.0.0-stub"` and the adapter strips the JSON quote layer, han
 
 ### Tier 2 — Drafting pipeline
 
-<!-- mini-tutorial: book-knowledge          (stage 3 task 3.5) -->
+<details>
+<summary><strong>book-knowledge</strong> — epistemic compiler: claim ingestion, provenance, RDF graph</summary>
+
+**What it does.** The claim ledger starts here. `book-knowledge` reads local PDF and Markdown sources, extracts claims with PROV-O provenance, projects them into an RDF dataset, validates the graph with SHACL, and runs competency queries that confirm the knowledge base answers the questions the book contract requires. The ledger appends; nothing deletes. A claim enters `claims/ledger.jsonl` once, then its state advances through `proposed → verified → disputed → superseded` and stops there. Belief propagation runs a Bayesian damping pass over the provenance DAG so a single source cannot double-count by appearing twice in the witness chain. The metabook reads this ledger as ground truth; no other skill writes to it.
+
+**Inputs / outputs.** Four public functions cross the skill boundary (IF-BK-1..4): `ingest_pdf(path, workspace)` adds a source and returns an `IngestResult`; `query_claims(filter, workspace)` returns filtered `ClaimRecord` objects from the ledger; `is_source_ingested(sha256, workspace)` checks deduplication by content hash; `list_concepts(workspace)` returns every `ConceptRef` from `wiki/concepts/`. The skill owns `raw/`, `wiki/`, `claims/`, and `graph/` exclusively — no sibling writes there.
+
+**When to invoke.** `book-knowledge` handles source ingestion, claim queries, RDF graph revalidation, and the Bayesian belief pass. Invoke it at each of those four checkpoints.
+
+**When NOT to invoke.** Skip `book-knowledge` for chapter drafting — that is `book-compose`. Skip it for sentence-grain voice checks — that is `russellian-style`. Skip it for casual document Q&A that needs no persistent claim record; reach the source directly.
+
+**Trigger phrases.** `ingest this paper`, `extract claims`, `validate claims`, `audit the knowledge graph`.
+
+**Example walkthrough.** Ingest a PDF, count the claims it produces, and run a competency query:
+
+```python
+from pathlib import Path
+from skill_api import ingest_pdf, query_claims, ClaimFilter
+
+ws = Path("my-book-workspace")
+result = ingest_pdf(Path("sources/nakamoto2008.pdf"), ws)
+print(result.status, result.claims_extracted)
+# ingested  47
+
+verified = query_claims(ClaimFilter(state="verified"), ws)
+print(len(verified), "verified claims in ledger")
+# 312 verified claims in ledger
+```
+
+`ingest_pdf` computes a sha256 before writing anything; a second call with the same file returns `already_present` without touching the ledger. The release gate blocks on SHACL conformance and zero `unsupported_claims` before any chapter ships.
+
+**Where to dive deeper.**
+- `skills/book-knowledge/SKILL.md` — component inventory, workspace layout, release-gate criteria.
+- `skills/book-knowledge/skill_api.py` — IF-BK-1..4 public surface.
+- `skills/book-knowledge/references/` — ingest, wiki, claims, graph audit, and provenance playbooks.
+- `skills/book-knowledge/tests/` — pytest suite covering every script.
+
+</details>
 <!-- mini-tutorial: book-thesis             (stage 3 task 3.6) -->
 <!-- mini-tutorial: book-compose            (stage 3 task 3.7) -->
 <!-- mini-tutorial: russellian-style        (stage 3 task 3.8) -->

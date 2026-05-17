@@ -5,9 +5,11 @@
   "scripts": {
     "build:cljs":         "shadow-cljs release main",
     "build:rust":         "cd rust-verifier && napi build --platform --release ../cljs-orchestrator/native",
-    "build":              "npm run build:rust && npm run build:cljs",
+    "build":              "npm run booklogic-compile && npm run codegen-axioms && npm run build:rust && npm run build:cljs",
     "verify":             "node cljs-orchestrator/dist/main.js verify",
     "booklogic-compile":  "nbb -m {{ project_slug }}.booklogic .",
+    "codegen-axioms":     "python scripts/codegen_axioms.py",
+    "codegen-kg":         "python scripts/codegen_kg.py",
     "test:booklogic":     "nbb -m {{ project_slug }}.booklogic-test"
   },
   "devDependencies": {

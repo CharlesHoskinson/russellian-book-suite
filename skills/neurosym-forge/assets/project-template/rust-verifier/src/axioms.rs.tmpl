@@ -1,20 +1,17 @@
-//! Project-specific axioms. Override this file (or replace with a
-//! domain-specific module like `canonical.rs`) to assert hard constraints
-//! before the per-atom tracked assertions in `smt::check_all`.
-//!
-//! The default ships a no-op so a freshly-scaffolded project compiles
-//! and verifies trivially (all-Sat) until the project author writes
-//! its axioms.
+// PLACEHOLDER: this no-op axioms hook ships with the scaffold.
+// `npm run codegen-axioms` overwrites this file with generated source
+// when rules/booklogic/constraints.edn declares defconstraint forms.
+// DO NOT edit by hand; edit constraints.edn instead.
 
 #[cfg(feature = "smt")]
-use z3::{Context, Solver};
+use z3::Solver;
 
 #[cfg(feature = "smt")]
-pub fn assert_axioms(_ctx: &Context, _solver: &Solver) {
-    // No-op default. Domain-specific verifiers replace this body.
+pub fn assert_axioms(_solver: &Solver) {
+    // No-op default; replaced by codegen_axioms.run().
 }
 
 #[cfg(not(feature = "smt"))]
 pub fn assert_axioms() {
-    // No-op default for builds without the smt feature.
+    // No-op default.
 }

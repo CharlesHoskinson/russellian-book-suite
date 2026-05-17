@@ -430,3 +430,8 @@ No skill ownership boundaries are crossed. `book-knowledge` adds a new artifact 
 - Six merged PRs
 - A `references/booklogic-dsl.md` reference doc as part of PR-3
 - The documentation handoff brief from PR #23 covers v0.3; an addendum for v0.4 may be issued after the mission lands
+
+## Closure log
+
+- **PR-4 (D4) — BookLogic active forms landed 2026-05-17.** Four expanders (`defrule`, `defconstraint`, `defquery`, `defremedy`) ship in `booklogic.cljs.tmpl`. Each form family has its own intermediate EDN target plus a Python codegen pass (axioms.rs from constraints.edn; kg.rs from queries.edn) or a downstream consumer (book-qa.propose_writeback for remedies). Open question #1 (~= approximate-equality) implemented with :tolerance e desugaring to |LHS - RHS| <= e. Open question #4 (bidirectional traceability for Z3 unsat cores) solved via `rules/axioms-tracker-map.edn`. Open question #5 (Z3 bundled build on Windows) deferred to PR-5; PR-4 cargo-check gate runs on ubuntu-latest.
+

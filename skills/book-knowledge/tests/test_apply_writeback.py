@@ -60,6 +60,19 @@ def test_apply_writeback_skips_non_critical_in_auto(tmp_path):
     assert summary["applied"] == 0
 
 
+def test_apply_writeback_blocks_human_review_proposals(tmp_path):
+    """REQ-QA-PIPE-012: :requires :human-review blocks auto-apply."""
+    layout = _seed_claim(tmp_path)
+    (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
+        "kind": "claim", "claim_id": "clm-2026-000001",
+        "to": "refuted",
+        "cause_ticket_id": "W001", "cause_class": "booklogic_remedy",
+        "severity": "critical", "requires": "human-review", "auto_apply": False,
+    }) + "\n", encoding="utf-8")
+    summary = apply_writeback(tmp_path, auto_apply=True)
+    assert summary["applied"] == 0
+
+
 def test_apply_writeback_counter_claim_auto_applies(tmp_path):
     layout = init_workspace(tmp_path)
     append_counter_claim(tmp_path, {

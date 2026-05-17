@@ -24,6 +24,18 @@
 (defn- deflift? [form]
   (= (form-head form) 'deflift))
 
+(defn- defrule? [form]
+  (= (form-head form) 'defrule))
+
+(defn- defconstraint? [form]
+  (= (form-head form) 'defconstraint))
+
+(defn- defquery? [form]
+  (= (form-head form) 'defquery))
+
+(defn- defremedy? [form]
+  (= (form-head form) 'defremedy))
+
 ;; ----- defsort expansion -----
 
 (defn- expand-defsort
@@ -53,9 +65,9 @@
   (try (.existsSync fs path) (catch :default _ false)))
 
 (defn load-booklogic
-  "Read project-root/rules/booklogic/{sorts,predicates,lifts}.edn.
-   Returns {:sorts [forms] :predicates [forms] :lifts [forms]}. Missing
-   files contribute empty form lists."
+  "Read project-root/rules/booklogic/{sorts,predicates,lifts,rules,
+   constraints,queries,remedies}.edn. Returns a map with one key per
+   form family; missing files contribute empty form lists."
   [project-root]
   (let [dir   (path/join project-root "rules" "booklogic")
         load  (fn [name]
@@ -63,9 +75,13 @@
                   (if (exists? p)
                     (or (:forms (read-edn-file p)) [])
                     [])))]
-    {:sorts      (load "sorts.edn")
-     :predicates (load "predicates.edn")
-     :lifts      (load "lifts.edn")}))
+    {:sorts       (load "sorts.edn")
+     :predicates  (load "predicates.edn")
+     :lifts       (load "lifts.edn")
+     :rules       (load "rules.edn")
+     :constraints (load "constraints.edn")
+     :queries     (load "queries.edn")
+     :remedies    (load "remedies.edn")}))
 
 ;; ----- deflift expansion -----
 
@@ -96,6 +112,39 @@
      :word-to-int (:word-to-int opts)
      :provenance  (or (:provenance opts) :inherit)
      :confidence  (or (:confidence opts) :inherit)}))
+
+;; ----- defrule expansion -----
+
+(defn- expand-defrule
+  "(defrule R001-name (= LHS RHS) :tags [...]) → rewrite-rule map.
+
+   The (= LHS RHS) equation is the only mandatory positional argument
+   after the name; options (currently just :tags) are a trailing
+   even-arity key-value section.
+
+   Returns:
+     {:name   sym
+      :lhs    pattern
+      :rhs    pattern
+      :tags   [...]}
+
+   The shape mirrors v0.2's rules.edn entries; downstream meander code in
+   `phases.cljs` consumes :lhs / :rhs directly."
+  [form]
+  (let [[_ name equation & options] form
+        opts (if (seq options) (option-map options) {})]
+    (when-not (symbol? name)
+      (throw (ex-info "defrule: name must be a symbol" {:form form})))
+    (when-not (and (sequential? equation)
+                   (= '= (first equation))
+                   (= 3 (count equation)))
+      (throw (ex-info "defrule: must contain an equation of form (= LHS RHS)"
+                      {:form form})))
+    (let [[_ lhs rhs] equation]
+      {:name name
+       :lhs  lhs
+       :rhs  rhs
+       :tags (or (:tags opts) [])})))
 
 ;; ----- validation: lifts reference known predicates -----
 
@@ -155,6 +204,195 @@
         (throw (ex-info (str "defpredicate " name ": unknown return sort " ret)
                         {:predicate pred :unknown ret}))))))
 
+;; ----- defconstraint expansion -----
+
+(defn- assert-form-approx?
+  "True iff the :assert form uses the ~= (approximate-equality) head."
+  [assert-form]
+  (and (sequential? assert-form) (= '~= (first assert-form))))
+
+(defn- extract-tolerance
+  "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.
+   For any other form return nil."
+  [assert-form]
+  (when (assert-form-approx? assert-form)
+    (let [pairs (drop 3 assert-form)]
+      (loop [xs pairs]
+        (cond
+          (empty? xs)               nil
+          (= :tolerance (first xs)) (second xs)
+          :else                     (recur (drop 2 xs)))))))
+
+(defn- expand-defconstraint
+  "(defconstraint NAME :backend B :assert F :track T :on-unsat OU) → constraint map.
+
+   Required: :backend, :assert, :on-unsat.
+   Optional: :track (defaults to :claim/id).
+
+   The intermediate map carries everything the Python codegen needs to
+   emit a Z3 assert_and_track call:
+     {:name       sym
+      :backend    :z3 / :egg / :cozo
+      :assert     full assert form (preserved for codegen tokenisation)
+      :tolerance  number-or-nil  (extracted when :assert head is ~=)
+      :track      :claim/id / literal
+      :on-unsat   {:defect :severity :message}}"
+  [form]
+  (let [[_ name & options] form
+        opts (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "defconstraint: name must be a symbol" {:form form})))
+    (doseq [required [:backend :assert :on-unsat]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "defconstraint " name ": missing required option " required)
+                        {:form form}))))
+    (let [on-unsat (:on-unsat opts)]
+      (when-not (and (map? on-unsat)
+                     (contains? on-unsat :defect)
+                     (contains? on-unsat :severity)
+                     (contains? on-unsat :message))
+        (throw (ex-info (str "defconstraint " name
+                             ": :on-unsat must be {:defect :severity :message}")
+                        {:form form :on-unsat on-unsat})))
+      {:name      name
+       :backend   (:backend opts)
+       :assert    (:assert opts)
+       :tolerance (extract-tolerance (:assert opts))
+       :track     (or (:track opts) :claim/id)
+       :on-unsat  on-unsat})))
+
+;; ----- defquery expansion -----
+
+(defn- expand-defquery
+  "(defquery NAME :backend B :find [...] :where [...] :on-result OR) → query map.
+
+   Required: :backend, :find, :where, :on-result.
+   The intermediate map carries everything the Python codegen needs to
+   emit a Cozo script + dispatch entry in kg.rs.
+
+   :find and :where are kept as raw EDN structures; the Python codegen
+   pretty-prints them into Cozo Datalog syntax."
+  [form]
+  (let [[_ name & options] form
+        opts (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "defquery: name must be a symbol" {:form form})))
+    (doseq [required [:backend :find :where :on-result]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "defquery " name ": missing required option " required)
+                        {:form form}))))
+    (let [or-spec (:on-result opts)]
+      (when-not (and (map? or-spec)
+                     (contains? or-spec :defect)
+                     (contains? or-spec :severity))
+        (throw (ex-info (str "defquery " name
+                             ": :on-result must be {:defect :severity ...}")
+                        {:form form :on-result or-spec}))))
+    {:name      name
+     :backend   (:backend opts)
+     :find      (:find opts)
+     :where     (:where opts)
+     :on-result (:on-result opts)}))
+
+;; ----- queries.edn codegen (intermediate; consumed by Python codegen_kg) -----
+
+(defn- query-to-entry
+  [q]
+  {:id        (str (:name q))
+   :backend   (:backend q)
+   :find      (:find q)
+   :where     (:where q)
+   :on-result (:on-result q)})
+
+(defn- emit-queries-edn-string
+  [{:keys [query-decls]}]
+  (let [entries (mapv query-to-entry query-decls)]
+    (pr-str {:version 1 :queries entries})))
+
+(defn emit-queries-edn
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-queries-edn-string expanded)))
+
+;; ----- defremedy expansion -----
+
+(defn- expand-defremedy
+  "(defremedy NAME :when PATTERN :propose TRANSITION [:requires GATE]) → remedy map.
+
+   :when     — pattern matched against a defect / verdict shape
+   :propose  — the ledger transition to emit if matched
+   :requires — :human-review blocks auto-apply; :auto-apply (default) allows it"
+  [form]
+  (let [[_ name & options] form
+        opts (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "defremedy: name must be a symbol" {:form form})))
+    (doseq [required [:when :propose]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "defremedy " name ": missing required option " required)
+                        {:form form}))))
+    {:name     name
+     :when     (:when opts)
+     :propose  (:propose opts)
+     :requires (or (:requires opts) :auto-apply)}))
+
+;; ----- remedies.edn codegen (consumed by book-qa.propose_writeback) -----
+
+(defn- remedy-to-entry
+  [r]
+  {:id       (str (:name r))
+   :when     (:when r)
+   :propose  (:propose r)
+   :requires (:requires r)})
+
+(defn- emit-remedies-edn-string
+  [{:keys [remedy-decls]}]
+  (let [entries (mapv remedy-to-entry remedy-decls)]
+    (pr-str {:version 1 :remedies entries})))
+
+(defn emit-remedies-edn
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-remedies-edn-string expanded)))
+
+;; ----- constraints.edn codegen (intermediate; consumed by Python codegen_axioms) -----
+
+(defn- constraint-to-entry
+  [c]
+  {:id        (str (:name c))
+   :backend   (:backend c)
+   :assert    (:assert c)
+   :tolerance (:tolerance c)
+   :track     (:track c)
+   :on-unsat  (:on-unsat c)})
+
+(defn- emit-constraints-edn-string
+  [{:keys [constraint-decls]}]
+  (let [entries (mapv constraint-to-entry constraint-decls)]
+    (pr-str {:version 1 :constraints entries})))
+
+(defn emit-constraints-edn
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-constraints-edn-string expanded)))
+
+;; ----- rules.edn codegen (consumed by phases.cljs) -----
+
+(defn- rewrite-rule-to-entry
+  [r]
+  {:id   (str (:name r))
+   :lhs  (:lhs r)
+   :rhs  (:rhs r)
+   :tags (:tags r)})
+
+(defn- emit-rewrite-rules-edn-string
+  [{:keys [rewrite-rules]}]
+  (let [entries (mapv rewrite-rule-to-entry rewrite-rules)]
+    (pr-str {:version 1 :rules entries})))
+
+(defn emit-rewrite-rules-edn
+  "Write rules/rules.edn at out-path."
+  [expanded out-path]
+  (let [text (emit-rewrite-rules-edn-string expanded)]
+    (.writeFileSync fs out-path text)))
+
 ;; ----- predicates.edn codegen (legacy compat for Python ingester) -----
 
 (defn- infer-subject
@@ -212,29 +450,47 @@
 ;; ----- main expansion driver -----
 
 (defn expand
-  [{:keys [sorts predicates lifts]}]
+  [{:keys [sorts predicates lifts rules constraints queries remedies]
+    :or   {rules [] constraints [] queries [] remedies []}}]
   (let [sort-registry      (mapv expand-defsort (filter defsort? sorts))
         predicate-registry (mapv expand-defpredicate (filter defpredicate? predicates))
-        lift-rules         (mapv expand-deflift (filter deflift? lifts))]
+        lift-rules         (mapv expand-deflift (filter deflift? lifts))
+        rewrite-rules      (mapv expand-defrule (filter defrule? rules))
+        constraint-decls   (mapv expand-defconstraint (filter defconstraint? constraints))
+        query-decls        (mapv expand-defquery (filter defquery? queries))
+        remedy-decls       (mapv expand-defremedy (filter defremedy? remedies))]
     (validate-predicate-sorts predicate-registry sort-registry)
     (validate-lifts lift-rules predicate-registry)
     {:sort-registry      sort-registry
      :predicate-registry predicate-registry
-     :lift-rules         lift-rules}))
+     :lift-rules         lift-rules
+     :rewrite-rules      rewrite-rules
+     :constraint-decls   constraint-decls
+     :query-decls        query-decls
+     :remedy-decls       remedy-decls}))
 
 ;; ----- CLI entry: nbb -m {{ project_slug }}.booklogic <project-root> -----
 
 (defn -main
   "CLI: nbb -m {{ project_slug }}.booklogic <project-root>
-   Reads rules/booklogic/*.edn, expands, writes rules/predicates.edn,
-   prints a one-line report. Exits 0 on success."
+   Reads rules/booklogic/*.edn, expands, writes rules/predicates.edn +
+   rules/rules.edn + intermediate constraints/queries/remedies files.
+   Prints a one-line report. Exits 0 on success."
   [& args]
   (let [project-root (or (first args) ".")
         booklogic    (load-booklogic project-root)
         expanded     (expand booklogic)
-        out-path     (path/join project-root "rules" "predicates.edn")]
-    (emit-predicates-edn expanded out-path)
+        rules-dir    (path/join project-root "rules")]
+    (emit-predicates-edn   expanded (path/join rules-dir "predicates.edn"))
+    (emit-rewrite-rules-edn expanded (path/join rules-dir "rules.edn"))
+    (emit-constraints-edn  expanded (path/join rules-dir "constraints.edn"))
+    (emit-queries-edn      expanded (path/join rules-dir "queries.edn"))
+    (emit-remedies-edn     expanded (path/join rules-dir "remedies.edn"))
     (println (str "[booklogic] compiled "
                   (count (:sort-registry expanded))      " sorts, "
                   (count (:predicate-registry expanded)) " predicates, "
-                  (count (:lift-rules expanded))         " lifts → " out-path))))
+                  (count (:lift-rules expanded))         " lifts, "
+                  (count (:rewrite-rules expanded))      " rules, "
+                  (count (:constraint-decls expanded))   " constraints, "
+                  (count (:query-decls expanded))        " queries, "
+                  (count (:remedy-decls expanded))       " remedies"))))

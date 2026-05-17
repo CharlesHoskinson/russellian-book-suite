@@ -3,13 +3,15 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "build:cljs":   "shadow-cljs release main",
-    "build:rust":   "cd rust-verifier && napi build --platform --release ../cljs-orchestrator/native",
-    "build":        "npm run build:rust && npm run build:cljs",
-    "verify":       "node cljs-orchestrator/dist/main.js"
+    "build:cljs":        "shadow-cljs release main",
+    "build:rust":        "cd rust-verifier && napi build --platform --release ../cljs-orchestrator/native",
+    "build":             "npm run build:rust && npm run build:cljs",
+    "verify":            "node cljs-orchestrator/dist/main.js",
+    "booklogic-compile": "nbb -m bermuda.booklogic ."
   },
   "devDependencies": {
-    "shadow-cljs": "^2.28.20",
-    "@napi-rs/cli": "^3.0.0"
+    "shadow-cljs":  "^2.28.20",
+    "@napi-rs/cli": "^3.0.0",
+    "nbb":          "^1.4.0"
   }
 }

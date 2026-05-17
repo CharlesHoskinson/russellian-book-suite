@@ -29,7 +29,9 @@ _KW_PATTERNS = Keyword("patterns")
 _KW_PREDICATE = Keyword("predicate")
 _KW_SUBJECT = Keyword("subject")
 _KW_VALUE_KIND = Keyword("value_kind")
+_KW_VALUE_KIND_H = Keyword("value-kind")   # codegened hyphenated form
 _KW_WORD_TO_INT = Keyword("word_to_int")
+_KW_WORD_TO_INT_H = Keyword("word-to-int")  # codegened hyphenated form
 _KW_VALUE = Keyword("value")
 
 _KW_ID = Keyword("id")
@@ -67,6 +69,21 @@ def _is_verified(c: dict) -> bool:
     return c.get("status") == "verified" or c.get("tbf:status") == "verified"
 
 
+def _get_spec(spec: dict, underscore_key: Keyword, hyphen_key: Keyword, default: Any = None) -> Any:
+    """Dual-key lookup: try underscore form first (v0.2), then hyphenated (codegened)."""
+    v = spec.get(underscore_key)
+    if v is None:
+        v = spec.get(hyphen_key)
+    return v if v is not None else default
+
+
+def _kind_str(v: Any) -> str:
+    """Normalise value-kind: Keyword('int') → 'int', 'int' → 'int'."""
+    if isinstance(v, Keyword):
+        return v.name
+    return str(v) if v is not None else ""
+
+
 def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | None:
     """Match text against the predicate map. Returns (predicate, value, subject) or None."""
     for _name, spec in predicates.items():
@@ -74,25 +91,37 @@ def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | Non
             m = re.search(pat, text, flags=re.IGNORECASE | re.DOTALL)
             if not m:
                 continue
-            value_kind = spec.get(_KW_VALUE_KIND)
+            value_kind = _kind_str(_get_spec(spec, _KW_VALUE_KIND, _KW_VALUE_KIND_H))
             if value_kind == "bool":
                 value = spec.get(_KW_VALUE, True)
             elif value_kind == "int":
                 raw = m.group("n") if "n" in m.groupdict() else m.group(1)
-                word_to_int = spec.get(_KW_WORD_TO_INT, {})
+                raw = raw.replace(",", "").strip()
+                word_to_int = _get_spec(spec, _KW_WORD_TO_INT, _KW_WORD_TO_INT_H, {})
                 value = word_to_int.get(raw.lower(), None)
                 if value is None:
                     try:
                         value = int(raw)
                     except ValueError:
                         continue
+            elif value_kind == "real":
+                raw = m.group("n") if "n" in m.groupdict() else m.group(1)
+                raw = raw.replace(",", "").strip()
+                try:
+                    value = float(raw)
+                except ValueError:
+                    continue
             elif value_kind == "string":
                 value = m.group("binomial").strip()
             elif value_kind == "entity":
                 value = m.group("island").replace(".", "").replace(" ", "_")
             else:
                 continue
-            return spec[_KW_PREDICATE], value, spec[_KW_SUBJECT]
+            pred_raw = spec.get(_KW_PREDICATE)
+            subj_raw = spec.get(_KW_SUBJECT)
+            pred = f":{pred_raw.name}" if isinstance(pred_raw, Keyword) else str(pred_raw)
+            subj = f":{subj_raw.name}" if isinstance(subj_raw, Keyword) else str(subj_raw)
+            return pred, value, subj
     return None
 
 

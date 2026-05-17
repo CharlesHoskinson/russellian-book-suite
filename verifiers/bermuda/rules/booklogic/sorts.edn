@@ -1,0 +1,13 @@
+;; verifiers/bermuda/rules/booklogic/sorts.edn
+;; BookLogic sort registry. The :forms vector enumerates every sort
+;; (primitive or structured) used by Bermuda's predicates and atoms.
+{:forms
+ [(defsort :int)
+  (defsort :real)
+  (defsort :bool)
+  (defsort :string)
+  (defsort :entity)
+  (defsort :formula)
+  (defsort :verdict)
+  (defsort :claim)
+  (defsort :source)]}

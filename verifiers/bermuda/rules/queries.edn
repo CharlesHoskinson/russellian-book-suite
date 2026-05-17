@@ -1,0 +1,1 @@
+{:version 1, :queries [{:id "Q001-low-confidence-load-bearing", :backend :cozo, :find [?claim], :where [(claim/load-bearing ?claim true) (claim/posterior ?claim ?p) (< ?p 0.8)], :on-result {:defect :posterior-floor, :severity :warning, :message "Load-bearing claim below the 0.80 posterior floor."}}]}

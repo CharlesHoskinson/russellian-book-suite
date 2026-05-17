@@ -17,8 +17,11 @@ _KW_PREDICATES = Keyword("predicates")
 _KW_PATTERNS = Keyword("patterns")
 _KW_PREDICATE = Keyword("predicate")
 _KW_SUBJECT = Keyword("subject")
+# value_kind / value-kind: v0.2 used underscored form; codegened form uses hyphen.
 _KW_VALUE_KIND = Keyword("value_kind")
+_KW_VALUE_KIND_H = Keyword("value-kind")   # codegened hyphenated form
 _KW_WORD_TO_INT = Keyword("word_to_int")
+_KW_WORD_TO_INT_H = Keyword("word-to-int")  # codegened hyphenated form
 _KW_VALUE = Keyword("value")
 
 # Atom output keys
@@ -56,11 +59,23 @@ def extract_pass_a(text: str, source_file: str = "?",
                     continue
                 counter += 1
                 line = text.count("\n", 0, m.start()) + 1
+                # Normalise predicate / subject: both may be Keyword (codegened)
+                # or plain string (v0.2). Emit as ":<name>" string for compat.
+                pred_raw = spec.get(_KW_PREDICATE)
+                pred_str = (
+                    f":{pred_raw.name}" if isinstance(pred_raw, Keyword)
+                    else str(pred_raw)
+                )
+                subj_raw = spec.get(_KW_SUBJECT)
+                subj_str = (
+                    f":{subj_raw.name}" if isinstance(subj_raw, Keyword)
+                    else str(subj_raw)
+                )
                 out.append({
                     _KW_KIND: Keyword("expression"),
                     _KW_SORT: Keyword("formula"),
-                    _KW_PREDICATE: spec[_KW_PREDICATE],
-                    _KW_SUBJECT: spec[_KW_SUBJECT],
+                    _KW_PREDICATE: pred_str,
+                    _KW_SUBJECT: subj_str,
                     _KW_VALUE: value,
                     _KW_ID: f"prose-{Path(source_file).stem}-{counter:03d}",
                     _KW_SOURCE: {"file": source_file, "line": line},
@@ -71,20 +86,52 @@ def extract_pass_a(text: str, source_file: str = "?",
     return out
 
 
+def _get_spec_value(spec: dict, key_underscore: Keyword, key_hyphen: Keyword,
+                    default: Any = None) -> Any:
+    """Fetch a spec key that may appear in either underscore or hyphen form."""
+    v = spec.get(key_underscore)
+    if v is None:
+        v = spec.get(key_hyphen)
+    return v if v is not None else default
+
+
+def _kind_str(kind: Any) -> str | None:
+    """Normalise a value-kind value to a plain string for comparison.
+
+    The v0.2 predicates.edn stored plain strings ('int', 'bool', …).
+    The codegened predicates.edn stores Keywords (:int, :bool, …).
+    """
+    if kind is None:
+        return None
+    if isinstance(kind, Keyword):
+        return kind.name
+    return str(kind)
+
+
 def _coerce_value(m: re.Match, spec: dict) -> Any:
-    kind = spec.get(_KW_VALUE_KIND)
+    kind = _kind_str(_get_spec_value(spec, _KW_VALUE_KIND, _KW_VALUE_KIND_H))
     if kind == "bool":
-        return spec.get(_KW_VALUE, True)
+        v = spec.get(_KW_VALUE)
+        return v if v is not None else True
     if kind == "int":
         raw = m.group("n") if "n" in m.groupdict() else (m.group(1) if m.groups() else None)
         if raw is None:
             return None
-        word_to_int = spec.get(_KW_WORD_TO_INT, {})
+        word_to_int = _get_spec_value(spec, _KW_WORD_TO_INT, _KW_WORD_TO_INT_H, {})
         mapped = word_to_int.get(raw.lower())
         if mapped is not None:
             return mapped
+        cleaned = raw.replace(",", "").strip()
         try:
-            return int(raw)
+            return int(cleaned)
+        except ValueError:
+            return None
+    if kind == "real":
+        raw = m.group("n") if "n" in m.groupdict() else (m.group(1) if m.groups() else None)
+        if raw is None:
+            return None
+        try:
+            return float(raw.replace(",", ""))
         except ValueError:
             return None
     if kind == "string":

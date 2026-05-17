@@ -1,0 +1,14 @@
+;; verifiers/bermuda/rules/booklogic/rules.edn
+;; BookLogic term-rewrite rules. Each (defrule NAME LHS=RHS :tags [...])
+;; compiles to a meander rewrite clause in the CLJS expander. No semantic
+;; change from v0.2; the wrapper is the value.
+{:forms
+ [(defrule R001-normalize-st-davids
+    (= (entity "St. David's Island")
+       :St_Davids_Island)
+    :tags [:normalization :entity])
+
+  (defrule R002-normalize-bmd-symbol
+    (= (entity "Bermudian dollar")
+       :BMD)
+    :tags [:normalization :entity])]}

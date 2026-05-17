@@ -306,6 +306,19 @@ End-to-end test: scaffolded project builds, ingests Bermuda's ledger via the new
 
 Quantitative claim expansion (the original v0.3 PR-2 sub-deliverable) lands here too: four new `defpredicate` + `defconstraint` pairs for population, land-area-km2, gdp-usd-billion, hospital-beds-kemh.
 
+### Closure note (2026-05-17)
+
+PR-5 (`feat/booklogic-pr5`) landed § D4. Concretely:
+
+- `verifiers/bermuda/rules/booklogic/` now hosts seven BookLogic source files (`sorts.edn`, `predicates.edn`, `lifts.edn`, `rules.edn`, `constraints.edn`, `queries.edn`, `remedies.edn`).
+- `rust-verifier/src/canonical.rs` is deleted; `rust-verifier/src/axioms.rs` is generated from `constraints.edn` and checked in; `test_axioms_lockstep.py` enforces byte-identical regeneration.
+- The five canonical predicates plus four new quantitative predicates (`population`, `land-area-km2`, `gdp-usd-billion`, `hospital-beds-kemh`) ship in the codegened regex table that `prose_patterns.py` and `ingest_ledger.py` consume.
+- `examples/bermuda-manual/claims/ledger.jsonl` carries four new appended claims (`clm-2026-000011` through `clm-2026-000014`).
+- Two new CI jobs on `ubuntu-latest`: `bermuda-z3-build` (cargo build with the `smt` feature) and `bermuda-z3-verify` (end-to-end real-Z3 run; asserts D13 ticket fires for the ch-02 parish-count drift).
+- `tests/test_run_verification.py` confirms `stub_verifier=False` is the default; the stub remains for fast local iteration via explicit opt-in.
+
+Plan: `docs/plans/2026-05-17-booklogic-pr5.md`.
+
 ## D5 — osmotic-pressure showcase
 
 `verifiers/osmotic_pressure/` shipped entirely via BookLogic source. No Python-or-Rust hand-edits beyond what BookLogic generates. The BookLogic source for the project is roughly:

@@ -1,0 +1,1 @@
+{:version 1, :rules [{:id "R001-normalize-st-davids", :lhs (entity "St. David's Island"), :rhs :St_Davids_Island, :tags [:normalization :entity]} {:id "R002-normalize-bmd-symbol", :lhs (entity "Bermudian dollar"), :rhs :BMD, :tags [:normalization :entity]}]}

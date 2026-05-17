@@ -1,0 +1,1752 @@
+# Z3 bundled build log captured during PR-5 Phase 4 on 2026-05-17 on HOSKINSON (Windows_NT). Failure: 64 compile errors in smt.rs + typeset.rs (z3-0.20 API mismatch: Bool::from_bool takes 1 arg not 2, Z3String context param differences). CI on ubuntu-latest is canonical gate.
+
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling autocfg v1.5.0
+   Compiling cfg-if v1.0.4
+   Compiling serde_core v1.0.228
+   Compiling windows-link v0.2.1
+   Compiling version_check v0.9.5
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling memchr v2.8.0
+   Compiling serde v1.0.228
+   Compiling getrandom v0.2.17
+   Compiling num-traits v0.2.19
+   Compiling cc v1.2.62
+   Compiling once_cell v1.21.4
+   Compiling crossbeam-utils v0.8.21
+   Compiling siphasher v1.0.3
+   Compiling windows-sys v0.61.2
+   Compiling phf_shared v0.11.3
+   Compiling rand_core v0.6.4
+   Compiling syn v2.0.117
+   Compiling zerocopy v0.8.48
+   Compiling rand v0.8.6
+   Compiling pkg-config v0.3.33
+   Compiling winapi v0.3.9
+   Compiling phf_generator v0.11.3
+   Compiling num-integer v0.1.46
+   Compiling log v0.4.29
+   Compiling phf_codegen v0.11.3
+   Compiling ring v0.17.14
+   Compiling regex-syntax v0.8.10
+   Compiling crossbeam-epoch v0.9.18
+   Compiling generic-array v0.14.7
+   Compiling ahash v0.7.8
+   Compiling parking_lot_core v0.9.12
+   Compiling itoa v1.0.18
+   Compiling thiserror v1.0.69
+   Compiling regex-automata v0.4.14
+   Compiling crossbeam-deque v0.8.6
+   Compiling num-bigint v0.4.6
+   Compiling is-terminal v0.4.17
+   Compiling untrusted v0.9.0
+   Compiling rayon-core v1.13.0
+   Compiling scopeguard v1.2.0
+   Compiling syn v1.0.109
+   Compiling typenum v1.20.0
+   Compiling getrandom v0.4.2
+   Compiling regex v1.12.3
+   Compiling ppv-lite86 v0.2.21
+   Compiling parse-zoneinfo v0.3.1
+   Compiling lock_api v0.4.14
+   Compiling rand_chacha v0.3.1
+   Compiling sqlite3-src v0.5.1
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v1.0.69
+   Compiling num-complex v0.4.6
+   Compiling phf v0.11.3
+   Compiling cmake v0.1.58
+   Compiling aho-corasick v1.1.4
+   Compiling either v1.15.0
+   Compiling getrandom v0.3.4
+   Compiling libc v0.2.186
+   Compiling ucd-trie v0.1.7
+   Compiling pin-project-lite v0.2.17
+   Compiling zmij v1.0.21
+   Compiling napi-build v2.3.2
+   Compiling futures-core v0.3.32
+   Compiling hashbrown v0.14.5
+   Compiling futures-sink v0.3.32
+   Compiling static_assertions v1.1.0
+   Compiling byteorder v1.5.0
+   Compiling futures-channel v0.3.32
+   Compiling fxhash v0.2.1
+   Compiling pest v2.8.6
+   Compiling z3-src v416.0.2
+   Compiling bincode v1.3.3
+   Compiling chrono-tz-build v0.2.1
+   Compiling futures-macro v0.3.32
+   Compiling hashbrown v0.12.3
+   Compiling num-rational v0.4.2
+   Compiling num-iter v0.1.45
+   Compiling matrixmultiply v0.3.10
+   Compiling indexmap v1.9.3
+   Compiling ahash v0.8.12
+   Compiling equivalent v1.0.2
+   Compiling smallvec v1.15.1
+   Compiling futures-task v0.3.32
+   Compiling arrayvec v0.7.6
+   Compiling serde_json v1.0.149
+   Compiling graph_builder v0.4.1
+   Compiling rustls v0.21.12
+   Compiling rustc-demangle v0.1.27
+   Compiling slab v0.4.12
+   Compiling bitflags v2.11.1
+   Compiling futures-io v0.3.32
+   Compiling futures-util v0.3.32
+   Compiling backtrace v0.3.76
+   Compiling parking_lot v0.12.5
+   Compiling dashmap v5.5.3
+   Compiling num-format v0.4.4
+   Compiling num v0.4.3
+   Compiling rayon v1.10.0
+   Compiling pest_meta v2.8.6
+   Compiling twox-hash v1.6.3
+   Compiling chrono-tz v0.8.6
+   Compiling fast2s v0.3.1
+   Compiling z3-sys v0.11.0
+   Compiling sct v0.7.1
+   Compiling rustls-webpki v0.101.7
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling page_size v0.4.2
+   Compiling jieba-rs v0.6.8
+   Compiling delegate v0.8.0
+   Compiling rmp v0.8.15
+   Compiling atoi v2.0.0
+   Compiling winapi-util v0.1.11
+   Compiling linereader v0.4.0
+   Compiling smartstring v1.0.1
+   Compiling priority-queue v1.4.0
+   Compiling adler v1.0.2
+   Compiling fast-float2 v0.2.3
+   Compiling bytemuck v1.25.0
+   Compiling unicode-width v0.1.14
+   Compiling smawk v0.3.2
+   Compiling byte-slice-cast v1.2.3
+   Compiling tinyvec_macros v0.1.1
+   Compiling rawpointer v0.2.1
+   Compiling atomic v0.5.3
+   Compiling num_cpus v1.17.0
+   Compiling memmap2 v0.5.10
+   Compiling lazy_static v1.5.0
+   Compiling unicode-segmentation v1.13.2
+   Compiling foldhash v0.1.5
+   Compiling unicode-linebreak v0.1.5
+   Compiling allocator-api2 v0.2.21
+   Compiling fastrand v2.4.1
+   Compiling is_ci v1.2.0
+   Compiling textwrap v0.15.2
+   Compiling tempfile v3.27.0
+   Compiling supports-color v2.1.0
+   Compiling atomic v0.6.1
+   Compiling convert_case v0.11.0
+   Compiling hashbrown v0.15.5
+   Compiling tinyvec v1.11.0
+   Compiling miniz_oxide v0.7.4
+   Compiling termcolor v1.4.1
+   Compiling futures-executor v0.3.32
+   Compiling digest v0.10.7
+   Compiling sqlite3-sys v0.15.2
+   Compiling pest_generator v2.8.6
+   Compiling lz4_flex v0.10.0
+   Compiling backtrace-ext v0.2.1
+   Compiling raw-cpuid v11.6.0
+   Compiling cedarwood v0.4.6
+   Compiling napi v3.9.0
+   Compiling miette-derive v5.10.0
+   Compiling supports-unicode v2.1.0
+   Compiling supports-hyperlinks v2.1.0
+   Compiling terminal_size v0.1.17
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-queue v0.3.12
+   Compiling chrono v0.4.44
+   Compiling csv-core v0.1.13
+   Compiling libloading v0.9.0
+   Compiling owo-colors v3.5.0
+   Compiling webpki-roots v0.25.4
+   Compiling thiserror v2.0.18
+   Compiling ctor v1.0.5
+   Compiling semver v1.0.28
+   Compiling rustc-hash v2.1.2
+   Compiling atomic_float v0.1.0
+   Compiling humantime v2.3.0
+   Compiling litrs v1.0.0
+   Compiling nanorand v0.7.0
+   Compiling hashbrown v0.17.1
+   Compiling cpufeatures v0.2.17
+   Compiling ryu v1.0.23
+   Compiling sha2 v0.10.9
+   Compiling csv v1.4.0
+   Compiling document-features v0.2.12
+   Compiling graph v0.3.1
+   Compiling indexmap v2.14.0
+   Compiling env_logger v0.10.2
+   Compiling miette v5.10.0
+   Compiling napi-derive-backend v5.0.4
+   Compiling quanta v0.12.6
+   Compiling minreq v2.14.1
+   Compiling crossbeam v0.8.4
+   Compiling napi-sys v3.2.1
+   Compiling pest_derive v2.8.6
+   Compiling swapvec v0.3.0
+   Compiling sqlite v0.32.0
+   Compiling futures v0.3.32
+   Compiling symbol_table v0.4.0
+   Compiling unicode-normalization v0.1.25
+   Compiling ndarray v0.15.6
+   Compiling uuid v1.23.1
+   Compiling rmpv v1.3.1
+   Compiling rmp-serde v1.3.1
+   Compiling rust-stemmers v1.2.0
+   Compiling bermuda-verifier v0.1.0 (C:\work\russellian-book-suite\verifiers\bermuda\rust-verifier)
+   Compiling tokio v1.52.3
+   Compiling itertools v0.12.1
+   Compiling casey v0.4.2
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_bytes v0.11.19
+   Compiling env_logger v0.9.3
+   Compiling ordered-float v5.3.0
+   Compiling approx v0.5.1
+   Compiling ordered-float v4.6.0
+   Compiling nohash-hasher v0.2.0
+   Compiling rustc-hash v1.1.0
+   Compiling quadrature v0.1.2
+   Compiling saturating v0.1.0
+   Compiling symbolic_expressions v5.0.3
+   Compiling base64 v0.21.7
+   Compiling edn-rs v0.19.0
+   Compiling egg v0.10.0
+   Compiling cozo v0.7.6
+   Compiling napi-derive v3.5.6
+   Compiling z3 v0.20.0
+warning: unused import: `Ast`
+  --> src\axioms.rs:16:11
+   |
+16 |     ast::{Ast, Bool, Int, Real, String as Z3String},
+   |           ^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Ast`
+  --> src\smt.rs:20:11
+   |
+20 |     ast::{Ast, Bool, Int, Real, String as Z3String},
+   |           ^^^
+
+error[E0599]: no variant or associated item named `from_str` found for enum `Edn` in the current scope
+  --> src\ir.rs:66:28
+   |
+66 |     let parsed: Edn = Edn::from_str(edn).map_err(|e: EdnError| Error::Parse(e.to_string()))?;
+   |                            ^^^^^^^^ variant or associated item not found in `Edn`
+   |
+   = help: items from traits can only be used if the trait is in scope
+help: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it
+   |
+16 + use std::str::FromStr;
+   |
+help: there is an associated function `from` with a similar name
+   |
+66 -     let parsed: Edn = Edn::from_str(edn).map_err(|e: EdnError| Error::Parse(e.to_string()))?;
+66 +     let parsed: Edn = Edn::from(edn).map_err(|e: EdnError| Error::Parse(e.to_string()))?;
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:24:34
+   |
+24 |         let lhs = Int::new_const(ctx, "parishes-count_Bermuda");
+   |                   -------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Int::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:25
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |                         ^^^^^^^^^^^^ required by this bound in `Int::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:24:19
+   |
+24 |         let lhs = Int::new_const(ctx, "parishes-count_Bermuda");
+   |                   ^^^^^^^^^^^^^^      ------------------------ unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:12
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+24 -         let lhs = Int::new_const(ctx, "parishes-count_Bermuda");
+24 +         let lhs = Int::new_const(ctx);
+   |
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:25:19
+   |
+25 |         let rhs = Int::from_i64(ctx, 9);
+   |                   ^^^^^^^^^^^^^ --- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:47:12
+   |
+47 |     pub fn from_i64(i: i64) -> Int {
+   |            ^^^^^^^^
+help: remove the extra argument
+   |
+25 -         let rhs = Int::from_i64(ctx, 9);
+25 +         let rhs = Int::from_i64(9);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:26:39
+   |
+26 |         let tracker = Bool::new_const(ctx, "C001-bermuda-parishes");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:26:23
+   |
+26 |         let tracker = Bool::new_const(ctx, "C001-bermuda-parishes");
+   |                       ^^^^^^^^^^^^^^^      ----------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+26 -         let tracker = Bool::new_const(ctx, "C001-bermuda-parishes");
+26 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Int>::_eq`: Please use eq instead
+  --> src\axioms.rs:27:38
+   |
+27 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:32:34
+   |
+32 |         let lhs = Int::new_const(ctx, "named-islands-and-rocks_Bermuda");
+   |                   -------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Int::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:25
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |                         ^^^^^^^^^^^^ required by this bound in `Int::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:32:19
+   |
+32 |         let lhs = Int::new_const(ctx, "named-islands-and-rocks_Bermuda");
+   |                   ^^^^^^^^^^^^^^      --------------------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:12
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+32 -         let lhs = Int::new_const(ctx, "named-islands-and-rocks_Bermuda");
+32 +         let lhs = Int::new_const(ctx);
+   |
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:33:19
+   |
+33 |         let rhs = Int::from_i64(ctx, 181);
+   |                   ^^^^^^^^^^^^^ --- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:47:12
+   |
+47 |     pub fn from_i64(i: i64) -> Int {
+   |            ^^^^^^^^
+help: remove the extra argument
+   |
+33 -         let rhs = Int::from_i64(ctx, 181);
+33 +         let rhs = Int::from_i64(181);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:34:39
+   |
+34 |         let tracker = Bool::new_const(ctx, "C002-named-islands-and-rocks");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:34:23
+   |
+34 |         let tracker = Bool::new_const(ctx, "C002-named-islands-and-rocks");
+   |                       ^^^^^^^^^^^^^^^      ------------------------------ unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+34 -         let tracker = Bool::new_const(ctx, "C002-named-islands-and-rocks");
+34 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Int>::_eq`: Please use eq instead
+  --> src\axioms.rs:35:38
+   |
+35 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:40:35
+   |
+40 |         let lhs = Bool::new_const(ctx, "currency-pegged-at-parity_BMD");
+   |                   --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:40:19
+   |
+40 |         let lhs = Bool::new_const(ctx, "currency-pegged-at-parity_BMD");
+   |                   ^^^^^^^^^^^^^^^      ------------------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+40 -         let lhs = Bool::new_const(ctx, "currency-pegged-at-parity_BMD");
+40 +         let lhs = Bool::new_const(ctx);
+   |
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:41:19
+   |
+41 |         let rhs = Bool::from_bool(ctx, true);
+   |                   ^^^^^^^^^^^^^^^ --- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:36:12
+   |
+36 |     pub fn from_bool(b: bool) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+41 -         let rhs = Bool::from_bool(ctx, true);
+41 +         let rhs = Bool::from_bool(true);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:42:39
+   |
+42 |         let tracker = Bool::new_const(ctx, "C003-bmd-usd-parity");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:42:23
+   |
+42 |         let tracker = Bool::new_const(ctx, "C003-bmd-usd-parity");
+   |                       ^^^^^^^^^^^^^^^      --------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+42 -         let tracker = Bool::new_const(ctx, "C003-bmd-usd-parity");
+42 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Bool>::_eq`: Please use eq instead
+  --> src\axioms.rs:43:38
+   |
+43 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:48:39
+   |
+48 |         let lhs = Z3String::new_const(ctx, "airport-on-island_L_F_Wade");
+   |                   ------------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::String::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:25
+   |
+16 |     pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+   |                         ^^^^^^^^^^^^ required by this bound in `String::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:48:19
+   |
+48 |         let lhs = Z3String::new_const(ctx, "airport-on-island_L_F_Wade");
+   |                   ^^^^^^^^^^^^^^^^^^^      ---------------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:12
+   |
+16 |     pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+48 -         let lhs = Z3String::new_const(ctx, "airport-on-island_L_F_Wade");
+48 +         let lhs = Z3String::new_const(ctx);
+   |
+
+error[E0599]: no function or associated item named `from_str` found for struct `z3::ast::String` in the current scope
+   --> src\axioms.rs:49:29
+    |
+ 49 |         let rhs = Z3String::from_str(ctx, "St_Davids_Island").expect("valid utf-8");
+    |                             ^^^^^^^^ function or associated item not found in `z3::ast::String`
+    |
+note: if you're trying to build a new `z3::ast::String` consider using one of the following associated functions:
+      z3::ast::String::new_const
+      z3::ast::String::fresh_const
+      z3::ast::String::concat
+   --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\mod.rs:121:13
+    |
+121 |               pub fn $f<T: Into<Self> + Clone>(values: &[T]) -> $retty {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:5
+    |
+ 16 |       pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 27 |       pub fn fresh_const(prefix: &str) -> String {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+185 | /     varop! {
+186 | |         /// Appends the argument strings to `Self`
+187 | |         concat(Z3_mk_seq_concat, String);
+188 | |     }
+    | |_____- in this macro invocation
+    = help: items from traits can only be used if the trait is in scope
+help: there is an associated function `from` with a similar name
+   --> /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library\core\src\convert\mod.rs:592:4
+    = note: this error originates in the macro `varop` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it
+    |
+ 14 + use std::str::FromStr;
+    |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:50:39
+   |
+50 |         let tracker = Bool::new_const(ctx, "C004-airport-st-davids");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:50:23
+   |
+50 |         let tracker = Bool::new_const(ctx, "C004-airport-st-davids");
+   |                       ^^^^^^^^^^^^^^^      ------------------------ unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+50 -         let tracker = Bool::new_const(ctx, "C004-airport-st-davids");
+50 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::String>::_eq`: Please use eq instead
+  --> src\axioms.rs:51:38
+   |
+51 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:56:39
+   |
+56 |         let lhs = Z3String::new_const(ctx, "binomial_Bermuda_cedar");
+   |                   ------------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::String::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:25
+   |
+16 |     pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+   |                         ^^^^^^^^^^^^ required by this bound in `String::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:56:19
+   |
+56 |         let lhs = Z3String::new_const(ctx, "binomial_Bermuda_cedar");
+   |                   ^^^^^^^^^^^^^^^^^^^      ------------------------ unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:12
+   |
+16 |     pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+56 -         let lhs = Z3String::new_const(ctx, "binomial_Bermuda_cedar");
+56 +         let lhs = Z3String::new_const(ctx);
+   |
+
+error[E0599]: no function or associated item named `from_str` found for struct `z3::ast::String` in the current scope
+   --> src\axioms.rs:57:29
+    |
+ 57 |         let rhs = Z3String::from_str(ctx, "Juniperus bermudiana").expect("valid utf-8");
+    |                             ^^^^^^^^ function or associated item not found in `z3::ast::String`
+    |
+note: if you're trying to build a new `z3::ast::String` consider using one of the following associated functions:
+      z3::ast::String::new_const
+      z3::ast::String::fresh_const
+      z3::ast::String::concat
+   --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\mod.rs:121:13
+    |
+121 |               pub fn $f<T: Into<Self> + Clone>(values: &[T]) -> $retty {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:5
+    |
+ 16 |       pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 27 |       pub fn fresh_const(prefix: &str) -> String {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+185 | /     varop! {
+186 | |         /// Appends the argument strings to `Self`
+187 | |         concat(Z3_mk_seq_concat, String);
+188 | |     }
+    | |_____- in this macro invocation
+    = help: items from traits can only be used if the trait is in scope
+help: there is an associated function `from` with a similar name
+   --> /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library\core\src\convert\mod.rs:592:4
+    = note: this error originates in the macro `varop` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it
+    |
+ 14 + use std::str::FromStr;
+    |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:58:39
+   |
+58 |         let tracker = Bool::new_const(ctx, "C005-cedar-binomial");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:58:23
+   |
+58 |         let tracker = Bool::new_const(ctx, "C005-cedar-binomial");
+   |                       ^^^^^^^^^^^^^^^      --------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+58 -         let tracker = Bool::new_const(ctx, "C005-cedar-binomial");
+58 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::String>::_eq`: Please use eq instead
+  --> src\axioms.rs:59:38
+   |
+59 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:64:34
+   |
+64 |         let lhs = Int::new_const(ctx, "population_Bermuda");
+   |                   -------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Int::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:25
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |                         ^^^^^^^^^^^^ required by this bound in `Int::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:64:19
+   |
+64 |         let lhs = Int::new_const(ctx, "population_Bermuda");
+   |                   ^^^^^^^^^^^^^^      -------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:12
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+64 -         let lhs = Int::new_const(ctx, "population_Bermuda");
+64 +         let lhs = Int::new_const(ctx);
+   |
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:65:19
+   |
+65 |         let rhs = Int::from_i64(ctx, 63918);
+   |                   ^^^^^^^^^^^^^ --- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:47:12
+   |
+47 |     pub fn from_i64(i: i64) -> Int {
+   |            ^^^^^^^^
+help: remove the extra argument
+   |
+65 -         let rhs = Int::from_i64(ctx, 63918);
+65 +         let rhs = Int::from_i64(63918);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:66:39
+   |
+66 |         let tracker = Bool::new_const(ctx, "C006-population");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:66:23
+   |
+66 |         let tracker = Bool::new_const(ctx, "C006-population");
+   |                       ^^^^^^^^^^^^^^^      ----------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+66 -         let tracker = Bool::new_const(ctx, "C006-population");
+66 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Int>::_eq`: Please use eq instead
+  --> src\axioms.rs:67:38
+   |
+67 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:72:35
+   |
+72 |         let lhs = Real::new_const(ctx, "land-area-km2_Bermuda");
+   |                   --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Real::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:38:25
+   |
+38 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Real {
+   |                         ^^^^^^^^^^^^ required by this bound in `Real::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:72:19
+   |
+72 |         let lhs = Real::new_const(ctx, "land-area-km2_Bermuda");
+   |                   ^^^^^^^^^^^^^^^      ----------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:38:12
+   |
+38 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Real {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+72 -         let lhs = Real::new_const(ctx, "land-area-km2_Bermuda");
+72 +         let lhs = Real::new_const(ctx);
+   |
+
+warning: use of deprecated associated function `z3::ast::Real::from_real`: Please use from_rational instead
+  --> src\axioms.rs:73:25
+   |
+73 |         let rhs = Real::from_real(ctx, 53200000, 1000000);
+   |                         ^^^^^^^^^
+
+error[E0061]: this function takes 2 arguments but 3 arguments were supplied
+  --> src\axioms.rs:73:19
+   |
+73 |         let rhs = Real::from_real(ctx, 53200000, 1000000);
+   |                   ^^^^^^^^^^^^^^^ --- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:61:12
+   |
+61 |     pub fn from_real(num: i32, den: i32) -> Real {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+73 -         let rhs = Real::from_real(ctx, 53200000, 1000000);
+73 +         let rhs = Real::from_real(53200000, 1000000);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:74:39
+   |
+74 |         let tracker = Bool::new_const(ctx, "C007-land-area-km2");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:74:23
+   |
+74 |         let tracker = Bool::new_const(ctx, "C007-land-area-km2");
+   |                       ^^^^^^^^^^^^^^^      -------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+74 -         let tracker = Bool::new_const(ctx, "C007-land-area-km2");
+74 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Real>::_eq`: Please use eq instead
+  --> src\axioms.rs:75:38
+   |
+75 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:80:35
+   |
+80 |         let lhs = Real::new_const(ctx, "gdp-usd-billion_Bermuda");
+   |                   --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Real::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:38:25
+   |
+38 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Real {
+   |                         ^^^^^^^^^^^^ required by this bound in `Real::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:80:19
+   |
+80 |         let lhs = Real::new_const(ctx, "gdp-usd-billion_Bermuda");
+   |                   ^^^^^^^^^^^^^^^      ------------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:38:12
+   |
+38 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Real {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+80 -         let lhs = Real::new_const(ctx, "gdp-usd-billion_Bermuda");
+80 +         let lhs = Real::new_const(ctx);
+   |
+
+warning: use of deprecated associated function `z3::ast::Real::from_real`: Please use from_rational instead
+  --> src\axioms.rs:81:25
+   |
+81 |         let rhs = Real::from_real(ctx, 7700000, 1000000);
+   |                         ^^^^^^^^^
+
+error[E0061]: this function takes 2 arguments but 3 arguments were supplied
+  --> src\axioms.rs:81:19
+   |
+81 |         let rhs = Real::from_real(ctx, 7700000, 1000000);
+   |                   ^^^^^^^^^^^^^^^ --- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:61:12
+   |
+61 |     pub fn from_real(num: i32, den: i32) -> Real {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+81 -         let rhs = Real::from_real(ctx, 7700000, 1000000);
+81 +         let rhs = Real::from_real(7700000, 1000000);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:82:39
+   |
+82 |         let tracker = Bool::new_const(ctx, "C008-gdp-usd-billion");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:82:23
+   |
+82 |         let tracker = Bool::new_const(ctx, "C008-gdp-usd-billion");
+   |                       ^^^^^^^^^^^^^^^      ---------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+82 -         let tracker = Bool::new_const(ctx, "C008-gdp-usd-billion");
+82 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Real>::_eq`: Please use eq instead
+  --> src\axioms.rs:83:38
+   |
+83 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:88:34
+   |
+88 |         let lhs = Int::new_const(ctx, "hospital-beds-kemh_KEMH");
+   |                   -------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Int::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:25
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |                         ^^^^^^^^^^^^ required by this bound in `Int::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:88:19
+   |
+88 |         let lhs = Int::new_const(ctx, "hospital-beds-kemh_KEMH");
+   |                   ^^^^^^^^^^^^^^      ------------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:12
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+88 -         let lhs = Int::new_const(ctx, "hospital-beds-kemh_KEMH");
+88 +         let lhs = Int::new_const(ctx);
+   |
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:89:19
+   |
+89 |         let rhs = Int::from_i64(ctx, 90);
+   |                   ^^^^^^^^^^^^^ --- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:47:12
+   |
+47 |     pub fn from_i64(i: i64) -> Int {
+   |            ^^^^^^^^
+help: remove the extra argument
+   |
+89 -         let rhs = Int::from_i64(ctx, 90);
+89 +         let rhs = Int::from_i64(90);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\axioms.rs:90:39
+   |
+90 |         let tracker = Bool::new_const(ctx, "C009-hospital-beds-kemh");
+   |                       --------------- ^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\axioms.rs:90:23
+   |
+90 |         let tracker = Bool::new_const(ctx, "C009-hospital-beds-kemh");
+   |                       ^^^^^^^^^^^^^^^      ------------------------- unexpected argument #2 of type `&'static str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+90 -         let tracker = Bool::new_const(ctx, "C009-hospital-beds-kemh");
+90 +         let tracker = Bool::new_const(ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Int>::_eq`: Please use eq instead
+  --> src\axioms.rs:91:38
+   |
+91 |         solver.assert_and_track(&lhs._eq(&rhs), &tracker);
+   |                                      ^^^
+
+error[E0624]: associated function `new` is private
+  --> src\smt.rs:29:24
+   |
+29 |     let ctx = Context::new(&cfg);
+   |                        ^^^ private associated function
+   |
+  ::: C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\context.rs:82:5
+   |
+82 |     pub(crate) fn new(cfg: &Config) -> Context {
+   |     ------------------------------------------ private associated function defined here
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> src\smt.rs:30:18
+   |
+30 |     let solver = Solver::new(&ctx);
+   |                  ^^^^^^^^^^^ ---- unexpected argument of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\solver.rs:48:12
+   |
+48 |     pub fn new() -> Solver {
+   |            ^^^
+help: remove the extra argument
+   |
+30 -     let solver = Solver::new(&ctx);
+30 +     let solver = Solver::new();
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\smt.rs:61:39
+   |
+61 |         let tracker = Bool::new_const(&ctx, id.as_str());
+   |                       --------------- ^^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                       |
+   |                       required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\smt.rs:61:23
+   |
+61 |         let tracker = Bool::new_const(&ctx, id.as_str());
+   |                       ^^^^^^^^^^^^^^^       ----------- unexpected argument #2 of type `&str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+61 -         let tracker = Bool::new_const(&ctx, id.as_str());
+61 +         let tracker = Bool::new_const(&ctx);
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\smt.rs:67:45
+   |
+67 |                 let z3_var = Int::new_const(&ctx, var_name.as_str());
+   |                              -------------- ^^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                              |
+   |                              required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Int::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:25
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |                         ^^^^^^^^^^^^ required by this bound in `Int::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\smt.rs:67:30
+   |
+67 |                 let z3_var = Int::new_const(&ctx, var_name.as_str());
+   |                              ^^^^^^^^^^^^^^       ----------------- unexpected argument #2 of type `&str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:23:12
+   |
+23 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Int {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+67 -                 let z3_var = Int::new_const(&ctx, var_name.as_str());
+67 +                 let z3_var = Int::new_const(&ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Int>::_eq`: Please use eq instead
+  --> src\smt.rs:68:24
+   |
+68 |                 z3_var._eq(&Int::from_i64(&ctx, *n))
+   |                        ^^^
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\smt.rs:68:29
+   |
+68 |                 z3_var._eq(&Int::from_i64(&ctx, *n))
+   |                             ^^^^^^^^^^^^^ ---- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\int.rs:47:12
+   |
+47 |     pub fn from_i64(i: i64) -> Int {
+   |            ^^^^^^^^
+help: remove the extra argument
+   |
+68 -                 z3_var._eq(&Int::from_i64(&ctx, *n))
+68 +                 z3_var._eq(&Int::from_i64(*n))
+   |
+
+error[E0277]: the trait bound `f64: From<edn_rs::edn::Double>` is not satisfied
+  --> src\smt.rs:71:35
+   |
+71 |                 let v: f64 = (*f).into();
+   |                                   ^^^^ the trait `From<edn_rs::edn::Double>` is not implemented for `f64`
+   |
+   = help: the following other types implement trait `From<T>`:
+             `f64` implements `From<bool>`
+             `f64` implements `From<f16>`
+             `f64` implements `From<f32>`
+             `f64` implements `From<i16>`
+             `f64` implements `From<i32>`
+             `f64` implements `From<i8>`
+             `f64` implements `From<ordered_float::NotNan<f64>>`
+             `f64` implements `From<ordered_float::NotNan<f64>>`
+           and 7 others
+   = note: required for `edn_rs::edn::Double` to implement `Into<f64>`
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\smt.rs:72:46
+   |
+72 |                 let z3_var = Real::new_const(&ctx, var_name.as_str());
+   |                              --------------- ^^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                              |
+   |                              required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Real::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:38:25
+   |
+38 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Real {
+   |                         ^^^^^^^^^^^^ required by this bound in `Real::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\smt.rs:72:30
+   |
+72 |                 let z3_var = Real::new_const(&ctx, var_name.as_str());
+   |                              ^^^^^^^^^^^^^^^       ----------------- unexpected argument #2 of type `&str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:38:12
+   |
+38 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Real {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+72 -                 let z3_var = Real::new_const(&ctx, var_name.as_str());
+72 +                 let z3_var = Real::new_const(&ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Real>::_eq`: Please use eq instead
+  --> src\smt.rs:74:24
+   |
+74 |                 z3_var._eq(&Real::from_real(&ctx, numerator, 1_000_000))
+   |                        ^^^
+
+warning: use of deprecated associated function `z3::ast::Real::from_real`: Please use from_rational instead
+  --> src\smt.rs:74:35
+   |
+74 |                 z3_var._eq(&Real::from_real(&ctx, numerator, 1_000_000))
+   |                                   ^^^^^^^^^
+
+error[E0061]: this function takes 2 arguments but 3 arguments were supplied
+  --> src\smt.rs:74:29
+   |
+74 |                 z3_var._eq(&Real::from_real(&ctx, numerator, 1_000_000))
+   |                             ^^^^^^^^^^^^^^^ ---- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\real.rs:61:12
+   |
+61 |     pub fn from_real(num: i32, den: i32) -> Real {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+74 -                 z3_var._eq(&Real::from_real(&ctx, numerator, 1_000_000))
+74 +                 z3_var._eq(&Real::from_real(numerator, 1_000_000))
+   |
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\smt.rs:77:50
+   |
+77 |                 let z3_var = Z3String::new_const(&ctx, var_name.as_str());
+   |                              ------------------- ^^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                              |
+   |                              required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::String::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:25
+   |
+16 |     pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+   |                         ^^^^^^^^^^^^ required by this bound in `String::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\smt.rs:77:30
+   |
+77 |                 let z3_var = Z3String::new_const(&ctx, var_name.as_str());
+   |                              ^^^^^^^^^^^^^^^^^^^       ----------------- unexpected argument #2 of type `&str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:12
+   |
+16 |     pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+77 -                 let z3_var = Z3String::new_const(&ctx, var_name.as_str());
+77 +                 let z3_var = Z3String::new_const(&ctx);
+   |
+
+error[E0599]: no function or associated item named `from_str` found for struct `z3::ast::String` in the current scope
+   --> src\smt.rs:78:37
+    |
+ 78 |                 let lit = Z3String::from_str(&ctx, s)
+    |                                     ^^^^^^^^ function or associated item not found in `z3::ast::String`
+    |
+note: if you're trying to build a new `z3::ast::String` consider using one of the following associated functions:
+      z3::ast::String::new_const
+      z3::ast::String::fresh_const
+      z3::ast::String::concat
+   --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\mod.rs:121:13
+    |
+121 |               pub fn $f<T: Into<Self> + Clone>(values: &[T]) -> $retty {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\string.rs:16:5
+    |
+ 16 |       pub fn new_const<S: Into<Symbol>>(name: S) -> String {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 27 |       pub fn fresh_const(prefix: &str) -> String {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+185 | /     varop! {
+186 | |         /// Appends the argument strings to `Self`
+187 | |         concat(Z3_mk_seq_concat, String);
+188 | |     }
+    | |_____- in this macro invocation
+    = help: items from traits can only be used if the trait is in scope
+help: there is an associated function `from` with a similar name
+   --> /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library\core\src\convert\mod.rs:592:4
+    = note: this error originates in the macro `varop` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it
+    |
+ 16 + use std::str::FromStr;
+    |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::String>::_eq`: Please use eq instead
+  --> src\smt.rs:80:24
+   |
+80 |                 z3_var._eq(&lit)
+   |                        ^^^
+
+error[E0277]: the trait bound `z3::Symbol: From<&z3::Context>` is not satisfied
+  --> src\smt.rs:83:46
+   |
+83 |                 let z3_var = Bool::new_const(&ctx, var_name.as_str());
+   |                              --------------- ^^^^ the trait `From<&z3::Context>` is not implemented for `z3::Symbol`
+   |                              |
+   |                              required by a bound introduced by this call
+   |
+help: the following other types implement trait `From<T>`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\symbol.rs:22:1
+   |
+22 | impl From<u32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<u32>`
+...
+28 | impl From<i32> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<i32>`
+...
+34 | impl From<String> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<std::string::String>`
+...
+40 | impl From<&str> for Symbol {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `z3::Symbol` implements `From<&str>`
+   = note: required for `&z3::Context` to implement `Into<z3::Symbol>`
+note: required by a bound in `z3::ast::Bool::new_const`
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:25
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |                         ^^^^^^^^^^^^ required by this bound in `Bool::new_const`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\smt.rs:83:30
+   |
+83 |                 let z3_var = Bool::new_const(&ctx, var_name.as_str());
+   |                              ^^^^^^^^^^^^^^^       ----------------- unexpected argument #2 of type `&str`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:12:12
+   |
+12 |     pub fn new_const<S: Into<Symbol>>(name: S) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+83 -                 let z3_var = Bool::new_const(&ctx, var_name.as_str());
+83 +                 let z3_var = Bool::new_const(&ctx);
+   |
+
+warning: use of deprecated method `z3::ast::<impl z3::ast::Bool>::_eq`: Please use eq instead
+  --> src\smt.rs:84:24
+   |
+84 |                 z3_var._eq(&Bool::from_bool(&ctx, *b))
+   |                        ^^^
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+  --> src\smt.rs:84:29
+   |
+84 |                 z3_var._eq(&Bool::from_bool(&ctx, *b))
+   |                             ^^^^^^^^^^^^^^^ ---- unexpected argument #1 of type `&z3::Context`
+   |
+note: associated function defined here
+  --> C:\Users\charl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\z3-0.20.0\src\ast\bool.rs:36:12
+   |
+36 |     pub fn from_bool(b: bool) -> Bool {
+   |            ^^^^^^^^^
+help: remove the extra argument
+   |
+84 -                 z3_var._eq(&Bool::from_bool(&ctx, *b))
+84 +                 z3_var._eq(&Bool::from_bool(*b))
+   |
+
+error[E0433]: cannot find module or crate `tectonic` in this scope
+ --> src\typeset.rs:2:24
+  |
+2 |     let pdf: Vec<u8> = tectonic::latex_to_pdf(latex)
+  |                        ^^^^^^^^ use of unresolved module or unlinked crate `tectonic`
+  |
+  = help: if you wanted to use a crate named `tectonic`, use `cargo add tectonic` to add it to your `Cargo.toml`
+
+Some errors have detailed explanations: E0061, E0277, E0433, E0599, E0624.
+For more information about an error, try `rustc --explain E0061`.
+warning: `bermuda-verifier` (lib) generated 18 warnings
+error: could not compile `bermuda-verifier` (lib) due to 64 previous errors; 18 warnings emitted
+

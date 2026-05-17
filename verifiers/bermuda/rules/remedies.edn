@@ -1,0 +1,1 @@
+{:version 1, :remedies [{:id "W001-unsat-core-to-refutation", :when (unsat-core ?claim), :propose (ledger/transition ?claim :refuted), :requires :human-review}]}

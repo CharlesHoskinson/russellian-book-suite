@@ -1,0 +1,17 @@
+;; verifiers/bermuda/rules/booklogic/predicates.edn
+;; BookLogic predicate registry. Each form is
+;;   (defpredicate :name [arg-sorts] return-sort)
+;; The regex catalog that USED to live in predicates.edn moved to lifts.edn.
+{:forms
+ [;; Five canonical Bermuda predicates (preserved from v0.2 hand-coded catalog)
+  (defpredicate :parishes-count            [:entity] :int)
+  (defpredicate :named-islands-and-rocks   [:entity] :int)
+  (defpredicate :currency-pegged-at-parity [:entity] :bool)
+  (defpredicate :airport-on-island         [:entity] :entity)
+  (defpredicate :binomial                  [:entity] :string)
+
+  ;; Four quantitative predicates (D4 mission-spec expansion)
+  (defpredicate :population         [:entity] :int)
+  (defpredicate :land-area-km2      [:entity] :real)
+  (defpredicate :gdp-usd-billion    [:entity] :real)
+  (defpredicate :hospital-beds-kemh [:entity] :int)]}

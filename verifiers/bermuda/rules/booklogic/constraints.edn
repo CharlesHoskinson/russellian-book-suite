@@ -1,0 +1,72 @@
+;; verifiers/bermuda/rules/booklogic/constraints.edn
+;; BookLogic constraints. Each (defconstraint NAME :backend B :assert F
+;; :track T :on-unsat M) compiles to a Z3 assert_and_track call in the
+;; generated rust-verifier/src/axioms.rs (this PR's Phase 2 output) plus
+;; a defect-ticket entry for the verdict-to-qa path.
+{:forms
+ [;; ----- five canonical facts (preserved from canonical.rs) -----
+
+  (defconstraint C001-bermuda-parishes
+    :backend :z3
+    :assert  (= (:parishes-count :Bermuda) 9)
+    :track   :C001-parishes-count
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts canonical Bermuda parish count (9)."})
+
+  (defconstraint C002-named-islands-and-rocks
+    :backend :z3
+    :assert  (= (:named-islands-and-rocks :Bermuda) 181)
+    :track   :C002-named-islands
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts canonical island/rock count (181)."})
+
+  (defconstraint C003-bmd-usd-parity
+    :backend :z3
+    :assert  (= (:currency-pegged-at-parity :BMD) true)
+    :track   :C003-bmd-peg
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts BMD/USD parity peg."})
+
+  (defconstraint C004-airport-st-davids
+    :backend :z3
+    :assert  (= (:airport-on-island :L_F_Wade) "St_Davids_Island")
+    :track   :C004-airport-island
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts L. F. Wade airport location (St. David's Island)."})
+
+  (defconstraint C005-cedar-binomial
+    :backend :z3
+    :assert  (= (:binomial :Bermuda_cedar) "Juniperus bermudiana")
+    :track   :C005-cedar-binomial
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts Bermuda cedar binomial (Juniperus bermudiana)."})
+
+  ;; ----- four quantitative invariants (D4 mission-spec expansion) -----
+
+  (defconstraint C006-population
+    :backend :z3
+    :assert  (= (:population :Bermuda) 63918)
+    :track   :C006-population
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts canonical Bermuda population (63,918, 2023 estimate)."})
+
+  (defconstraint C007-land-area-km2
+    :backend :z3
+    :assert  (= (:land-area-km2 :Bermuda) 53.2)
+    :track   :C007-land-area-km2
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts canonical Bermuda land area (53.2 km^2)."})
+
+  (defconstraint C008-gdp-usd-billion
+    :backend :z3
+    :assert  (= (:gdp-usd-billion :Bermuda) 7.7)
+    :track   :C008-gdp-usd-billion
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts canonical Bermuda GDP (USD 7.7 billion)."})
+
+  (defconstraint C009-hospital-beds-kemh
+    :backend :z3
+    :assert  (= (:hospital-beds-kemh :KEMH) 90)
+    :track   :C009-hospital-beds-kemh
+    :on-unsat {:defect :D13 :severity :critical
+               :message "Claim contradicts KEMH bed count (90)."})]}

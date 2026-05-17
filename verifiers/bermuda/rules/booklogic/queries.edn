@@ -1,0 +1,15 @@
+;; verifiers/bermuda/rules/booklogic/queries.edn
+;; BookLogic Cozo queries. Each (defquery NAME :backend :cozo :find [...]
+;; :where [...] :on-result M) compiles to a parameterised Cozo script in
+;; rust-verifier/src/kg.rs (filled in by PR-4's defquery compiler).
+;; Results become defect tickets in book-qa.
+{:forms
+ [(defquery Q001-low-confidence-load-bearing
+    :backend :cozo
+    :find    [?claim]
+    :where   [(claim/load-bearing ?claim true)
+              (claim/posterior   ?claim ?p)
+              (< ?p 0.80)]
+    :on-result {:defect :posterior-floor
+                :severity :warning
+                :message "Load-bearing claim below the 0.80 posterior floor."})]}

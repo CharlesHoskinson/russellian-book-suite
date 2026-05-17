@@ -1,0 +1,9 @@
+;; verifiers/bermuda/rules/booklogic/remedies.edn
+;; BookLogic remedy proposals. Each (defremedy NAME :when PATTERN :propose
+;; TRANSITION :requires R) compiles to an entry in propose_writeback.py's
+;; rule list. :requires :human-review means the proposal does not auto-apply.
+{:forms
+ [(defremedy W001-unsat-core-to-refutation
+    :when    (unsat-core ?claim)
+    :propose (ledger/transition ?claim :refuted)
+    :requires :human-review)]}

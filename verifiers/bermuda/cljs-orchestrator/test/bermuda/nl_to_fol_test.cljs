@@ -74,3 +74,61 @@
       (is (m/validate ir/Formula out)
           (str "Formula validation failed: "
                (pr-str (m/explain ir/Formula out)))))))
+
+;;; ----- Event-stream dispatch (REQ-CLJS-ORCH-010, REQ-CLJS-ORCH-011) -----
+
+(deftest claim-verified-event-produces-formula
+  (testing "REQ-CLJS-ORCH-010: claim/verified event -> :expression formula"
+    (let [event [(symbol "claim" "verified")
+                 {:claim/id "clm-2026-000001"
+                  :text     "Bermuda has nine traditional parishes."
+                  :from     :proposed
+                  :to       :verified}]
+          out (nl/claim->formula event)]
+      (is (some? out))
+      (is (= :expression (:kind out))
+          "verified events project to an :expression formula")
+      (is (= :formula (:sort out))))))
+
+(deftest source-ingested-event-skipped
+  (testing "REQ-CLJS-ORCH-010: source/ingested produces nil — caller drops nils"
+    (let [event [(symbol "source" "ingested")
+                 {:doc/id "alpha" :kind :pdf}]
+          out (nl/claim->formula event)]
+      (is (nil? out)
+          "source/ingested produces no formula — caller drops nils"))))
+
+(deftest claim-proposed-event-skipped
+  (testing "REQ-CLJS-ORCH-010: claim/proposed alone does not feed verification"
+    (let [event [(symbol "claim" "proposed")
+                 {:claim/id "clm-x" :text "candidate"}]
+          out (nl/claim->formula event)]
+      (is (nil? out)
+          "claim/proposed alone does not feed verification"))))
+
+(deftest atom-emitted-event-passes-through
+  (testing "REQ-CLJS-ORCH-011: atom/emitted hands pre-compiled atom straight back"
+    (let [emitted {:kind :symbol :sort :formula :name :PRE-COMPILED}
+          event [(symbol "atom" "emitted") {:atom emitted}]
+          out   (nl/claim->formula event)]
+      (is (= emitted out)
+          "atom/emitted hands the pre-compiled atom straight back"))))
+
+(deftest unknown-event-head-emits-opaque
+  (testing "REQ-CLJS-ORCH-011: unknown heads fall through to :OPAQUE marker"
+    (let [event [(symbol "weather" "rained") {:mm 12}]
+          out (nl/claim->formula event)]
+      (is (= :OPAQUE (:name out))
+          "unknown heads fall through to the :OPAQUE marker, matching
+           the legacy ?other branch"))))
+
+(deftest translate-corpus-mixes-claims-and-events-and-drops-nils
+  (testing "REQ-CLJS-ORCH-010: nil-producing events are dropped from corpus"
+    (let [ingested-ev  [(symbol "source" "ingested") {:doc/id "alpha"}]
+          verified-ev  [(symbol "claim" "verified")
+                        {:claim/id "clm-X" :text "x"
+                         :from :proposed :to :verified}]
+          out (nl/translate-corpus [opaque-claim ingested-ev verified-ev])]
+      (is (= 2 (count out))
+          "nil-producing events are dropped; both surviving entries are formulas")
+      (is (every? #(= :expression (:kind %)) (filter #(= :expression (:kind %)) out))))))

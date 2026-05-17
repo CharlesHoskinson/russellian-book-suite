@@ -700,7 +700,44 @@ LLM calls happen at three points in the pipeline: section drafting (`book-compos
 
 ## Repository layout
 
-<!-- drafted in stage 2 task 2.12 -->
+One skill per directory under `skills/`; each is self-contained with its own `SKILL.md`, `scripts/`, `tests/`, `.venv/` (gitignored), and `pyproject.toml`. Cross-cutting infrastructure — shared Python loader, CI contracts, documentation tooling — lives at the repo root or in top-level sibling directories, not inside any individual skill.
+
+```
+russellian-book-suite/
+├── README.md
+├── LICENSE
+├── ci/
+│   ├── .import-linter
+│   ├── lint_no_shadow_writes.py
+│   └── test_*.py
+├── docs/
+│   ├── concepts/
+│   ├── operations/
+│   └── qa/                       # NEW (Stage 5 of README refactor)
+├── examples/
+│   └── bermuda-manual/
+├── openspec/
+│   └── changes/
+│       └── archive/<date>-add-syntopical-metabook/
+├── sibling_skills/               # NEW — shared loader package
+├── skills/
+│   ├── book-compose/
+│   ├── book-knowledge/
+│   ├── book-qa/
+│   ├── book-review/
+│   ├── book-thesis/
+│   ├── neurosym-forge/
+│   ├── review-conductor/
+│   ├── russellian-style/
+│   ├── scrapling-fetch/          # NEW — Tier 1
+│   └── syntopical-metabook/      # NEW — Tier 1
+├── tools/
+│   └── lint_readme.py            # NEW — README lint helper
+└── verifiers/
+    └── bermuda/
+```
+
+Read-only boundaries between skills are strict. The metabook accesses scrapling-fetch through `sibling_skills.load_skill_api`, not by direct import; it reads, never writes, the fetch skill's surface. `book-compose` reads only the chapter-lens files that the metabook deposits under `syntopical/lenses/`; the metabook's internals are opaque to it. The workspace directories `raw/`, `claims/`, `wiki/`, and `graph/` are open to every skill for reading, but `book-knowledge` alone writes them.
 
 ## Deep QA: how this README was made
 

@@ -1,11 +1,25 @@
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
 import pytest
 
 from scripts.run_verification import run
+
+
+def test_run_signature_defaults_to_real_verifier() -> None:
+    """`stub_verifier` must default to False so CI exercises the real
+    pipeline; the stub stays available behind explicit opt-in.
+
+    REQ-CLJS-ORCH-020"""
+    sig = inspect.signature(run)
+    p = sig.parameters["stub_verifier"]
+    assert p.default is False, (
+        f"stub_verifier default must be False (got {p.default!r}); "
+        "explicit opt-in only for local fast iteration"
+    )
 
 
 def _seed_workspace(root: Path) -> None:
@@ -25,7 +39,8 @@ def _seed_workspace(root: Path) -> None:
     (root / "examples" / "test-workspace" / "qa").mkdir()
 
 
-def test_run_writes_verification_defects(tmp_path: Path, project_root: Path) -> None:
+def test_run_with_explicit_stub(tmp_path: Path, project_root: Path) -> None:
+    """The stub remains usable for fast local iteration via explicit opt-in."""
     _seed_workspace(tmp_path)
     workspace = tmp_path / "examples" / "test-workspace"
     rc = run(
@@ -33,7 +48,6 @@ def test_run_writes_verification_defects(tmp_path: Path, project_root: Path) -> 
         release_version="1.0.0",
         project_root=project_root,
         stub_verifier=True,
-        # When stubbing, the test fixture sets the verdict outcome
         stub_verdict="unsat",
         stub_core=["clm-2026-000001", "prose-ch-01-001"],
     )

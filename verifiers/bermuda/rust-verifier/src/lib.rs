@@ -2,10 +2,12 @@
 use napi_derive::napi;
 
 mod ir;
-mod canonical;
+mod axioms;
 mod smt;
 mod eqsat;
 mod kg;
+
+#[cfg(feature = "pdf")]
 mod typeset;
 
 #[napi]
@@ -27,6 +29,7 @@ pub fn saturate(terms_edn: String, rules_edn: String) -> napi::Result<String> {
         .map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
+#[cfg(feature = "pdf")]
 #[napi]
 pub fn render_pdf(latex: String, out_path: String) -> napi::Result<()> {
     typeset::render(&latex, &out_path)

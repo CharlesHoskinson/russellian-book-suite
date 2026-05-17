@@ -53,9 +53,11 @@ HEADER = """\
 
 #[cfg(feature = "smt")]
 use z3::{
-    ast::{Bool, Int, Real},
+    ast::{Bool, Int, Real, String as Z3String},
     Solver,
 };
+#[cfg(feature = "smt")]
+use std::str::FromStr as _;
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {
@@ -109,14 +111,82 @@ def _emit_z3_block(c: dict) -> str:
     cid       = c[Keyword("id")]
     assert_   = c[Keyword("assert")]
     tolerance = c.get(Keyword("tolerance"))
-    lhs, rhs, head = _parse_assert(assert_)
+    if isinstance(assert_, str):
+        from scripts._edn_reader import read_edn
+        assert_ = read_edn(assert_)
+    if not isinstance(assert_, list) or len(assert_) < 3:
+        raise CodegenError(f"constraint {cid!r}: malformed assert form: {assert_!r}")
+    head_node = assert_[0]
+    head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
+    lhs_raw, rhs_raw = assert_[1], assert_[2]
     if head == "~=":
+        # Approx-equality is numeric; use the generic emitter.
+        lhs = _emit_expr(lhs_raw)
+        rhs = _emit_expr(rhs_raw)
         return _emit_approx_block(cid, lhs, rhs, tolerance)
     if head == "=":
+        # Infer Z3 type from the RHS literal to emit correct variable declarations.
+        z3_type = _infer_z3_type(rhs_raw)
+        lhs = _emit_expr_typed(lhs_raw, z3_type)
+        rhs = _emit_expr_typed(rhs_raw, z3_type)
         return _emit_equality_block(cid, lhs, rhs)
     raise CodegenError(
         f"constraint {cid!r}: assert head {head!r} not supported in v0.4 (use '=' or '~=')"
     )
+
+
+def _infer_z3_type(node: Any) -> str:
+    """Infer the Z3 Rust type name ('Int', 'Real', 'Bool', 'Z3String') from a literal."""
+    if isinstance(node, bool):
+        return "Bool"
+    if isinstance(node, int):
+        return "Int"
+    if isinstance(node, float):
+        return "Real"
+    if isinstance(node, str):
+        return "Z3String"
+    if isinstance(node, Keyword):
+        return "Z3String"
+    return "Int"
+
+
+def _emit_expr_typed(node: Any, z3_type: str) -> str:
+    """Emit a Z3 expression with an explicit type hint for variable declarations.
+
+    Used when both sides of an equality share a Z3 type so the codegen
+    declares the LHS `new_const` with the right sort.
+    """
+    if isinstance(node, bool):
+        return f"Bool::from_bool({str(node).lower()})"
+    if isinstance(node, int):
+        return f"Int::from_i64({node})"
+    if isinstance(node, float):
+        num, den = _rational_approx(node)
+        return f"Real::from_rational({num}, {den})"
+    if isinstance(node, Keyword):
+        return f'Z3String::from_str("{node.name}").expect("valid utf-8")'
+    if isinstance(node, str):
+        escaped = node.replace('"', '\\"')
+        return f'Z3String::from_str("{escaped}").expect("valid utf-8")'
+    if isinstance(node, list) and node:
+        head = node[0]
+        if isinstance(head, Keyword):
+            sub = node[1] if len(node) >= 2 else None
+            if isinstance(sub, Keyword):
+                sub_str = sub.name
+            elif sub is not None:
+                sub_str = str(sub).lstrip("?")
+            else:
+                sub_str = "val"
+            var_name = f"{head.name}_{sub_str}"
+            if z3_type == "Bool":
+                return f'Bool::new_const("{var_name}")'
+            if z3_type == "Real":
+                return f'Real::new_const("{var_name}")'
+            if z3_type == "Z3String":
+                return f'Z3String::new_const("{var_name}")'
+            return f'Int::new_const("{var_name}")'
+    return _emit_expr(node)
 
 
 def _parse_assert(assert_form: Any) -> tuple[str, str, str]:

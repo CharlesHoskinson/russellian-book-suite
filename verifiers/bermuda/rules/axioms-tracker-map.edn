@@ -1,0 +1,68 @@
+{
+ :version 1
+ :tracker-map {
+               :C001-bermuda-parishes {
+                                       :constraint-id "C001-bermuda-parishes"
+                                       :track :C001-parishes-count
+                                       :defect :D13
+                                       :severity :critical
+                                       :message "Claim contradicts canonical Bermuda parish count (9)."
+                                      }
+               :C002-named-islands-and-rocks {
+                                              :constraint-id "C002-named-islands-and-rocks"
+                                              :track :C002-named-islands
+                                              :defect :D13
+                                              :severity :critical
+                                              :message "Claim contradicts canonical island/rock count (181)."
+                                             }
+               :C003-bmd-usd-parity {
+                                     :constraint-id "C003-bmd-usd-parity"
+                                     :track :C003-bmd-peg
+                                     :defect :D13
+                                     :severity :critical
+                                     :message "Claim contradicts BMD/USD parity peg."
+                                    }
+               :C004-airport-st-davids {
+                                        :constraint-id "C004-airport-st-davids"
+                                        :track :C004-airport-island
+                                        :defect :D13
+                                        :severity :critical
+                                        :message "Claim contradicts L. F. Wade airport location (St. David's Island)."
+                                       }
+               :C005-cedar-binomial {
+                                     :constraint-id "C005-cedar-binomial"
+                                     :track :C005-cedar-binomial
+                                     :defect :D13
+                                     :severity :critical
+                                     :message "Claim contradicts Bermuda cedar binomial (Juniperus bermudiana)."
+                                    }
+               :C006-population {
+                                 :constraint-id "C006-population"
+                                 :track :C006-population
+                                 :defect :D13
+                                 :severity :critical
+                                 :message "Claim contradicts canonical Bermuda population (63,918, 2023 estimate)."
+                                }
+               :C007-land-area-km2 {
+                                    :constraint-id "C007-land-area-km2"
+                                    :track :C007-land-area-km2
+                                    :defect :D13
+                                    :severity :critical
+                                    :message "Claim contradicts canonical Bermuda land area (53.2 km^2)."
+                                   }
+               :C008-gdp-usd-billion {
+                                      :constraint-id "C008-gdp-usd-billion"
+                                      :track :C008-gdp-usd-billion
+                                      :defect :D13
+                                      :severity :critical
+                                      :message "Claim contradicts canonical Bermuda GDP (USD 7.7 billion)."
+                                     }
+               :C009-hospital-beds-kemh {
+                                         :constraint-id "C009-hospital-beds-kemh"
+                                         :track :C009-hospital-beds-kemh
+                                         :defect :D13
+                                         :severity :critical
+                                         :message "Claim contradicts KEMH bed count (90)."
+                                        }
+              }
+}

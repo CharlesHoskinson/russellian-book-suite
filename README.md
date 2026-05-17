@@ -631,7 +631,56 @@ python -m venv .venv
 
 ## End-to-end: the Bermuda manual
 
-<!-- drafted in stage 2 task 2.10 -->
+The Bermuda workspace predates Tier 1. The metabook tier (Tier 1) adds an upstream acquisition stage — `scrapling-fetch` harvesting sources, `syntopical-metabook` building the world-model layer — which the Bermuda workspace did not exercise. What follows is a Tier 2 + Tier 3 end-to-end: ledger synthesis, chapter drafting, QA gate, and release. A separate follow-up example will demonstrate the acquisition stage once a workspace exists that runs `scrapling-fetch` and `syntopical-metabook` from a clean start.
+
+This pipeline produced a ten-chapter, ~28,000-word non-fiction book on contemporary Bermuda. The workspace at `examples/bermuda-manual/` is the proof.
+
+What "proof" means here requires a qualification. `tools/synthesize_bermuda_ledger.py` built the Bermuda ledger from a thesis YAML, not from an ingested PDF corpus. The thesis describes the argument structure; the tool produced a matching claim ledger, which the rest of the pipeline then drafted, reviewed, and shipped end-to-end. This validates the drafting → review → release chain on a real-shaped workload. `book-knowledge`'s own test suite exercises the PDF-ingest path, but no full Bermuda-scale build has yet run from PDF sources. A future release will rebuild the workspace from primary sources — Bermuda Government statistics, Department of Tourism reports, Association of Bermuda Insurers and Reinsurers (ABIR) data.
+
+What the v6.0.0 release contains:
+
+```
+examples/bermuda-manual/
+├── CLAUDE.md                          # workspace marker
+├── raw/manifests/thesis.json          # the synthesized source
+├── claims/                            # ledger (10 claims, 1 thesis source)
+├── graph/dataset.trig                 # projected RDF graph
+├── graph/reports/competency-*.md      # competency-query results (all clean)
+├── chapters/contracts/ch-01..10.yaml  # 10 chapter contracts
+├── book/releases/
+│   ├── 3.0.0/                         # earlier release for comparison
+│   └── 6.0.0/                         # current release
+│       ├── manuscript.md              # 10 chapters, ~28,000 words
+│       ├── manuscript.html            # React/Tailwind browser
+│       ├── manuscript.pdf             # Playwright render (cover/TOC only in v6.0.0; full-body PDF render is a known limitation)
+│       ├── claims-bibliography.jsonl  # one record per claim cited in the release
+│       ├── book-manifest.yaml
+│       ├── summary.json
+│       └── chapter-bundles/ch-01..10-v6/
+├── qa/                                # swarm findings, chapter tickets
+├── reports/                           # cross-version release reports
+└── thesis/                            # bermuda thesis YAML
+```
+
+The v6.0.0 manifest declares the gate results:
+
+```yaml
+book_id: bermuda-manual
+built_at: '2026-05-13T01:22:49+00:00'
+title: Life in Bermuda
+version: 6.0.0
+chapters_included: [ch-01, …, ch-10]
+chapter_versions: {ch-01: v6, …, ch-10: v6}
+total_word_count: 36762                # counted on the assembled HTML;
+                                       # `wc -w` on the .md returns 28,018
+sources_bibliography:
+  - thesis
+shacl_conforms: true                   # graph validates against shapes.ttl
+competency_clean: true                 # all 8 competency queries return zero rows
+outputs: [manuscript.md, manuscript.html, manuscript.pdf]
+```
+
+`shacl_conforms: true` confirms the projected RDF graph validates against `shapes.ttl`. `competency_clean: true` means all eight competency queries return zero rows — no orphan wiki pages, no unsupported claims, no transitive contradictions, no posterior-floor violations, no open rebuttals against load-bearing claims. The distinction matters: a graph that passes structure checks can still fail a competency query if the manuscript cites a claim without provenance support. Both gates must pass.
 
 ## Local-only constraint
 

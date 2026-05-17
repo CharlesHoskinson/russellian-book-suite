@@ -1,0 +1,9 @@
+{:version 1
+ :remedies [{:id       "W001-unsat-core-to-refutation"
+             :when     (unsat-core ?claim)
+             :propose  (ledger/transition ?claim :refuted)
+             :requires :human-review}
+            {:id       "W002-low-conf-disputed"
+             :when     (low-confidence ?claim)
+             :propose  (ledger/transition ?claim :disputed)
+             :requires :auto-apply}]}

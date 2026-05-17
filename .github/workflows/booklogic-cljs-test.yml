@@ -11,6 +11,10 @@ on:
       - '.github/workflows/booklogic-cljs-test.yml'
   push:
     branches: [main]
+    paths:
+      - 'skills/neurosym-forge/**'
+      - 'verifiers/**'
+      - '.github/workflows/booklogic-cljs-test.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

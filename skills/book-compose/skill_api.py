@@ -103,8 +103,16 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
 
 
 def _parse_sections(body: str) -> dict[str, str]:
-    """Split body by H2 headers.  Returns {section_title: content}."""
-    matches = list(_H2_RE.finditer(body))
+    """Split body by the four canonical section H2 headers only.
+
+    Content inside a section may itself contain H2 subheadings (e.g. the
+    topic-map writes '## <node_id>' rows).  We therefore anchor only on the
+    exact required section titles, not on every H2 in the document.
+    """
+    # Build a pattern that matches only the canonical headers.
+    _required_set = {s.lower() for s in _REQUIRED_SECTIONS}
+    matches = [m for m in _H2_RE.finditer(body)
+               if m.group(1).strip().lower() in _required_set]
     if not matches:
         return {}
     sections: dict[str, str] = {}

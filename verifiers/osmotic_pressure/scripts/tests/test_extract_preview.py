@@ -51,7 +51,6 @@ def test_threshold_exit_on_high_opaque(tmp_path):
 
 def test_dry_run_prints_edn_without_touching_filesystem(tmp_path):
     """REQ-INGEST-042: --dry-run prints the EDN to stdout and does not write any file."""
-    import os, json
     claims = PROJECT_ROOT / "fixtures" / "claims_clean.jsonl"
     preds  = PROJECT_ROOT / "rules" / "predicates.edn"
     work_dir = PROJECT_ROOT / "work"

@@ -189,8 +189,29 @@
 
 ;; ----- defpredicate expansion -----
 
+(defn- valid-return-sort?
+  "REQ-DSL-050: a return-sort is either a sort keyword, or a one-layer
+   container `[:vector <sort-keyword>]` / `[:set <sort-keyword>]`."
+  [ret]
+  (or (keyword? ret)
+      (and (vector? ret)
+           (= 2 (count ret))
+           (#{:vector :set} (first ret))
+           (keyword? (second ret)))))
+
+(defn- return-inner-sort
+  "Strip the container wrapper from a multi-valued return sort.
+   Scalar return-sorts pass through unchanged."
+  [ret]
+  (if (and (vector? ret) (#{:vector :set} (first ret)))
+    (second ret)
+    ret))
+
 (defn- expand-defpredicate
-  "(defpredicate :name [sorts...] return-sort) → {:name :name :args [...] :ret ...}"
+  "(defpredicate :name [sorts...] return-sort) → {:name :arg-sorts [...] :return ...}
+
+   REQ-DSL-050: return-sort may be a sort keyword OR
+   [:vector <sort-keyword>] / [:set <sort-keyword>]."
   [form]
   (let [[_ name args ret] form]
     (when-not (keyword? name)
@@ -199,13 +220,21 @@
     (when-not (vector? args)
       (throw (ex-info "defpredicate: args must be a vector of sorts"
                       {:form form})))
-    {:name name :args args :ret ret}))
+    (when-not (valid-return-sort? ret)
+      (throw (ex-info (str "defpredicate " name
+                           ": return must be a sort keyword or "
+                           "[:vector <sort>] / [:set <sort>]")
+                      {:form form :return ret})))
+    {:name name :arg-sorts args :return ret}))
 
 ;; ----- validation: predicate args reference known sorts -----
 
 (defn- validate-predicate-sorts
   "Predicates must reference sorts declared in sorts.edn OR primitive
-   keywords (:int :real :bool :string :entity etc.). Throws on unknown sort."
+   keywords (:int :real :bool :string :entity etc.). Throws on unknown sort.
+
+   REQ-DSL-050: a multi-valued return-sort (`[:vector T]`/`[:set T]`)
+   validates its inner element sort the same way as a scalar return."
   [predicate-registry sort-registry]
   (let [declared-sort-names
           (->> sort-registry
@@ -217,14 +246,15 @@
         known? (fn [s] (or (contains? declared-sort-names s)
                            (contains? primitive-fallback s)))]
     (doseq [pred predicate-registry
-            :let [{:keys [name args ret]} pred]]
-      (doseq [a args]
+            :let [{nm :name as :arg-sorts r :return} pred]]
+      (doseq [a as]
         (when-not (known? a)
-          (throw (ex-info (str "defpredicate " name ": unknown sort " a)
+          (throw (ex-info (str "defpredicate " nm ": unknown sort " a)
                           {:predicate pred :unknown a}))))
-      (when-not (known? ret)
-        (throw (ex-info (str "defpredicate " name ": unknown return sort " ret)
-                        {:predicate pred :unknown ret}))))))
+      (let [inner (return-inner-sort r)]
+        (when-not (known? inner)
+          (throw (ex-info (str "defpredicate " nm ": unknown return sort " r)
+                          {:predicate pred :unknown r})))))))
 
 ;; ----- defconstraint expansion -----
 

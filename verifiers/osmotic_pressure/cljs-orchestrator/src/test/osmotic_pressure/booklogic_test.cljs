@@ -173,6 +173,46 @@
     (let [r (first (:remedy-decls expanded))]
       (is (= :auto-apply (:requires r))))))
 
+(deftest expand-defpredicate-vector-return
+  ;; REQ-DSL-050: defpredicate accepts [:vector <sort>] for the return-sort.
+  (let [src      {:sorts      [(list 'defsort :solution)]
+                  :predicates [(list 'defpredicate :solutes [:solution] [:vector :real])]
+                  :lifts [] :rules [] :constraints [] :queries [] :remedies []}
+        expanded (bl/expand src)
+        pred     (first (:predicate-registry expanded))]
+    (is (= :solutes        (:name pred)))
+    (is (= [:solution]     (:arg-sorts pred)))
+    (is (= [:vector :real] (:return pred)))))
+
+(deftest expand-defpredicate-set-return
+  ;; REQ-DSL-050: defpredicate accepts [:set <sort>] for the return-sort.
+  (let [src      {:sorts      [(list 'defsort :chapter)]
+                  :predicates [(list 'defpredicate :upstream-chapters [:chapter] [:set :chapter])]
+                  :lifts [] :rules [] :constraints [] :queries [] :remedies []}
+        expanded (bl/expand src)
+        pred     (first (:predicate-registry expanded))]
+    (is (= :upstream-chapters (:name pred)))
+    (is (= [:set :chapter]    (:return pred)))))
+
+(deftest expand-defpredicate-rejects-bad-return-shape
+  ;; REQ-DSL-050: only :keyword, [:vector <kw>], or [:set <kw>] are allowed.
+  (is (thrown-with-msg?
+        js/Error #"defpredicate.*return"
+        (bl/expand {:sorts [(list 'defsort :solution)]
+                    :predicates [(list 'defpredicate :bad [:solution]
+                                       [:vector :real :extra])]
+                    :lifts [] :rules [] :constraints [] :queries [] :remedies []}))))
+
+(deftest emit-schema-edn-preserves-vector-return
+  ;; REQ-DSL-055: schema preserves the [:vector :real] return shape.
+  (let [src      {:sorts      [(list 'defsort :solution)]
+                  :predicates [(list 'defpredicate :solutes [:solution] [:vector :real])]
+                  :lifts [] :rules [] :constraints [] :queries [] :remedies []}
+        expanded (bl/expand src)
+        text     (#'osmotic-pressure.booklogic/emit-schema-edn-string expanded)]
+    (is (re-find #":solutes" text))
+    (is (re-find #":return\s+\[:vector :real\]" text))))
+
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests)]
     (when (or (pos? fail) (pos? error))

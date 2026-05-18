@@ -2,8 +2,8 @@
   description = "russellian-book-suite hermetic dev environment";
 
   inputs = {
-    nixpkgs.url      = "github:NixOS/nixpkgs/nixos-25.05";
-    flake-utils.url  = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -23,18 +23,39 @@
         # Python + the few PyPI deps that the booklogic build truly needs at
         # the system level (everything else lives in per-skill venvs).
         python = pkgs.python313.withPackages (ps: with ps; [
-          pytest pytest-xdist ruff pyyaml jinja2
+          pytest
+          pytest-xdist
+          ruff
+          pyyaml
+          jinja2
         ]);
         # Single source of truth for the toolchain — used by both
         # devShells.default and packages.preflight so they stay in sync.
         devPackages = with pkgs; [
-          rust mold sccache cargo-nextest
-          nodejs_22 nodePackages.pnpm babashka
-          python jdk21 clj-kondo z3
-          cmake gnumake pkg-config
-          lefthook git gh jq yq curl nixpkgs-fmt
+          rust
+          mold
+          sccache
+          cargo-nextest
+          nodejs_22
+          nodePackages.pnpm
+          babashka
+          python
+          jdk21
+          clj-kondo
+          z3
+          cmake
+          gnumake
+          pkg-config
+          lefthook
+          git
+          gh
+          jq
+          yq
+          curl
+          nixpkgs-fmt
         ];
-      in {
+      in
+      {
         devShells.default = pkgs.mkShell {
           name = "russellian-book-suite";
           packages = devPackages;
@@ -65,9 +86,10 @@
         # Flake-level check: assert the makefile preflight target's step list
         # matches scripts/ci-steps.txt. Detects drift between CI YAML and
         # local Makefile.
-        checks.flake-drift = pkgs.runCommand "flake-drift-check" {
-          buildInputs = [ pkgs.gnumake pkgs.coreutils ];
-        } ''
+        checks.flake-drift = pkgs.runCommand "flake-drift-check"
+          {
+            buildInputs = [ pkgs.gnumake pkgs.coreutils ];
+          } ''
           if ! diff -q ${./scripts/ci-steps.txt} <(make -C ${./.} -n preflight | grep -E '^\t' | sed 's/^\t//') >/dev/null 2>&1; then
             echo "DRIFT: scripts/ci-steps.txt diverges from Makefile preflight"
             diff ${./scripts/ci-steps.txt} <(make -C ${./.} -n preflight | grep -E '^\t' | sed 's/^\t//') || true

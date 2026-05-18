@@ -32,6 +32,29 @@ pub fn verify_formulas(formulas_edn: String) -> napi::Result<String> {
     Ok(ir::emit_verdict(&verdict))
 }
 
+/// Run every `defquery` declared in `query_edn` via Cozo (REQ-DATALOG-040)
+/// and return the serialised verdict slice that book-qa merges with the
+/// SMT verdict. `query_edn` carries the shape
+/// `{:queries [{:id "Q001" :source "?[c] := claim[c, _]"} ...]}`.
+#[cfg(feature = "kg")]
+#[napi]
+pub fn run_queries(query_edn: String) -> napi::Result<String> {
+    let results = kg::run_queries(&query_edn)
+        .map_err(|e| napi::Error::from_reason(format!("kg run_queries: {e}")))?;
+    let mut verdict = ir::Verdict {
+        status: "sat".into(),
+        ..Default::default()
+    };
+    for r in results {
+        verdict.queries.push(ir::QueryResult {
+            name: r.name,
+            rows: r.rows,
+            sample: r.sample,
+        });
+    }
+    Ok(ir::emit_verdict(&verdict))
+}
+
 #[cfg(feature = "eqsat")]
 #[napi]
 pub fn saturate(terms_edn: String, rules_edn: String) -> napi::Result<String> {

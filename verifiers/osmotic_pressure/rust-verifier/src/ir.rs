@@ -46,6 +46,28 @@ pub struct Verdict {
     pub explanation: String,
     #[serde(default)]
     pub graph_summary: Option<GraphSummary>,
+    /// Cozo `defquery` outcomes (REQ-DATALOG-042). Each entry names a
+    /// query that ran during the smoke step; `rows` is the number of
+    /// result rows; `sample` is an optional `Debug`-rendered first
+    /// row (or `<timeout>` when the timeout fired).
+    #[serde(default)]
+    pub queries: Vec<QueryResult>,
+    /// `defconstraint :backend :cozo` defects (REQ-DATALOG-041).
+    /// Each entry names a constraint that produced at least one
+    /// witness row; `rows` is the violation count.
+    #[serde(default)]
+    pub cozo_defects: Vec<QueryResult>,
+}
+
+/// Per-query summary recorded on the verdict. `sample` is `Some` for
+/// non-empty result sets and `Some("<timeout>")` when the per-query
+/// timeout fired.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct QueryResult {
+    pub name: String,
+    pub rows: usize,
+    #[serde(default)]
+    pub sample: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -96,7 +118,29 @@ pub fn emit_verdict(v: &Verdict) -> String {
     }
     out.push_str("] :explanation \"");
     out.push_str(&edn_escape(&v.explanation));
-    out.push_str("\"}");
+    out.push_str("\" :queries [");
+    for (i, qr) in v.queries.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push_str("{:name \"");
+        out.push_str(&edn_escape(&qr.name));
+        out.push_str("\" :rows ");
+        out.push_str(&qr.rows.to_string());
+        out.push('}');
+    }
+    out.push_str("] :cozo-defects [");
+    for (i, qr) in v.cozo_defects.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push_str("{:name \"");
+        out.push_str(&edn_escape(&qr.name));
+        out.push_str("\" :rows ");
+        out.push_str(&qr.rows.to_string());
+        out.push('}');
+    }
+    out.push_str("]}");
     out
 }
 

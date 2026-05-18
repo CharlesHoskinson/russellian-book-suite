@@ -459,8 +459,8 @@
    signature schema consumed by the Python ingester (REQ-EDN-052)."
   [{:keys [predicate-registry sort-registry]}]
   (let [preds (into {} (for [p predicate-registry]
-                         [(:name p) {:arg-sorts (:arg-sorts p)
-                                     :return    (:return p)}]))]
+                         [(:name p) {:arg-sorts (:args p)
+                                     :return    (:ret p)}]))]
     (pr-str {:version 1
              :sorts (mapv :name sort-registry)
              :predicates preds})))

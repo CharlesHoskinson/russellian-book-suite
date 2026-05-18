@@ -2,11 +2,11 @@
 use napi_derive::napi;
 
 mod axioms;
-pub mod canonical;
 mod eqsat;
 mod ir;
 mod kg;
 mod smt;
+pub mod var_name;
 
 #[cfg(feature = "pdf")]
 mod typeset;

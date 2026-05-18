@@ -11,7 +11,26 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
-    flake-utils.lib.eachDefaultSystem (system:
+    let
+      # REQ-CI-043: declare the supported systems as an explicit named
+      # constant so the matrix is greppable and the macOS contributor
+      # path is documented in source. `eachDefaultSystem` would also
+      # cover these, but naming them lets the runbook
+      # (docs/operations/ci-platforms.md) point at one location.
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      # `forAllSystems` follows the canonical nixpkgs idiom for
+      # per-system attribute construction. It is exposed here so
+      # downstream additions (formatter, hydra jobs, custom checks
+      # that don't fit eachSystem's mould) can build per-system
+      # attrsets via `forAllSystems (system: ...)`.
+      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+    in
+    flake-utils.lib.eachSystem supportedSystems (system:
       let
         pkgs = import nixpkgs {
           inherit system;

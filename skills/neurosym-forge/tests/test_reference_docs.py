@@ -52,3 +52,25 @@ def test_worked_example_walks_seven_form_families():
     text = p.read_text(encoding="utf-8")
     for form in ("defsort", "defpredicate", "deflift", "defconstraint"):
         assert form in text, f"{form} not mentioned in walkthrough"
+
+
+def test_dsl_reference_covers_seven_forms():
+    """REQ-BOOKLOGIC-047: DSL reference covers all 7 form families."""
+    p = Path(__file__).resolve().parents[3] / "docs" / "booklogic-dsl-reference.md"
+    assert p.exists(), f"docs/booklogic-dsl-reference.md missing at {p}"
+    text = p.read_text(encoding="utf-8")
+    for form in ("defsort", "defpredicate", "deflift", "defrule",
+                 "defconstraint", "defquery", "defremedy"):
+        assert form in text, f"{form} not covered in DSL reference"
+
+
+def test_dsl_reference_has_debugging_section():
+    """REQ-BOOKLOGIC-048: DSL reference has a Debugging section covering
+    the four Tier 1 affordances."""
+    p = Path(__file__).resolve().parents[3] / "docs" / "booklogic-dsl-reference.md"
+    text = p.read_text(encoding="utf-8")
+    for affordance in ("VERIFIER_DEBUG_SMT", "make extract",
+                       "VERIFIER_SOLVER_TIMEOUT_MS", ":unknown"):
+        assert affordance in text, (
+            f"{affordance!r} not mentioned in DSL reference Debugging section"
+        )

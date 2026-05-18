@@ -67,6 +67,7 @@ Convenience:
 
 ## See also
 
+- [`docs/booklogic-dsl-reference.md`](../../docs/booklogic-dsl-reference.md) — canonical author-facing DSL reference
 - `references/metta-idioms.md` — = / : / ! / match / superpose / grounded mapping
 - `references/atomspace-edn.md` — the EDN IR
 - `references/grounded-atoms.md` — how to wire a new Rust module

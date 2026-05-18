@@ -17,9 +17,10 @@ import pytest
 from .conftest import REPO_ROOT, SKILL_ROOT, run_make_ci
 
 # Skip on non-Linux: cargo .so chain only exercises on Linux.
+# Use sys.platform rather than `uname` so the skip works on Windows where
+# the uname binary isn't on PATH.
 pytestmark = pytest.mark.skipif(
-    shutil.which("cargo") is None
-    or subprocess.run(["uname"], capture_output=True).stdout.strip() != b"Linux",
+    shutil.which("cargo") is None or sys.platform != "linux",
     reason="sprint-5 regressions require Linux toolchain",
 )
 

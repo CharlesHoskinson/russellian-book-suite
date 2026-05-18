@@ -25,28 +25,19 @@
         python = pkgs.python313.withPackages (ps: with ps; [
           pytest pytest-xdist ruff pyyaml jinja2
         ]);
+        # Single source of truth for the toolchain — used by both
+        # devShells.default and packages.preflight so they stay in sync.
+        devPackages = with pkgs; [
+          rust mold sccache cargo-nextest
+          nodejs_22 nodePackages.pnpm babashka
+          python jdk21 clj-kondo z3
+          cmake gnumake pkg-config
+          lefthook git gh jq yq curl nixpkgs-fmt
+        ];
       in {
         devShells.default = pkgs.mkShell {
           name = "russellian-book-suite";
-          packages = with pkgs; [
-            # Rust
-            rust
-            mold sccache cargo-nextest
-            # Node / CLJS
-            nodejs_22 nodePackages.pnpm babashka
-            # Python
-            python
-            # JVM (for shadow-cljs)
-            jdk21 clj-kondo
-            # SMT
-            z3
-            # Build essentials
-            cmake gnumake pkg-config
-            # Git hooks + automation
-            lefthook git gh
-            # Bootstrap utilities
-            jq yq curl
-          ];
+          packages = devPackages;
 
           shellHook = ''
             export RUSTC_WRAPPER=sccache
@@ -59,11 +50,12 @@
           '';
         };
 
-        # `nix build .#preflight` runs `make preflight` inside the shell.
-        # CI uses this as a single entry point for drift verification.
+        # `nix build .#preflight` runs `make preflight` with the same
+        # toolchain devShells.default provides. CI uses this as a single
+        # entry point for drift verification.
         packages.preflight = pkgs.writeShellApplication {
           name = "preflight";
-          runtimeInputs = [ pkgs.gnumake ];
+          runtimeInputs = devPackages;
           text = ''
             cd "$PWD"
             make preflight

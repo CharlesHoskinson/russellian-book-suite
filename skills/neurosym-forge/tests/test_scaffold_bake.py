@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,10 +19,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOT = REPO_ROOT / "skills" / "neurosym-forge"
 TEMPLATE_ROOT = SKILL_ROOT / "assets" / "project-template"
 
-# Skip on Windows pre-WSL: cargo can't produce .so; CI is the gate.
+# Skip on non-Linux: cargo can't produce .so anywhere else; CI is the gate.
+# Use sys.platform rather than `uname` so the skip works on Windows where
+# the uname binary isn't on PATH.
 pytestmark = pytest.mark.skipif(
-    shutil.which("cargo") is None
-    or subprocess.run(["uname"], capture_output=True).stdout.strip() != b"Linux",
+    shutil.which("cargo") is None or sys.platform != "linux",
     reason="scaffold-bake requires Linux toolchain (cargo + cdylib .so)",
 )
 

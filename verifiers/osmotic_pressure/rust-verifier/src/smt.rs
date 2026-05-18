@@ -67,10 +67,23 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
             None => continue,
         };
 
+        // For numeric predicates the codegen tells us which sort the axioms
+        // reference. Without this query, an integer claim value (e.g. i=2)
+        // would bind `Int::new_const("vant-hoff-i_s")` while the axiom
+        // references `Real::new_const("vant-hoff-i_s")` — same name,
+        // different Z3 sorts = two distinct symbols, leaving the axiom
+        // predicate unbound and the solver free to pick arbitrary values
+        // (the doctored-fixture :sat regression).
+        let want_real = crate::axioms::predicate_is_real(var_name.as_str());
         let assertion: Bool = match value {
             Edn::Int(n) => {
-                let z3_var = Int::new_const(var_name.as_str());
-                z3_var.eq(&Int::from_i64(*n))
+                if want_real {
+                    let z3_var = Real::new_const(var_name.as_str());
+                    z3_var.eq(&Real::from_rational(*n, 1))
+                } else {
+                    let z3_var = Int::new_const(var_name.as_str());
+                    z3_var.eq(&Int::from_i64(*n))
+                }
             }
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);

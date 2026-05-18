@@ -74,6 +74,54 @@ def test_generate_multiple_constraints_each_tracked_uniquely() -> None:
     assert '"C002"' in src
 
 
+def test_predicate_is_real_helper_lists_promoted_predicates() -> None:
+    """REQ-DSL-024: codegen emits `predicate_is_real(name)` enumerating
+    every predicate-subject symbol that ended up Real-typed (because some
+    sibling subexpression contained a float literal). smt.rs queries this
+    to pick the matching Z3 sort for value-bindings; without it, axioms
+    referencing `Real::new_const("vant-hoff-i_s")` and value-bindings
+    using `Int::new_const("vant-hoff-i_s")` produce two distinct symbols
+    of different sorts, the axiom predicate stays unbound, and the solver
+    happily returns :sat against doctored ledgers (the sprint-5 bug).
+    """
+    cs = [_constraint(
+        name="C001",
+        assert_form=(
+            "(~= (:osmotic-pressure-pa :s) "
+            "(* (:vant-hoff-i :s) (:molarity :s) 8.314 (:temperature-k :s)) "
+            ":tolerance 0.03)"
+        ),
+        tolerance=0.03,
+    )]
+    src = generate_axioms_source(cs)
+    assert "pub fn predicate_is_real(name: &str) -> bool" in src
+    # All four predicate-subject pairs were promoted to Real because R=8.314
+    # appears in the same multiplication chain.
+    for sym in ("osmotic-pressure-pa_s",
+                "vant-hoff-i_s",
+                "molarity_s",
+                "temperature-k_s"):
+        assert f'"{sym}" => true' in src, f"missing {sym!r} in predicate_is_real arms"
+
+
+def test_predicate_is_real_helper_empty_for_int_only_constraints() -> None:
+    """REQ-DSL-024: predicates that never appear in Real-promoted context
+    return false. The helper still emits, but with no `true` arms — so a
+    pure-Int constraint set (bermuda-style) keeps Int sort end-to-end.
+    """
+    cs = [_constraint(
+        name="C001",
+        assert_form="(= (:parishes-count :Bermuda) 9)",
+    )]
+    src = generate_axioms_source(cs)
+    assert "pub fn predicate_is_real(name: &str) -> bool" in src
+    assert "=> true" not in src or "parishes-count_Bermuda" not in src
+    # int-only constraint should not promote anything to Real
+    real_arms = [line for line in src.splitlines()
+                 if "=> true," in line and "predicate_is_real" not in line]
+    assert real_arms == [], f"unexpected Real arms: {real_arms}"
+
+
 def test_generate_skips_non_z3_backends() -> None:
     """REQ-DSL-021: non-z3 constraints are not emitted into axioms.rs."""
     cs = [_constraint(name="C001"),

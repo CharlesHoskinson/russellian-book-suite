@@ -46,3 +46,24 @@ pub fn assert_axioms(solver: &Solver) {
 pub fn assert_axioms(_solver: &()) {
     // No-op: built without smt feature.
 }
+
+#[cfg(feature = "smt")]
+/// True if the named predicate-subject symbol should be bound as
+/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes
+/// a constraint subtree to Real whenever any float literal appears
+/// anywhere in it; smt.rs uses this to keep value-bindings in the
+/// same Z3 sort as the axioms reference.
+pub fn predicate_is_real(name: &str) -> bool {
+    match name {
+        "molarity_s" => true,
+        "osmotic-pressure-pa_s" => true,
+        "temperature-k_s" => true,
+        "vant-hoff-i_s" => true,
+        _ => false,
+    }
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn predicate_is_real(_name: &str) -> bool {
+    false
+}

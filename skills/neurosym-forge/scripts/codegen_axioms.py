@@ -76,6 +76,45 @@ pub fn assert_axioms(_solver: &()) {
 """
 
 
+def _emit_predicate_sort_helper(body: str) -> str:
+    """Emit `predicate_is_real(name)` so smt.rs picks Real vs Int for each
+    predicate-subject binding. Without this, axioms that promote to Real
+    (because a sibling subexpression contains a float literal) reference
+    Z3 symbols of a different sort than the value-binding smt.rs emits,
+    silently leaving predicates unbound and the solver free to pick
+    arbitrary values (the sprint-5 doctored-fixture :sat regression).
+    """
+    import re
+    real_names: set[str] = set()
+    for m in re.finditer(r'Real::new_const\("([^"]+)"\)', body):
+        real_names.add(m.group(1))
+    if not real_names:
+        body_block = '    let _ = name; false'
+    else:
+        arms = "\n".join(f'        "{n}" => true,' for n in sorted(real_names))
+        body_block = (
+            "    match name {\n"
+            f"{arms}\n"
+            "        _ => false,\n"
+            "    }"
+        )
+    return (
+        "\n#[cfg(feature = \"smt\")]\n"
+        "/// True if the named predicate-subject symbol should be bound as\n"
+        "/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes\n"
+        "/// a constraint subtree to Real whenever any float literal appears\n"
+        "/// anywhere in it; smt.rs uses this to keep value-bindings in the\n"
+        "/// same Z3 sort as the axioms reference.\n"
+        "pub fn predicate_is_real(name: &str) -> bool {\n"
+        f"{body_block}\n"
+        "}\n"
+        "\n#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn predicate_is_real(_name: &str) -> bool {\n"
+        "    false\n"
+        "}\n"
+    )
+
+
 def generate_axioms_source(constraints: list[dict]) -> str:
     """Emit a complete axioms.rs file from a list of constraint dicts.
 
@@ -101,7 +140,8 @@ def generate_axioms_source(constraints: list[dict]) -> str:
             continue
         body_lines.append(_emit_z3_block(c))
     body = "\n".join(body_lines) if body_lines else "    // no z3 constraints declared\n"
-    return HEADER + body + FOOTER
+    sort_helper = _emit_predicate_sort_helper(body)
+    return HEADER + body + FOOTER + sort_helper
 
 
 def _require(c: dict, key: str) -> None:

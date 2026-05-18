@@ -76,6 +76,53 @@ pub fn assert_axioms(_solver: &()) {
 """
 
 
+def _emit_predicate_sort_helper(body: str) -> str:
+    """Emit a `predicate_is_real(name)` query that smt.rs uses to pick the
+    Z3 sort for predicate bindings.
+
+    Why: when a constraint mixes integer claim values with float arithmetic
+    (e.g. van 't Hoff: i is int, M/T/π are floats, R=8.314 is float), the
+    codegen promotes the whole subtree to Real. The Z3 symbol
+    `Real::new_const("vant-hoff-i_s")` in axioms.rs would then be a free
+    variable if smt.rs binds the integer claim value via `Int::new_const`
+    (same name, different sort = distinct symbol). The doctored fixture
+    bug (predicates unbound, solver picks arbitrary values, doctored
+    ledger trivially returns :sat) is precisely this mismatch.
+
+    smt.rs queries this fn for each predicate-subject pair and uses
+    Real::new_const + Real::from_rational when it returns true.
+    """
+    import re
+    real_names: set[str] = set()
+    for m in re.finditer(r'Real::new_const\("([^"]+)"\)', body):
+        real_names.add(m.group(1))
+    if not real_names:
+        body_block = '    let _ = name; false'
+    else:
+        arms = "\n".join(f'        "{n}" => true,' for n in sorted(real_names))
+        body_block = (
+            "    match name {\n"
+            f"{arms}\n"
+            "        _ => false,\n"
+            "    }"
+        )
+    return (
+        "\n#[cfg(feature = \"smt\")]\n"
+        "/// True if the named predicate-subject symbol should be bound as\n"
+        "/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes\n"
+        "/// a constraint subtree to Real whenever any float literal appears\n"
+        "/// anywhere in it; smt.rs uses this to keep value-bindings in the\n"
+        "/// same Z3 sort as the axioms reference.\n"
+        "pub fn predicate_is_real(name: &str) -> bool {\n"
+        f"{body_block}\n"
+        "}\n"
+        "\n#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn predicate_is_real(_name: &str) -> bool {\n"
+        "    false\n"
+        "}\n"
+    )
+
+
 def generate_axioms_source(constraints: list[dict]) -> str:
     """Emit a complete axioms.rs file from a list of constraint dicts.
 
@@ -101,7 +148,8 @@ def generate_axioms_source(constraints: list[dict]) -> str:
             continue
         body_lines.append(_emit_z3_block(c))
     body = "\n".join(body_lines) if body_lines else "    // no z3 constraints declared\n"
-    return HEADER + body + FOOTER
+    sort_helper = _emit_predicate_sort_helper(body)
+    return HEADER + body + FOOTER + sort_helper
 
 
 def _require(c: dict, key: str) -> None:

@@ -171,7 +171,10 @@ def _claim_to_atom(claim: dict, predicates: dict) -> dict:
     return base
 
 
-def ingest(ledger_path: Path, predicates_path: Path, out_path: Path) -> int:
+def ingest(ledger_path: Path,
+           predicates_path: Path,
+           out_path: Path,
+           return_atoms: bool = False) -> list[dict] | int:
     rows = read_ledger(ledger_path)
     latest = latest_per_id(rows)
     verified = [c for c in latest.values() if _is_verified(c)]
@@ -180,4 +183,4 @@ def ingest(ledger_path: Path, predicates_path: Path, out_path: Path) -> int:
     atoms = [_claim_to_atom(c, predicates) for c in verified]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     write_edn_file(out_path, {_KW_VERSION: 1, _KW_ATOMS: atoms})
-    return len(atoms)
+    return atoms if return_atoms else len(atoms)

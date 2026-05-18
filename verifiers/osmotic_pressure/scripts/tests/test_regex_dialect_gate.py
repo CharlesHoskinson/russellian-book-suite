@@ -2,7 +2,9 @@
 
 Strict Python regex dialect at the ingest boundary. JS-style named
 groups `(?<v>...)` must be rejected at ingest time with a hard
-IngestRegexDialectError, rather than silently rewritten.
+IngestRegexDialectError, rather than silently rewritten. The
+extract-preview OPAQUE-fraction gate still fires on dialect-correct
+but non-matching patterns.
 """
 from __future__ import annotations
 
@@ -51,4 +53,20 @@ def test_js_style_named_group_raises(tmp_path):
     msg = str(exc_info.value)
     assert "(?<" in msg, (
         f"diagnostic must quote the offending JS-style construct; got: {msg!r}"
+    )
+
+
+def test_dialect_correct_but_nonmatching_still_triggers_opaque_gate(tmp_path):
+    """REQ-INGEST-052: a Python-dialect-correct but non-matching pattern
+    still produces OPAQUE atoms, so the extract-preview gate fires on
+    pattern-author bugs that aren't dialect errors. Removing the silent
+    JS converter must not weaken the second-layer gate."""
+    preds = _write_predicates(tmp_path, [r"zzzNEVERMATCH\s*(?P<v>[0-9]+)"])
+    ledger = _write_ledger(tmp_path, "count 7")
+    atoms = compute_atoms(ledger, preds)
+    assert len(atoms) == 1
+    from scripts._edn_reader import Keyword
+    atom = atoms[0]
+    assert atom.get(Keyword("name")) == Keyword("OPAQUE"), (
+        f"non-matching dialect-correct pattern must yield OPAQUE; got: {atom!r}"
     )

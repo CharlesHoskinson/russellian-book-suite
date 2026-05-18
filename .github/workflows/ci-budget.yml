@@ -1,0 +1,53 @@
+name: ci-budget
+on:
+  pull_request:
+    types: [labeled, opened, synchronize]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  budget-check:
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'ci-budget') || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: compute last-20 wall-time stats
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run list --workflow=ci.yml --limit 20 \
+            --json conclusion,createdAt,updatedAt,databaseId \
+            > runs.json
+          python3 - <<'PY'
+          import json, datetime, statistics
+          runs = json.load(open("runs.json"))
+          green = [r for r in runs if r["conclusion"] == "success"]
+          durations = []
+          for r in green:
+              t0 = datetime.datetime.fromisoformat(r["createdAt"].replace("Z","+00:00"))
+              t1 = datetime.datetime.fromisoformat(r["updatedAt"].replace("Z","+00:00"))
+              durations.append((t1 - t0).total_seconds())
+          if not durations:
+              print("no green runs in window")
+              raise SystemExit(0)
+          p50 = statistics.median(durations)
+          p99 = sorted(durations)[int(len(durations) * 0.99) - 1] if len(durations) >= 5 else max(durations)
+          print(f"## CI wall-time (last {len(durations)} green)\n")
+          print(f"- p50: **{p50:.0f}s** (budget 120s)")
+          print(f"- p99: **{p99:.0f}s** (budget 240s)\n")
+          ok = p50 <= 120 and p99 <= 240
+          print(f"Status: {'✅ within budget' if ok else '⚠️ over budget'}")
+          with open("comment.md", "w") as f:
+              f.write(f"## CI wall-time (last {len(durations)} green)\n\n")
+              f.write(f"- p50: **{p50:.0f}s** (budget 120s)\n")
+              f.write(f"- p99: **{p99:.0f}s** (budget 240s)\n\n")
+              f.write(f"Status: {'✅ within budget' if ok else '⚠️ over budget'}\n")
+          PY
+      - name: post PR comment
+        if: github.event_name == 'pull_request'
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

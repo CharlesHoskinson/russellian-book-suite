@@ -12,24 +12,27 @@
 // ids and to the bound claim id.
 
 #[cfg(feature = "smt")]
-use z3::{
-    ast::{Bool, Int, Real, String as Z3String},
-    Solver,
-};
+#[allow(unused_imports)]
+use std::ops::{Add as _, Mul as _, Sub as _};
 #[cfg(feature = "smt")]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
-#[allow(unused_imports)]
-use std::ops::{Add as _, Mul as _, Sub as _};
+use z3::{
+    Solver,
+    ast::{Bool, Int, Real, String as Z3String},
+};
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {
     // constraint C001-vant-hoff (approx-equality, tolerance 0.03)
     {
         let lhs = Real::new_const("osmotic-pressure-pa_s");
-        let rhs = Real::new_const("vant-hoff-i_s").mul(&Real::new_const("molarity_s")).mul(&Real::from_rational(8314000, 1000000)).mul(&Real::new_const("temperature-k_s"));
+        let rhs = Real::new_const("vant-hoff-i_s")
+            .mul(&Real::new_const("molarity_s"))
+            .mul(&Real::from_rational(8314000, 1000000))
+            .mul(&Real::new_const("temperature-k_s"));
         let diff = lhs.sub(&rhs);
-        let eps  = Real::from_rational(30000, 1000000);
+        let eps = Real::from_rational(30000, 1000000);
         let neg_eps = Real::from_rational(-30000, 1000000);
         let upper = diff.le(&eps);
         let lower = neg_eps.le(&diff);

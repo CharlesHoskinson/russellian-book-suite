@@ -172,12 +172,36 @@ def _claim_to_atom(claim: dict, predicates: dict) -> dict:
     return base
 
 
+def _validate_against_schema(predicates_path: Path, predicates: dict) -> None:
+    """REQ-EDN-053: validate predicate names against booklogic-schema.edn.
+
+    The schema is emitted by `nbb -m booklogic` next to predicates.edn. If
+    present, every key in `predicates` must match a key in the schema's
+    :predicates map. Missing schema -> warning only (older projects).
+    """
+    schema_path = predicates_path.parent / "booklogic-schema.edn"
+    if not schema_path.exists():
+        return
+    schema = read_edn_file(schema_path)
+    known = set(schema.get(Keyword("predicates"), {}).keys())
+    unknown = [str(p) for p in predicates if p not in known]
+    if unknown:
+        import sys
+        print(
+            f"ingest_ledger: unknown predicate(s) {unknown!r}; not in "
+            f"booklogic-schema.edn (expected one of {sorted(map(str, known))!r})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def ingest(ledger_path: Path, predicates_path: Path, out_path: Path) -> int:
     rows = read_ledger(ledger_path)
     latest = latest_per_id(rows)
     verified = [c for c in latest.values() if _is_verified(c)]
     predicates_data = read_edn_file(predicates_path)
     predicates = predicates_data.get(_KW_PREDICATES, {})
+    _validate_against_schema(predicates_path, predicates)
     atoms = [_claim_to_atom(c, predicates) for c in verified]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     write_edn_file(out_path, {_KW_VERSION: 1, _KW_ATOMS: atoms})

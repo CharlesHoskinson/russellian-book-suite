@@ -1,0 +1,4 @@
+{:version 1
+ :sorts [:int :real :bool :entity :formula :verdict :rule :atom]
+ :rules []
+ :atoms []}

@@ -1,0 +1,539 @@
+(ns epidemiology.booklogic
+  "BookLogic v0.4 declaration-form compiler. Reads rules/booklogic/*.edn,
+   produces atomspace IR + codegens rules/predicates.edn for the legacy
+   Python ingester (deprecated in PR-3.5).
+
+   Forms supported in PR-3: defsort, defpredicate, deflift.
+   Active forms (defrule, defconstraint, defquery, defremedy) land in PR-4."
+  (:require [cljs.reader :as edn]
+            [clojure.string :as str]
+            ["fs" :as fs]
+            ["path" :as path]))
+
+;; ----- canonical Z3 variable name (cross-language contract) -----
+
+(defn canonical-var-name
+  "Return the canonical Z3 variable name for a (predicate, subject) pair.
+
+   Mirrors Python `scripts._canonical.canonical_var_name` and Rust
+   `canonical::canonical_var_name`. The golden test vectors live at
+   `skills/neurosym-forge/tests/golden/canonical_var_name.edn` and are the
+   cross-language source of truth (REQ-EDN-045).
+
+   Algorithm: strip leading ':' or '?' from both arguments, join with '_'."
+  [predicate subject]
+  (let [strip-prefix (fn [s]
+                       (let [s (str s)]
+                         (cond
+                           (str/starts-with? s ":") (subs s 1)
+                           (str/starts-with? s "?") (subs s 1)
+                           :else s)))
+        pred (strip-prefix (if (keyword? predicate) (name predicate) predicate))
+        subj (strip-prefix (if (keyword? subject)   (name subject)   subject))]
+    (str pred "_" subj)))
+
+;; ----- form recognisers -----
+
+(defn- form-head [form]
+  (when (sequential? form) (first form)))
+
+(defn- defsort? [form]
+  (= (form-head form) 'defsort))
+
+(defn- defpredicate? [form]
+  (= (form-head form) 'defpredicate))
+
+(defn- deflift? [form]
+  (= (form-head form) 'deflift))
+
+(defn- defrule? [form]
+  (= (form-head form) 'defrule))
+
+(defn- defconstraint? [form]
+  (= (form-head form) 'defconstraint))
+
+(defn- defquery? [form]
+  (= (form-head form) 'defquery))
+
+(defn- defremedy? [form]
+  (= (form-head form) 'defremedy))
+
+;; ----- defsort expansion -----
+
+(defn- expand-defsort
+  "(defsort :foo) → {:kind :primitive :name :foo}
+   (defsort {:kind :fn :args [...] :ret ...}) → {:kind :fn ...}
+   (defsort {:kind :enum :members [...]}) → {:kind :enum ...}"
+  [form]
+  (let [[_ value] form]
+    (cond
+      (keyword? value)
+        {:kind :primitive :name value}
+      (and (map? value) (= (:kind value) :fn))
+        (assoc value :name nil)
+      (and (map? value) (= (:kind value) :enum))
+        (assoc value :name nil)
+      :else
+        (throw (ex-info "defsort: value must be a keyword or {:kind :fn/:enum ...}"
+                        {:form form})))))
+
+;; ----- I/O -----
+
+(defn- read-edn-file [path]
+  (let [text (.toString (.readFileSync fs path))]
+    (edn/read-string text)))
+
+(defn- exists? [path]
+  (try (.existsSync fs path) (catch :default _ false)))
+
+(defn load-booklogic
+  "Read project-root/rules/booklogic/{sorts,predicates,lifts,rules,
+   constraints,queries,remedies}.edn. Returns a map with one key per
+   form family; missing files contribute empty form lists."
+  [project-root]
+  (let [dir   (path/join project-root "rules" "booklogic")
+        load  (fn [name]
+                (let [p (path/join dir name)]
+                  (if (exists? p)
+                    (or (:forms (read-edn-file p)) [])
+                    [])))]
+    {:sorts       (load "sorts.edn")
+     :predicates  (load "predicates.edn")
+     :lifts       (load "lifts.edn")
+     :rules       (load "rules.edn")
+     :constraints (load "constraints.edn")
+     :queries     (load "queries.edn")
+     :remedies    (load "remedies.edn")}))
+
+;; ----- deflift expansion -----
+
+(defn- option-map
+  "Parses [:k1 v1 :k2 v2 ...] into {:k1 v1 :k2 v2 ...}.
+   Used for deflift's option section."
+  [option-pairs]
+  (if (and (sequential? option-pairs) (even? (count option-pairs)))
+    (apply hash-map option-pairs)
+    (throw (ex-info "deflift: option section must be even-arity key-value pairs"
+                    {:pairs option-pairs}))))
+
+(defn- expand-deflift
+  "(deflift L001 :from K :when REGEX :emit ATOM ...) → lift-rule map"
+  [form]
+  (let [[_ name & options]   form
+        opts                  (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "deflift: name must be a symbol" {:form form})))
+    (doseq [required [:from :when :emit]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "deflift " name ": missing required option " required)
+                        {:form form}))))
+    {:name        name
+     :from        (:from opts)
+     :pattern     (:when opts)              ; regex stored as string per spec
+     :emit        (:emit opts)
+     :word-to-int (:word-to-int opts)
+     :provenance  (or (:provenance opts) :inherit)
+     :confidence  (or (:confidence opts) :inherit)}))
+
+;; ----- defrule expansion -----
+
+(defn- expand-defrule
+  "(defrule R001-name (= LHS RHS) :tags [...]) → rewrite-rule map.
+
+   The (= LHS RHS) equation is the only mandatory positional argument
+   after the name; options (currently just :tags) are a trailing
+   even-arity key-value section.
+
+   Returns:
+     {:name   sym
+      :lhs    pattern
+      :rhs    pattern
+      :tags   [...]}
+
+   The shape mirrors v0.2's rules.edn entries; downstream meander code in
+   `phases.cljs` consumes :lhs / :rhs directly."
+  [form]
+  (let [[_ name equation & options] form
+        opts (if (seq options) (option-map options) {})]
+    (when-not (symbol? name)
+      (throw (ex-info "defrule: name must be a symbol" {:form form})))
+    (when-not (and (sequential? equation)
+                   (= '= (first equation))
+                   (= 3 (count equation)))
+      (throw (ex-info "defrule: must contain an equation of form (= LHS RHS)"
+                      {:form form})))
+    (let [[_ lhs rhs] equation]
+      {:name name
+       :lhs  lhs
+       :rhs  rhs
+       :tags (or (:tags opts) [])})))
+
+;; ----- validation: lifts reference known predicates -----
+
+(defn- emit-target-predicate
+  "Extract the predicate keyword from a lift's :emit form.
+   (fact ?id :Subject :pred-name args...) → :pred-name"
+  [emit-form]
+  (when (and (sequential? emit-form) (= (first emit-form) 'fact))
+    (let [[_ _claim-id _subject pred-name & _] emit-form]
+      pred-name)))
+
+(defn- validate-lifts
+  [lift-rules predicate-registry]
+  (let [known-preds (set (map :name predicate-registry))]
+    (doseq [lift lift-rules
+            :let [pred (emit-target-predicate (:emit lift))]]
+      (when (and pred (not (contains? known-preds pred)))
+        (throw (ex-info (str "deflift " (:name lift) ": unknown predicate " pred)
+                        {:lift lift :unknown pred}))))))
+
+;; ----- defpredicate expansion -----
+
+(defn- expand-defpredicate
+  "(defpredicate :name [sorts...] return-sort) → {:name :name :args [...] :ret ...}"
+  [form]
+  (let [[_ name args ret] form]
+    (when-not (keyword? name)
+      (throw (ex-info "defpredicate: name must be a keyword"
+                      {:form form})))
+    (when-not (vector? args)
+      (throw (ex-info "defpredicate: args must be a vector of sorts"
+                      {:form form})))
+    {:name name :args args :ret ret}))
+
+;; ----- validation: predicate args reference known sorts -----
+
+(defn- validate-predicate-sorts
+  "Predicates must reference sorts declared in sorts.edn OR primitive
+   keywords (:int :real :bool :string :entity etc.). Throws on unknown sort."
+  [predicate-registry sort-registry]
+  (let [declared-sort-names
+          (->> sort-registry
+               (filter #(= (:kind %) :primitive))
+               (map :name)
+               set)
+        primitive-fallback
+          #{:int :real :bool :string :entity :formula :verdict :atom :rule}
+        known? (fn [s] (or (contains? declared-sort-names s)
+                           (contains? primitive-fallback s)))]
+    (doseq [pred predicate-registry
+            :let [{:keys [name args ret]} pred]]
+      (doseq [a args]
+        (when-not (known? a)
+          (throw (ex-info (str "defpredicate " name ": unknown sort " a)
+                          {:predicate pred :unknown a}))))
+      (when-not (known? ret)
+        (throw (ex-info (str "defpredicate " name ": unknown return sort " ret)
+                        {:predicate pred :unknown ret}))))))
+
+;; ----- defconstraint expansion -----
+
+(defn- assert-form-approx?
+  "True iff the :assert form uses the ~= (approximate-equality) head."
+  [assert-form]
+  (and (sequential? assert-form) (= '~= (first assert-form))))
+
+(defn- extract-tolerance
+  "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.
+   For any other form return nil."
+  [assert-form]
+  (when (assert-form-approx? assert-form)
+    (let [pairs (drop 3 assert-form)]
+      (loop [xs pairs]
+        (cond
+          (empty? xs)               nil
+          (= :tolerance (first xs)) (second xs)
+          :else                     (recur (drop 2 xs)))))))
+
+(defn- expand-defconstraint
+  "(defconstraint NAME :backend B :assert F :track T :on-unsat OU) → constraint map.
+
+   Required: :backend, :assert, :on-unsat.
+   Optional: :track (defaults to :claim/id).
+
+   The intermediate map carries everything the Python codegen needs to
+   emit a Z3 assert_and_track call:
+     {:name       sym
+      :backend    :z3 / :egg / :cozo
+      :assert     full assert form (preserved for codegen tokenisation)
+      :tolerance  number-or-nil  (extracted when :assert head is ~=)
+      :track      :claim/id / literal
+      :on-unsat   {:defect :severity :message}}"
+  [form]
+  (let [[_ name & options] form
+        opts (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "defconstraint: name must be a symbol" {:form form})))
+    (doseq [required [:backend :assert :on-unsat]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "defconstraint " name ": missing required option " required)
+                        {:form form}))))
+    (let [on-unsat (:on-unsat opts)]
+      (when-not (and (map? on-unsat)
+                     (contains? on-unsat :defect)
+                     (contains? on-unsat :severity)
+                     (contains? on-unsat :message))
+        (throw (ex-info (str "defconstraint " name
+                             ": :on-unsat must be {:defect :severity :message}")
+                        {:form form :on-unsat on-unsat})))
+      {:name      name
+       :backend   (:backend opts)
+       :assert    (:assert opts)
+       :tolerance (extract-tolerance (:assert opts))
+       :track     (or (:track opts) :claim/id)
+       :on-unsat  on-unsat})))
+
+;; ----- defquery expansion -----
+
+(defn- expand-defquery
+  "(defquery NAME :backend B :find [...] :where [...] :on-result OR) → query map.
+
+   Required: :backend, :find, :where, :on-result.
+   The intermediate map carries everything the Python codegen needs to
+   emit a Cozo script + dispatch entry in kg.rs.
+
+   :find and :where are kept as raw EDN structures; the Python codegen
+   pretty-prints them into Cozo Datalog syntax."
+  [form]
+  (let [[_ name & options] form
+        opts (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "defquery: name must be a symbol" {:form form})))
+    (doseq [required [:backend :find :where :on-result]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "defquery " name ": missing required option " required)
+                        {:form form}))))
+    (let [or-spec (:on-result opts)]
+      (when-not (and (map? or-spec)
+                     (contains? or-spec :defect)
+                     (contains? or-spec :severity))
+        (throw (ex-info (str "defquery " name
+                             ": :on-result must be {:defect :severity ...}")
+                        {:form form :on-result or-spec}))))
+    {:name      name
+     :backend   (:backend opts)
+     :find      (:find opts)
+     :where     (:where opts)
+     :on-result (:on-result opts)}))
+
+;; ----- queries.edn codegen (intermediate; consumed by Python codegen_kg) -----
+
+(defn- query-to-entry
+  [q]
+  {:id        (str (:name q))
+   :backend   (:backend q)
+   :find      (:find q)
+   :where     (:where q)
+   :on-result (:on-result q)})
+
+(defn- emit-queries-edn-string
+  [{:keys [query-decls]}]
+  (let [entries (mapv query-to-entry query-decls)]
+    (pr-str {:version 1 :queries entries})))
+
+(defn emit-queries-edn
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-queries-edn-string expanded)))
+
+;; ----- defremedy expansion -----
+
+(defn- expand-defremedy
+  "(defremedy NAME :when PATTERN :propose TRANSITION [:requires GATE]) → remedy map.
+
+   :when     — pattern matched against a defect / verdict shape
+   :propose  — the ledger transition to emit if matched
+   :requires — :human-review blocks auto-apply; :auto-apply (default) allows it"
+  [form]
+  (let [[_ name & options] form
+        opts (option-map options)]
+    (when-not (symbol? name)
+      (throw (ex-info "defremedy: name must be a symbol" {:form form})))
+    (doseq [required [:when :propose]]
+      (when-not (contains? opts required)
+        (throw (ex-info (str "defremedy " name ": missing required option " required)
+                        {:form form}))))
+    {:name     name
+     :when     (:when opts)
+     :propose  (:propose opts)
+     :requires (or (:requires opts) :auto-apply)}))
+
+;; ----- remedies.edn codegen (consumed by book-qa.propose_writeback) -----
+
+(defn- remedy-to-entry
+  [r]
+  {:id       (str (:name r))
+   :when     (:when r)
+   :propose  (:propose r)
+   :requires (:requires r)})
+
+(defn- emit-remedies-edn-string
+  [{:keys [remedy-decls]}]
+  (let [entries (mapv remedy-to-entry remedy-decls)]
+    (pr-str {:version 1 :remedies entries})))
+
+(defn emit-remedies-edn
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-remedies-edn-string expanded)))
+
+;; ----- constraints.edn codegen (intermediate; consumed by Python codegen_axioms) -----
+
+(defn- constraint-to-entry
+  [c]
+  {:id        (str (:name c))
+   :backend   (:backend c)
+   :assert    (:assert c)
+   :tolerance (:tolerance c)
+   :track     (:track c)
+   :on-unsat  (:on-unsat c)})
+
+(defn- emit-constraints-edn-string
+  [{:keys [constraint-decls]}]
+  (let [entries (mapv constraint-to-entry constraint-decls)]
+    (pr-str {:version 1 :constraints entries})))
+
+(defn emit-constraints-edn
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-constraints-edn-string expanded)))
+
+;; ----- rules.edn codegen (consumed by phases.cljs) -----
+
+(defn- rewrite-rule-to-entry
+  [r]
+  {:id   (str (:name r))
+   :lhs  (:lhs r)
+   :rhs  (:rhs r)
+   :tags (:tags r)})
+
+(defn- emit-rewrite-rules-edn-string
+  [{:keys [rewrite-rules]}]
+  (let [entries (mapv rewrite-rule-to-entry rewrite-rules)]
+    (pr-str {:version 1 :rules entries})))
+
+(defn emit-rewrite-rules-edn
+  "Write rules/rules.edn at out-path."
+  [expanded out-path]
+  (let [text (emit-rewrite-rules-edn-string expanded)]
+    (.writeFileSync fs out-path text)))
+
+;; ----- predicates.edn codegen (legacy compat for Python ingester) -----
+
+(defn- infer-subject
+  "Extract the subject keyword from a lift's :emit form.
+   (fact ?id :Subject :pred ...) → :Subject"
+  [emit-form]
+  (when (and (sequential? emit-form) (= (first emit-form) 'fact))
+    (nth emit-form 2 nil)))
+
+(defn- infer-value-kind
+  "Determine the value-kind from the :emit form's body.
+
+   The body sits at index 4 of the (fact ...) form:
+     index 0: 'fact
+     index 1: claim-id var (e.g. ?claim-id)
+     index 2: subject keyword (e.g. :Subject)
+     index 3: predicate keyword (e.g. :pred)
+     index 4: body (e.g. (parse-int ?n))
+
+   Mapping:
+     (parse-int ?n)   → :int
+     (parse-float ?x) → :real
+     true / false     → :bool
+     anything else    → :string  (best-effort default)"
+  [emit-form]
+  (when (and (sequential? emit-form) (= (first emit-form) 'fact))
+    (let [body (nth emit-form 4 nil)]
+      (cond
+        (and (sequential? body) (= (first body) 'parse-int))   :int
+        (and (sequential? body) (= (first body) 'parse-float)) :real
+        (boolean? body)                                        :bool
+        :else                                                  :string))))
+
+(defn- lift-to-predicate-entry
+  [lift]
+  (let [pred (emit-target-predicate (:emit lift))]
+    [pred {:patterns    [(:pattern lift)]
+           :predicate   pred
+           :subject     (infer-subject (:emit lift))
+           :value-kind  (infer-value-kind (:emit lift))
+           :word-to-int (or (:word-to-int lift) {})}]))
+
+(defn- emit-predicates-edn-string
+  "Build the EDN string for rules/predicates.edn from the lift rules."
+  [{:keys [lift-rules]}]
+  (let [entries (into {} (map lift-to-predicate-entry lift-rules))]
+    (pr-str {:version 1 :predicates entries})))
+
+(defn emit-predicates-edn
+  "Write rules/predicates.edn at out-path."
+  [expanded out-path]
+  (let [text (emit-predicates-edn-string expanded)]
+    (.writeFileSync fs out-path text)))
+
+;; ----- booklogic-schema.edn (cross-language predicate signature schema) -----
+
+(defn- emit-schema-edn-string
+  "Build the EDN string for rules/booklogic-schema.edn — the predicate
+   signature schema consumed by the Python ingester (REQ-EDN-052).
+   Lists every predicate's arg-sorts and return so consumers can
+   validate predicate names without parsing the entire BookLogic source."
+  [{:keys [predicate-registry sort-registry]}]
+  (let [preds (into {} (for [p predicate-registry]
+                         [(:name p) {:arg-sorts (:arg-sorts p)
+                                     :return    (:return p)}]))]
+    (pr-str {:version 1
+             :sorts (mapv :name sort-registry)
+             :predicates preds})))
+
+(defn emit-schema-edn
+  "Write rules/booklogic-schema.edn at out-path."
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-schema-edn-string expanded)))
+
+;; ----- main expansion driver -----
+
+(defn expand
+  [{:keys [sorts predicates lifts rules constraints queries remedies]
+    :or   {rules [] constraints [] queries [] remedies []}}]
+  (let [sort-registry      (mapv expand-defsort (filter defsort? sorts))
+        predicate-registry (mapv expand-defpredicate (filter defpredicate? predicates))
+        lift-rules         (mapv expand-deflift (filter deflift? lifts))
+        rewrite-rules      (mapv expand-defrule (filter defrule? rules))
+        constraint-decls   (mapv expand-defconstraint (filter defconstraint? constraints))
+        query-decls        (mapv expand-defquery (filter defquery? queries))
+        remedy-decls       (mapv expand-defremedy (filter defremedy? remedies))]
+    (validate-predicate-sorts predicate-registry sort-registry)
+    (validate-lifts lift-rules predicate-registry)
+    {:sort-registry      sort-registry
+     :predicate-registry predicate-registry
+     :lift-rules         lift-rules
+     :rewrite-rules      rewrite-rules
+     :constraint-decls   constraint-decls
+     :query-decls        query-decls
+     :remedy-decls       remedy-decls}))
+
+;; ----- CLI entry: nbb -m epidemiology.booklogic <project-root> -----
+
+(defn -main
+  "CLI: nbb -m epidemiology.booklogic <project-root>
+   Reads rules/booklogic/*.edn, expands, writes rules/predicates.edn +
+   rules/rules.edn + intermediate constraints/queries/remedies files.
+   Prints a one-line report. Exits 0 on success."
+  [& args]
+  (let [project-root (or (first args) ".")
+        booklogic    (load-booklogic project-root)
+        expanded     (expand booklogic)
+        rules-dir    (path/join project-root "rules")]
+    (emit-predicates-edn   expanded (path/join rules-dir "predicates.edn"))
+    (emit-schema-edn       expanded (path/join rules-dir "booklogic-schema.edn"))
+    (emit-rewrite-rules-edn expanded (path/join rules-dir "rules.edn"))
+    (emit-constraints-edn  expanded (path/join rules-dir "constraints.edn"))
+    (emit-queries-edn      expanded (path/join rules-dir "queries.edn"))
+    (emit-remedies-edn     expanded (path/join rules-dir "remedies.edn"))
+    (println (str "[booklogic] compiled "
+                  (count (:sort-registry expanded))      " sorts, "
+                  (count (:predicate-registry expanded)) " predicates, "
+                  (count (:lift-rules expanded))         " lifts, "
+                  (count (:rewrite-rules expanded))      " rules, "
+                  (count (:constraint-decls expanded))   " constraints, "
+                  (count (:query-decls expanded))        " queries, "
+                  (count (:remedy-decls expanded))       " remedies"))))

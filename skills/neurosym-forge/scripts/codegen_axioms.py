@@ -345,26 +345,33 @@ def _emit_equality_block(cid: str, lhs: str, rhs: str) -> str:
 
 
 def _emit_approx_block(cid: str, lhs: str, rhs: str, tolerance: float | None) -> str:
-    """Emit |LHS - RHS| <= tolerance (approx-equality desugaring).
+    """Emit |LHS - RHS| <= |RHS| * tolerance — relative approx-equality.
 
-    Z3 has no abs on Int/Real directly; we encode |x| <= ε as
-    (x <= ε) AND (-x <= ε). The `approx` mention in comments lets
-    test_generate_approx_equality_emits_tolerance_clamp pass.
+    Physical-measurement fixtures like π=780202.5 Pa with eps=0.03 need a
+    ±23 kPa relative window, not a literal ±0.03 absolute one. The old
+    absolute encoding silently rejected every realistic measurement.
     """
     if tolerance is None:
         raise CodegenError(f"constraint {cid!r}: ~= without :tolerance ε")
     eps_num, eps_den = _rational_approx(tolerance)
     return (
-        f"    // constraint {cid} (approx-equality, tolerance {tolerance})\n"
+        f"    // constraint {cid} (approx-equality, relative tolerance {tolerance})\n"
         f"    {{\n"
         f"        let lhs = {lhs};\n"
         f"        let rhs = {rhs};\n"
         f"        let diff = lhs.sub(&rhs);\n"
         f"        let eps  = Real::from_rational({eps_num}, {eps_den});\n"
         f"        let neg_eps = Real::from_rational(-{eps_num}, {eps_den});\n"
-        f"        let upper = diff.le(&eps);\n"
-        f"        let lower = neg_eps.le(&diff);\n"
-        f"        let bounded = Bool::and(&[&upper, &lower]);\n"
+        f"        let bound_pos = rhs.clone().mul(&eps);\n"
+        f"        let bound_neg = rhs.clone().mul(&neg_eps);\n"
+        f"        let upper_pos = diff.le(&bound_pos);\n"
+        f"        let upper_neg = diff.le(&bound_neg);\n"
+        f"        let lower_pos = bound_neg.le(&diff);\n"
+        f"        let lower_neg = bound_pos.le(&diff);\n"
+        f"        let bounded = Bool::and(&[\n"
+        f"            &Bool::or(&[&upper_pos, &upper_neg]),\n"
+        f"            &Bool::or(&[&lower_pos, &lower_neg]),\n"
+        f"        ]);\n"
         f'        let tracker = Bool::new_const("{cid}");\n'
         f"        solver.assert_and_track(&bounded, &tracker);\n"
         f"    }}\n"

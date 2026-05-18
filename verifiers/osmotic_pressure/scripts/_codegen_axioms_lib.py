@@ -76,6 +76,53 @@ pub fn assert_axioms(_solver: &()) {
 """
 
 
+def _emit_predicate_sort_helper(body: str) -> str:
+    """Emit a `predicate_is_real(name)` query that smt.rs uses to pick the
+    Z3 sort for predicate bindings.
+
+    Why: when a constraint mixes integer claim values with float arithmetic
+    (e.g. van 't Hoff: i is int, M/T/π are floats, R=8.314 is float), the
+    codegen promotes the whole subtree to Real. The Z3 symbol
+    `Real::new_const("vant-hoff-i_s")` in axioms.rs would then be a free
+    variable if smt.rs binds the integer claim value via `Int::new_const`
+    (same name, different sort = distinct symbol). The doctored fixture
+    bug (predicates unbound, solver picks arbitrary values, doctored
+    ledger trivially returns :sat) is precisely this mismatch.
+
+    smt.rs queries this fn for each predicate-subject pair and uses
+    Real::new_const + Real::from_rational when it returns true.
+    """
+    import re
+    real_names: set[str] = set()
+    for m in re.finditer(r'Real::new_const\("([^"]+)"\)', body):
+        real_names.add(m.group(1))
+    if not real_names:
+        body_block = '    let _ = name; false'
+    else:
+        arms = "\n".join(f'        "{n}" => true,' for n in sorted(real_names))
+        body_block = (
+            "    match name {\n"
+            f"{arms}\n"
+            "        _ => false,\n"
+            "    }"
+        )
+    return (
+        "\n#[cfg(feature = \"smt\")]\n"
+        "/// True if the named predicate-subject symbol should be bound as\n"
+        "/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes\n"
+        "/// a constraint subtree to Real whenever any float literal appears\n"
+        "/// anywhere in it; smt.rs uses this to keep value-bindings in the\n"
+        "/// same Z3 sort as the axioms reference.\n"
+        "pub fn predicate_is_real(name: &str) -> bool {\n"
+        f"{body_block}\n"
+        "}\n"
+        "\n#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn predicate_is_real(_name: &str) -> bool {\n"
+        "    false\n"
+        "}\n"
+    )
+
+
 def generate_axioms_source(constraints: list[dict]) -> str:
     """Emit a complete axioms.rs file from a list of constraint dicts.
 
@@ -101,7 +148,8 @@ def generate_axioms_source(constraints: list[dict]) -> str:
             continue
         body_lines.append(_emit_z3_block(c))
     body = "\n".join(body_lines) if body_lines else "    // no z3 constraints declared\n"
-    return HEADER + body + FOOTER
+    sort_helper = _emit_predicate_sort_helper(body)
+    return HEADER + body + FOOTER + sort_helper
 
 
 def _require(c: dict, key: str) -> None:
@@ -306,26 +354,53 @@ def _emit_equality_block(cid: str, lhs: str, rhs: str) -> str:
 
 
 def _emit_approx_block(cid: str, lhs: str, rhs: str, tolerance: float | None) -> str:
-    """Emit |LHS - RHS| <= tolerance (approx-equality desugaring).
+    """Emit |LHS - RHS| <= |RHS| * tolerance — relative approx-equality.
 
-    Z3 has no abs on Int/Real directly; we encode |x| <= ε as
-    (x <= ε) AND (-x <= ε). The `approx` mention in comments lets
-    test_generate_approx_equality_emits_tolerance_clamp pass.
+    Z3 has no abs on Int/Real directly. We encode |diff| <= |rhs|·eps
+    as the conjunction of two linear inequalities. Crucially the bound
+    scales with rhs so a value like π=780202.5 Pa with eps=0.03 yields
+    a ±23 kPa window (the intended physical-measurement tolerance),
+    not a literal ±0.03 absolute window that no real lab measurement
+    could possibly meet.
+
+    Encoding:
+        diff = lhs - rhs
+        diff <= rhs * eps     when rhs >= 0
+        diff <= -rhs * eps    when rhs < 0
+        -diff <= rhs * eps    when rhs >= 0
+        -diff <= -rhs * eps   when rhs < 0
+    Combined via (diff * rhs <= rhs * rhs * eps) AND
+                  (-diff * rhs <= rhs * rhs * eps) to avoid sign cases,
+    but Z3 prefers the more explicit form below.
     """
     if tolerance is None:
         raise CodegenError(f"constraint {cid!r}: ~= without :tolerance ε")
     eps_num, eps_den = _rational_approx(tolerance)
     return (
-        f"    // constraint {cid} (approx-equality, tolerance {tolerance})\n"
+        f"    // constraint {cid} (approx-equality, relative tolerance {tolerance})\n"
         f"    {{\n"
         f"        let lhs = {lhs};\n"
         f"        let rhs = {rhs};\n"
         f"        let diff = lhs.sub(&rhs);\n"
         f"        let eps  = Real::from_rational({eps_num}, {eps_den});\n"
         f"        let neg_eps = Real::from_rational(-{eps_num}, {eps_den});\n"
-        f"        let upper = diff.le(&eps);\n"
-        f"        let lower = neg_eps.le(&diff);\n"
-        f"        let bounded = Bool::and(&[&upper, &lower]);\n"
+        f"        // |diff| <= |rhs| * eps, written without abs() as a\n"
+        f"        // sign-aware pair of products. (rhs * eps) is the\n"
+        f"        // positive-rhs bound; we add (rhs * neg_eps) so the\n"
+        f"        // case where rhs is negative collapses correctly.\n"
+        f"        let bound_pos = rhs.clone().mul(&eps);\n"
+        f"        let bound_neg = rhs.clone().mul(&neg_eps);\n"
+        f"        // diff <= max(bound_pos, bound_neg) AND diff >= min(...).\n"
+        f"        // Encoded as: (diff <= bound_pos OR diff <= bound_neg) but\n"
+        f"        // since Z3 normalises, the conjunction below is sufficient.\n"
+        f"        let upper_pos = diff.le(&bound_pos);\n"
+        f"        let upper_neg = diff.le(&bound_neg);\n"
+        f"        let lower_pos = bound_neg.le(&diff);\n"
+        f"        let lower_neg = bound_pos.le(&diff);\n"
+        f"        let bounded = Bool::and(&[\n"
+        f"            &Bool::or(&[&upper_pos, &upper_neg]),\n"
+        f"            &Bool::or(&[&lower_pos, &lower_neg]),\n"
+        f"        ]);\n"
         f'        let tracker = Bool::new_const("{cid}");\n'
         f"        solver.assert_and_track(&bounded, &tracker);\n"
         f"    }}\n"

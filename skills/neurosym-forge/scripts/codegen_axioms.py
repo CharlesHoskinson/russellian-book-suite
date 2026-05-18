@@ -76,6 +76,45 @@ pub fn assert_axioms(_solver: &()) {
 """
 
 
+def _emit_predicate_sort_helper(body: str) -> str:
+    """Emit `predicate_is_real(name)` so smt.rs picks Real vs Int for each
+    predicate-subject binding. Without this, axioms that promote to Real
+    (because a sibling subexpression contains a float literal) reference
+    Z3 symbols of a different sort than the value-binding smt.rs emits,
+    silently leaving predicates unbound and the solver free to pick
+    arbitrary values (the sprint-5 doctored-fixture :sat regression).
+    """
+    import re
+    real_names: set[str] = set()
+    for m in re.finditer(r'Real::new_const\("([^"]+)"\)', body):
+        real_names.add(m.group(1))
+    if not real_names:
+        body_block = '    let _ = name; false'
+    else:
+        arms = "\n".join(f'        "{n}" => true,' for n in sorted(real_names))
+        body_block = (
+            "    match name {\n"
+            f"{arms}\n"
+            "        _ => false,\n"
+            "    }"
+        )
+    return (
+        "\n#[cfg(feature = \"smt\")]\n"
+        "/// True if the named predicate-subject symbol should be bound as\n"
+        "/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes\n"
+        "/// a constraint subtree to Real whenever any float literal appears\n"
+        "/// anywhere in it; smt.rs uses this to keep value-bindings in the\n"
+        "/// same Z3 sort as the axioms reference.\n"
+        "pub fn predicate_is_real(name: &str) -> bool {\n"
+        f"{body_block}\n"
+        "}\n"
+        "\n#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn predicate_is_real(_name: &str) -> bool {\n"
+        "    false\n"
+        "}\n"
+    )
+
+
 def generate_axioms_source(constraints: list[dict]) -> str:
     """Emit a complete axioms.rs file from a list of constraint dicts.
 
@@ -101,7 +140,8 @@ def generate_axioms_source(constraints: list[dict]) -> str:
             continue
         body_lines.append(_emit_z3_block(c))
     body = "\n".join(body_lines) if body_lines else "    // no z3 constraints declared\n"
-    return HEADER + body + FOOTER
+    sort_helper = _emit_predicate_sort_helper(body)
+    return HEADER + body + FOOTER + sort_helper
 
 
 def _require(c: dict, key: str) -> None:
@@ -305,26 +345,33 @@ def _emit_equality_block(cid: str, lhs: str, rhs: str) -> str:
 
 
 def _emit_approx_block(cid: str, lhs: str, rhs: str, tolerance: float | None) -> str:
-    """Emit |LHS - RHS| <= tolerance (approx-equality desugaring).
+    """Emit |LHS - RHS| <= |RHS| * tolerance — relative approx-equality.
 
-    Z3 has no abs on Int/Real directly; we encode |x| <= ε as
-    (x <= ε) AND (-x <= ε). The `approx` mention in comments lets
-    test_generate_approx_equality_emits_tolerance_clamp pass.
+    Physical-measurement fixtures like π=780202.5 Pa with eps=0.03 need a
+    ±23 kPa relative window, not a literal ±0.03 absolute one. The old
+    absolute encoding silently rejected every realistic measurement.
     """
     if tolerance is None:
         raise CodegenError(f"constraint {cid!r}: ~= without :tolerance ε")
     eps_num, eps_den = _rational_approx(tolerance)
     return (
-        f"    // constraint {cid} (approx-equality, tolerance {tolerance})\n"
+        f"    // constraint {cid} (approx-equality, relative tolerance {tolerance})\n"
         f"    {{\n"
         f"        let lhs = {lhs};\n"
         f"        let rhs = {rhs};\n"
         f"        let diff = lhs.sub(&rhs);\n"
         f"        let eps  = Real::from_rational({eps_num}, {eps_den});\n"
         f"        let neg_eps = Real::from_rational(-{eps_num}, {eps_den});\n"
-        f"        let upper = diff.le(&eps);\n"
-        f"        let lower = neg_eps.le(&diff);\n"
-        f"        let bounded = Bool::and(&[&upper, &lower]);\n"
+        f"        let bound_pos = rhs.clone().mul(&eps);\n"
+        f"        let bound_neg = rhs.clone().mul(&neg_eps);\n"
+        f"        let upper_pos = diff.le(&bound_pos);\n"
+        f"        let upper_neg = diff.le(&bound_neg);\n"
+        f"        let lower_pos = bound_neg.le(&diff);\n"
+        f"        let lower_neg = bound_pos.le(&diff);\n"
+        f"        let bounded = Bool::and(&[\n"
+        f"            &Bool::or(&[&upper_pos, &upper_neg]),\n"
+        f"            &Bool::or(&[&lower_pos, &lower_neg]),\n"
+        f"        ]);\n"
         f'        let tracker = Bool::new_const("{cid}");\n'
         f"        solver.assert_and_track(&bounded, &tracker);\n"
         f"    }}\n"

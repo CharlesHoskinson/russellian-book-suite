@@ -24,7 +24,7 @@ use z3::{
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {
-    // constraint C001-vant-hoff (approx-equality, tolerance 0.03)
+    // constraint C001-vant-hoff (approx-equality, relative tolerance 0.03)
     {
         let lhs = Real::new_const("osmotic-pressure-pa_s");
         let rhs = Real::new_const("vant-hoff-i_s")
@@ -34,9 +34,23 @@ pub fn assert_axioms(solver: &Solver) {
         let diff = lhs.sub(&rhs);
         let eps = Real::from_rational(30000, 1000000);
         let neg_eps = Real::from_rational(-30000, 1000000);
-        let upper = diff.le(&eps);
-        let lower = neg_eps.le(&diff);
-        let bounded = Bool::and(&[&upper, &lower]);
+        // |diff| <= |rhs| * eps, written without abs() as a
+        // sign-aware pair of products. (rhs * eps) is the
+        // positive-rhs bound; we add (rhs * neg_eps) so the
+        // case where rhs is negative collapses correctly.
+        let bound_pos = rhs.clone().mul(&eps);
+        let bound_neg = rhs.clone().mul(&neg_eps);
+        // diff <= max(bound_pos, bound_neg) AND diff >= min(...).
+        // Encoded as: (diff <= bound_pos OR diff <= bound_neg) but
+        // since Z3 normalises, the conjunction below is sufficient.
+        let upper_pos = diff.le(&bound_pos);
+        let upper_neg = diff.le(&bound_neg);
+        let lower_pos = bound_neg.le(&diff);
+        let lower_neg = bound_pos.le(&diff);
+        let bounded = Bool::and(&[
+            &Bool::or(&[&upper_pos, &upper_neg]),
+            &Bool::or(&[&lower_pos, &lower_neg]),
+        ]);
         let tracker = Bool::new_const("C001-vant-hoff");
         solver.assert_and_track(&bounded, &tracker);
     }
@@ -45,4 +59,25 @@ pub fn assert_axioms(solver: &Solver) {
 #[cfg(not(feature = "smt"))]
 pub fn assert_axioms(_solver: &()) {
     // No-op: built without smt feature.
+}
+
+#[cfg(feature = "smt")]
+/// True if the named predicate-subject symbol should be bound as
+/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes
+/// a constraint subtree to Real whenever any float literal appears
+/// anywhere in it; smt.rs uses this to keep value-bindings in the
+/// same Z3 sort as the axioms reference.
+pub fn predicate_is_real(name: &str) -> bool {
+    match name {
+        "molarity_s" => true,
+        "osmotic-pressure-pa_s" => true,
+        "temperature-k_s" => true,
+        "vant-hoff-i_s" => true,
+        _ => false,
+    }
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn predicate_is_real(_name: &str) -> bool {
+    false
 }

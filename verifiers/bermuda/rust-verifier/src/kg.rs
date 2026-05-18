@@ -5,22 +5,22 @@
 // One Cozo script per defquery; each runs at verification time against
 // an in-memory claim graph populated from the incoming claims slice.
 
-use crate::ir::{Claim, GraphSummary, Error};
+use crate::ir::{Claim, Error, GraphSummary};
 
 #[cfg(feature = "kg")]
-use cozo::{DbInstance, DataValue, NamedRows};
+use cozo::{DataValue, DbInstance, NamedRows};
 
 #[cfg(feature = "kg")]
 fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
-    let db = DbInstance::new("mem", "", "")
-        .map_err(|e| Error::Kg(format!("cozo init: {e}")))?;
+    let db = DbInstance::new("mem", "", "").map_err(|e| Error::Kg(format!("cozo init: {e}")))?;
     // Populate a minimal `claim {id, source}` relation; expand as the
     // schema grows. v0.4 only models the two ir::Claim fields.
     db.run_script(
         ":create claim {id: String => source: String}",
         Default::default(),
         cozo::ScriptMutability::Mutable,
-    ).map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
+    )
+    .map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
     for c in claims {
         let script = format!(
             "?[id, source] <- [['{}', '{}']] :put claim {{id, source}}",
@@ -40,16 +40,23 @@ pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
     // dispatch: "Q001-low-confidence-load-bearing"
     {
         let script = r#"?[?claim] := claim/load-bearing[?claim, true], claim/posterior[?claim, ?p], <[?p, 0.8]"#;
-        let result: NamedRows = db.run_script(
-            script, Default::default(), cozo::ScriptMutability::Immutable,
-        ).map_err(|e| Error::Kg(format!(r#"query Q001-low-confidence-load-bearing: {e}"#)))?;
+        let result: NamedRows = db
+            .run_script(
+                script,
+                Default::default(),
+                cozo::ScriptMutability::Immutable,
+            )
+            .map_err(|e| Error::Kg(format!(r#"query Q001-low-confidence-load-bearing: {e}"#)))?;
         for row in result.rows.iter() {
             // Each matched row produces a defect (posterior-floor/warning/Q001-low-confidence-load-bearing).
             let row_id = match row.first() {
                 Some(DataValue::Str(s)) => s.to_string(),
                 _ => continue,
             };
-            contradictions.push((row_id, r#"posterior-floor/warning/Q001-low-confidence-load-bearing"#.to_string()));
+            contradictions.push((
+                row_id,
+                r#"posterior-floor/warning/Q001-low-confidence-load-bearing"#.to_string(),
+            ));
         }
     }
     Ok(GraphSummary {
@@ -60,5 +67,8 @@ pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
 
 #[cfg(not(feature = "kg"))]
 pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
-    Ok(GraphSummary { claim_count: claims.len(), contradictions: vec![] })
+    Ok(GraphSummary {
+        claim_count: claims.len(),
+        contradictions: vec![],
+    })
 }

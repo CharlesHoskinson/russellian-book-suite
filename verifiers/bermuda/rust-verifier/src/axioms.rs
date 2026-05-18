@@ -12,12 +12,12 @@
 // ids and to the bound claim id.
 
 #[cfg(feature = "smt")]
-use z3::{
-    ast::{Bool, Int, Real, String as Z3String},
-    Solver,
-};
-#[cfg(feature = "smt")]
 use std::str::FromStr as _;
+#[cfg(feature = "smt")]
+use z3::{
+    Solver,
+    ast::{Bool, Int, Real, String as Z3String},
+};
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {

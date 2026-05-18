@@ -16,12 +16,12 @@
 use crate::ir::{Atom, ClaimId, Error, Verdict};
 
 #[cfg(feature = "smt")]
-use z3::{
-    ast::{Bool, Int, Real, String as Z3String},
-    SatResult, Solver,
-};
-#[cfg(feature = "smt")]
 use std::str::FromStr as _;
+#[cfg(feature = "smt")]
+use z3::{
+    SatResult, Solver,
+    ast::{Bool, Int, Real, String as Z3String},
+};
 
 #[cfg(feature = "smt")]
 pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
@@ -55,12 +55,17 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
             Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
-        let var_name = format!("{}_{}",
+        let var_name = format!(
+            "{}_{}",
             predicate.trim_start_matches(':'),
-            subject.trim_start_matches(':'));
+            subject.trim_start_matches(':')
+        );
         let tracker = Bool::new_const(id.as_str());
 
-        let value = match atom.get(":value") { Some(v) => v, None => continue };
+        let value = match atom.get(":value") {
+            Some(v) => v,
+            None => continue,
+        };
 
         let assertion: Bool = match value {
             Edn::Int(n) => {

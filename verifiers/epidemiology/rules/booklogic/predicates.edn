@@ -22,4 +22,7 @@
 ;;     threshold". Use kebab-case for predicate names.
 ;;   - missing :arg-sorts vector entirely → nbb throws at compile time.
 ;;
-{:forms []}
+{:forms
+ [(defpredicate :basic-reproduction-number [:disease]    :real)
+  (defpredicate :vaccination-coverage      [:population] :real)
+  (defpredicate :herd-immunity-threshold   [:disease]    :real)]}

@@ -36,4 +36,56 @@
 ;;   - mixing Int and Real values for the same predicate → Z3 names the
 ;;     two binds as separate symbols; constraint is unbound.
 ;;
-{:forms []}
+;; -----------------------------------------------------------------------
+;; Phase F gaps surfaced authoring this file (see
+;; docs/eval/2026-05-18-third-verifier-build-log.md):
+;;
+;;   1. `>=` and `>` are not yet supported assert heads in codegen_axioms.py
+;;      (only `=` and `approx=`). The semantically correct C001 form is
+;;        (>= (:vaccination-coverage ?p) (:herd-immunity-threshold ?d))
+;;      DEFERRED to Phase F. Workaround used here: encode the operational
+;;      requirement as `approx=` with relative tolerance 0.06 (about the
+;;      gap between a 0.94 textbook threshold and an 0.88 lower-bound
+;;      tolerable coverage); fixtures with coverage well below threshold
+;;      (e.g. 0.80) trip the tolerance and the solver reports :unsat with
+;;      D20 in the unsat core.
+;;
+;;   1b. Float-type inference is *subtree-local*. An `approx=` whose both
+;;      sides are pure predicate references with no float literal anywhere
+;;      defaults to Int (`Int::new_const`) even when the predicate is
+;;      declared `:real`. The codegen's `_subtree_has_float` only inspects
+;;      literals in the assert subtree. WORKAROUND: anchor the LHS with
+;;      `(+ ... 0.0)` to force Real typing. DEFERRED a proper fix to a
+;;      Tier 2 follow-up: `approx=` should consult `predicate_is_real`
+;;      (which it itself emits!) when typing predicate references.
+;;
+;;   2. `/` (division) is not yet a supported arithmetic head (only
+;;      `*`, `+`, `-`). The semantically correct C002 form is
+;;        (approx= (:herd-immunity-threshold ?d)
+;;                 (- 1.0 (/ 1.0 (:basic-reproduction-number ?d)))
+;;                 :tolerance 0.05)
+;;      ALGEBRAIC WORKAROUND: multiply both sides by R0 to eliminate the
+;;      division — `threshold * R0 = R0 - 1` — which uses only `*`,
+;;      `-`, and `approx=`, all available today. Codegen emits this
+;;      cleanly; tested doctored fixture with inconsistent threshold
+;;      trips :unsat with D21 in the unsat core.
+
+{:forms
+ [(defconstraint :C001-herd-immunity
+    :backend :z3
+    :assert (approx= (+ (:vaccination-coverage ?p) 0.0)
+                     (:herd-immunity-threshold ?d)
+                     :tolerance 0.06)
+    :on-unsat {:defect :D20
+               :severity :critical
+               :message "vaccination coverage below herd immunity threshold"})
+
+  (defconstraint :C002-threshold-formula
+    :backend :z3
+    :assert (approx= (* (:herd-immunity-threshold ?d)
+                        (:basic-reproduction-number ?d))
+                     (- (:basic-reproduction-number ?d) 1.0)
+                     :tolerance 0.05)
+    :on-unsat {:defect :D21
+               :severity :critical
+               :message "herd-immunity threshold inconsistent with R0 (formula H = 1 - 1/R0)"})]}

@@ -18,4 +18,6 @@
 ;;     "defpredicate <name>: unknown sort <X>" at compile time (loud).
 ;;   - typo in sort name (`:Solution` vs `:solution`) → unknown-sort throw.
 ;;
-{:forms []}
+{:forms
+ [(defsort :disease)
+  (defsort :population)]}

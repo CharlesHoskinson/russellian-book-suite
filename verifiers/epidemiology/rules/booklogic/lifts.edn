@@ -28,4 +28,18 @@
 ;;   - regex compiles but matches nothing → Phase A's extract gate
 ;;     surfaces this as a high OPAQUE fraction.
 ;;
-{:forms []}
+{:forms
+ [(deflift L001-basic-reproduction-number
+    :from :claim/canonical-text
+    :when "(?i)R\\s*[_0]?\\s*=\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+    :emit (fact ?claim-id :d :basic-reproduction-number (parse-float ?v)))
+
+  (deflift L002-vaccination-coverage
+    :from :claim/canonical-text
+    :when "(?i)vaccination\\s+coverage\\s*(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+    :emit (fact ?claim-id :p :vaccination-coverage (parse-float ?v)))
+
+  (deflift L003-herd-immunity-threshold
+    :from :claim/canonical-text
+    :when "(?i)herd\\s+immunity\\s+threshold\\s*(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+    :emit (fact ?claim-id :d :herd-immunity-threshold (parse-float ?v)))]}

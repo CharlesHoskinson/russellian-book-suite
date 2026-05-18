@@ -486,7 +486,11 @@
 
 (defn- emit-schema-edn-string
   "Build the EDN string for rules/booklogic-schema.edn — the predicate
-   signature schema consumed by the Python ingester (REQ-EDN-052)."
+   signature schema consumed by the Python ingester (REQ-EDN-052).
+
+   REQ-DSL-055: multi-valued return-sorts ([:vector T] / [:set T]) are
+   preserved verbatim in the :return field so the Python schema reader,
+   the Rust verifier, and the Z3 codegen all see the same shape."
   [{:keys [predicate-registry sort-registry]}]
   (let [preds (into {} (for [p predicate-registry]
                          [(:name p) {:arg-sorts (:arg-sorts p)

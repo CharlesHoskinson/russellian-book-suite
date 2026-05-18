@@ -6,7 +6,7 @@
 
   (deflift L002-vant-hoff-i
     :from :claim/canonical-text
-    :when "(?i)van[' ]?t\\s*Hoff(?:\\s+factor)?\\s*(?:i\\s*)?(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+    :when "(?i)van[' \\s]*t\\s*Hoff(?:\\s+factor)?\\s*(?:i\\s*)?(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
     :emit (fact ?claim-id :s :vant-hoff-i (parse-float ?v)))
 
   (deflift L003-molarity

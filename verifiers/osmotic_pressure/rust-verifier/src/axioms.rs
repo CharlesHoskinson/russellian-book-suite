@@ -81,3 +81,11 @@ pub fn predicate_is_real(name: &str) -> bool {
 pub fn predicate_is_real(_name: &str) -> bool {
     false
 }
+
+/// REQ-DATALOG-041: every `defconstraint :backend :cozo` form
+/// surfaces here as a (name, datalog-source) pair. lib.rs runs
+/// each pair through `kg::evaluate_constraint` and lifts a
+/// non-empty row count into the verdict's `:cozo-defects` field.
+pub fn cozo_constraints() -> Vec<(String, String)> {
+    Vec::new()
+}

@@ -101,3 +101,11 @@ pub fn assert_axioms(solver: &Solver) {
 pub fn assert_axioms(_solver: &()) {
     // No-op: built without smt feature.
 }
+
+/// REQ-DATALOG-041: every `defconstraint :backend :cozo` form
+/// surfaces here as a (name, datalog-source) pair. lib.rs runs
+/// each pair through `kg::evaluate_constraint` and lifts a
+/// non-empty row count into the verdict's `:cozo-defects` field.
+pub fn cozo_constraints() -> Vec<(String, String)> {
+    Vec::new()
+}

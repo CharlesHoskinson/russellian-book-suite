@@ -239,6 +239,10 @@ def ingest(ledger_path: Path,
         for a in compute_atoms_iter(ledger_path, predicates_path):
             w.write(a)
             n += 1
+            if n % 1000 == 0:
+                # REQ-PERF-052: progress every 1000 atoms so operators
+                # know the process is alive on book-knowledge corpora.
+                print(f"ingest: {n} atoms processed", file=sys.stderr)
     return n
 
 

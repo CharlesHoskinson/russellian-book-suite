@@ -19,12 +19,15 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOT = REPO_ROOT / "skills" / "neurosym-forge"
 TEMPLATE_ROOT = SKILL_ROOT / "assets" / "project-template"
 
-# Skip on non-Linux: cargo can't produce .so anywhere else; CI is the gate.
-# Use sys.platform rather than `uname` so the skip works on Windows where
-# the uname binary isn't on PATH.
+# Skip on non-Linux: cargo can't produce .so anywhere else.
+# Also skip when nbb isn't on PATH — that means we're not in the nix develop
+# shell (the canonical gate is the new ci.yml from PR-2, which runs every
+# job through `nix develop -c`).
 pytestmark = pytest.mark.skipif(
-    shutil.which("cargo") is None or sys.platform != "linux",
-    reason="scaffold-bake requires Linux toolchain (cargo + cdylib .so)",
+    shutil.which("cargo") is None
+    or shutil.which("nbb") is None
+    or sys.platform != "linux",
+    reason="scaffold-bake requires the nix develop shell (cargo + nbb + jdk)",
 )
 
 

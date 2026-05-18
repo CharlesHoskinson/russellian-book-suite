@@ -16,12 +16,14 @@ import pytest
 
 from .conftest import REPO_ROOT, SKILL_ROOT, run_make_ci
 
-# Skip on non-Linux: cargo .so chain only exercises on Linux.
-# Use sys.platform rather than `uname` so the skip works on Windows where
-# the uname binary isn't on PATH.
+# Skip on non-Linux + when nbb isn't on PATH (means we're not in the nix
+# develop shell). The canonical gate is the new ci.yml from PR-2, which
+# runs every job through `nix develop -c`.
 pytestmark = pytest.mark.skipif(
-    shutil.which("cargo") is None or sys.platform != "linux",
-    reason="sprint-5 regressions require Linux toolchain",
+    shutil.which("cargo") is None
+    or shutil.which("nbb") is None
+    or sys.platform != "linux",
+    reason="sprint-5 regressions require the nix develop shell (cargo + nbb + jdk)",
 )
 
 

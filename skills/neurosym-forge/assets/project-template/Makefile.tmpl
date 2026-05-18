@@ -1,0 +1,13 @@
+.PHONY: ci build smoke clean
+
+ci: build smoke
+
+build:
+	npm install
+	npm run build
+
+smoke:
+	@if [ -d tests ]; then pytest tests/ -v; else echo "[smoke] no tests/ directory; skipping"; fi
+
+clean:
+	rm -rf rust-verifier/target cljs-orchestrator/dist cljs-orchestrator/.shadow-cljs cljs-orchestrator/native

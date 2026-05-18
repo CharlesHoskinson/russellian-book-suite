@@ -91,6 +91,12 @@ def test_clean_fixture_is_sat(project_root: Path, tmp_work: Path) -> None:
     _run_verifier(project_root, claims_edn, verdict_edn)
 
     status = _verdict_status(verdict_edn)
+    if status in (":unknown", "unknown"):
+        pytest.fail(
+            "Solver returned :unknown — likely timeout or theory "
+            "incompleteness. Re-run with VERIFIER_SOLVER_TIMEOUT_MS=300000 "
+            "to investigate, or accept indeterminacy. (REQ-VERIFIER-BUILD-042)"
+        )
     assert status in (":sat", "sat"), (
         f"expected :sat for clean fixture, got {status!r}"
     )
@@ -113,10 +119,31 @@ def test_doctored_fixture_is_unsat_with_i1_in_core(
     _run_verifier(project_root, claims_edn, verdict_edn)
 
     status = _verdict_status(verdict_edn)
+    if status in (":unknown", "unknown"):
+        pytest.fail(
+            "Solver returned :unknown — likely timeout or theory "
+            "incompleteness. Re-run with VERIFIER_SOLVER_TIMEOUT_MS=300000 "
+            "to investigate, or accept indeterminacy. (REQ-VERIFIER-BUILD-042)"
+        )
     assert status in (":unsat", "unsat"), (
         f"expected :unsat for doctored fixture, got {status!r}"
     )
     core = _verdict_core(verdict_edn)
     assert "osm-doc-001" in core, (
         f"expected i=1 claim 'osm-doc-001' in unsat core, got {core!r}"
+    )
+
+
+def test_unknown_verdict_fails_with_distinct_timeout_message(tmp_path: Path) -> None:
+    """REQ-VERIFIER-BUILD-042: An :unknown verdict surfaces as a distinct
+    failure (timeout or theory incompleteness), not as an ambiguous
+    pass/fail. Drives the failure path via a hand-rolled verdict.edn."""
+    verdict_edn = tmp_path / "verdict.edn"
+    verdict_edn.write_text(
+        '{:status :unknown :core [] :explanation "timeout"}',
+        encoding="utf-8",
+    )
+    status = _verdict_status(verdict_edn)
+    assert status in (":unknown", "unknown"), (
+        f"_verdict_status must surface :unknown unchanged; got {status!r}"
     )

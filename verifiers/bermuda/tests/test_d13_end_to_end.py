@@ -61,9 +61,15 @@ def test_d13_fires_on_ch02_parish_count_drift(tmp_path: Path) -> None:
     from scripts._edn_reader import Keyword
     verdict_path = BERMUDA_ROOT / "work" / "verdict.edn"
     verdict = read_edn_file(verdict_path)
-    assert verdict.get(Keyword("verdict")) in {Keyword("unsat"), "unsat"}, (
-        f"expected :unsat verdict, got {verdict.get(Keyword('verdict'))}; "
-        f"full verdict={verdict}"
+    actual = verdict.get(Keyword("verdict"))
+    if actual in {Keyword("unknown"), "unknown"}:
+        pytest.fail(
+            "Solver returned :unknown — likely timeout or theory "
+            "incompleteness. Re-run with VERIFIER_SOLVER_TIMEOUT_MS=300000 "
+            "to investigate, or accept indeterminacy. (REQ-VERIFIER-BUILD-042)"
+        )
+    assert actual in {Keyword("unsat"), "unsat"}, (
+        f"expected :unsat verdict, got {actual}; full verdict={verdict}"
     )
 
     # 4. Assert at least one prose-extracted claim id appears in the core.

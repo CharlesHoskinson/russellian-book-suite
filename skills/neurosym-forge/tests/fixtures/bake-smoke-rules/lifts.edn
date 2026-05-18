@@ -1,0 +1,5 @@
+{:forms
+ [(deflift L001-count
+    :from :claim/canonical-text
+    :when "count\\s*(?P<v>[0-9]+)"
+    :emit (fact ?claim-id :thing :count (parse-int ?v)))]}

@@ -1,0 +1,3 @@
+{:forms
+ [(defconstraint C001-count-nonneg
+    :assert (= (:count :thing) 0))]}

@@ -1,0 +1,22 @@
+name: nightly-flake-drift
+on:
+  schedule:
+    - cron: '0 7 * * *'   # 07:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - name: flake check
+        run: nix flake check --no-build-output
+      - name: build preflight package
+        run: nix build .#preflight
+      - name: run preflight in fresh shell
+        run: nix develop -c make preflight

@@ -1,1 +1,28 @@
+;; rules/booklogic/queries.edn — Datalog queries over the atomspace.
+;;
+;; FORM SYNTAX:
+;;   (defquery :Q001-name
+;;     :backend :cozo
+;;     :body (datalog-clauses ...))
+;;
+;; Queries run against Cozo (Datalog backend). The body is a sequence of
+;; Cozo-style rules; the verifier's kg.rs translates them and emits
+;; matched-claim ids alongside the verdict.
+;;
+;; CURRENT STATUS: STUB. defquery forms compile via codegen_kg.py but
+;; the result is not consumed in `npm run build` by default. Tier 3 of
+;; the framework roadmap promotes Cozo from stub-builder to wired path.
+;; See SUPPORT_MATRIX.md.
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (defquery :Q001-orphan-claims
+;;   :backend :cozo
+;;   :body  [(orphan ?c) :- (:claim ?c)
+;;                          (not (:supports-chapter ?c _))])
+;;
+;; COMMON SILENT FAILURES:
+;;   - :backend :z3 → silently dropped (defquery is Cozo-only by design).
+;;   - referencing an undeclared predicate in the body → Cozo throws
+;;     at query-execution time, not at compile time.
+;;
 {:forms []}

@@ -2,19 +2,19 @@
  [(deflift L001-osmotic-pressure-pa
     :from :claim/canonical-text
     :when "(?i)osmotic\\s+pressure\\s*(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*Pa"
-    :emit (fact ?claim-id :sol :osmotic-pressure-pa (parse-float ?v)))
+    :emit (fact ?claim-id :s :osmotic-pressure-pa (parse-float ?v)))
 
   (deflift L002-vant-hoff-i
     :from :claim/canonical-text
     :when "(?i)van[' ]?t\\s*Hoff(?:\\s+factor)?\\s*(?:i\\s*)?(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
-    :emit (fact ?claim-id :sol :vant-hoff-i (parse-float ?v)))
+    :emit (fact ?claim-id :s :vant-hoff-i (parse-float ?v)))
 
   (deflift L003-molarity
     :from :claim/canonical-text
     :when "(?i)molarity\\s*(?:M\\s*)?(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
-    :emit (fact ?claim-id :sol :molarity (parse-float ?v)))
+    :emit (fact ?claim-id :s :molarity (parse-float ?v)))
 
   (deflift L004-temperature-k
     :from :claim/canonical-text
     :when "(?i)temperature\\s*(?:T\\s*)?(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*K"
-    :emit (fact ?claim-id :sol :temperature-k (parse-float ?v)))]}
+    :emit (fact ?claim-id :s :temperature-k (parse-float ?v)))]}

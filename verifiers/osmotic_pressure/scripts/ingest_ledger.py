@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from scripts._edn_reader import Keyword
+from scripts._edn_streaming import StreamingAtomWriter
 from scripts._edn_writer import write_edn  # noqa: F401  (re-exported for callers)
-from scripts._io import read_edn_file, write_edn_file
+from scripts._io import read_edn_file, write_edn_file  # noqa: F401
 
 _KW_VERSION = Keyword("version")
 _KW_ATOMS = Keyword("atoms")
@@ -195,22 +197,66 @@ def _validate_against_schema(predicates_path: Path, predicates: dict) -> None:
         sys.exit(1)
 
 
-def compute_atoms(ledger_path: Path, predicates_path: Path) -> list[dict]:
-    """Read ledger + predicates and return atoms WITHOUT writing to disk."""
-    rows = read_ledger(ledger_path)
-    latest = latest_per_id(rows)
-    verified = [c for c in latest.values() if _is_verified(c)]
+def compute_atoms_iter(
+    ledger_path: Path, predicates_path: Path,
+) -> Iterator[dict]:
+    """REQ-PERF-050: yield atoms one at a time instead of materialising
+    the full list. The intermediate `latest` dedup map still has to be
+    built (a later JSONL row may supersede an earlier `claim_id`), but
+    the post-`_claim_to_atom` enrichment — the part that dominates
+    peak RSS at book-knowledge scale — is now lazy.
+    """
     predicates_data = read_edn_file(predicates_path)
     predicates = predicates_data.get(_KW_PREDICATES, {})
     _validate_against_schema(predicates_path, predicates)
-    return [_claim_to_atom(c, predicates) for c in verified]
+
+    rows = read_ledger(ledger_path)
+    latest = latest_per_id(rows)
+    # Drop the rows list eagerly; only `latest` needs to live to the loop.
+    del rows
+    for claim in latest.values():
+        if not _is_verified(claim):
+            continue
+        yield _claim_to_atom(claim, predicates)
+
+
+def compute_atoms(ledger_path: Path, predicates_path: Path) -> list[dict]:
+    """Backwards-compat wrapper around `compute_atoms_iter`.
+
+    Materialises the iterator. Kept so external callers that imported
+    `compute_atoms` directly continue to work; new code should prefer
+    `compute_atoms_iter` to avoid the peak-RSS hit.
+    """
+    return list(compute_atoms_iter(ledger_path, predicates_path))
 
 
 def ingest(ledger_path: Path,
            predicates_path: Path,
            out_path: Path,
            return_atoms: bool = False) -> list[dict] | int:
-    atoms = compute_atoms(ledger_path, predicates_path)
+    """REQ-PERF-050..053: stream atoms to `out_path` via `StreamingAtomWriter`.
+
+    `return_atoms=True` preserves the legacy materialise-and-return
+    contract (the bermuda smoke harness still uses it). The default
+    streaming path never holds more than one atom in flight on the
+    writer side.
+    """
+    out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    write_edn_file(out_path, {_KW_VERSION: 1, _KW_ATOMS: atoms})
-    return atoms if return_atoms else len(atoms)
+
+    if return_atoms:
+        # Backwards-compat path: caller wants the full list. We still
+        # write through the streaming writer so the on-disk shape is
+        # identical to the default path.
+        atoms = list(compute_atoms_iter(ledger_path, predicates_path))
+        with StreamingAtomWriter(out_path, version=1) as w:
+            for a in atoms:
+                w.write(a)
+        return atoms
+
+    n = 0
+    with StreamingAtomWriter(out_path, version=1) as w:
+        for a in compute_atoms_iter(ledger_path, predicates_path):
+            w.write(a)
+            n += 1
+    return n

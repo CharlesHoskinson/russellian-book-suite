@@ -252,7 +252,9 @@ mod tests {
         // default in cargo unless --test-threads is overridden.
         let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
         // SAFETY: set_var is safe in this single-threaded test context.
-        unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "1"); }
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "1");
+        }
 
         let edn = ledger_edn(&[
             ("osm-doc-001", "vant-hoff-i", "s", 1.0),
@@ -301,7 +303,9 @@ mod tests {
         // source but enforcing it via a runtime probe would require
         // injecting a Z3 solver get_param call — out of scope.
         let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-        unsafe { std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"); }
+        unsafe {
+            std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS");
+        }
 
         let edn = ledger_edn(&[
             ("osm-clean-001", "vant-hoff-i", "s", 2.0),

@@ -47,6 +47,7 @@
           ruff
           pyyaml
           jinja2
+          psutil
         ]);
         # Single source of truth for the toolchain — used by both
         # devShells.default and packages.preflight so they stay in sync.

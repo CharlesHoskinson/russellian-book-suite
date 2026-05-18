@@ -33,8 +33,10 @@ pub fn verify_formulas(formulas_edn: String) -> napi::Result<String> {
 }
 
 /// Run every `defquery` declared in `query_edn` via Cozo (REQ-DATALOG-040)
-/// and return the serialised verdict slice that book-qa merges with the
-/// SMT verdict. `query_edn` carries the shape
+/// and every `defconstraint :backend :cozo` registered in
+/// `axioms::cozo_constraints` (REQ-DATALOG-041). Returns the serialised
+/// verdict slice that book-qa merges with the SMT verdict. `query_edn`
+/// carries the shape
 /// `{:queries [{:id "Q001" :source "?[c] := claim[c, _]"} ...]}`.
 #[cfg(feature = "kg")]
 #[napi]
@@ -51,6 +53,28 @@ pub fn run_queries(query_edn: String) -> napi::Result<String> {
             rows: r.rows,
             sample: r.sample,
         });
+    }
+    for (name, source) in axioms::cozo_constraints() {
+        match kg::evaluate_constraint(&name, &source) {
+            Ok(rows) if rows > 0 => {
+                verdict.cozo_defects.push(ir::QueryResult {
+                    name,
+                    rows,
+                    sample: None,
+                });
+                // Any non-empty Cozo defect drives the verdict to :unsat
+                // (worst-case rollup against the Z3 status).
+                verdict.status = "unsat".into();
+            }
+            Ok(_) => {}
+            Err(e) => {
+                verdict.cozo_defects.push(ir::QueryResult {
+                    name,
+                    rows: 0,
+                    sample: Some(format!("<error: {e}>")),
+                });
+            }
+        }
     }
     Ok(ir::emit_verdict(&verdict))
 }

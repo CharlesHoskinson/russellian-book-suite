@@ -122,14 +122,33 @@ def test_predicate_is_real_helper_empty_for_int_only_constraints() -> None:
 
 
 def test_generate_skips_non_z3_backends() -> None:
-    """REQ-DSL-021: non-z3 constraints are not emitted into axioms.rs."""
+    """REQ-DSL-021: :egg constraints are still silently dropped from
+    axioms.rs (Tier 4 work). REQ-DATALOG-041: :cozo constraints DO
+    surface — but inside `cozo_constraints()`, not inside
+    `assert_axioms`. The Z3 entry point must not see them.
+    """
     cs = [_constraint(name="C001"),
           _constraint(name="C002", backend=":cozo",
-                      assert_form="(some-cozo-thing)")]
+                      assert_form="(some-cozo-thing)"),
+          _constraint(name="C003", backend=":egg",
+                      assert_form="(some-egg-thing)")]
     src = generate_axioms_source(cs)
     assert '"C001"' in src
-    # Non-z3 constraints must NOT be emitted into axioms.rs (they belong in kg.rs).
-    assert '"C002"' not in src
+    # Z3-entry-point (assert_axioms) must not see the :cozo / :egg ids;
+    # split the source at `pub fn cozo_constraints` and inspect the Z3 half.
+    assert_axioms_half, _, cozo_half = src.partition("pub fn cozo_constraints")
+    assert '"C002"' not in assert_axioms_half, (
+        ":cozo constraints must not leak into assert_axioms; "
+        "they belong in cozo_constraints()"
+    )
+    assert '"C003"' not in assert_axioms_half
+    assert '"C003"' not in cozo_half, (
+        ":egg constraints must not be emitted anywhere in axioms.rs (Tier 4)"
+    )
+    # :cozo constraints DO appear in the cozo_constraints() registry.
+    assert '"C002"' in cozo_half, (
+        "REQ-DATALOG-041: :cozo constraints must surface in cozo_constraints()"
+    )
 
 
 def test_tracker_map_links_constraint_to_claim_binding() -> None:

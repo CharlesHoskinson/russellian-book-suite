@@ -6,7 +6,6 @@ Runs the synthesize pipeline on a stub workspace and asserts that every
 from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
-import pytest
 
 
 def _make_workspace(tmp_path: Path) -> Path:

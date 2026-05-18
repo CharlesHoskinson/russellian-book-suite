@@ -3,7 +3,6 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from matplotlib import rcParams
 
 import geopandas as gpd
@@ -213,7 +212,7 @@ def cost_comparison():
     fig, ax = plt.subplots(figsize=(9, 4.5))
     b1 = ax.bar(x - w/2, bermuda, w, label="Bermuda", color=ACCENT,
                 edgecolor="white", linewidth=0.5)
-    b2 = ax.bar(x + w/2, oecd, w, label="OECD median", color=ACCENT2,
+    ax.bar(x + w/2, oecd, w, label="OECD median", color=ACCENT2,
                 edgecolor="white", linewidth=0.5)
     ax.set_xticks(x)
     ax.set_xticklabels(cats)

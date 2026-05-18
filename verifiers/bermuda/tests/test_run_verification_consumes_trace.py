@@ -10,7 +10,6 @@ import datetime as dt
 import json
 from pathlib import Path
 
-import pytest
 
 from scripts._edn_reader import Keyword, Symbol, read_edn
 from scripts._edn_writer import write_edn

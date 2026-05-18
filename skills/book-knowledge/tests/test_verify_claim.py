@@ -5,7 +5,7 @@ import pytest
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.ledger import append_claim
 from scripts.ingest_markdown import ingest_markdown
-from scripts.verify_claim import verify_claim, VerificationResult
+from scripts.verify_claim import verify_claim
 
 
 def _claim_with_locator(locator: str, doc_id: str = "small") -> dict:

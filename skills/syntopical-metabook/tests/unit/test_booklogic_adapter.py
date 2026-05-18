@@ -2,7 +2,6 @@
 
 All tests use the dev stub via BOOKLOGIC_BIN; no real booklogic CLI required.
 """
-import os
 import sys
 from pathlib import Path
 
@@ -13,8 +12,7 @@ from scripts.booklogic_adapter import (
     reconcile_concepts,
     reachable_from_thesis,
     version,
-    BooklogicError, BooklogicSchemaViolation, BooklogicTimeout,
-    DisputedQuestion, CanonicalConcept, ReachabilityVerdict, BooklogicVersion,
+    BooklogicError, ReachabilityVerdict, BooklogicVersion,
 )
 
 STUB = Path(__file__).resolve().parents[1] / "fixtures" / "booklogic_stub.py"

@@ -32,7 +32,7 @@ import json
 import re
 import statistics
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 

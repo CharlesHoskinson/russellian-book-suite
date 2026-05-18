@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from scripts.humanizer_pass import assess_draft
 

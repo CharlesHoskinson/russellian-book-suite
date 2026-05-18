@@ -1,0 +1,26 @@
+# Repo-wide ruff config. Per-skill pyproject.toml [tool.ruff] sections
+# override on a directory basis when needed; this file is the default.
+#
+# We treat ruff as a bug-finder, not a style enforcer:
+#   - F401 (unused-import), F841 (unused-variable) are real bugs — kept on.
+#   - Style-only rules (E402, E701/E702 one-line statements, E741 ambiguous
+#     name) are off because the existing codebase uses them legitimately
+#     (sys.path manipulation, math notation like `l`/`O`/`I`, dense table
+#     literals on one line in EDN/JSON pretty-printers).
+
+line-length = 120
+
+[lint]
+extend-select = []
+ignore = [
+    "E402",  # module-import-not-at-top-of-file — legitimate after sys.path tricks
+    "E701",  # multiple-statements-on-one-line-colon — dense conditional style
+    "E702",  # multiple-statements-on-one-line-semicolon — dense block style
+    "E741",  # ambiguous-variable-name (l, O, I) — math notation
+    "E731",  # lambda-assignment — fine for small helpers
+]
+
+[lint.per-file-ignores]
+# Test files often need pytest imported even when not directly referenced
+# (used via fixtures). Don't lint test files for unused imports.
+"**/tests/**/*.py" = ["F401"]

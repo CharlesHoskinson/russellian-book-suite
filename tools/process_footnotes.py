@@ -69,7 +69,7 @@ def _process_chapter(body: str, chapter_num: int) -> str:
     # Build the HTML notes section
     items = []
     for name in order:
-        n = seen[name]
+        seen[name]
         text = definitions.get(name, f"<em>(definition for {name} missing)</em>")
         items.append(
             f'<li id="fn-ch{chapter_num:02d}-{name}">'

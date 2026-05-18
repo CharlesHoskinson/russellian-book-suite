@@ -1,4 +1,3 @@
-from pathlib import Path
 from scripts.diff_drafts import diff_drafts
 
 

@@ -4,7 +4,7 @@ Public API surface of book-knowledge (IF-BK-1..4).
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -85,7 +85,7 @@ def ingest_pdf(source_path: Path, workspace_root: Path) -> IngestResult:
     'ingested', 'already_present', or 'failed'."""
     _scripts_path(workspace_root)
     from scripts.source_manifest import compute_sha256, load_manifest
-    from scripts.workspace import WorkspaceLayout, init_workspace
+    from scripts.workspace import WorkspaceLayout
 
     src = Path(source_path).resolve()
     ws = Path(workspace_root)

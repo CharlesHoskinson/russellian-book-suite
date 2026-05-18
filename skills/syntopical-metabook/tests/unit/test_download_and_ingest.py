@@ -1,7 +1,6 @@
-from pathlib import Path
 from types import SimpleNamespace
 from scripts.acquire.rank_candidates import ScoredCandidate
-from scripts.acquire.download_and_ingest import download_and_ingest, IngestOutcome
+from scripts.acquire.download_and_ingest import download_and_ingest
 
 def test_dedup_skips_already_ingested(tmp_path, monkeypatch):
     cand = ScoredCandidate("arxiv:x", 0.82)

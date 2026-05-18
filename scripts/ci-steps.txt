@@ -1,4 +1,5 @@
 clj-kondo --lint $(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn') --fail-level error
+ruff check .
 cargo fmt --check --manifest-path verifiers/bermuda/rust-verifier/Cargo.toml
 cargo fmt --check --manifest-path verifiers/osmotic_pressure/rust-verifier/Cargo.toml
 nixpkgs-fmt --check $(git ls-files '*.nix')

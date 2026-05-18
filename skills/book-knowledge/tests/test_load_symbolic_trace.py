@@ -2,14 +2,12 @@
 from __future__ import annotations
 
 import datetime as dt
-import sys
 from pathlib import Path
 
 import pytest
 
 # scripts/__init__.py extends the package path to include neurosym-forge's
 # scripts/, so the imports below resolve to the correct forge modules.
-from scripts._edn_reader import Keyword, Symbol  # noqa: E402
 
 from scripts.export_symbolic_trace import export_trace
 from scripts.load_symbolic_trace import load_trace

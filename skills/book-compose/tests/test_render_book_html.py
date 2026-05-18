@@ -1,5 +1,3 @@
-import json
-from pathlib import Path
 
 from scripts.render_book_html import write_html_skeleton, INSERTION_MARKER
 

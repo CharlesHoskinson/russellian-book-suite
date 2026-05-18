@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 
-import pytest
 import yaml
 
 from scripts.book_preflight import book_preflight, BookPreflightResult

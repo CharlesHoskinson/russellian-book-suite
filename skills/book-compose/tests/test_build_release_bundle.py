@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 
-import pytest
 from scripts.build_release_bundle import build_release_bundle
 from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
 
@@ -45,7 +44,9 @@ def test_release_bundle_produces_markdown(tmp_path):
 def test_release_bundle_manifest_schema_valid(tmp_path):
     workspace = _seed(tmp_path)
     bundle = build_release_bundle(workspace, "ch-03", version="0.1.0", formats=["markdown"])
-    import yaml, json, jsonschema
+    import yaml
+    import json
+    import jsonschema
     schema = json.loads((Path(__file__).resolve().parent.parent / "assets" / "release-manifest.schema.json").read_text(encoding="utf-8"))
     manifest = yaml.safe_load((bundle / "manifest.yaml").read_text(encoding="utf-8"))
     jsonschema.validate(manifest, schema)

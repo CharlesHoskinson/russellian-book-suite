@@ -8,11 +8,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 # scripts/__init__.py extends this package's __path__ to include forge's
 # scripts/ dir, so the imports below resolve to neurosym-forge's modules.
-from scripts._edn_reader import Keyword, EdnReadError, read_edn  # noqa: E402
+from scripts._edn_reader import Keyword  # noqa: E402
 from scripts._io import read_edn_file  # noqa: E402
 
 

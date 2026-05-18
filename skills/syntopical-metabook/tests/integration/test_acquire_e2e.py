@@ -4,7 +4,6 @@ Uses the booklogic stub (BOOKLOGIC_BIN) and monkeypatches the network-touching
 pieces so the test stays hermetic.
 
 rank() requires torch/sentence-transformers; test is skipped when those are absent."""
-import os
 import sys
 import json
 from pathlib import Path
@@ -57,7 +56,7 @@ def test_e2e_acquire_with_stubbed_network(tmp_path, monkeypatch, use_stub):
     from scripts.acquire.triage import triage, TriageConfig
     from scripts.acquire.veto import apply_veto
     from scripts.acquire.download_and_ingest import download_and_ingest
-    from scripts.acquire.manifest import append_run_record, halt_check
+    from scripts.acquire.manifest import append_run_record
     from scripts.acquire import download_and_ingest as dl_mod
 
     ws = _workspace(tmp_path)

@@ -1,6 +1,5 @@
 import hashlib
 import pytest
-from pathlib import Path
 from scripts.download import download_pdf, DownloadResult
 from scripts.exceptions import NotAPdf
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 import hashlib
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from scripts.exceptions import NotAPdf, FetchFailed

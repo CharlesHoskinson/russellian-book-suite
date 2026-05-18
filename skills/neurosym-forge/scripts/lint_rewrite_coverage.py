@@ -40,7 +40,7 @@ def lint_rewrite_coverage(project_root: Path) -> CoverageReport:
         raw = _dict_get(parsed, "checksums") or {}
         # Normalise keys: string or Keyword → string
         for k, v in raw.items():
-            key = k.name if hasattr(k, "name") else str(k)
+            k.name if hasattr(k, "name") else str(k)
             # But checksums keys are file names like "seed.edn" — plain strings
             expected_checksums[str(k)] = v
 

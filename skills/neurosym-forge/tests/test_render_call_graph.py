@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 
 from scripts.render_call_graph import render_call_graph
 

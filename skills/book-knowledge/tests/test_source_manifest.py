@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -98,7 +97,8 @@ def test_trust_field_out_of_range_rejected(tmp_path):
 
 def test_bermuda_synthesizer_manifest_is_schema_valid(tmp_path):
     """Manifest emitted by synthesize_bermuda_ledger must pass schema validation."""
-    import sys, importlib
+    import sys
+    import importlib
     # The synthesizer is in tools/ at the repo root; locate it relative to this file.
     repo_root = Path(__file__).resolve().parent.parent.parent.parent
     tools_dir = repo_root / "tools"

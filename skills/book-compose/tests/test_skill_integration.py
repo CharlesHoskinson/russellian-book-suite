@@ -7,7 +7,6 @@ from scripts.preflight import preflight
 from scripts.query_chapter_evidence import query_chapter_evidence
 from scripts.chapter_contract_check import check_draft
 from scripts.build_release_bundle import build_release_bundle
-from scripts.evidence_summary import build_evidence_summary
 from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
 
 
@@ -84,6 +83,5 @@ def test_full_chapter_compose_pipeline(tmp_path):
     for cid in ("clm-2026-000001", "clm-2026-000002", "clm-2026-000003"):
         assert cid in summary
 
-    import json
     claim_lines = (bundle / "claims-slice.jsonl").read_text(encoding="utf-8").splitlines()
     assert len([line for line in claim_lines if line.strip()]) == 3

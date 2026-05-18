@@ -4,7 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 
 def test_prints_commands_for_project(tmp_path: Path, skill_root: Path) -> None:

@@ -1,5 +1,3 @@
-import json
-from pathlib import Path
 from scripts.check_address import check_address
 
 

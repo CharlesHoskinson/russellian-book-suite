@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 from .belief_graph import prior_for_status
 from .claim_validator import (

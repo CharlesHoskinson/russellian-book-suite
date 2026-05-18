@@ -1,5 +1,3 @@
-import json
-from pathlib import Path
 import pytest
 from scripts.counter_claims import (
     validate_counter_claim, append_counter_claim, read_counter_claims,

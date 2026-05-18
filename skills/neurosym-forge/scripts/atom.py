@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from scripts.sort_registry import Sort, _dict_get, _kw_str
+from scripts.sort_registry import Sort, _dict_get
 
 
 def _normalize(value: Any) -> Any:

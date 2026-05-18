@@ -220,7 +220,6 @@ def _abstract_subject_run(paragraphs: list[tuple[int, str]], cfg: dict) -> list[
             continue
         run_subj: str | None = None
         run_len = 0
-        run_start_idx = 0
         for idx, sent in enumerate(sents):
             subj = _subject_lemma(sent)
             if subj is not None and subj in stoplist:
@@ -233,7 +232,6 @@ def _abstract_subject_run(paragraphs: list[tuple[int, str]], cfg: dict) -> list[
                         ))
                     run_subj = subj
                     run_len = 1
-                    run_start_idx = idx
             else:
                 if run_subj is not None and run_len >= min_run:
                     findings.append(_abstract_run_finding(

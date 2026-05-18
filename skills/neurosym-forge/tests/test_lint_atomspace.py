@@ -3,11 +3,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file, write_edn_file
-from scripts.lint_atomspace import lint_atomspace, LintReport
+from scripts.lint_atomspace import lint_atomspace
 
 SORTS_KEY = Keyword("sorts")
 ATOMS_KEY = Keyword("atoms")

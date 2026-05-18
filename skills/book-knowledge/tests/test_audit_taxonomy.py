@@ -1,4 +1,3 @@
-from rdflib import Graph
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.audit_taxonomy import audit_taxonomy
 

@@ -1,9 +1,8 @@
-import os
 import sys
 import json
 from pathlib import Path
 from scripts.acquire.rank_candidates import ScoredCandidate
-from scripts.acquire.triage import TriageResult, TriageConfig
+from scripts.acquire.triage import TriageResult
 from scripts.acquire.veto import apply_veto
 
 STUB = Path(__file__).resolve().parents[1] / "fixtures" / "booklogic_stub.py"

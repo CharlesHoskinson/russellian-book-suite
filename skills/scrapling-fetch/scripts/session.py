@@ -19,7 +19,6 @@ import threading
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 CACHE_ROOT = Path.home() / ".cache" / "scrapling-fetch"

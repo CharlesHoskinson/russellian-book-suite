@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 import pytest
 
-from scripts.belief_graph import BeliefGraph, load_belief_graph, prior_for_status
+from scripts.belief_graph import load_belief_graph, prior_for_status
 from scripts.workspace import init_workspace, WorkspaceLayout
 
 

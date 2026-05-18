@@ -6,7 +6,6 @@ whether modules are loaded as a package (-m scripts.foo) or directly.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 # Repo root is three levels up from this file:

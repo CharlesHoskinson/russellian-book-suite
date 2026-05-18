@@ -2,7 +2,6 @@
 to win against Tailwind's preflight reset.
 """
 import sys
-import re
 from pathlib import Path
 
 HEADING_CSS = """

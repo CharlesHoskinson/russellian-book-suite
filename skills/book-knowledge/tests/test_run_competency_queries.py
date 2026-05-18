@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from rdflib import Dataset, Literal, URIRef, Namespace, XSD
+from rdflib import Dataset, URIRef, Namespace
 from rdflib.namespace import RDF
 from urllib.parse import quote
 

@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import sys
 from pathlib import Path
 
-import pytest
 
 # scripts/__init__.py extends the package path to include neurosym-forge's
 # scripts/, so the imports below resolve to the correct forge modules.

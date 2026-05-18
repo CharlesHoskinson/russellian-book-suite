@@ -14,7 +14,7 @@ from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file
 from scripts.atom import Atom
 from scripts.rewrite_rule import RewriteRule
-from scripts.sort_registry import Sort, SortRegistry, _dict_get
+from scripts.sort_registry import SortRegistry, _dict_get
 
 SORTS_KEY = Keyword("sorts")
 ATOMS_KEY = Keyword("atoms")

@@ -1,7 +1,5 @@
-from pathlib import Path
-import pytest
 from scripts.sibling_skills import (
-    russellian_style_root, book_knowledge_root, SiblingNotFoundError, sibling_python,
+    russellian_style_root, book_knowledge_root, sibling_python,
 )
 
 

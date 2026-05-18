@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from sibling_skills import load_skill_api, IncompatibleSkillApiVersion
 
 def test_load_skill_api_returns_module(tmp_path, monkeypatch):

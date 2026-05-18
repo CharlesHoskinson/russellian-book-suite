@@ -22,33 +22,84 @@ use z3::{
     Solver,
 };
 #[cfg(feature = "smt")]
+#[allow(unused_imports)]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
 use std::ops::{Add as _, Mul as _, Sub as _};
 
 #[cfg(feature = "smt")]
-pub fn assert_axioms(solver: &Solver) {
-    // constraint C001-vant-hoff (approx-equality, relative tolerance 0.03)
-    {
-        let lhs = Real::new_const("osmotic-pressure-pa_s");
-        let rhs = Real::new_const("vant-hoff-i_s").mul(&Real::new_const("molarity_s")).mul(&Real::from_rational(8314000, 1000000)).mul(&Real::new_const("temperature-k_s"));
-        let diff = lhs.sub(&rhs);
-        let eps  = Real::from_rational(30000, 1000000);
-        let neg_eps = Real::from_rational(-30000, 1000000);
-        let bound_pos = rhs.clone().mul(&eps);
-        let bound_neg = rhs.clone().mul(&neg_eps);
-        let upper_pos = diff.le(&bound_pos);
-        let upper_neg = diff.le(&bound_neg);
-        let lower_pos = bound_neg.le(&diff);
-        let lower_neg = bound_pos.le(&diff);
-        let bounded = Bool::and(&[
-            &Bool::or(&[&upper_pos, &upper_neg]),
-            &Bool::or(&[&lower_pos, &lower_neg]),
-        ]);
-        let tracker = Bool::new_const("C001-vant-hoff");
-        solver.assert_and_track(&bounded, &tracker);
+/// Assert every z3 constraint whose `:assert` references exactly
+/// the given `subject`. Cross-subject constraints are NOT asserted
+/// here; they live in `axioms_shared`. Unknown subjects are a
+/// no-op so the partition still runs `solver.check()` cleanly.
+pub fn axioms_for_subject(solver: &Solver, subject: &str) {
+    match subject {
+        "s" => {
+        // constraint C001-vant-hoff (approx-equality, relative tolerance 0.03)
+        {
+            let lhs = Real::new_const("osmotic-pressure-pa_s");
+            let rhs = Real::new_const("vant-hoff-i_s").mul(&Real::new_const("molarity_s")).mul(&Real::from_rational(8314000, 1000000)).mul(&Real::new_const("temperature-k_s"));
+            let diff = lhs.sub(&rhs);
+            let eps  = Real::from_rational(30000, 1000000);
+            let neg_eps = Real::from_rational(-30000, 1000000);
+            let bound_pos = rhs.clone().mul(&eps);
+            let bound_neg = rhs.clone().mul(&neg_eps);
+            let upper_pos = diff.le(&bound_pos);
+            let upper_neg = diff.le(&bound_neg);
+            let lower_pos = bound_neg.le(&diff);
+            let lower_neg = bound_pos.le(&diff);
+            let bounded = Bool::and(&[
+                &Bool::or(&[&upper_pos, &upper_neg]),
+                &Bool::or(&[&lower_pos, &lower_neg]),
+            ]);
+            let tracker = Bool::new_const("C001-vant-hoff");
+            solver.assert_and_track(&bounded, &tracker);
+        }
+        }
+        _ => {
+            let _ = solver;
+        }
     }
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn axioms_for_subject(_solver: &(), _subject: &str) {
+    // No-op: built without smt feature.
+}
+
+#[cfg(feature = "smt")]
+/// Assert every z3 constraint whose `:assert` references two or
+/// more distinct subjects (cross-subject constraints,
+/// REQ-PERF-043). Also covers constraints with no subject
+/// reference (pure-literal asserts) so those still run
+/// unconditionally.
+pub fn axioms_shared(solver: &Solver) {
+    let _ = solver;
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn axioms_shared(_solver: &()) {
+    // No-op: built without smt feature.
+}
+
+/// Enumerate every subject identifier (canonical form, e.g.
+/// `"Bermuda"` or `"s"`) that has at least one declared
+/// constraint. `smt::check_all` iterates this list to build
+/// per-subject partitions deterministically.
+pub fn axioms_subjects() -> &'static [&'static str] {
+    &["s"]
+}
+
+#[cfg(feature = "smt")]
+/// Backward-compatible aggregator. Asserts every per-subject
+/// constraint and the shared bucket on a single solver. New
+/// callers should prefer `axioms_for_subject` + `axioms_shared`
+/// so the timeout and unknown blast-radius stays per-subject.
+#[allow(dead_code)]
+pub fn assert_axioms(solver: &Solver) {
+    axioms_for_subject(solver, "s");
+    axioms_shared(solver);
 }
 
 #[cfg(not(feature = "smt"))]
@@ -62,6 +113,7 @@ pub fn assert_axioms(_solver: &()) {
 /// a constraint subtree to Real whenever any float literal appears
 /// anywhere in it; smt.rs uses this to keep value-bindings in the
 /// same Z3 sort as the axioms reference.
+#[allow(dead_code)]
 pub fn predicate_is_real(name: &str) -> bool {
     match name {
         "molarity_s" => true,
@@ -73,6 +125,7 @@ pub fn predicate_is_real(name: &str) -> bool {
 }
 
 #[cfg(not(feature = "smt"))]
+#[allow(dead_code)]
 pub fn predicate_is_real(_name: &str) -> bool {
     false
 }

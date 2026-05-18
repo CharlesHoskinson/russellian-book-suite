@@ -203,6 +203,88 @@ def test_output_is_byte_deterministic() -> None:
     assert src1 == src2
 
 
+# ---------------------------------------------------------------- REQ-PERF-040..043
+
+
+def test_emits_axioms_for_subject_accessor() -> None:
+    """REQ-PERF-040: codegen emits a `axioms_for_subject(solver, subject)`
+    accessor so `smt::check_all` can build a per-subject partition.
+    """
+    cs = [
+        _constraint(name="C001",
+                    assert_form="(= (:parishes-count :Bermuda) 9)"),
+        _constraint(name="C002",
+                    assert_form="(= (:population :Atlantis) 1)"),
+    ]
+    src = generate_axioms_source(cs)
+    assert "pub fn axioms_for_subject(solver: &Solver, subject: &str)" in src
+    # Each subject gets its own match arm.
+    assert '"Bermuda" =>' in src
+    assert '"Atlantis" =>' in src
+    # The default arm exists so unknown subjects compile cleanly.
+    assert "_ =>" in src
+
+
+def test_emits_axioms_shared_for_cross_subject_constraints() -> None:
+    """REQ-PERF-043: a constraint that references two distinct subjects
+    is routed into `axioms_shared`, not into either subject's bucket.
+    """
+    cs = [
+        _constraint(name="C001",
+                    assert_form="(= (:parishes-count :Bermuda) 9)"),
+        # Cross-subject: references both :Bermuda and :Cayman.
+        _constraint(name="C002",
+                    assert_form="(= (:parishes-count :Bermuda) (:parishes-count :Cayman))"),
+    ]
+    src = generate_axioms_source(cs)
+    assert "pub fn axioms_shared(solver: &Solver)" in src
+    # The cross-subject constraint must not show up in any per-subject arm.
+    # We check that the tracker for C002 appears strictly within
+    # axioms_shared by slicing on the function header.
+    shared_start = src.index("pub fn axioms_shared(solver: &Solver)")
+    shared_end   = src.index("\npub fn", shared_start + 1)
+    shared_body  = src[shared_start:shared_end]
+    assert '"C002"' in shared_body
+    # And C001 must NOT be in shared (it has exactly one subject).
+    assert '"C001"' not in shared_body
+
+
+def test_emits_axioms_subjects_enumerator() -> None:
+    """REQ-PERF-040: codegen emits `axioms_subjects()` so `smt::check_all`
+    can iterate every declared subject deterministically.
+    """
+    cs = [
+        _constraint(name="C001",
+                    assert_form="(= (:parishes-count :Bermuda) 9)"),
+        _constraint(name="C002",
+                    assert_form="(= (:population :Atlantis) 1)"),
+    ]
+    src = generate_axioms_source(cs)
+    assert "pub fn axioms_subjects() -> &'static [&'static str]" in src
+    # Sorted (Atlantis < Bermuda) for deterministic dispatch order.
+    idx_a = src.index('"Atlantis"')
+    idx_b = src.index('"Bermuda"')
+    assert idx_a < idx_b
+
+
+def test_assert_axioms_aggregator_calls_partitioned_accessors() -> None:
+    """REQ-PERF-040: the legacy `assert_axioms(solver)` entry point stays
+    around for callers that haven't migrated, and now calls
+    `axioms_for_subject` per subject plus `axioms_shared`.
+    """
+    cs = [
+        _constraint(name="C001",
+                    assert_form="(= (:parishes-count :Bermuda) 9)"),
+    ]
+    src = generate_axioms_source(cs)
+    assert "pub fn assert_axioms(solver: &Solver)" in src
+    agg_start = src.index("pub fn assert_axioms(solver: &Solver)")
+    agg_end   = src.index("\n}\n", agg_start) + 3
+    agg_body  = src[agg_start:agg_end]
+    assert 'axioms_for_subject(solver, "Bermuda")' in agg_body
+    assert "axioms_shared(solver)" in agg_body
+
+
 # -------- REQ-DSL-050..055: multi-valued predicates --------
 
 def test_vector_predicate_emits_z3_array() -> None:

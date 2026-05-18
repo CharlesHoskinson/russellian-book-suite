@@ -173,6 +173,23 @@
     (let [r (first (:remedy-decls expanded))]
       (is (= :auto-apply (:requires r))))))
 
+(deftest canonical-var-name-matches-golden
+  ;; REQ-EDN-045: CLJS canonical-var-name agrees with the cross-language
+  ;; golden vectors at skills/neurosym-forge/tests/golden/canonical_var_name.edn.
+  ;; The path is computed relative to the test cwd: nbb tests are invoked
+  ;; from the project root, and the goldens live in the parent skill tree.
+  (let [golden-path "../../skills/neurosym-forge/tests/golden/canonical_var_name.edn"]
+    (when (.existsSync fs golden-path)
+      (let [rows (cljs.reader/read-string
+                  (.toString (.readFileSync fs golden-path)))]
+        (doseq [{:keys [predicate subject want]} rows]
+          (let [pred-in (if (keyword? predicate) (name predicate) predicate)
+                subj-in (if (keyword? subject)   (name subject)   subject)
+                got (bl/canonical-var-name pred-in subj-in)]
+            (is (= got want)
+                (str "(" (pr-str predicate) ", " (pr-str subject)
+                     ") -> " got " (expected " want ")"))))))))
+
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests)]
     (when (or (pos? fail) (pos? error))

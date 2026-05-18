@@ -10,6 +10,28 @@
             ["fs" :as fs]
             ["path" :as path]))
 
+;; ----- canonical Z3 variable name (cross-language contract) -----
+
+(defn canonical-var-name
+  "Return the canonical Z3 variable name for a (predicate, subject) pair.
+
+   Mirrors Python `scripts._canonical.canonical_var_name` and Rust
+   `canonical::canonical_var_name`. The golden test vectors live at
+   `skills/neurosym-forge/tests/golden/canonical_var_name.edn` and are the
+   cross-language source of truth (REQ-EDN-045).
+
+   Algorithm: strip leading ':' or '?' from both arguments, join with '_'."
+  [predicate subject]
+  (let [strip-prefix (fn [s]
+                       (let [s (str s)]
+                         (cond
+                           (str/starts-with? s ":") (subs s 1)
+                           (str/starts-with? s "?") (subs s 1)
+                           :else s)))
+        pred (strip-prefix (if (keyword? predicate) (name predicate) predicate))
+        subj (strip-prefix (if (keyword? subject)   (name subject)   subject))]
+    (str pred "_" subj)))
+
 ;; ----- form recognisers -----
 
 (defn- form-head [form]

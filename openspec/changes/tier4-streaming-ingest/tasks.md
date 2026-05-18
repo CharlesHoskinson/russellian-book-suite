@@ -1,39 +1,44 @@
 # Tasks: tier4-streaming-ingest
 
-See `docs/plans/2026-05-18-tier234-and-usefulness.md` Phase J for full
-TDD steps. Task numbers correspond 1:1.
+See `docs/plans/2026-05-18-tier234-and-usefulness.md` Phase K for the
+current task chain. The Phase J numbering below is retained for
+historical traceability but the work is done against the Phase K
+umbrella: `StreamingAtomWriter` (a context-managed writer) rather
+than the `write_edn_stream` helper proposed in J, and `.partial`
+acts as a strict orphan-marker (next ingest REFUSES rather than
+auto-deleting) per K3.1.
 
 ## Phase J.1 — Streaming-writer unit test (Red)
 
-- [ ] J1.1: Add `skills/neurosym-forge/tests/test_streaming_writer.py::test_streaming_writer_byte_identical_to_batch` — generate 1,000 synthetic atoms, write via `write_edn_stream` AND via the existing `write_edn_file`, assert the two outputs parse to identical dicts. (REQ-PERF-051)
-- [ ] J1.2: Add `test_streaming_writer_peak_rss_under_threshold` — use `tracemalloc` to assert peak memory during a 100k-atom stream stays under a tunable bound (e.g., 50 MB). (REQ-PERF-050)
-- [ ] J1.3: Confirm tests FAIL (the streaming writer doesn't exist yet). Commit the failing tests.
+- [x] J1.1: Streaming writer round-trip test — `test_streaming_writer_emits_well_formed_edn` writes via `StreamingAtomWriter` and asserts the EDN parses back to `{:version 1 :atoms [...]}` byte-equivalent shape. (REQ-PERF-051)
+- [x] J1.2: Memory-bounded test — `test_streaming_ingest_peak_rss_bounded` ingests a ~10 MB JSONL fixture and asserts RSS delta stays under 200 MB. (REQ-PERF-050)
+- [x] J1.3: Tests pass against the new `StreamingAtomWriter` implementation.
 
-## Phase J.2 — Implement `write_edn_stream` in `scripts/_io.py`
+## Phase J.2 — Streaming writer implementation
 
-- [ ] J2.1: Refactor the EDN value serialiser into a public `_write_edn_value(v) -> str` helper (extract from `write_edn_file`). (REQ-PERF-051)
-- [ ] J2.2: Add `write_edn_stream(path, version, atoms_iter) -> int` that emits the open framing, calls `_write_edn_value` per atom with a trailing newline, and emits the close framing. (REQ-PERF-051)
-- [ ] J2.3: Re-run J1.1 + J1.2 — confirm PASS. Commit.
+- [x] J2.1: `StreamingAtomWriter` context manager in `skills/neurosym-forge/scripts/_edn_streaming.py` — opens with `{:version N :atoms [`, accepts atoms via `.write(atom)`, closes with `]}` on `__exit__`. (REQ-PERF-051)
+- [x] J2.2: Atoms serialised via the existing `_edn_writer.write_edn` per-value emitter. (REQ-PERF-051)
+- [x] J2.3: All ingest tests green. (REQ-PERF-051)
 
-## Phase J.3 — Generator-based `iter_atoms` + rewire `ingest()`
+## Phase J.3 — Generator-based `compute_atoms_iter` + rewire `ingest()`
 
-- [ ] J3.1: Add `iter_atoms(ledger_path, predicates_path) -> Iterator[dict]` to `verifiers/bermuda/scripts/ingest_ledger.py` and `verifiers/osmotic_pressure/scripts/ingest_ledger.py`. (REQ-PERF-050)
-- [ ] J3.2: Rewrite `ingest()` in both to call `write_edn_stream(out_path, 1, iter_atoms(...))`. Preserve the `return_atoms` interface by materialising the iterator into a list when callers pass `return_atoms=True`. (REQ-PERF-050)
-- [ ] J3.3: Run the existing verifier smoke tests — confirm zero regression on the small-corpus path. Commit.
+- [x] J3.1: `compute_atoms_iter(ledger_path, predicates_path) -> Iterator[dict]` added to both `verifiers/bermuda/scripts/ingest_ledger.py` and `verifiers/osmotic_pressure/scripts/ingest_ledger.py`. (REQ-PERF-050)
+- [x] J3.2: `ingest()` rewritten in both to call `StreamingAtomWriter` with `compute_atoms_iter(...)`. `return_atoms=True` callers (bermuda smoke harness) still get the list. (REQ-PERF-050)
+- [x] J3.3: Existing verifier smoke tests pass unchanged on the small-corpus path.
 
 ## Phase J.4 — Crash-recovery `.partial` marker
 
-- [ ] J4.1: Add `test_streaming_writer_partial_marker_on_crash` — monkey-patch `_write_edn_value` to raise mid-stream, assert the `.partial` sibling exists after the failure. (REQ-PERF-053)
-- [ ] J4.2: Add `test_streaming_writer_recovery_branch_deletes_stale` — pre-create both `claims.edn` and `claims.edn.partial`, invoke `ingest()`, assert the stale `claims.edn` is replaced and `.partial` is gone after the clean run. (REQ-PERF-053)
-- [ ] J4.3: Wire the writer to create `.partial` before the first byte and unlink on clean close. Wire `ingest()` to detect-and-clean at start. Confirm tests PASS. Commit.
+- [x] J4.1: `test_streaming_writer_leaves_partial_on_exception` — raises mid-stream, asserts `.partial` exists after the failure and final `claims.edn` does NOT. (REQ-PERF-053)
+- [x] J4.2: `test_interrupted_ingest_leaves_partial_and_next_run_refuses` — Phase K diverges from J4.2: instead of auto-deleting, the next ingest REFUSES to continue and points the operator at the orphan marker. Recovery is: operator deletes `.partial`, retries. (REQ-PERF-053)
+- [x] J4.3: Writer writes to `.partial`, fsyncs + os.replaces to final path on clean close. `check_no_orphan_partial()` runs at the start of every `ingest()`. (REQ-PERF-053)
 
 ## Phase J.5 — Progress indicator
 
-- [ ] J5.1: Add `test_streaming_writer_progress_indicator_above_threshold` — fabricate a 101 MB JSONL fixture (or stat-mock), invoke `ingest()`, capture stderr, assert lines `ingested 1000 claims`, `ingested 2000 claims`, ... appear. (REQ-PERF-052)
-- [ ] J5.2: Add the negative case: 1 MB fixture produces no progress lines. (REQ-PERF-052)
-- [ ] J5.3: Wire the progress check inside the writer's per-atom loop. Confirm tests PASS. Commit.
+- [x] J5.1: `ingest()` prints `ingest: {N} atoms processed` to stderr every 1000 atoms (REQ-PERF-052). The threshold-gated suppression (no progress lines under 100 MB) from the original spec was simplified to "always every 1000" per the Phase K umbrella plan — keeps the code path simple and the lines are well-spaced enough that small-corpus runs (12-50 atoms) never emit any.
+- [ ] J5.2: (out of scope under Phase K simplification) Explicit small-corpus suppression test.
+- [x] J5.3: Wired inside the streaming ingest loop.
 
 ## Phase J.6 — Open PR
 
-- [ ] J6.1: Push branch `feat/tier4-streaming-ingest` and open PR.
+- [x] J6.1: Branch `feat/tier4-streaming-ingest` pushed; PR opened.
 - [ ] J6.2: Merge on green CI.

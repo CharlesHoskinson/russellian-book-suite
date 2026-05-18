@@ -19,7 +19,10 @@ from typing import Any, Iterator
 # scripts/__init__.py extends this package's __path__ to include forge's
 # scripts/ dir, so the imports below resolve to neurosym-forge's modules.
 from scripts._edn_reader import Keyword  # noqa: E402
-from scripts._edn_streaming import StreamingAtomWriter  # noqa: E402
+from scripts._edn_streaming import (  # noqa: E402
+    StreamingAtomWriter,
+    check_no_orphan_partial,
+)
 from scripts._io import read_edn_file, write_edn_file  # noqa: E402, F401
 
 _KW_VERSION = Keyword("version")
@@ -226,6 +229,12 @@ def ingest(ledger_path: Path,
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # REQ-PERF-053: refuse to proceed if a stale `.partial` sibling
+    # marker says the previous run was killed mid-write. The operator
+    # must clear the marker (and any truncated output) to acknowledge
+    # the crash; we won't silently overwrite or append to a corrupt
+    # document.
+    check_no_orphan_partial(out_path)
 
     if return_atoms:
         atoms = list(compute_atoms_iter(ledger_path, predicates_path))

@@ -15,7 +15,10 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from scripts._edn_reader import Keyword
-from scripts._edn_streaming import StreamingAtomWriter
+from scripts._edn_streaming import (
+    StreamingAtomWriter,
+    check_no_orphan_partial,
+)
 from scripts._edn_writer import write_edn  # noqa: F401  (re-exported for callers)
 from scripts._io import read_edn_file, write_edn_file  # noqa: F401
 
@@ -243,6 +246,12 @@ def ingest(ledger_path: Path,
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # REQ-PERF-053: refuse to proceed if a stale `.partial` sibling
+    # marker says the previous run was killed mid-write. The operator
+    # must clear the marker (and any truncated output) to acknowledge
+    # the crash; we won't silently overwrite or append to a corrupt
+    # document.
+    check_no_orphan_partial(out_path)
 
     if return_atoms:
         # Backwards-compat path: caller wants the full list. We still

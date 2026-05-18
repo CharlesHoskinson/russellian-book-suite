@@ -8,7 +8,8 @@ preflight: lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic
 
 lint:
 	clj-kondo --lint $$(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn') --fail-level error
-	cargo fmt --check
+	cargo fmt --check --manifest-path verifiers/bermuda/rust-verifier/Cargo.toml
+	cargo fmt --check --manifest-path verifiers/osmotic_pressure/rust-verifier/Cargo.toml
 	nixpkgs-fmt --check $$(git ls-files '*.nix')
 # Python lint deliberately omitted from `make lint`. The repo has ~210 pre-
 # existing ruff violations across legacy code; bringing them clean is a

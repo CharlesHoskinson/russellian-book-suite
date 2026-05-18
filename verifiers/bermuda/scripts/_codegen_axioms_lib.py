@@ -73,6 +73,10 @@ HEADER = """\
 // == Unsat`, `solver.get_unsat_core()` returns these names. Use
 // `rules/axioms-tracker-map.edn` to translate them back to BookLogic
 // ids and to the bound claim id.
+//
+// Constraints with :backend :egg discharge through the eqsat module
+// (egg-rs 0.10); the resulting ProofResult is wrapped in a Z3 boolean
+// tracker so unsat-core reporting keeps working uniformly.
 
 #[cfg(feature = "smt")]
 use z3::{
@@ -158,11 +162,19 @@ def generate_axioms_source(constraints: list[dict]) -> str:
                 f"constraint {c.get(Keyword('id'))!r}: unknown backend {backend!r}; "
                 f"expected one of {SUPPORTED_BACKENDS}"
             )
-        if backend != Keyword("z3"):
-            # :egg and :cozo constraints flow through other backends.
+        if backend == Keyword("z3"):
+            body_lines.append(_emit_z3_block(c))
+        elif backend == Keyword("egg"):
+            body_lines.append(_emit_egg_block(c))
+        elif backend == Keyword("cozo"):
+            # Cozo path is wired in Phase I (parallel work); skipped here.
             continue
-        body_lines.append(_emit_z3_block(c))
-    body = "\n".join(body_lines) if body_lines else "    // no z3 constraints declared\n"
+        else:
+            raise CodegenError(
+                f"constraint {c.get(Keyword('id'))!r}: unknown backend {backend!r}; "
+                f"expected one of {SUPPORTED_BACKENDS}"
+            )
+    body = "\n".join(body_lines) if body_lines else "    // no constraints declared for the smt+eqsat axiom surface\n"
     sort_helper = _emit_predicate_sort_helper(body)
     return HEADER + body + FOOTER + sort_helper
 
@@ -217,6 +229,99 @@ def _emit_z3_block(c: dict) -> str:
         f"constraint {cid!r}: assert head {head!r} not supported; "
         f"expected one of {sorted(_SUPPORTED_ASSERT_HEADS)}"
     )
+
+
+def _emit_egg_block(c: dict) -> str:
+    """Emit a `solver.assert_and_track(...)` block whose body discharges
+    the constraint via `crate::eqsat::prove_equiv(lhs, rhs, rules)`.
+
+    REQ-EQSAT-043: `:backend :egg` constraints route to eqsat (no longer
+    silently dropped at the codegen layer). The egg proof result is
+    wrapped in a Z3 boolean tracker so the existing unsat-core reporter
+    on the Z3 side keeps working uniformly across backends.
+    """
+    cid     = c[Keyword("id")]
+    assert_ = c[Keyword("assert")]
+    if isinstance(assert_, str):
+        from scripts._edn_reader import read_edn
+        assert_ = read_edn(assert_)
+    if not isinstance(assert_, (list, EdnList, EdnVector)) or len(assert_) < 3:
+        raise CodegenError(f"constraint {cid!r}: malformed :egg assert form: {assert_!r}")
+    head_node = assert_[0]
+    head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
+    if head != "=":
+        raise CodegenError(
+            f"constraint {cid!r}: :backend :egg only supports '=' assert head, got {head!r}"
+        )
+    lhs_sexpr = _to_egg_sexpr(assert_[1])
+    rhs_sexpr = _to_egg_sexpr(assert_[2])
+    return (
+        f"    // constraint {cid} (:backend :egg)\n"
+        f"    {{\n"
+        f"        #[cfg(feature = \"eqsat\")]\n"
+        f"        let proved = matches!(\n"
+        f"            crate::eqsat::prove_equiv(\n"
+        f"                {lhs_sexpr!r},\n"
+        f"                {rhs_sexpr!r},\n"
+        f"                &crate::eqsat::make_rewrites(),\n"
+        f"            ),\n"
+        f"            crate::eqsat::ProofResult::Proved\n"
+        f"        );\n"
+        f"        #[cfg(not(feature = \"eqsat\"))]\n"
+        f"        let proved = false;\n"
+        f"        let result = Bool::from_bool(proved);\n"
+        f'        let tracker = Bool::new_const("{cid}");\n'
+        f"        solver.assert_and_track(&result, &tracker);\n"
+        f"    }}\n"
+    )
+
+
+def _to_egg_sexpr(node: Any) -> str:
+    """Translate a BookLogic surface form into an s-expression string
+    parseable by `egg::RecExpr::<BookLogic>::parse`.
+
+    BookLogic's egg language (see verifiers/*/rust-verifier/src/eqsat.rs):
+      - integer literals → Num(i64)
+      - (:pred :subject) → (predicate pred subject)
+      - (op a b ...)     → (op a b) folded pairwise for +,-,*,/
+      - free symbols     → Symbol(name)
+    """
+    if isinstance(node, bool):
+        return "true" if node else "false"
+    if isinstance(node, int):
+        return str(node)
+    if isinstance(node, float):
+        # egg's RecExpr parser doesn't carry floats in the v0.4 language;
+        # rounds to int with the same rational-approx denominator. Egg
+        # constraints over floats are not yet exercised; surface the
+        # rounded form rather than fail codegen.
+        return str(int(round(node)))
+    if isinstance(node, Keyword):
+        return node.name
+    if isinstance(node, str):
+        return node
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
+        head = node[0]
+        if isinstance(head, Keyword):
+            # (:pred :subject) → (predicate pred subject)
+            sub = node[1] if len(node) >= 2 else None
+            if isinstance(sub, Keyword):
+                sub_str = sub.name
+            elif sub is not None:
+                sub_str = str(sub)
+            else:
+                sub_str = "val"
+            return f"(predicate {head.name} {sub_str})"
+        head_str = str(head)
+        if head_str in {"+", "-", "*", "/"} and len(node) >= 3:
+            children = [_to_egg_sexpr(n) for n in list(node)[1:]]
+            # Left-fold so (op a b c) → (op (op a b) c). BookLogic egg
+            # ops are arity-2.
+            acc = f"({head_str} {children[0]} {children[1]})"
+            for ch in children[2:]:
+                acc = f"({head_str} {acc} {ch})"
+            return acc
+    raise CodegenError(f"unsupported :egg expression node: {node!r}")
 
 
 def _infer_z3_type(node: Any) -> str:

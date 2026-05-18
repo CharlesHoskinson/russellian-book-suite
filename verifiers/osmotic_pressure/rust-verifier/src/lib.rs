@@ -7,7 +7,7 @@ mod ir;
 mod smt;
 
 #[cfg(feature = "eqsat")]
-mod eqsat;
+pub mod eqsat;
 
 #[cfg(feature = "kg")]
 mod kg;

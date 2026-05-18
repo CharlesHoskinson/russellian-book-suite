@@ -11,9 +11,9 @@
 | `defsort`                    | wired        | (validation only)   | n/a          | wired  |
 | `defpredicate`               | wired        | (validation only)   | n/a          | wired  |
 | `deflift`                    | wired        | `predicates.edn`    | n/a          | wired  |
-| `defrule`                    | wired        | none                | egg          | stub   |
+| `defrule`                    | wired        | `eqsat.rs::make_rewrites` | egg     | wired  |
 | `defconstraint :backend :z3` | wired        | `codegen_axioms.py` | Z3           | wired  |
-| `defconstraint :backend :egg`| wired        | none (silent drop)  | egg          | DROP   |
+| `defconstraint :backend :egg`| wired        | `eqsat.rs::prove_equiv` | egg      | wired  |
 | `defconstraint :backend :cozo` | wired      | none (silent drop)  | Cozo         | DROP   |
 | `defquery`                   | wired        | `codegen_kg.py`     | Cozo         | wired-builder |
 | `defremedy`                  | wired        | none                | n/a          | external |
@@ -26,16 +26,16 @@ reporting, and surfaces as a defect entry in `verification-defects.json`.
 
 **stub** — The form is recognised by the CLJS expander and stored in the
 intermediate registry, but no downstream codegen consumes it. Adding the form
-is a no-op at solver time. Tier 3 of the framework roadmap promotes egg from
-stub to live (REQ-EQSAT-* — not yet authored). Authors writing `defrule`
-forms today should not expect them to influence the verdict.
+is a no-op at solver time. (Phase H of the Tier 2-4 plan retired the `defrule`
+stub row; this entry is retained for any form that lands in this state in
+the future.)
 
 **DROP** — The form is recognised AND in `SUPPORTED_BACKENDS` AND passes the
-codegen validation gate, but `codegen_axioms.py:138` silently `continue`s on
-non-`:z3` backends. The constraint is omitted from the Z3 input. The verdict
-is `:sat` for the wrong reason (the constraint that would have made it `:unsat`
-was never asserted). Tier 4 of the framework roadmap promotes egg/cozo
-constraints to first-class.
+codegen validation gate, but `codegen_axioms.py` silently `continue`s on the
+backend. The constraint is omitted from the Z3 input. The verdict is `:sat`
+for the wrong reason (the constraint that would have made it `:unsat` was
+never asserted). After Phase H this only applies to `:cozo`; Phase I wires
+the Cozo backend.
 
 **wired-builder** — Codegen produces output but it's not consumed by
 `npm run build` by default. `defquery` forms compile via `codegen_kg.py` to
@@ -58,9 +58,17 @@ had been dropped. SUPPORT_MATRIX.md + the drift lint
 
 ## Roadmap pointers
 
-- Tier 3: promote egg from stub → live (eqsat-driven canonicalisation
-  consumed by codegen_axioms before Z3 sees the formula)
-- Tier 4: promote `:egg` / `:cozo` constraint backends from DROP → wired
-  (separate solver invocations integrated into the verdict)
+- Tier 3 (Phase H, done): `defrule` and `defconstraint :backend :egg`
+  promoted from stub/DROP → wired. The codegen at
+  `skills/neurosym-forge/scripts/codegen_axioms.py` now dispatches on
+  `:backend`: `:z3` → `_emit_z3_block`, `:egg` → `_emit_egg_block`,
+  `:cozo` → continue (Phase I), unknown → `CodegenError`. The egg
+  backend uses `egg = "0.10"` (declared optional in each verifier's
+  `Cargo.toml`, gated on the `eqsat` feature). Equality saturation runs
+  under a node-count budget controlled by the `VERIFIER_EQSAT_BUDGET`
+  environment variable (default 10000 nodes); divergent rewrite sets
+  stop at the budget rather than wedging the codegen run.
+- Tier 3 (Phase I): wire `:backend :cozo` to a live Cozo runtime so the
+  Cozo DROP row also flips to wired.
 - Tier 2: stop the silent JS-to-Python regex converter in `_to_python_regex`
   — surface JS-style `(?<v>)` as a hard error

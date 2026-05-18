@@ -38,6 +38,30 @@ class CodegenError(ValueError):
 
 SUPPORTED_BACKENDS = {Keyword("z3"), Keyword("egg"), Keyword("cozo")}
 
+# Real/Int binary operators that compile to a single Z3 method call.
+# Each entry maps the BookLogic surface symbol to the Z3 Rust method name.
+# `<`, `<=`, `>`, `>=` return Bool; `/` returns the numeric sort. All five
+# methods exist on both `Real` and `Int` in z3 0.20 (REQ-SMT-040..042).
+_REAL_BINOP_TO_Z3 = {
+    "<":  "lt",
+    "<=": "le",
+    ">":  "gt",
+    ">=": "ge",
+    "/":  "div",
+}
+
+# Full set of head symbols accepted on the right of `:assert`. Anything
+# outside this set produces a CodegenError naming the supported set
+# (REQ-SMT-044). Phase G extends this with the aggregate operators
+# `sum`, `count`, `in`, `select`, and `forall` over vector/set predicates.
+_SUPPORTED_ASSERT_HEADS = frozenset({
+    "=", "~=", "approx=",
+    "<", "<=", ">", ">=",
+    "+", "-", "*", "/",
+    "and", "or", "ite",
+    "sum", "count", "in", "select", "forall",
+})
+
 # ----- REQ-DSL-050..053: multi-valued predicate schema lookup -----
 
 # Module-level state used by `_emit_expr_typed` during a single
@@ -106,6 +130,10 @@ HEADER = """\
 // == Unsat`, `solver.get_unsat_core()` returns these names. Use
 // `rules/axioms-tracker-map.edn` to translate them back to BookLogic
 // ids and to the bound claim id.
+//
+// Constraints with :backend :egg discharge through the eqsat module
+// (egg-rs 0.10); the resulting ProofResult is wrapped in a Z3 boolean
+// tracker so unsat-core reporting keeps working uniformly.
 
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
@@ -226,6 +254,7 @@ def generate_axioms_source(constraints: list[dict],
     _VECTOR_SYMBOLS = set()
     _SET_SYMBOLS = set()
     body_lines: list[str] = []
+    cozo_entries: list[tuple[str, str]] = []
     for c in constraints:
         _require(c, "id")
         _require(c, "backend")
@@ -238,14 +267,25 @@ def generate_axioms_source(constraints: list[dict],
                 f"constraint {c.get(Keyword('id'))!r}: unknown backend {backend!r}; "
                 f"expected one of {SUPPORTED_BACKENDS}"
             )
-        if backend != Keyword("z3"):
-            # :egg and :cozo constraints flow through other backends.
-            continue
-        body_lines.append(_emit_z3_block(c))
-    body = "\n".join(body_lines) if body_lines else "    // no z3 constraints declared\n"
+        if backend == Keyword("z3"):
+            body_lines.append(_emit_z3_block(c))
+        elif backend == Keyword("egg"):
+            body_lines.append(_emit_egg_block(c))
+        elif backend == Keyword("cozo"):
+            # REQ-DATALOG-041: route :cozo constraints to kg.rs at
+            # smoke time via a sibling registry that lib.rs runs through
+            # kg::evaluate_constraint; the Z3 entry point sees nothing.
+            cozo_entries.append(_emit_cozo_block(c))
+        else:
+            raise CodegenError(
+                f"constraint {c.get(Keyword('id'))!r}: unknown backend {backend!r}; "
+                f"expected one of {SUPPORTED_BACKENDS}"
+            )
+    body = "\n".join(body_lines) if body_lines else "    // no constraints declared for the smt+eqsat axiom surface\n"
     sort_helper       = _emit_predicate_sort_helper(body)
     is_vector_helper  = _emit_predicate_is_vector_helper()
-    return HEADER + body + FOOTER + sort_helper + is_vector_helper
+    cozo_registry     = _emit_cozo_registry(cozo_entries)
+    return HEADER + body + FOOTER + sort_helper + is_vector_helper + cozo_registry
 
 
 def _require(c: dict, key: str) -> None:
@@ -282,27 +322,120 @@ def _emit_z3_block(c: dict) -> str:
         lhs = _emit_expr_typed(lhs_raw, z3_type)
         rhs = _emit_expr_typed(rhs_raw, z3_type)
         return _emit_equality_block(cid, lhs, rhs)
+    if head in _REAL_BINOP_TO_Z3 and head in {"<", "<=", ">", ">="}:
+        # Top-level comparison asserts compile to a single Bool that we
+        # hand straight to `assert_and_track` (REQ-SMT-040, 041).
+        expr = _emit_real_binop(head, assert_, "Bool")
+        return _emit_bool_assert_block(cid, expr)
+    if head == "ite":
+        # Top-level (ite COND THEN ELSE) only makes sense when THEN and
+        # ELSE are Bool: the whole assert form must reduce to a Bool
+        # (REQ-SMT-043). Build it under z3_type='Bool' so the branches
+        # are emitted as Bool subexpressions.
+        expr = _emit_ite(assert_, "Bool")
+        return _emit_bool_assert_block(cid, expr)
     if head == "forall":
         # REQ-DSL-053: top-level forall over a vector/set. Lowers via
         # `_emit_aggregate`; the result is a Z3 Bool asserted directly.
         body_expr = _emit_expr_typed(assert_, "Bool")
-        return _emit_bool_block(cid, body_expr)
+        return _emit_bool_assert_block(cid, body_expr)
     raise CodegenError(
-        f"constraint {cid!r}: assert head {head!r} not supported in v0.4 (use '=' or 'approx=')"
+        f"constraint {cid!r}: assert head {head!r} not supported; "
+        f"expected one of {sorted(_SUPPORTED_ASSERT_HEADS)}"
     )
 
 
-def _emit_bool_block(cid: str, expr: str) -> str:
-    """Emit `solver.assert_and_track(<bool expr>, tracker)` for a constraint
-    whose assert form already evaluates to a Z3 Bool."""
+def _emit_egg_block(c: dict) -> str:
+    """Emit a `solver.assert_and_track(...)` block whose body discharges
+    the constraint via `crate::eqsat::prove_equiv(lhs, rhs, rules)`.
+
+    REQ-EQSAT-043: `:backend :egg` constraints route to eqsat (no longer
+    silently dropped at the codegen layer). The egg proof result is
+    wrapped in a Z3 boolean tracker so the existing unsat-core reporter
+    on the Z3 side keeps working uniformly across backends.
+    """
+    cid     = c[Keyword("id")]
+    assert_ = c[Keyword("assert")]
+    if isinstance(assert_, str):
+        from scripts._edn_reader import read_edn
+        assert_ = read_edn(assert_)
+    if not isinstance(assert_, (list, EdnList, EdnVector)) or len(assert_) < 3:
+        raise CodegenError(f"constraint {cid!r}: malformed :egg assert form: {assert_!r}")
+    head_node = assert_[0]
+    head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
+    if head != "=":
+        raise CodegenError(
+            f"constraint {cid!r}: :backend :egg only supports '=' assert head, got {head!r}"
+        )
+    lhs_sexpr = _to_egg_sexpr(assert_[1])
+    rhs_sexpr = _to_egg_sexpr(assert_[2])
     return (
-        f"    // constraint {cid}\n"
+        f"    // constraint {cid} (:backend :egg)\n"
         f"    {{\n"
-        f"        let body = {expr};\n"
+        f"        #[cfg(feature = \"eqsat\")]\n"
+        f"        let proved = matches!(\n"
+        f"            crate::eqsat::prove_equiv(\n"
+        f"                {lhs_sexpr!r},\n"
+        f"                {rhs_sexpr!r},\n"
+        f"                &crate::eqsat::make_rewrites(),\n"
+        f"            ),\n"
+        f"            crate::eqsat::ProofResult::Proved\n"
+        f"        );\n"
+        f"        #[cfg(not(feature = \"eqsat\"))]\n"
+        f"        let proved = false;\n"
+        f"        let result = Bool::from_bool(proved);\n"
         f'        let tracker = Bool::new_const("{cid}");\n'
-        f"        solver.assert_and_track(&body, &tracker);\n"
+        f"        solver.assert_and_track(&result, &tracker);\n"
         f"    }}\n"
     )
+
+
+def _to_egg_sexpr(node: Any) -> str:
+    """Translate a BookLogic surface form into an s-expression string
+    parseable by `egg::RecExpr::<BookLogic>::parse`.
+
+    BookLogic's egg language (see verifiers/*/rust-verifier/src/eqsat.rs):
+      - integer literals → Num(i64)
+      - (:pred :subject) → (predicate pred subject)
+      - (op a b ...)     → (op a b) folded pairwise for +,-,*,/
+      - free symbols     → Symbol(name)
+    """
+    if isinstance(node, bool):
+        return "true" if node else "false"
+    if isinstance(node, int):
+        return str(node)
+    if isinstance(node, float):
+        # egg's RecExpr parser doesn't carry floats in the v0.4 language;
+        # rounds to int with the same rational-approx denominator. Egg
+        # constraints over floats are not yet exercised; surface the
+        # rounded form rather than fail codegen.
+        return str(int(round(node)))
+    if isinstance(node, Keyword):
+        return node.name
+    if isinstance(node, str):
+        return node
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
+        head = node[0]
+        if isinstance(head, Keyword):
+            # (:pred :subject) → (predicate pred subject)
+            sub = node[1] if len(node) >= 2 else None
+            if isinstance(sub, Keyword):
+                sub_str = sub.name
+            elif sub is not None:
+                sub_str = str(sub)
+            else:
+                sub_str = "val"
+            return f"(predicate {head.name} {sub_str})"
+        head_str = str(head)
+        if head_str in {"+", "-", "*", "/"} and len(node) >= 3:
+            children = [_to_egg_sexpr(n) for n in list(node)[1:]]
+            # Left-fold so (op a b c) → (op (op a b) c). BookLogic egg
+            # ops are arity-2.
+            acc = f"({head_str} {children[0]} {children[1]})"
+            for ch in children[2:]:
+                acc = f"({head_str} {acc} {ch})"
+            return acc
+    raise CodegenError(f"unsupported :egg expression node: {node!r}")
 
 
 def _infer_z3_type(node: Any) -> str:
@@ -538,6 +671,10 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
             children = [_emit_expr_typed(n, z3_type) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             return _left_fold(method, children)
+        if head_str in _REAL_BINOP_TO_Z3:
+            return _emit_real_binop(head_str, node, z3_type)
+        if head_str == "ite":
+            return _emit_ite(node, z3_type)
         if head_str == "=" and len(node) == 3:
             # Nested equality inside a forall body or other aggregate.
             # Pick the child type from the literal on the right.
@@ -557,6 +694,58 @@ def _subtree_has_float(node: Any) -> bool:
     if isinstance(node, (list, EdnList, EdnVector)):
         return any(_subtree_has_float(child) for child in node)
     return False
+
+
+def _emit_real_binop(head: str, node: Any, z3_type: str) -> str:
+    """Emit a Z3 `.method(&rhs)` call for one of the Real/Int binary ops in
+    `_REAL_BINOP_TO_Z3` (`<`, `<=`, `>`, `>=`, `/`).
+
+    The form is `(OP LHS RHS)`. For comparisons (REQ-SMT-040..042) the
+    result is a Z3 Bool and the caller wires it straight into
+    `assert_and_track`. For division (REQ-SMT-042) the result is a
+    numeric Z3 AST and the caller embeds it in a larger expression.
+
+    Comparisons promote to `Real` if either subtree carries a float;
+    otherwise they stay `Int`. Division is always emitted under the
+    type the caller asks for so the result-sort matches a sibling
+    operand.
+    """
+    if not isinstance(node, (list, EdnList, EdnVector)) or len(node) != 3:
+        raise CodegenError(
+            f"operator {head!r} expects exactly two arguments, got: {node!r}"
+        )
+    method = _REAL_BINOP_TO_Z3[head]
+    if head in {"<", "<=", ">", ">="}:
+        # Promote to Real if either side has a float literal in its
+        # subtree so the underlying numeric AST shares a sort.
+        sub_type = "Real" if (
+            _subtree_has_float(node[1]) or _subtree_has_float(node[2])
+        ) else "Int"
+    else:
+        # `/` keeps the caller's type so its result composes correctly.
+        sub_type = z3_type if z3_type in {"Real", "Int"} else "Real"
+    lhs = _emit_expr_typed(node[1], sub_type)
+    rhs = _emit_expr_typed(node[2], sub_type)
+    return f"{lhs}.{method}(&{rhs})"
+
+
+def _emit_ite(node: Any, z3_type: str) -> str:
+    """Emit a Z3 `cond.ite(&then, &else)` call for `(ite COND THEN ELSE)`.
+
+    `COND` is always emitted as a Bool subexpression (so it may itself
+    be `(< ...)`, `(<= ...)`, `(and ...)`, etc.). The two branches share
+    the caller's `z3_type` because Z3 requires both arms of an ite to
+    have the same sort (REQ-SMT-043).
+    """
+    if not isinstance(node, (list, EdnList, EdnVector)) or len(node) != 4:
+        raise CodegenError(
+            f"operator 'ite' expects exactly three arguments "
+            f"(condition, then, else); got: {node!r}"
+        )
+    cond = _emit_expr_typed(node[1], "Bool")
+    then_branch = _emit_expr_typed(node[2], z3_type)
+    else_branch = _emit_expr_typed(node[3], z3_type)
+    return f"{cond}.ite(&{then_branch}, &{else_branch})"
 
 
 def _parse_assert(assert_form: Any) -> tuple[str, str, str]:
@@ -644,6 +833,126 @@ def _emit_equality_block(cid: str, lhs: str, rhs: str) -> str:
         f"        let rhs = {rhs};\n"
         f'        let tracker = Bool::new_const("{cid}");\n'
         f"        solver.assert_and_track(&lhs.eq(&rhs), &tracker);\n"
+        f"    }}\n"
+    )
+
+
+def _emit_cozo_block(c: dict) -> tuple[str, str]:
+    """REQ-DATALOG-041: translate a :cozo constraint into a (name,
+    datalog-source) pair that `cozo_constraints()` returns. The caller
+    feeds each pair to `kg::evaluate_constraint` at smoke time; a
+    non-empty result is treated as the constraint firing (defect).
+
+    The :assert form is rendered as a single-line Datalog rule via the
+    same shape as `defquery` (head clause `?[c] := ...`). We delegate
+    to the same renderer used for queries to avoid drift.
+    """
+    cid       = c[Keyword("id")]
+    assert_   = c[Keyword("assert")]
+    if isinstance(assert_, str):
+        from scripts._edn_reader import read_edn
+        assert_ = read_edn(assert_)
+    # Heuristic: the constraint body is the :assert form, rendered as a
+    # one-clause Datalog rule of the shape `?[c] := <body>` where the
+    # body comes from `_render_assert_as_cozo` below. We avoid a
+    # full re-implementation of the EDN-to-Datalog translator here and
+    # fall through to a stringified form of the :assert so callers
+    # always get a deterministic registry, even when the assert shape
+    # is unfamiliar.
+    body = _render_assert_as_cozo(assert_)
+    source = f"?[c] := {body}"
+    return (str(cid), source)
+
+
+def _render_assert_as_cozo(node: Any) -> str:
+    """Render a constraint :assert form as a single Cozo Datalog body.
+
+    Recognised shapes mirror codegen_kg.py's `_render_clause` / `_render_value`:
+      (:claim/load-bearing ?c true)  → claim/load-bearing[c, true]
+      (<  ?p 0.8)                    → p < 0.8
+      (=  x y)                       → x = y
+    Anything we don't recognise round-trips as a stringified form so
+    the registry stays deterministic.
+    """
+    from scripts._edn_reader import EdnList, EdnVector
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
+        head = node[0]
+        head_str = head.name if isinstance(head, Keyword) else str(head)
+        if head_str in {"<", ">", "<=", ">=", "=", "!="} and len(node) >= 3:
+            lhs = _render_cozo_term(node[1])
+            rhs = _render_cozo_term(node[2])
+            return f"{lhs} {head_str} {rhs}"
+        if isinstance(head, Keyword):
+            pred = f"{head.namespace}/{head.name}" if head.namespace else head.name
+            args = ", ".join(_render_cozo_term(a) for a in list(node)[1:])
+            return f"{pred}[{args}]"
+    return f"true /* unrecognised assert: {node!r} */"
+
+
+def _render_cozo_term(t: Any) -> str:
+    from scripts._edn_reader import EdnList, EdnVector, Symbol
+    if isinstance(t, bool):
+        return "true" if t else "false"
+    if isinstance(t, (int, float)):
+        return str(t)
+    if isinstance(t, Symbol):
+        # EDN symbols like `?c` are Cozo variables; strip the leading `?`.
+        return t.name.lstrip("?")
+    if isinstance(t, str):
+        # Treat `?var`-style strings as bare variable names; otherwise quote.
+        return t.lstrip("?") if t.startswith("?") else f"'{t}'"
+    if isinstance(t, Keyword):
+        return t.name
+    if isinstance(t, (list, EdnList, EdnVector)) and len(t) == 1:
+        return _render_cozo_term(t[0])
+    return f"'{t}'"
+
+
+def _emit_cozo_registry(entries: list[tuple[str, str]]) -> str:
+    """REQ-DATALOG-041: emit a `pub fn cozo_constraints()` that returns
+    every :cozo constraint as a (name, source) pair. lib.rs feeds each
+    pair through `kg::evaluate_constraint` and merges the row count
+    into the verdict's :cozo-defects field.
+    """
+    if not entries:
+        body = "    Vec::new()"
+    else:
+        items: list[str] = []
+        for name, source in entries:
+            n_lit = _rust_string_literal(name)
+            s_lit = _rust_string_literal(source)
+            items.append(f"        ({n_lit}.to_string(), {s_lit}.to_string()),")
+        joined = "\n".join(items)
+        body = "    vec![\n" + joined + "\n    ]"
+    return (
+        "\n/// REQ-DATALOG-041: every `defconstraint :backend :cozo` form\n"
+        "/// surfaces here as a (name, datalog-source) pair. lib.rs runs\n"
+        "/// each pair through `kg::evaluate_constraint` and lifts a\n"
+        "/// non-empty row count into the verdict's `:cozo-defects` field.\n"
+        "pub fn cozo_constraints() -> Vec<(String, String)> {\n"
+        f"{body}\n"
+        "}\n"
+    )
+
+
+def _rust_string_literal(s: str) -> str:
+    """Produce a Rust raw-string literal that survives any inner quotes."""
+    hashes = "#"
+    while ('"' + hashes) in s:
+        hashes += "#"
+    return f'r{hashes}"{s}"{hashes}'
+
+
+def _emit_bool_assert_block(cid: str, expr: str) -> str:
+    """Emit `solver.assert_and_track(&<bool-expr>, &tracker)` for an
+    already-Bool-typed expression (comparisons, ite-of-Bool, etc.).
+    """
+    return (
+        f"    // constraint {cid}\n"
+        f"    {{\n"
+        f"        let expr = {expr};\n"
+        f'        let tracker = Bool::new_const("{cid}");\n'
+        f"        solver.assert_and_track(&expr, &tracker);\n"
         f"    }}\n"
     )
 

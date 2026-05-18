@@ -14,12 +14,16 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 # scripts/__init__.py extends this package's __path__ to include forge's
 # scripts/ dir, so the imports below resolve to neurosym-forge's modules.
 from scripts._edn_reader import Keyword  # noqa: E402
-from scripts._io import read_edn_file, write_edn_file  # noqa: E402
+from scripts._edn_streaming import (  # noqa: E402
+    StreamingAtomWriter,
+    check_no_orphan_partial,
+)
+from scripts._io import read_edn_file, write_edn_file  # noqa: E402, F401
 
 _KW_VERSION = Keyword("version")
 _KW_ATOMS = Keyword("atoms")
@@ -83,10 +87,40 @@ def _kind_str(v: Any) -> str:
     return str(v) if v is not None else ""
 
 
+_JS_NAMED_GROUP = re.compile(r"\(\?<([A-Za-z_][A-Za-z0-9_]*)>")
+
+
+class IngestRegexDialectError(ValueError):
+    """REQ-INGEST-050, 051: a predicate pattern uses a regex dialect
+    other than Python's `re` module.
+
+    The most common case is JS-style `(?<name>...)` named groups
+    (lifts.edn authored against the CLJS/JS regex engine). Python uses
+    the Perl-style `(?P<name>...)` form. Earlier versions silently
+    rewrote one to the other; we now reject the input so the author
+    fixes the source rather than relying on a hidden translation layer.
+    """
+
+
+def _assert_python_regex_dialect(pat: str) -> None:
+    """REQ-INGEST-050, 051: hard-fail on non-Python regex dialect.
+
+    Catches JS-style `(?<name>...)` named groups. Re.compile errors
+    surface as their native exceptions (re.error) when the search runs.
+    """
+    m = _JS_NAMED_GROUP.search(pat)
+    if m is not None:
+        raise IngestRegexDialectError(
+            f"predicate pattern uses JS-style named group `(?<{m.group(1)}>...)`; "
+            f"Python regex requires `(?P<{m.group(1)}>...)`. Offending pattern: {pat!r}"
+        )
+
+
 def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | None:
     """Match text against the predicate map. Returns (predicate, value, subject) or None."""
     for _name, spec in predicates.items():
         for pat in spec.get(_KW_PATTERNS, []):
+            _assert_python_regex_dialect(pat)
             m = re.search(pat, text, flags=re.IGNORECASE | re.DOTALL)
             if not m:
                 continue
@@ -185,25 +219,70 @@ def _validate_against_schema(predicates_path: Path, predicates: dict) -> None:
         sys.exit(1)
 
 
-def compute_atoms(ledger_path: Path, predicates_path: Path) -> list[dict]:
-    """Read ledger + predicates and return atoms WITHOUT writing to disk."""
-    rows = read_ledger(ledger_path)
-    latest = latest_per_id(rows)
-    verified = [c for c in latest.values() if _is_verified(c)]
+def compute_atoms_iter(
+    ledger_path: Path, predicates_path: Path,
+) -> Iterator[dict]:
+    """REQ-PERF-050: yield atoms one at a time instead of materialising
+    the full list. The intermediate `latest` dedup map still has to be
+    built (a later JSONL row may supersede an earlier `claim_id`), but
+    the post-`_claim_to_atom` enrichment — the part that dominates
+    peak RSS at book-knowledge scale — is now lazy.
+    """
     predicates_data = read_edn_file(predicates_path)
     predicates = predicates_data.get(_KW_PREDICATES, {})
     _validate_against_schema(predicates_path, predicates)
-    return [_claim_to_atom(c, predicates) for c in verified]
+
+    rows = read_ledger(ledger_path)
+    latest = latest_per_id(rows)
+    del rows
+    for claim in latest.values():
+        if not _is_verified(claim):
+            continue
+        yield _claim_to_atom(claim, predicates)
+
+
+def compute_atoms(ledger_path: Path, predicates_path: Path) -> list[dict]:
+    """Backwards-compat wrapper around `compute_atoms_iter`."""
+    return list(compute_atoms_iter(ledger_path, predicates_path))
 
 
 def ingest(ledger_path: Path,
            predicates_path: Path,
            out_path: Path,
            return_atoms: bool = False) -> list[dict] | int:
-    atoms = compute_atoms(ledger_path, predicates_path)
+    """REQ-PERF-050..053: stream atoms to `out_path` via `StreamingAtomWriter`.
+
+    `return_atoms=True` preserves the legacy materialise-and-return
+    contract (the bermuda smoke harness still uses it). The default
+    streaming path never holds more than one atom in flight on the
+    writer side.
+    """
+    out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    write_edn_file(out_path, {_KW_VERSION: 1, _KW_ATOMS: atoms})
-    return atoms if return_atoms else len(atoms)
+    # REQ-PERF-053: refuse to proceed if a stale `.partial` sibling
+    # marker says the previous run was killed mid-write. The operator
+    # must clear the marker (and any truncated output) to acknowledge
+    # the crash; we won't silently overwrite or append to a corrupt
+    # document.
+    check_no_orphan_partial(out_path)
+
+    if return_atoms:
+        atoms = list(compute_atoms_iter(ledger_path, predicates_path))
+        with StreamingAtomWriter(out_path, version=1) as w:
+            for a in atoms:
+                w.write(a)
+        return atoms
+
+    n = 0
+    with StreamingAtomWriter(out_path, version=1) as w:
+        for a in compute_atoms_iter(ledger_path, predicates_path):
+            w.write(a)
+            n += 1
+            if n % 1000 == 0:
+                # REQ-PERF-052: progress every 1000 atoms so operators
+                # know the process is alive on book-knowledge corpora.
+                print(f"ingest: {n} atoms processed", file=sys.stderr)
+    return n
 
 
 def main(argv: list[str]) -> int:

@@ -1,0 +1,19 @@
+{
+ :version 1
+ :tracker-map {
+               :C001-herd-immunity {
+                                    :constraint-id "C001-herd-immunity"
+                                    :track :claim/id
+                                    :defect :D20
+                                    :severity :critical
+                                    :message "vaccination coverage below herd immunity threshold"
+                                   }
+               :C002-threshold-formula {
+                                        :constraint-id "C002-threshold-formula"
+                                        :track :claim/id
+                                        :defect :D21
+                                        :severity :critical
+                                        :message "herd-immunity threshold inconsistent with R0 (formula H = 1 - 1/R0)"
+                                       }
+              }
+}

@@ -1,0 +1,26 @@
+name: onboarding-bench
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: run onboarding bench (stub backend)
+        run: python skills/neurosym-forge/eval/onboarding-bench.py --backend stub
+      - name: aggregate runs into report
+        run: python skills/neurosym-forge/eval/aggregate_runs.py
+      - name: upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-bench-report
+          path: docs/eval/onboarding-bench-report.md

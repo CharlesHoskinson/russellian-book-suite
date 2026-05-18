@@ -135,28 +135,25 @@ def test_bug6_slurp_undeclared(fresh_bake) -> None:
 # ----- Bug #7: silent regex break in lifts.edn -----
 
 def test_bug7_regex_break_caught_by_extract_gate(fresh_bake) -> None:
-    """REQ-INGEST-048: A regex break in a baked project's lifts.edn
-    causes `make ci` to fail at the new extract gate (OPAQUE-fraction
-    threshold), BEFORE reaching the smoke step.
+    """REQ-INGEST-048, 053: A regex break in a baked project's lifts.edn
+    causes `make ci` to fail BEFORE reaching the smoke step.
 
-    The spec wording targets JS-style `(?<v>)` named groups specifically,
-    but `ingest_ledger.py` has a `_to_python_regex` converter that
-    silently rewrites JS-form to Python-form — masking that exact bug at
-    the ingest layer. We mutate the regex's literal prefix instead to a
-    non-matching token, which is the same class of silent failure (the
-    sprint-5 root cause was a regex that compiled fine but didn't match
-    the fixture).
-
-    Removing the silent converter is tracked separately (general-purpose
-    framework hardening, Tier 2+).
+    Post-Phase-E this uses the actual sprint-5 bug-7 mutation: rewrite
+    the Python-form `(?P<v>` to the JS-form `(?<v>`. The silent
+    JS→Python converter in `ingest_ledger.py` is gone, so this now
+    raises `IngestRegexDialectError` at the ingest layer. Either that
+    error or the downstream extract-gate OPAQUE-fraction failure is
+    acceptable — both indicate the bug was caught and not silently
+    masked. (REQ-INGEST-053)
     """
     project = fresh_bake("bug7")
     lifts = project / "rules" / "booklogic" / "lifts.edn"
     text = lifts.read_text(encoding="utf-8")
-    # Mutate `count\\s*(?P<v>...)` → `zzzNEVERMATCH\\s*(?P<v>...)` — the
-    # regex still compiles but never matches the smoke-fixture claims.
-    bad = text.replace("count\\s*(?P<v>", "zzzNEVERMATCH\\s*(?P<v>")
-    assert bad != text, "couldn't find `count\\s*(?P<v>` to mutate in lifts.edn"
+    # Mutate `(?P<v>` → `(?<v>` — the JS-style form. Pre-Phase-E this
+    # was silently rewritten by `_to_python_regex`; post-Phase-E the
+    # ingest layer hard-rejects it with IngestRegexDialectError.
+    bad = text.replace("(?P<v>", "(?<v>")
+    assert bad != text, "couldn't find `(?P<v>` to mutate in lifts.edn"
     lifts.write_text(bad, encoding="utf-8")
 
     # The baked project also needs a fixture for the extract target to
@@ -172,11 +169,17 @@ def test_bug7_regex_break_caught_by_extract_gate(fresh_bake) -> None:
 
     result = run_make_ci(project)
     assert result.returncode != 0, (
-        f"expected `make ci` to fail at extract gate; stdout: {result.stdout!r}\n"
+        f"expected `make ci` to fail; stdout: {result.stdout!r}\n"
         f"stderr: {result.stderr!r}"
     )
-    # The error message from extract_preview includes "exceeds threshold"
+    # Accept either the new dialect gate, the JS-only static check from
+    # regex-compile-check.py, or the downstream OPAQUE-fraction gate.
     combined = (result.stdout + result.stderr).lower()
-    assert "exceeds threshold" in combined or "opaque" in combined, (
-        f"extract-gate failure mode not surfaced; combined output:\n{combined}"
+    assert (
+        "(?<" in combined
+        or "ingestregexdialecterror" in combined
+        or "exceeds threshold" in combined
+        or "opaque" in combined
+    ), (
+        f"regex-break failure mode not surfaced; combined output:\n{combined}"
     )

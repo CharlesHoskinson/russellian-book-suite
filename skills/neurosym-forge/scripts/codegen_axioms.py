@@ -108,6 +108,7 @@ HEADER = """\
 // ids and to the bound claim id.
 
 #[cfg(feature = "smt")]
+#[allow(unused_imports)]
 use z3::{
     ast::{Array, Bool, Int, Real, Set, String as Z3String},
     Solver,

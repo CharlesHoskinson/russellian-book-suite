@@ -54,3 +54,31 @@ fn missing_source_is_a_parse_error() {
     let err = kg::run_queries(bad).expect_err("missing :source must error");
     assert!(err.contains("source"), "error should name the missing field, got {err:?}");
 }
+
+#[test]
+fn timeout_env_var_short_circuits_long_query() {
+    // REQ-DATALOG-044: a query that cannot complete within
+    // VERIFIER_DATALOG_TIMEOUT_MS is marked timed_out without
+    // panicking. We force a 1 ms timeout to flush the channel before
+    // even a trivial query finishes; the result MAY still complete in
+    // time on a fast machine, so the assertion is "no panic; result
+    // present in the vector".
+    let prev = std::env::var("VERIFIER_DATALOG_TIMEOUT_MS").ok();
+    // SAFETY: tests run single-threaded here; set/unset is symmetric.
+    unsafe { std::env::set_var("VERIFIER_DATALOG_TIMEOUT_MS", "1"); }
+    let results = kg::run_queries(ORPHAN_QUERY_EDN).expect("no error");
+    unsafe {
+        match prev {
+            Some(v) => std::env::set_var("VERIFIER_DATALOG_TIMEOUT_MS", v),
+            None => std::env::remove_var("VERIFIER_DATALOG_TIMEOUT_MS"),
+        }
+    }
+    assert_eq!(results.len(), 1, "timeout still records a result row");
+    // Either the query completed in < 1 ms or it timed out; both are
+    // legal outcomes. The contract is: run_queries does NOT panic and
+    // returns one entry per declared query.
+    let r = &results[0];
+    if r.timed_out {
+        assert_eq!(r.sample.as_deref(), Some("<timeout>"));
+    }
+}

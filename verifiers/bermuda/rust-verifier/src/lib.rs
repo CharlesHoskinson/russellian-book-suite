@@ -5,7 +5,7 @@ mod axioms;
 pub mod canonical;
 mod eqsat;
 mod ir;
-mod kg;
+pub mod kg;
 mod smt;
 
 #[cfg(feature = "pdf")]

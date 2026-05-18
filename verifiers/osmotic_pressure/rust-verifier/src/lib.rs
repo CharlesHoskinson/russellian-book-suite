@@ -10,7 +10,7 @@ mod smt;
 mod eqsat;
 
 #[cfg(feature = "kg")]
-mod kg;
+pub mod kg;
 
 #[cfg(feature = "pdf")]
 mod typeset;

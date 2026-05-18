@@ -40,8 +40,10 @@ jobs:
           - book-thesis
           - book-knowledge
           - book-review
+          - book-compose
           - russellian-style
           - review-conductor
+          - neurosym-forge
         include:
           # book-compose needs sibling skills symlinked under ~/.claude/skills/
           - skill: book-compose

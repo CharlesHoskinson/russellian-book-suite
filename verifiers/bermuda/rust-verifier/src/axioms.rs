@@ -13,91 +13,168 @@
 
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
-use std::ops::{Add as _, Mul as _, Sub as _};
+use z3::{
+    ast::{Bool, Int, Real, String as Z3String},
+    Solver,
+};
 #[cfg(feature = "smt")]
+#[allow(unused_imports)]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
-use z3::{
-    Solver,
-    ast::{Bool, Int, Real, String as Z3String},
-};
+#[allow(unused_imports)]
+use std::ops::{Add as _, Mul as _, Sub as _};
 
 #[cfg(feature = "smt")]
+/// Assert every z3 constraint whose `:assert` references exactly
+/// the given `subject`. Cross-subject constraints are NOT asserted
+/// here; they live in `axioms_shared`. Unknown subjects are a
+/// no-op so the partition still runs `solver.check()` cleanly.
+pub fn axioms_for_subject(solver: &Solver, subject: &str) {
+    match subject {
+        "BMD" => {
+        // constraint C003-bmd-usd-parity
+        {
+            let lhs = Bool::new_const("currency-pegged-at-parity_BMD");
+            let rhs = Bool::from_bool(true);
+            let tracker = Bool::new_const("C003-bmd-usd-parity");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        }
+        "Bermuda" => {
+        // constraint C001-bermuda-parishes
+        {
+            let lhs = Int::new_const("parishes-count_Bermuda");
+            let rhs = Int::from_i64(9);
+            let tracker = Bool::new_const("C001-bermuda-parishes");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        // constraint C002-named-islands-and-rocks
+        {
+            let lhs = Int::new_const("named-islands-and-rocks_Bermuda");
+            let rhs = Int::from_i64(181);
+            let tracker = Bool::new_const("C002-named-islands-and-rocks");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        // constraint C006-population
+        {
+            let lhs = Int::new_const("population_Bermuda");
+            let rhs = Int::from_i64(63918);
+            let tracker = Bool::new_const("C006-population");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        // constraint C007-land-area-km2
+        {
+            let lhs = Real::new_const("land-area-km2_Bermuda");
+            let rhs = Real::from_rational(53200000, 1000000);
+            let tracker = Bool::new_const("C007-land-area-km2");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        // constraint C008-gdp-usd-billion
+        {
+            let lhs = Real::new_const("gdp-usd-billion_Bermuda");
+            let rhs = Real::from_rational(7700000, 1000000);
+            let tracker = Bool::new_const("C008-gdp-usd-billion");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        }
+        "Bermuda_cedar" => {
+        // constraint C005-cedar-binomial
+        {
+            let lhs = Z3String::new_const("binomial_Bermuda_cedar");
+            let rhs = Z3String::from_str("Juniperus bermudiana").expect("valid utf-8");
+            let tracker = Bool::new_const("C005-cedar-binomial");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        }
+        "KEMH" => {
+        // constraint C009-hospital-beds-kemh
+        {
+            let lhs = Int::new_const("hospital-beds-kemh_KEMH");
+            let rhs = Int::from_i64(90);
+            let tracker = Bool::new_const("C009-hospital-beds-kemh");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        }
+        "L_F_Wade" => {
+        // constraint C004-airport-st-davids
+        {
+            let lhs = Z3String::new_const("airport-on-island_L_F_Wade");
+            let rhs = Z3String::from_str("St_Davids_Island").expect("valid utf-8");
+            let tracker = Bool::new_const("C004-airport-st-davids");
+            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+        }
+        }
+        _ => {
+            let _ = solver;
+        }
+    }
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn axioms_for_subject(_solver: &(), _subject: &str) {
+    // No-op: built without smt feature.
+}
+
+#[cfg(feature = "smt")]
+/// Assert every z3 constraint whose `:assert` references two or
+/// more distinct subjects (cross-subject constraints,
+/// REQ-PERF-043). Also covers constraints with no subject
+/// reference (pure-literal asserts) so those still run
+/// unconditionally.
+pub fn axioms_shared(solver: &Solver) {
+    let _ = solver;
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn axioms_shared(_solver: &()) {
+    // No-op: built without smt feature.
+}
+
+/// Enumerate every subject identifier (canonical form, e.g.
+/// `"Bermuda"` or `"s"`) that has at least one declared
+/// constraint. `smt::check_all` iterates this list to build
+/// per-subject partitions deterministically.
+pub fn axioms_subjects() -> &'static [&'static str] {
+    &["BMD", "Bermuda", "Bermuda_cedar", "KEMH", "L_F_Wade"]
+}
+
+#[cfg(feature = "smt")]
+/// Backward-compatible aggregator. Asserts every per-subject
+/// constraint and the shared bucket on a single solver. New
+/// callers should prefer `axioms_for_subject` + `axioms_shared`
+/// so the timeout and unknown blast-radius stays per-subject.
+#[allow(dead_code)]
 pub fn assert_axioms(solver: &Solver) {
-    // constraint C001-bermuda-parishes
-    {
-        let lhs = Int::new_const("parishes-count_Bermuda");
-        let rhs = Int::from_i64(9);
-        let tracker = Bool::new_const("C001-bermuda-parishes");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C002-named-islands-and-rocks
-    {
-        let lhs = Int::new_const("named-islands-and-rocks_Bermuda");
-        let rhs = Int::from_i64(181);
-        let tracker = Bool::new_const("C002-named-islands-and-rocks");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C003-bmd-usd-parity
-    {
-        let lhs = Bool::new_const("currency-pegged-at-parity_BMD");
-        let rhs = Bool::from_bool(true);
-        let tracker = Bool::new_const("C003-bmd-usd-parity");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C004-airport-st-davids
-    {
-        let lhs = Z3String::new_const("airport-on-island_L_F_Wade");
-        let rhs = Z3String::from_str("St_Davids_Island").expect("valid utf-8");
-        let tracker = Bool::new_const("C004-airport-st-davids");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C005-cedar-binomial
-    {
-        let lhs = Z3String::new_const("binomial_Bermuda_cedar");
-        let rhs = Z3String::from_str("Juniperus bermudiana").expect("valid utf-8");
-        let tracker = Bool::new_const("C005-cedar-binomial");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C006-population
-    {
-        let lhs = Int::new_const("population_Bermuda");
-        let rhs = Int::from_i64(63918);
-        let tracker = Bool::new_const("C006-population");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C007-land-area-km2
-    {
-        let lhs = Real::new_const("land-area-km2_Bermuda");
-        let rhs = Real::from_rational(53200000, 1000000);
-        let tracker = Bool::new_const("C007-land-area-km2");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C008-gdp-usd-billion
-    {
-        let lhs = Real::new_const("gdp-usd-billion_Bermuda");
-        let rhs = Real::from_rational(7700000, 1000000);
-        let tracker = Bool::new_const("C008-gdp-usd-billion");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
-
-    // constraint C009-hospital-beds-kemh
-    {
-        let lhs = Int::new_const("hospital-beds-kemh_KEMH");
-        let rhs = Int::from_i64(90);
-        let tracker = Bool::new_const("C009-hospital-beds-kemh");
-        solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-    }
+    axioms_for_subject(solver, "BMD");
+    axioms_for_subject(solver, "Bermuda");
+    axioms_for_subject(solver, "Bermuda_cedar");
+    axioms_for_subject(solver, "KEMH");
+    axioms_for_subject(solver, "L_F_Wade");
+    axioms_shared(solver);
 }
 
 #[cfg(not(feature = "smt"))]
 pub fn assert_axioms(_solver: &()) {
     // No-op: built without smt feature.
+}
+
+#[cfg(feature = "smt")]
+/// True if the named predicate-subject symbol should be bound as
+/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes
+/// a constraint subtree to Real whenever any float literal appears
+/// anywhere in it; smt.rs uses this to keep value-bindings in the
+/// same Z3 sort as the axioms reference.
+#[allow(dead_code)]
+pub fn predicate_is_real(name: &str) -> bool {
+    match name {
+        "gdp-usd-billion_Bermuda" => true,
+        "land-area-km2_Bermuda" => true,
+        _ => false,
+    }
+}
+
+#[cfg(not(feature = "smt"))]
+#[allow(dead_code)]
+pub fn predicate_is_real(_name: &str) -> bool {
+    false
 }

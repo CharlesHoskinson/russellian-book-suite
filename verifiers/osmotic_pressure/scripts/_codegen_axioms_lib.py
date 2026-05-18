@@ -28,8 +28,19 @@ from pathlib import Path
 from typing import Any
 
 from scripts._canonical import canonical_var_name
-from scripts._edn_reader import Keyword
+from scripts._edn_reader import EdnList, EdnVector, Keyword, Symbol
 from scripts._io import read_edn_file, write_edn_file
+
+# Re-export for backward compat — older callers may have imported these via
+# `from scripts.codegen_axioms import EdnList`. The partitioning refactor
+# moved the subject walk into this module, but the symbols stay where they
+# were.
+__all__ = [
+    "CodegenError",
+    "generate_axioms_source",
+    "generate_tracker_map",
+    "run",
+]
 
 
 class CodegenError(ValueError):
@@ -53,45 +64,31 @@ HEADER = """\
 // ids and to the bound claim id.
 
 #[cfg(feature = "smt")]
+#[allow(unused_imports)]
 use z3::{
     ast::{Bool, Int, Real, String as Z3String},
     Solver,
 };
 #[cfg(feature = "smt")]
+#[allow(unused_imports)]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
 use std::ops::{Add as _, Mul as _, Sub as _};
 
-#[cfg(feature = "smt")]
-pub fn assert_axioms(solver: &Solver) {
 """
 
-FOOTER = """\
-}
 
-#[cfg(not(feature = "smt"))]
-pub fn assert_axioms(_solver: &()) {
-    // No-op: built without smt feature.
-}
-"""
+FOOTER = ""
 
 
 def _emit_predicate_sort_helper(body: str) -> str:
-    """Emit a `predicate_is_real(name)` query that smt.rs uses to pick the
-    Z3 sort for predicate bindings.
-
-    Why: when a constraint mixes integer claim values with float arithmetic
-    (e.g. van 't Hoff: i is int, M/T/π are floats, R=8.314 is float), the
-    codegen promotes the whole subtree to Real. The Z3 symbol
-    `Real::new_const("vant-hoff-i_s")` in axioms.rs would then be a free
-    variable if smt.rs binds the integer claim value via `Int::new_const`
-    (same name, different sort = distinct symbol). The doctored fixture
-    bug (predicates unbound, solver picks arbitrary values, doctored
-    ledger trivially returns :sat) is precisely this mismatch.
-
-    smt.rs queries this fn for each predicate-subject pair and uses
-    Real::new_const + Real::from_rational when it returns true.
+    """Emit `predicate_is_real(name)` so smt.rs picks Real vs Int for each
+    predicate-subject binding. Without this, axioms that promote to Real
+    (because a sibling subexpression contains a float literal) reference
+    Z3 symbols of a different sort than the value-binding smt.rs emits,
+    silently leaving predicates unbound and the solver free to pick
+    arbitrary values (the sprint-5 doctored-fixture :sat regression).
     """
     import re
     real_names: set[str] = set()
@@ -114,10 +111,12 @@ def _emit_predicate_sort_helper(body: str) -> str:
         "/// a constraint subtree to Real whenever any float literal appears\n"
         "/// anywhere in it; smt.rs uses this to keep value-bindings in the\n"
         "/// same Z3 sort as the axioms reference.\n"
+        "#[allow(dead_code)]\n"
         "pub fn predicate_is_real(name: &str) -> bool {\n"
         f"{body_block}\n"
         "}\n"
         "\n#[cfg(not(feature = \"smt\"))]\n"
+        "#[allow(dead_code)]\n"
         "pub fn predicate_is_real(_name: &str) -> bool {\n"
         "    false\n"
         "}\n"
@@ -130,8 +129,23 @@ def generate_axioms_source(constraints: list[dict]) -> str:
     Each dict is a constraint entry as written by emit-constraints-edn
     in booklogic.cljs.tmpl (read back via _io.read_edn_file). Required
     keys: :id :backend :assert :on-unsat. Optional: :tolerance :track.
+
+    Emits the partitioned axiom surface introduced in
+    `tier4-solver-partitioning` (REQ-PERF-040..043):
+
+    - `axioms_for_subject(solver, subject)`: assert constraints whose
+      :assert references exactly one subject identifier.
+    - `axioms_shared(solver)`: assert constraints whose :assert
+      references two or more distinct subject identifiers (cross-subject).
+    - `axioms_subjects()`: enumerate every subject name that has at
+      least one per-subject constraint, so `smt::check_all` can iterate
+      partitions deterministically.
+    - `assert_axioms(solver)`: backward-compat aggregator; calls
+      `axioms_for_subject` for every known subject plus `axioms_shared`.
     """
-    body_lines: list[str] = []
+    per_subject_blocks: dict[str, list[str]] = {}
+    shared_blocks: list[str] = []
+    all_body_for_sort: list[str] = []
     for c in constraints:
         _require(c, "id")
         _require(c, "backend")
@@ -147,10 +161,196 @@ def generate_axioms_source(constraints: list[dict]) -> str:
         if backend != Keyword("z3"):
             # :egg and :cozo constraints flow through other backends.
             continue
-        body_lines.append(_emit_z3_block(c))
-    body = "\n".join(body_lines) if body_lines else "    // no z3 constraints declared\n"
-    sort_helper = _emit_predicate_sort_helper(body)
-    return HEADER + body + FOOTER + sort_helper
+        block = _emit_z3_block(c)
+        all_body_for_sort.append(block)
+        # Collect every distinct subject identifier referenced inside the
+        # :assert form. >1 distinct subject => cross-subject, lands in
+        # axioms_shared (REQ-PERF-043). Exactly 1 => per-subject bucket.
+        # 0 (e.g. a pure-literal assert) => goes into shared as well so it
+        # still runs unconditionally.
+        subjects = _collect_subjects(c[Keyword("assert")])
+        if len(subjects) == 1:
+            (subject,) = subjects
+            per_subject_blocks.setdefault(subject, []).append(block)
+        else:
+            shared_blocks.append(block)
+
+    body_for_sort = "\n".join(all_body_for_sort) if all_body_for_sort \
+        else "    // no z3 constraints declared\n"
+    sort_helper = _emit_predicate_sort_helper(body_for_sort)
+
+    return (
+        HEADER
+        + _emit_axioms_for_subject(per_subject_blocks)
+        + _emit_axioms_shared(shared_blocks)
+        + _emit_axioms_subjects(sorted(per_subject_blocks.keys()))
+        + _emit_assert_axioms_aggregator(sorted(per_subject_blocks.keys()))
+        + sort_helper
+    )
+
+
+def _emit_axioms_for_subject(per_subject_blocks: dict[str, list[str]]) -> str:
+    """Emit `pub fn axioms_for_subject(solver, subject)` as a match over
+    subject names. Each arm asserts that subject's constraints; the
+    default arm is a no-op so an unknown subject simply contributes
+    nothing (the partition still gets the per-subject timeout +
+    `solver.check()`).
+    """
+    out = (
+        "#[cfg(feature = \"smt\")]\n"
+        "/// Assert every z3 constraint whose `:assert` references exactly\n"
+        "/// the given `subject`. Cross-subject constraints are NOT asserted\n"
+        "/// here; they live in `axioms_shared`. Unknown subjects are a\n"
+        "/// no-op so the partition still runs `solver.check()` cleanly.\n"
+        "pub fn axioms_for_subject(solver: &Solver, subject: &str) {\n"
+        "    match subject {\n"
+    )
+    for subject in sorted(per_subject_blocks.keys()):
+        out += f'        "{subject}" => {{\n'
+        for block in per_subject_blocks[subject]:
+            # Re-indent each 4-space-indented block by +4 to nest under
+            # the match arm.
+            for line in block.splitlines():
+                if line:
+                    out += "    " + line + "\n"
+                else:
+                    out += "\n"
+        out += "        }\n"
+    out += (
+        "        _ => {\n"
+        "            let _ = solver;\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn axioms_for_subject(_solver: &(), _subject: &str) {\n"
+        "    // No-op: built without smt feature.\n"
+        "}\n"
+        "\n"
+    )
+    return out
+
+
+def _emit_axioms_shared(shared_blocks: list[str]) -> str:
+    """Emit `pub fn axioms_shared(solver)` covering every constraint that
+    walks more than one subject. Runs once, serially, after every
+    per-subject partition has completed.
+    """
+    out = (
+        "#[cfg(feature = \"smt\")]\n"
+        "/// Assert every z3 constraint whose `:assert` references two or\n"
+        "/// more distinct subjects (cross-subject constraints,\n"
+        "/// REQ-PERF-043). Also covers constraints with no subject\n"
+        "/// reference (pure-literal asserts) so those still run\n"
+        "/// unconditionally.\n"
+        "pub fn axioms_shared(solver: &Solver) {\n"
+    )
+    if not shared_blocks:
+        out += "    let _ = solver;\n"
+    else:
+        for block in shared_blocks:
+            out += block
+            out += "\n"
+    out += (
+        "}\n"
+        "\n"
+        "#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn axioms_shared(_solver: &()) {\n"
+        "    // No-op: built without smt feature.\n"
+        "}\n"
+        "\n"
+    )
+    return out
+
+
+def _emit_axioms_subjects(subjects: list[str]) -> str:
+    """Emit `pub fn axioms_subjects() -> &'static [&'static str]` so
+    `smt::check_all` can iterate every subject that has at least one
+    declared constraint without re-parsing the codegen source.
+    """
+    arms = ", ".join(f'"{s}"' for s in subjects)
+    body = f"&[{arms}]" if subjects else "&[]"
+    return (
+        "/// Enumerate every subject identifier (canonical form, e.g.\n"
+        "/// `\"Bermuda\"` or `\"s\"`) that has at least one declared\n"
+        "/// constraint. `smt::check_all` iterates this list to build\n"
+        "/// per-subject partitions deterministically.\n"
+        "pub fn axioms_subjects() -> &'static [&'static str] {\n"
+        f"    {body}\n"
+        "}\n"
+        "\n"
+    )
+
+
+def _emit_assert_axioms_aggregator(subjects: list[str]) -> str:
+    """Emit the legacy `assert_axioms(solver)` entry point so callers
+    written before the partition refactor still work. It simply calls
+    every per-subject assertion plus the shared one.
+    """
+    out = (
+        "#[cfg(feature = \"smt\")]\n"
+        "/// Backward-compatible aggregator. Asserts every per-subject\n"
+        "/// constraint and the shared bucket on a single solver. New\n"
+        "/// callers should prefer `axioms_for_subject` + `axioms_shared`\n"
+        "/// so the timeout and unknown blast-radius stays per-subject.\n"
+        "#[allow(dead_code)]\n"
+        "pub fn assert_axioms(solver: &Solver) {\n"
+    )
+    for s in subjects:
+        out += f'    axioms_for_subject(solver, "{s}");\n'
+    out += (
+        "    axioms_shared(solver);\n"
+        "}\n"
+        "\n"
+        "#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn assert_axioms(_solver: &()) {\n"
+        "    // No-op: built without smt feature.\n"
+        "}\n"
+    )
+    return out
+
+
+def _collect_subjects(assert_form: Any) -> set[str]:
+    """Walk the :assert sexp and return every distinct subject keyword
+    that appears as the second element of a `(:predicate :Subject ...)`
+    or `(:predicate ?var ...)` shape.
+
+    The subject identifier is normalised through the canonical-form
+    rules: a leading `:` or `?` is stripped so the returned string
+    matches the keys used in `axioms_for_subject`'s match.
+    """
+    if isinstance(assert_form, str):
+        from scripts._edn_reader import read_edn
+        assert_form = read_edn(assert_form)
+    out: set[str] = set()
+    _walk_subjects(assert_form, out)
+    return out
+
+
+def _walk_subjects(node: Any, out: set[str]) -> None:
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
+        head = node[0]
+        if isinstance(head, Keyword) and len(node) >= 2:
+            sub = node[1]
+            if isinstance(sub, Keyword):
+                out.add(sub.name)
+            elif isinstance(sub, Symbol):
+                # Symbol `?s` arrives with the leading `?` already
+                # stripped by the EDN reader; canonical_var_name does the
+                # same stripping for `:` so they line up.
+                out.add(sub.name.lstrip(":?"))
+            elif isinstance(sub, str) and sub.startswith(("?", ":")):
+                out.add(sub.lstrip(":?"))
+            elif isinstance(sub, str):
+                out.add(sub)
+            # walk remaining children too — a constraint may have nested
+            # (:predicate :Subject) shapes deeper in the tree.
+            for child in list(node)[2:]:
+                _walk_subjects(child, out)
+            return
+        for child in node:
+            _walk_subjects(child, out)
 
 
 def _require(c: dict, key: str) -> None:
@@ -166,7 +366,7 @@ def _emit_z3_block(c: dict) -> str:
     if isinstance(assert_, str):
         from scripts._edn_reader import read_edn
         assert_ = read_edn(assert_)
-    if not isinstance(assert_, list) or len(assert_) < 3:
+    if not isinstance(assert_, (list, EdnList, EdnVector)) or len(assert_) < 3:
         raise CodegenError(f"constraint {cid!r}: malformed assert form: {assert_!r}")
     head_node = assert_[0]
     head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
@@ -175,8 +375,8 @@ def _emit_z3_block(c: dict) -> str:
         # Approx-equality is numeric. If anything in either subtree is a
         # float literal, the whole expression must be Real-typed so that
         # `.sub()` matches across operands.
-        # `approx=` is the EDN-safe spelling used in BookLogic source files;
-        # `~=` is accepted from intermediate forms or string-encoded assert forms.
+        # `approx=` is the EDN-safe spelling; `~=` is accepted from
+        # intermediate forms or string-encoded assert forms.
         z3_type = "Real" if (_subtree_has_float(lhs_raw) or _subtree_has_float(rhs_raw)) else "Int"
         lhs = _emit_expr_typed(lhs_raw, z3_type)
         rhs = _emit_expr_typed(rhs_raw, z3_type)
@@ -188,8 +388,7 @@ def _emit_z3_block(c: dict) -> str:
         rhs = _emit_expr_typed(rhs_raw, z3_type)
         return _emit_equality_block(cid, lhs, rhs)
     raise CodegenError(
-        f"constraint {cid!r}: assert head {head!r} not supported in v0.4 "
-        f"(use '=' or 'approx=')"
+        f"constraint {cid!r}: assert head {head!r} not supported in v0.4 (use '=' or 'approx=')"
     )
 
 
@@ -228,7 +427,7 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
     if isinstance(node, str):
         escaped = node.replace('"', '\\"')
         return f'Z3String::from_str("{escaped}").expect("valid utf-8")'
-    if isinstance(node, list) and node:
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
         head = node[0]
         if isinstance(head, Keyword):
             sub = node[1] if len(node) >= 2 else None
@@ -248,7 +447,7 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
             return f'Int::new_const("{var_name}")'
         head_str = str(head)
         if head_str in {"*", "+", "-"} and len(node) >= 3:
-            children = [_emit_expr_typed(n, z3_type) for n in node[1:]]
+            children = [_emit_expr_typed(n, z3_type) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             return _left_fold(method, children)
     return _emit_expr(node)
@@ -260,7 +459,7 @@ def _subtree_has_float(node: Any) -> bool:
         return False
     if isinstance(node, float):
         return True
-    if isinstance(node, list):
+    if isinstance(node, (list, EdnList, EdnVector)):
         return any(_subtree_has_float(child) for child in node)
     return False
 
@@ -276,7 +475,7 @@ def _parse_assert(assert_form: Any) -> tuple[str, str, str]:
     if isinstance(assert_form, str):
         from scripts._edn_reader import read_edn
         assert_form = read_edn(assert_form)
-    if not isinstance(assert_form, list) or len(assert_form) < 3:
+    if not isinstance(assert_form, (list, EdnList, EdnVector)) or len(assert_form) < 3:
         raise CodegenError(f"malformed assert form: {assert_form!r}")
     head = assert_form[0]
     head_str = head.name if isinstance(head, Keyword) else str(head)
@@ -304,7 +503,7 @@ def _emit_expr(node: Any) -> str:
     if isinstance(node, float):
         num, den = _rational_approx(node)
         return f"Real::from_rational({num}, {den})"
-    if isinstance(node, list) and node:
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
         head = node[0]
         # (:predicate ...)
         if isinstance(head, Keyword):
@@ -320,7 +519,7 @@ def _emit_expr(node: Any) -> str:
         # (* a b ...) / (+ ...) / (- a b)
         head_str = str(head)
         if head_str in {"*", "+", "-"} and len(node) >= 3:
-            children = [_emit_expr(n) for n in node[1:]]
+            children = [_emit_expr(n) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             # Z3 Rust API uses pairwise; nest left-fold.
             return _left_fold(method, children)
@@ -357,22 +556,9 @@ def _emit_equality_block(cid: str, lhs: str, rhs: str) -> str:
 def _emit_approx_block(cid: str, lhs: str, rhs: str, tolerance: float | None) -> str:
     """Emit |LHS - RHS| <= |RHS| * tolerance — relative approx-equality.
 
-    Z3 has no abs on Int/Real directly. We encode |diff| <= |rhs|·eps
-    as the conjunction of two linear inequalities. Crucially the bound
-    scales with rhs so a value like π=780202.5 Pa with eps=0.03 yields
-    a ±23 kPa window (the intended physical-measurement tolerance),
-    not a literal ±0.03 absolute window that no real lab measurement
-    could possibly meet.
-
-    Encoding:
-        diff = lhs - rhs
-        diff <= rhs * eps     when rhs >= 0
-        diff <= -rhs * eps    when rhs < 0
-        -diff <= rhs * eps    when rhs >= 0
-        -diff <= -rhs * eps   when rhs < 0
-    Combined via (diff * rhs <= rhs * rhs * eps) AND
-                  (-diff * rhs <= rhs * rhs * eps) to avoid sign cases,
-    but Z3 prefers the more explicit form below.
+    Physical-measurement fixtures like π=780202.5 Pa with eps=0.03 need a
+    ±23 kPa relative window, not a literal ±0.03 absolute one. The old
+    absolute encoding silently rejected every realistic measurement.
     """
     if tolerance is None:
         raise CodegenError(f"constraint {cid!r}: ~= without :tolerance ε")
@@ -385,15 +571,8 @@ def _emit_approx_block(cid: str, lhs: str, rhs: str, tolerance: float | None) ->
         f"        let diff = lhs.sub(&rhs);\n"
         f"        let eps  = Real::from_rational({eps_num}, {eps_den});\n"
         f"        let neg_eps = Real::from_rational(-{eps_num}, {eps_den});\n"
-        f"        // |diff| <= |rhs| * eps, written without abs() as a\n"
-        f"        // sign-aware pair of products. (rhs * eps) is the\n"
-        f"        // positive-rhs bound; we add (rhs * neg_eps) so the\n"
-        f"        // case where rhs is negative collapses correctly.\n"
         f"        let bound_pos = rhs.clone().mul(&eps);\n"
         f"        let bound_neg = rhs.clone().mul(&neg_eps);\n"
-        f"        // diff <= max(bound_pos, bound_neg) AND diff >= min(...).\n"
-        f"        // Encoded as: (diff <= bound_pos OR diff <= bound_neg) but\n"
-        f"        // since Z3 normalises, the conjunction below is sufficient.\n"
         f"        let upper_pos = diff.le(&bound_pos);\n"
         f"        let upper_neg = diff.le(&bound_neg);\n"
         f"        let lower_pos = bound_neg.le(&diff);\n"

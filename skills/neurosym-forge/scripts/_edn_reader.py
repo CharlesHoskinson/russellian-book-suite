@@ -74,88 +74,29 @@ class Symbol:
         return hash(("Symbol", self.namespace, self.name))
 
 
-class EdnList:
+class EdnList(list):
     """An EDN list, written as `(a b c ...)`. Distinct from EdnVector.
 
     REQ-EDN-051: the paren/bracket distinction is preserved through
     read_edn -> write_edn -> read_edn.
 
-    Equality is item-wise and tolerates comparison against a plain Python
-    list so that pre-existing callers asserting `read_edn(...) == [...]`
-    keep working. To distinguish list vs vector, use ``isinstance``.
+    Subclasses `list` so `isinstance(x, list)` keeps working for legacy
+    callers; use `isinstance(x, EdnList)` to distinguish from a vector
+    or a plain Python list.
     """
-    __slots__ = ("items",)
-    def __init__(self, items=None):
-        self.items = list(items) if items is not None else []
-    def __iter__(self): return iter(self.items)
-    def __len__(self): return len(self.items)
-    def __getitem__(self, i): return self.items[i]
-    def __setitem__(self, i, v): self.items[i] = v
-    def __delitem__(self, i): del self.items[i]
-    def __contains__(self, x): return x in self.items
-    def __bool__(self): return bool(self.items)
-    def __reversed__(self): return reversed(self.items)
-    def append(self, x): self.items.append(x)
-    def extend(self, xs): self.items.extend(xs)
-    def insert(self, i, x): self.items.insert(i, x)
-    def pop(self, *args): return self.items.pop(*args)
-    def remove(self, x): self.items.remove(x)
-    def clear(self): self.items.clear()
-    def index(self, *args, **kw): return self.items.index(*args, **kw)
-    def count(self, x): return self.items.count(x)
-    def __eq__(self, other):
-        if isinstance(other, EdnList):
-            return self.items == other.items
-        if isinstance(other, list):
-            return self.items == other
-        return NotImplemented
-    def __ne__(self, other):
-        eq = self.__eq__(other)
-        if eq is NotImplemented:
-            return eq
-        return not eq
-    __hash__ = None  # type: ignore[assignment]
-    def __repr__(self): return f"EdnList({self.items!r})"
+    def __repr__(self) -> str:
+        return f"EdnList({list.__repr__(self)})"
 
 
-class EdnVector:
+class EdnVector(list):
     """An EDN vector, written as `[a b c ...]`. Distinct from EdnList.
 
-    Equality tolerates a plain Python list (same item-wise) for caller
-    compatibility; use ``isinstance`` to distinguish from ``EdnList``.
+    Subclasses `list` so `isinstance(x, list)` keeps working for legacy
+    callers; use `isinstance(x, EdnVector)` to distinguish from a list
+    or a plain Python list.
     """
-    __slots__ = ("items",)
-    def __init__(self, items=None):
-        self.items = list(items) if items is not None else []
-    def __iter__(self): return iter(self.items)
-    def __len__(self): return len(self.items)
-    def __getitem__(self, i): return self.items[i]
-    def __setitem__(self, i, v): self.items[i] = v
-    def __delitem__(self, i): del self.items[i]
-    def __contains__(self, x): return x in self.items
-    def __bool__(self): return bool(self.items)
-    def __reversed__(self): return reversed(self.items)
-    def append(self, x): self.items.append(x)
-    def extend(self, xs): self.items.extend(xs)
-    def insert(self, i, x): self.items.insert(i, x)
-    def pop(self, *args): return self.items.pop(*args)
-    def remove(self, x): self.items.remove(x)
-    def clear(self): self.items.clear()
-    def index(self, *args, **kw): return self.items.index(*args, **kw)
-    def count(self, x): return self.items.count(x)
-    def __eq__(self, other):
-        if isinstance(other, EdnVector):
-            return self.items == other.items
-        if isinstance(other, list):
-            return self.items == other
-        return NotImplemented
-    def __ne__(self, other):
-        eq = self.__eq__(other)
-        if eq is NotImplemented:
-            return eq
-        return not eq
-    __hash__ = None  # type: ignore[assignment]
-    def __repr__(self): return f"EdnVector({self.items!r})"
+    def __repr__(self) -> str:
+        return f"EdnVector({list.__repr__(self)})"
 
 
 def _parse_inst(s: str) -> dt.datetime:

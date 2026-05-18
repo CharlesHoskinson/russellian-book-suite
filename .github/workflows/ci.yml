@@ -1,0 +1,155 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write   # for the ci-budget job to comment
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  setup-nix:
+    name: nix shell warm-up
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+        with:
+          extra-conf: |
+            trusted-users = root runner
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - name: warm shell
+        run: nix develop -c rustc --version
+
+  lint:
+    name: lint
+    needs: setup-nix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - run: nix develop -c make lint
+
+  scaffold-bake:
+    name: scaffold-bake
+    needs: setup-nix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            verifiers/bermuda/rust-verifier
+            verifiers/osmotic_pressure/rust-verifier
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make scaffold-bake
+
+  regression:
+    name: regression (sprint-5)
+    needs: setup-nix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: verifiers/bermuda/rust-verifier }
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make regression
+
+  verifier-bermuda:
+    name: verifier (bermuda)
+    needs: setup-nix
+    runs-on: ubuntu-24.04
+    if: |
+      contains(github.event.head_commit.modified, 'verifiers/bermuda/') ||
+      contains(github.event.head_commit.modified, 'skills/neurosym-forge/') ||
+      contains(github.event.head_commit.modified, 'flake.nix') ||
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: verifiers/bermuda/rust-verifier }
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make smoke-bermuda
+
+  verifier-osmotic:
+    name: verifier (osmotic-pressure)
+    needs: setup-nix
+    runs-on: ubuntu-24.04
+    if: |
+      contains(github.event.head_commit.modified, 'verifiers/osmotic_pressure/') ||
+      contains(github.event.head_commit.modified, 'skills/neurosym-forge/') ||
+      contains(github.event.head_commit.modified, 'flake.nix') ||
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: verifiers/osmotic_pressure/rust-verifier }
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make smoke-osmotic
+
+  python-skill-matrix:
+    name: python-skill (${{ matrix.skill }})
+    needs: setup-nix
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        skill:
+          - book-qa
+          - book-thesis
+          - book-knowledge
+          - book-compose
+          - book-review
+          - russellian-style
+          - review-conductor
+          - neurosym-forge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - run: |
+          nix develop -c bash -c "
+            cd skills/${{ matrix.skill }}
+            pip install -e '.[ci]'
+            pytest -q
+          "
+
+  required:
+    name: ci required ✓
+    needs:
+      - lint
+      - scaffold-bake
+      - regression
+      - verifier-bermuda
+      - verifier-osmotic
+      - python-skill-matrix
+    runs-on: ubuntu-24.04
+    if: always()
+    steps:
+      - name: aggregate
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] ||
+             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "one or more required jobs failed"
+            exit 1
+          fi

@@ -229,9 +229,15 @@
 ;; ----- defconstraint expansion -----
 
 (defn- assert-form-approx?
-  "True iff the :assert form uses the ~= (approximate-equality) head."
+  "True iff the :assert form uses the approx= (approximate-equality) head.
+   In BookLogic source files the operator is written as `approx=` (a valid
+   EDN symbol); `~=` is accepted as an alias for back-compat. Patched here
+   during the third-verifier eval (Phase M); the scaffold template was out
+   of sync with verifiers/osmotic_pressure/. See
+   docs/eval/2026-05-18-third-verifier-build-log.md gap #4."
   [assert-form]
-  (and (sequential? assert-form) (= '~= (first assert-form))))
+  (and (sequential? assert-form)
+       (contains? #{'approx= '~=} (first assert-form))))
 
 (defn- extract-tolerance
   "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.

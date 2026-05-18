@@ -26,8 +26,8 @@ use std::ops::{Add as _, Mul as _, Sub as _};
 pub fn assert_axioms(solver: &Solver) {
     // constraint C001-herd-immunity (approx-equality, relative tolerance 0.06)
     {
-        let lhs = Real::new_const("vaccination-coverage_p").add(&Real::from_rational(0, 1000000));
-        let rhs = Real::new_const("herd-immunity-threshold_d");
+        let lhs = Real::new_const("vaccination-coverage_p").add(&Real::from_rational(500000, 1000000));
+        let rhs = Real::new_const("herd-immunity-threshold_d").add(&Real::from_rational(500000, 1000000));
         let diff = lhs.sub(&rhs);
         let eps  = Real::from_rational(60000, 1000000);
         let neg_eps = Real::from_rational(-60000, 1000000);
@@ -47,8 +47,8 @@ pub fn assert_axioms(solver: &Solver) {
 
     // constraint C002-threshold-formula (approx-equality, relative tolerance 0.05)
     {
-        let lhs = Real::new_const("herd-immunity-threshold_d").mul(&Real::new_const("basic-reproduction-number_d"));
-        let rhs = Real::new_const("basic-reproduction-number_d").sub(&Real::from_rational(1000000, 1000000));
+        let lhs = Real::new_const("herd-immunity-threshold_d").mul(&Real::new_const("basic-reproduction-number_d")).add(&Real::from_rational(500000, 1000000));
+        let rhs = Real::new_const("basic-reproduction-number_d").sub(&Real::from_rational(1, 1)).add(&Real::from_rational(500000, 1000000));
         let diff = lhs.sub(&rhs);
         let eps  = Real::from_rational(50000, 1000000);
         let neg_eps = Real::from_rational(-50000, 1000000);

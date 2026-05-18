@@ -13,7 +13,7 @@
                                         :track :claim/id
                                         :defect :D21
                                         :severity :critical
-                                        :message "herd-immunity threshold inconsistent with R0"
+                                        :message "herd-immunity threshold inconsistent with R0 (formula H = 1 - 1/R0)"
                                        }
               }
 }

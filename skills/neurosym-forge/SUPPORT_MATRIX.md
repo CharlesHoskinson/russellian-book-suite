@@ -14,9 +14,9 @@
 | `defrule`                    | wired        | none                | egg          | stub   |
 | `defconstraint :backend :z3` | wired        | `codegen_axioms.py` | Z3           | wired  |
 | `defconstraint :backend :egg`| wired        | none (silent drop)  | egg          | DROP   |
-| `defconstraint :backend :cozo` | wired      | none (silent drop)  | Cozo         | DROP   |
-| `defquery`                   | wired        | `codegen_kg.py`     | Cozo         | wired-builder |
-| `defremedy`                  | wired        | none                | n/a          | external |
+| `defconstraint :backend :cozo` | wired      | `codegen_axioms.py` | Cozo         | wired  |
+| `defquery`                   | wired        | `codegen_kg.py`     | Cozo         | wired  |
+| `defremedy`                  | wired        | `verdict_to_qa.py`  | n/a          | wired (query-bound) |
 
 ## Status legend
 
@@ -31,21 +31,26 @@ stub to live (REQ-EQSAT-* — not yet authored). Authors writing `defrule`
 forms today should not expect them to influence the verdict.
 
 **DROP** — The form is recognised AND in `SUPPORTED_BACKENDS` AND passes the
-codegen validation gate, but `codegen_axioms.py:138` silently `continue`s on
-non-`:z3` backends. The constraint is omitted from the Z3 input. The verdict
-is `:sat` for the wrong reason (the constraint that would have made it `:unsat`
-was never asserted). Tier 4 of the framework roadmap promotes egg/cozo
+codegen validation gate, but the dispatch loop in `codegen_axioms.py`
+silently `continue`s on the unsupported branch. The constraint is omitted
+from every solver's input. The verdict is `:sat` for the wrong reason (the
+constraint that would have made it `:unsat` was never asserted). After
+Tier 3 only `:egg` constraints remain DROP'd; `:cozo` is now routed to
+`kg::evaluate_constraint`. Tier 4 of the framework roadmap promotes `:egg`
 constraints to first-class.
 
-**wired-builder** — Codegen produces output but it's not consumed by
-`npm run build` by default. `defquery` forms compile via `codegen_kg.py` to
-Cozo-compatible rule sources, but the verifier's `npm run build` doesn't
-run the queries during smoke. External consumers (book-qa) wire the queries.
+**external** — Remedies whose `:when` clause does NOT reference a
+`defquery` still flow through the existing book-qa hook
+(`propose_writeback.py`). The verdict surface does not gate them; they
+are advisory actions read after `:unsat`. Remedies whose `:when` DOES
+reference a defquery flow through the Tier 3 query-bound path (see
+`wired (query-bound)` below).
 
-**external** — The form compiles to a declarative entry in an intermediate
-EDN file consumed exclusively by an outside-the-verifier component
-(`book-qa`). `defremedy` outputs do not change the verifier's verdict;
-they're a proposed action surface that book-qa reads on `:unsat`.
+**wired (query-bound)** — A `defremedy` whose `:when {:query :Q###}`
+references a `defquery` name receives the query's row count bound into
+its `:propose` action surface by `verdict_to_qa.py`. The remedy entry
+in `verification-defects.json` carries `query_bound=true` and the
+materialised row count.
 
 ## Why this exists
 
@@ -58,9 +63,13 @@ had been dropped. SUPPORT_MATRIX.md + the drift lint
 
 ## Roadmap pointers
 
-- Tier 3: promote egg from stub → live (eqsat-driven canonicalisation
-  consumed by codegen_axioms before Z3 sees the formula)
-- Tier 4: promote `:egg` / `:cozo` constraint backends from DROP → wired
-  (separate solver invocations integrated into the verdict)
-- Tier 2: stop the silent JS-to-Python regex converter in `_to_python_regex`
-  — surface JS-style `(?<v>)` as a hard error
+- Tier 3 (this change): promote `defquery` from wired-builder → wired,
+  `defconstraint :backend :cozo` from DROP → wired, and query-bound
+  `defremedy` from external → wired. Tracked in
+  `openspec/changes/tier3-cozo-runtime/`.
+- Tier 3 follow-on: promote egg from stub → live (eqsat-driven
+  canonicalisation consumed by codegen_axioms before Z3 sees the formula).
+- Tier 4: promote `:egg` constraint backends from DROP → wired (separate
+  solver invocations integrated into the verdict).
+- Tier 2: stop the silent JS-to-Python regex converter in
+  `_to_python_regex` — surface JS-style `(?<v>)` as a hard error.

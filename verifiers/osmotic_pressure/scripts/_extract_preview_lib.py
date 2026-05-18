@@ -32,19 +32,18 @@ def run(claims_jsonl: Path, predicates_edn: Path,
         threshold: float = 0.50, dry_run: bool = False,
         no_fail_gate: bool = False, out: Any = sys.stdout) -> int:
     """Return exit code: 0 on under-threshold, 1 on over-threshold."""
-    from scripts.ingest_ledger import ingest
-    work_dir = Path(claims_jsonl).resolve().parent.parent / "work"
-    work = (Path("/tmp") if dry_run else work_dir) / "_extract_preview_atoms.edn"
-    atoms = ingest(claims_jsonl, predicates_edn, work, return_atoms=True)
     if dry_run:
-        try:
-            print(work.read_text(encoding="utf-8"), file=out)
-        except FileNotFoundError:
-            pass
-        try:
-            work.unlink()
-        except FileNotFoundError:
-            pass
+        from scripts.ingest_ledger import compute_atoms
+        from scripts._edn_writer import write_edn
+        atoms = compute_atoms(claims_jsonl, predicates_edn)
+        # Print EDN that would have been written, no filesystem write
+        print(write_edn({_kw("version"): 1, _kw("atoms"): atoms},
+                        pretty=True), file=out)
+    else:
+        from scripts.ingest_ledger import ingest
+        work_dir = Path(claims_jsonl).resolve().parent.parent / "work"
+        work = work_dir / "_extract_preview_atoms.edn"
+        atoms = ingest(claims_jsonl, predicates_edn, work, return_atoms=True)
 
     by_pred: Counter[str] = Counter()
     sample: dict[str, Any] = {}

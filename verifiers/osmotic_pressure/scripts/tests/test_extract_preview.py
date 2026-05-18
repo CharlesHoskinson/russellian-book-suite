@@ -49,24 +49,29 @@ def test_threshold_exit_on_high_opaque(tmp_path):
     assert "exceeds threshold" in result.stdout
 
 
-def test_dry_run_does_not_write_persistent_file(tmp_path):
-    """REQ-INGEST-042: --dry-run does not leave an intermediate atoms file on disk."""
+def test_dry_run_prints_edn_without_touching_filesystem(tmp_path):
+    """REQ-INGEST-042: --dry-run prints the EDN to stdout and does not write any file."""
+    import os, json
     claims = PROJECT_ROOT / "fixtures" / "claims_clean.jsonl"
     preds  = PROJECT_ROOT / "rules" / "predicates.edn"
-    # Note where the preview script writes its scratch file
-    scratch = PROJECT_ROOT / "work" / "_extract_preview_atoms.edn"
-    pre_existed = scratch.exists()
-    pre_mtime = scratch.stat().st_mtime if pre_existed else None
+    work_dir = PROJECT_ROOT / "work"
+    # Snapshot the work/ dir contents and mtimes before the run
+    before = {p.name: p.stat().st_mtime for p in work_dir.iterdir()} if work_dir.exists() else {}
     result = subprocess.run(
         [sys.executable, str(PROJECT_ROOT / "scripts" / "extract_preview.py"),
          "--claims", str(claims), "--predicates", str(preds),
          "--dry-run", "--no-fail-gate"],
         capture_output=True, text=True, check=False,
     )
-    # After dry-run, scratch must either not exist, or be unchanged from before
-    if scratch.exists():
-        assert pre_existed and scratch.stat().st_mtime == pre_mtime, \
-            "dry-run wrote a persistent scratch atoms file"
+    # (a) No filesystem write to work/
+    after = {p.name: p.stat().st_mtime for p in work_dir.iterdir()} if work_dir.exists() else {}
+    assert before == after, f"dry-run modified work/: before={before} after={after}"
+    # (b) The would-be EDN is on stdout — must contain :version and :atoms keys
+    assert ":version" in result.stdout, "dry-run did not print EDN :version key"
+    assert ":atoms" in result.stdout, "dry-run did not print EDN :atoms vector"
+    # And the human summary + JSON tail still appear
+    assert "Predicate" in result.stdout
+    assert "JSON:" in result.stdout
 
 
 def test_json_tail_parseable():

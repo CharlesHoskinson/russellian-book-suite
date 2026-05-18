@@ -18,7 +18,7 @@ use crate::ir::{Atom, ClaimId, Error, Verdict};
 #[cfg(feature = "smt")]
 use z3::{
     ast::{Bool, Int, Real, String as Z3String},
-    SatResult, Solver,
+    Params, SatResult, Solver,
 };
 #[cfg(feature = "smt")]
 use std::str::FromStr as _;
@@ -28,6 +28,18 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     use edn_rs::Edn;
 
     let solver = Solver::new();
+
+    // Z3 solver timeout. Default 30,000 ms; override via
+    // VERIFIER_SOLVER_TIMEOUT_MS env var. Without a timeout an
+    // undecidable or hard QF_NRA instance hangs the verifier process
+    // indefinitely (REQ-VERIFIER-BUILD-040, REQ-VERIFIER-BUILD-041).
+    let timeout_ms: u32 = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30_000);
+    let mut params = Params::new();
+    params.set_u32("timeout", timeout_ms);
+    solver.set_params(&params);
 
     // Project-specific axioms (default no-op).
     crate::axioms::assert_axioms(&solver);

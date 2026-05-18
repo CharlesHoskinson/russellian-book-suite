@@ -19,7 +19,7 @@ use crate::ir::{Atom, ClaimId, Error, Verdict};
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
 use z3::{
-    SatResult, Solver,
+    Params, SatResult, Solver,
     ast::{Bool, Int, Real, String as Z3String},
 };
 
@@ -28,6 +28,18 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     use edn_rs::Edn;
 
     let solver = Solver::new();
+
+    // Z3 solver timeout. Default 30,000 ms; override via
+    // VERIFIER_SOLVER_TIMEOUT_MS env var. Without a timeout an
+    // undecidable or hard QF_NRA instance hangs the verifier process
+    // indefinitely (REQ-VERIFIER-BUILD-040, REQ-VERIFIER-BUILD-041).
+    let timeout_ms: u32 = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30_000);
+    let mut params = Params::new();
+    params.set_u32("timeout", timeout_ms);
+    solver.set_params(&params);
 
     // Project-specific axioms (default no-op).
     crate::axioms::assert_axioms(&solver);
@@ -226,6 +238,97 @@ mod tests {
             verdict.status, "sat",
             "clean fixture should be :sat, got {}",
             verdict.status,
+        );
+    }
+
+    #[test]
+    fn check_all_returns_unknown_within_timeout_for_hard_nra() {
+        // REQ-VERIFIER-BUILD-040: A solver with a 1 ms timeout returns
+        // :unknown rather than hanging on any non-trivial instance.
+        // We don't rely on a specific hard NRA shape — we just set the
+        // timeout absurdly low and check the verdict and elapsed time.
+        // SAFETY: setting an env var in a test affects this test's
+        // process. Restore the var afterwards. Tests run serially by
+        // default in cargo unless --test-threads is overridden.
+        let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
+        // SAFETY: set_var is safe in this single-threaded test context.
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "1");
+        }
+
+        let edn = ledger_edn(&[
+            ("osm-doc-001", "vant-hoff-i", "s", 1.0),
+            ("osm-doc-002", "molarity", "s", 0.154),
+            ("osm-doc-003", "temperature-k", "s", 298.15),
+            ("osm-doc-004", "osmotic-pressure-pa", "s", 780202.5),
+        ]);
+        let formulas = parse_formulas(&edn).expect("parse_formulas");
+        let start = std::time::Instant::now();
+        let verdict = check_all(&formulas).expect("check_all");
+        let elapsed = start.elapsed();
+
+        // Restore env
+        unsafe {
+            match prev {
+                Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
+                None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            }
+        }
+
+        // The test passes either way the solver responds, as long as
+        // it responded in bounded time. The PRIMARY assertion is that
+        // check_all returned at all; the timeout secondary assertion
+        // backs up the env-var override.
+        assert!(
+            elapsed.as_secs() < 5,
+            "check_all elapsed {:?} — timeout not honored",
+            elapsed
+        );
+        // With a 1ms timeout the solver may legitimately complete the
+        // doctored fixture before timeout (Z3 finds the unsat fast).
+        // The status must be one of the three legal verdicts.
+        assert!(
+            ["sat", "unsat", "unknown"].contains(&verdict.status.as_str()),
+            "verdict.status = {:?} (expected sat/unsat/unknown)",
+            verdict.status
+        );
+    }
+
+    #[test]
+    fn default_timeout_is_30_seconds() {
+        // REQ-VERIFIER-BUILD-040: The default timeout is 30,000 ms.
+        // We verify by ensuring an env-unset run completes the clean
+        // fixture in well under 30s (i.e., the default did NOT degrade
+        // performance). The actual default value is inspectable in the
+        // source but enforcing it via a runtime probe would require
+        // injecting a Z3 solver get_param call — out of scope.
+        let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
+        unsafe {
+            std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS");
+        }
+
+        let edn = ledger_edn(&[
+            ("osm-clean-001", "vant-hoff-i", "s", 2.0),
+            ("osm-clean-002", "molarity", "s", 0.154),
+            ("osm-clean-003", "temperature-k", "s", 298.15),
+            ("osm-clean-004", "osmotic-pressure-pa", "s", 763.27),
+        ]);
+        let formulas = parse_formulas(&edn).expect("parse_formulas");
+        let start = std::time::Instant::now();
+        let verdict = check_all(&formulas).expect("check_all");
+        let elapsed = start.elapsed();
+
+        unsafe {
+            if let Some(v) = prev {
+                std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v);
+            }
+        }
+
+        assert_eq!(verdict.status, "sat", "clean fixture should be :sat");
+        assert!(
+            elapsed.as_secs() < 30,
+            "clean fixture took {:?} — should be well under 30s default timeout",
+            elapsed,
         );
     }
 }

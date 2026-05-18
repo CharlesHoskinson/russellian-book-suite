@@ -1,0 +1,6 @@
+{:id "osm-doc-005"
+ :kind :symbol
+ :sort :formula
+ :name :OPAQUE
+ :doc "Unmatched prose"
+ :confidence 0.0}

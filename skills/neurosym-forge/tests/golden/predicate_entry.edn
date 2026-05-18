@@ -1,0 +1,5 @@
+{:osmotic-pressure-pa {:patterns ["(?i)osmotic pressure\\s*=\\s*(?P<v>[0-9.]+)\\s*Pa"]
+                       :predicate :osmotic-pressure-pa
+                       :subject :s
+                       :value-kind :real
+                       :word-to-int {}}}

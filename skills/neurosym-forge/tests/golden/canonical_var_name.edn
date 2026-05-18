@@ -1,0 +1,10 @@
+;; Algorithm vectors: (predicate, subject) -> expected canonical Z3 var name.
+;; All three language implementations (CLJS, Python, Rust) must agree on
+;; the :want string for each row.
+[{:predicate :osmotic-pressure-pa  :subject :s         :want "osmotic-pressure-pa_s"}
+ {:predicate ":osmotic-pressure-pa" :subject ":s"      :want "osmotic-pressure-pa_s"}
+ {:predicate "?osmotic-pressure-pa" :subject "?s"      :want "osmotic-pressure-pa_s"}
+ {:predicate :vant-hoff-i           :subject :Bermuda  :want "vant-hoff-i_Bermuda"}
+ {:predicate "parishes-count"       :subject :Bermuda  :want "parishes-count_Bermuda"}
+ {:predicate "?p"                   :subject "?s"      :want "p_s"}
+ {:predicate :foo                   :subject :Bar      :want "foo_Bar"}]

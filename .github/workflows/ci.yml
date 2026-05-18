@@ -71,15 +71,16 @@ jobs:
       - uses: mozilla-actions/sccache-action@v0.0.7
       - run: nix develop -c make regression
 
+  # Verifier jobs intentionally always run. The original plan used
+  # `github.event.head_commit.modified` for per-job path filtering, but
+  # that field is null on pull_request events and causes the job to be
+  # silently skipped — branch-protection would then green-light verifier
+  # changes without ever running the smoke. Always-run is the safe gate;
+  # Nix cache + Swatinem make warm runs <2min anyway.
   verifier-bermuda:
     name: verifier (bermuda)
     needs: setup-nix
     runs-on: ubuntu-24.04
-    if: |
-      contains(github.event.head_commit.modified, 'verifiers/bermuda/') ||
-      contains(github.event.head_commit.modified, 'skills/neurosym-forge/') ||
-      contains(github.event.head_commit.modified, 'flake.nix') ||
-      github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v9
@@ -93,11 +94,7 @@ jobs:
     name: verifier (osmotic-pressure)
     needs: setup-nix
     runs-on: ubuntu-24.04
-    if: |
-      contains(github.event.head_commit.modified, 'verifiers/osmotic_pressure/') ||
-      contains(github.event.head_commit.modified, 'skills/neurosym-forge/') ||
-      contains(github.event.head_commit.modified, 'flake.nix') ||
-      github.event_name == 'push'
+    # Always run — see comment above verifier-bermuda for rationale.
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v9

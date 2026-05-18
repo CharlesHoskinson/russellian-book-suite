@@ -99,5 +99,22 @@ def _emit_string(s: str) -> str:
 
 
 def _emit_float(f: float) -> str:
-    # Use repr to round-trip; strip trailing 'e' suffix where Python emits scientific
-    return repr(f)
+    """Emit a float as EDN-readable text WITHOUT scientific notation.
+
+    edn-rs 0.19 does not parse scientific notation; falling back to a
+    fixed-point representation is mandatory for the Rust read side to
+    parse the value as Edn::Double rather than silently fall through to
+    Edn::Str. REQ-EDN-050.
+    """
+    from math import isfinite, isnan
+    if isnan(f) or not isfinite(f):
+        raise EdnWriteError(f"cannot emit non-finite float: {f!r}")
+    s = f"{f:.17g}"  # shortest round-trippable
+    if "e" in s.lower():
+        # Fall back to fixed-point. Use a generous 20 fractional digits;
+        # strip trailing zeros but keep the decimal point so EDN reads
+        # this as a Double rather than an Int.
+        s = f"{f:.20f}".rstrip("0").rstrip(".") or "0"
+    if "." not in s:
+        s += ".0"
+    return s

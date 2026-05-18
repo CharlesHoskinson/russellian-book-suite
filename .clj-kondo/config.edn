@@ -1,0 +1,17 @@
+;; Project-wide clj-kondo configuration.
+;;
+;; meander.epsilon uses pattern variables (?var, !var) that clj-kondo's
+;; static analysis can't resolve as ordinary symbols. Exclude meander's
+;; pattern-matching forms from the unresolved-symbol linter so the
+;; CLJS verifier `nl_to_fol.cljs` + `unify.cljs` lint cleanly. The forms
+;; themselves still get other lint checks (arity, etc.).
+{:linters
+ {:unresolved-symbol
+  {:exclude
+   [(meander.epsilon/search)
+    (meander.epsilon/match)
+    (meander.epsilon/find)
+    (meander.epsilon/rewrite)
+    (meander.epsilon/rewrites)
+    (meander.epsilon/breadth-first)
+    (meander.epsilon/zeta)]}}}

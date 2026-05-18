@@ -19,94 +19,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  setup-nix:
-    name: nix shell warm-up
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-        with:
-          extra-conf: |
-            trusted-users = root runner
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - name: warm shell
-        run: nix develop -c rustc --version
-
-  lint:
-    name: lint
-    needs: setup-nix
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - run: nix develop -c make lint
-
-  scaffold-bake:
-    name: scaffold-bake
-    needs: setup-nix
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            verifiers/bermuda/rust-verifier
-            verifiers/osmotic_pressure/rust-verifier
-      - uses: mozilla-actions/sccache-action@v0.0.7
-      - run: nix develop -c make scaffold-bake
-
-  regression:
-    name: regression (sprint-5)
-    needs: setup-nix
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - uses: Swatinem/rust-cache@v2
-        with: { workspaces: verifiers/bermuda/rust-verifier }
-      - uses: mozilla-actions/sccache-action@v0.0.7
-      - run: nix develop -c make regression
-
-  # Verifier jobs intentionally always run. The original plan used
-  # `github.event.head_commit.modified` for per-job path filtering, but
-  # that field is null on pull_request events and causes the job to be
-  # silently skipped — branch-protection would then green-light verifier
-  # changes without ever running the smoke. Always-run is the safe gate;
-  # Nix cache + Swatinem make warm runs <2min anyway.
-  verifier-bermuda:
-    name: verifier (bermuda)
-    needs: setup-nix
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - uses: Swatinem/rust-cache@v2
-        with: { workspaces: verifiers/bermuda/rust-verifier }
-      - uses: mozilla-actions/sccache-action@v0.0.7
-      - run: nix develop -c make smoke-bermuda
-
-  verifier-osmotic:
-    name: verifier (osmotic-pressure)
-    needs: setup-nix
-    runs-on: ubuntu-24.04
-    # Always run — see comment above verifier-bermuda for rationale.
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - uses: Swatinem/rust-cache@v2
-        with: { workspaces: verifiers/osmotic_pressure/rust-verifier }
-      - uses: mozilla-actions/sccache-action@v0.0.7
-      - run: nix develop -c make smoke-osmotic
-
+  # Python-only skills don't need Nix — pip + pytest in standard setup-python
+  # runs faster and avoids magic-nix-cache rate-limiting when matrix fans out.
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }})
-    needs: setup-nix
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -122,14 +38,87 @@ jobs:
           - neurosym-forge
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: skills/${{ matrix.skill }}/pyproject.toml
+      - name: install ${{ matrix.skill }}[ci]
+        working-directory: skills/${{ matrix.skill }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[ci]"
+      - name: pytest
+        working-directory: skills/${{ matrix.skill }}
+        run: pytest -q
+
+  # Nix-using jobs are chained via `needs:` to serialize magic-nix-cache
+  # writes. Parallelizing all of them at once gets the cache rate-limited
+  # by GitHub Actions Cache and every downstream job loses its substituter.
+  # We accept slightly longer wall-time in exchange for reliability.
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v22
       - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - run: |
-          nix develop -c bash -c "
-            cd skills/${{ matrix.skill }}
-            pip install -e '.[ci]'
-            pytest -q
-          "
+      - run: nix develop -c make lint
+
+  scaffold-bake:
+    name: scaffold-bake
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            verifiers/bermuda/rust-verifier
+            verifiers/osmotic_pressure/rust-verifier
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make scaffold-bake
+
+  regression:
+    name: regression (sprint-5)
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: verifiers/bermuda/rust-verifier }
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make regression
+
+  verifier-bermuda:
+    name: verifier (bermuda)
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: verifiers/bermuda/rust-verifier }
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make smoke-bermuda
+
+  verifier-osmotic:
+    name: verifier (osmotic-pressure)
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: verifiers/osmotic_pressure/rust-verifier }
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - run: nix develop -c make smoke-osmotic
 
   required:
     name: ci required ✓

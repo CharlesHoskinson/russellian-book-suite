@@ -29,7 +29,9 @@
   :unused-namespace      {:level :info}
   :redefined-var         {:level :info}
   :redundant-let         {:level :info}
-  :redundant-do          {:level :info}}
+  :redundant-do          {:level :info}
+  :misplaced-docstring   {:level :info}
+  :unused-value          {:level :info}}
 
  :output
  {:exclude-files [".*\\.forge-version\\.edn$"]}}

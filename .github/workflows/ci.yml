@@ -26,6 +26,12 @@ jobs:
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }})
     runs-on: ubuntu-24.04
+    # Workflow-level RUSTC_WRAPPER=sccache breaks the neurosym-forge cargo
+    # tests because sccache isn't installed on these python-only jobs. Empty
+    # string here disables the wrapper for the matrix without affecting the
+    # Nix-using jobs that DO have sccache via the nix devShell.
+    env:
+      RUSTC_WRAPPER: ""
     strategy:
       fail-fast: false
       matrix:

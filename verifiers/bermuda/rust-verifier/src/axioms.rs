@@ -12,6 +12,9 @@
 // ids and to the bound claim id.
 
 #[cfg(feature = "smt")]
+#[allow(unused_imports)]
+use std::ops::{Add as _, Mul as _, Sub as _};
+#[cfg(feature = "smt")]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
 use z3::{

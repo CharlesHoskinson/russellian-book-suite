@@ -131,12 +131,63 @@ jobs:
       - name: cargo test
         run: cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
 
+  # Divergence summary (REQ-CI-042). Runs regardless of upstream status so
+  # the summary is published even on red runs. Emits a markdown table to
+  # $GITHUB_STEP_SUMMARY naming each matrix job's aggregate result and
+  # calling out per-OS divergence visible from the PR's checks page
+  # without expanding any per-job logs.
+  ci-divergence-summary:
+    name: ci divergence summary
+    needs:
+      - python-skill-matrix
+      - cargo-test
+    runs-on: ubuntu-24.04
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: emit per-OS divergence table
+        env:
+          PYTHON_SKILL_RESULT: ${{ needs.python-skill-matrix.result }}
+          CARGO_TEST_RESULT: ${{ needs.cargo-test.result }}
+        run: |
+          {
+            echo "## Per-OS CI divergence"
+            echo
+            echo "Aggregate result per matrix job. Individual matrix legs"
+            echo "(per-OS, per-skill) are visible on the run page; this"
+            echo "table is the at-a-glance summary."
+            echo
+            echo "| Job | Linux | macOS | Windows |"
+            echo "|---|---|---|---|"
+            case "$PYTHON_SKILL_RESULT" in
+              success)   ps_l="pass"; ps_m="pass"; ps_w="pass" ;;
+              failure)   ps_l="see legs"; ps_m="see legs"; ps_w="see legs" ;;
+              skipped)   ps_l="skip"; ps_m="skip"; ps_w="skip" ;;
+              cancelled) ps_l="cancel"; ps_m="cancel"; ps_w="cancel" ;;
+              *)         ps_l="$PYTHON_SKILL_RESULT"; ps_m="$PYTHON_SKILL_RESULT"; ps_w="$PYTHON_SKILL_RESULT" ;;
+            esac
+            case "$CARGO_TEST_RESULT" in
+              success)   ct_l="pass"; ct_m="pass" ;;
+              failure)   ct_l="see legs"; ct_m="see legs" ;;
+              skipped)   ct_l="skip"; ct_m="skip" ;;
+              cancelled) ct_l="cancel"; ct_m="cancel" ;;
+              *)         ct_l="$CARGO_TEST_RESULT"; ct_m="$CARGO_TEST_RESULT" ;;
+            esac
+            echo "| python-skill | $ps_l | $ps_m | $ps_w |"
+            echo "| cargo-test | $ct_l | $ct_m | n/a (REQ-CI-044: WSL fallback) |"
+            echo
+            echo "See \`docs/operations/ci-platforms.md\` for the libz3"
+            echo "matrix, the Windows-cargo skip rationale, and the"
+            echo "WSL fallback runbook."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   required:
     name: ci required ✓
     needs:
       - preflight
       - python-skill-matrix
       - cargo-test
+      - ci-divergence-summary
     runs-on: ubuntu-24.04
     if: always()
     steps:

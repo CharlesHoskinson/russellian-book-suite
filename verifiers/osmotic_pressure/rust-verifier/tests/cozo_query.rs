@@ -9,6 +9,13 @@
 #![cfg(feature = "kg")]
 
 use osmotic_pressure_verifier::kg;
+use std::sync::{Mutex, MutexGuard};
+
+static QUERY_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+fn query_env_lock() -> MutexGuard<'static, ()> {
+    QUERY_ENV_LOCK.lock().expect("query env lock poisoned")
+}
 
 const ORPHAN_QUERY_EDN: &str = r#"
 {:queries [
@@ -28,6 +35,7 @@ const TWO_QUERIES_EDN: &str = r#"
 
 #[test]
 fn run_queries_surfaces_the_orphan_row() {
+    let _guard = query_env_lock();
     let results = kg::run_queries(ORPHAN_QUERY_EDN)
         .expect("run_queries should not error on a well-formed payload");
     assert_eq!(
@@ -47,6 +55,7 @@ fn run_queries_surfaces_the_orphan_row() {
 
 #[test]
 fn empty_result_set_is_still_reported() {
+    let _guard = query_env_lock();
     let results = kg::run_queries(TWO_QUERIES_EDN)
         .expect("run_queries should not error on a well-formed payload");
     assert_eq!(results.len(), 2);
@@ -60,6 +69,7 @@ fn empty_result_set_is_still_reported() {
 
 #[test]
 fn missing_source_is_a_parse_error() {
+    let _guard = query_env_lock();
     let bad = r#"{:queries [{:id "Q001"}]}"#;
     let err = kg::run_queries(bad).expect_err("missing :source must error");
     assert!(
@@ -70,6 +80,7 @@ fn missing_source_is_a_parse_error() {
 
 #[test]
 fn timeout_env_var_short_circuits_long_query() {
+    let _guard = query_env_lock();
     // REQ-DATALOG-044: a query that cannot complete within
     // VERIFIER_DATALOG_TIMEOUT_MS is marked timed_out without
     // panicking. We force a 1 ms timeout to flush the channel before

@@ -407,11 +407,14 @@ def _render_assert_as_cozo(node: Any) -> str:
 
 
 def _render_cozo_term(t: Any) -> str:
-    from scripts._edn_reader import EdnList, EdnVector
+    from scripts._edn_reader import EdnList, EdnVector, Symbol
     if isinstance(t, bool):
         return "true" if t else "false"
     if isinstance(t, (int, float)):
         return str(t)
+    if isinstance(t, Symbol):
+        # EDN symbols like `?c` are Cozo variables; strip the leading `?`.
+        return t.name.lstrip("?")
     if isinstance(t, str):
         # Treat `?var`-style strings as bare variable names; otherwise quote.
         return t.lstrip("?") if t.startswith("?") else f"'{t}'"

@@ -4,7 +4,11 @@
 
 .PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean
 
-preflight: lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic
+preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
+
+# `nextest` is not part of preflight because there is no top-level cargo
+# workspace; per-verifier cargo nextest can be added when a verifier ships
+# Rust unit tests worth running outside its smoke chain.
 
 lint:
 	clj-kondo --lint $$(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn') --fail-level error

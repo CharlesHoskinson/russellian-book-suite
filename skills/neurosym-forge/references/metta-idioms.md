@@ -1,79 +1,200 @@
-# MeTTa idioms in CLJS + Rust
+# metta-idioms
 
-This reference maps the core MeTTa idioms onto the CLJS+Rust substrate used by `neurosym-forge`-scaffolded projects.
+REQ-BOOKLOGIC-044. What this framework borrows from MeTTa, what it
+deliberately does NOT borrow, and which backend handles which job.
 
-## `(= lhs rhs)` — function expression
+The BookLogic DSL is shaped by MeTTa (the Hyperon meta-type-theory
+language) but is not a MeTTa implementation. This document marks the
+borders precisely so authors know where the analogy ends.
 
-In MeTTa, `(= lhs rhs)` is a *function expression*: `lhs` is a recognition template (a pattern over atoms), and `rhs` is the body that replaces any matching expression. Multiple clauses with the same head give pattern-matched function-definition behaviour. The term "equality declaration" is colloquial; MeTTa's authoritative term is "function expression".
+## 1. MeTTa concepts the framework borrows
 
-In the scaffold:
+### 1.1 Atomspace
 
-- Stored as a flat rewrite-rule record in `rules/*.edn` with shape `{id, lhs, rhs, doc, tags}`
-- Applied via `meander.epsilon/rewrite` in `cljs-orchestrator/src/main/<slug>/nl_to_fol.cljs`
-- Variable-balance is enforced: every free `?x` on `rhs` must appear on `lhs` unless tagged `eliminating`
+In MeTTa, an "atomspace" is a graph of atoms — symbols, variables,
+expressions, and grounded values — over which match-and-rewrite
+operations run. Atoms are the data; rules are also atoms.
 
-Add a rule via `add_rewrite_rule.py`. Never hand-edit `rules/*.edn` — the checksum linter will flag it.
+In this framework, the atom stream is EDN-on-disk. Each atom is a map
+with `:id`, `:kind`, and kind-specific fields (see
+`references/atomspace-edn.md`). The atomspace is `work/claims.edn`
+plus the project's `rules/booklogic/*.edn`. There is no live in-memory
+atomspace shared across phases — every boundary is a serialised EDN
+file. That makes the substrate auditable but gives up some of MeTTa's
+runtime expressiveness.
 
-## `(: x T)` — type assignment
+The borrowed idea: atoms-as-data, with rules and facts in the same
+representational space.
 
-In MeTTa, `(: x T)` is a *type assignment*: atom `x` has type `T`. Function types are written `(-> T1 T2 ... Ret)` in native MeTTa.
+### 1.2 Grounded atoms
 
-In the scaffold, every atom carries a `:sort` field. Sorts are primitive keywords (`:int`, `:real`, `:bool`, `:entity`), function types (`{:kind :fn :args [...] :ret ...}`), or enums (`{:kind :enum :members [...]}`). In native MeTTa, function types use `(-> T1 T2 ... Ret)`; the EDN IR encodes this as `{:kind :fn :args [...] :ret ...}`.
+MeTTa distinguishes "grounded" atoms — those whose value is a
+native host-language object — from purely symbolic atoms. A grounded
+atom's value can be inspected at evaluation time, used in arithmetic,
+or passed to a host function.
 
-malli `m/=>` schemas at every function boundary in `phases.cljs` enforce sort consistency at runtime.
+This framework's `:expression` atoms with `:value` carrying an
+`Edn::Double`, `Edn::Int`, `Edn::Bool`, or `Edn::Str` are direct
+analogues. The `parse-float` and `parse-int` helpers in `deflift`
+produce them; `smt.rs` consumes them when emitting Z3 axioms.
 
-Add a sort via `add_sort.py`.
+The borrowed idea: a typed native value can ride inside an atom.
 
-## `!` — top-level evaluation directive
+### 1.3 Rewrite rules
 
-In MeTTa, `!` is a **top-level directive**: prefixing a top-level atom with `!` causes it to be evaluated and the result returned to the user, rather than added to the atomspace as data. It is not an in-expression force-evaluation operator — it acts only at the top level of a MeTTa program or REPL session.
+MeTTa's `(= LHS RHS)` equational rules drive its evaluator: any
+expression matching `LHS` rewrites to `RHS`. Equations are also atoms
+in the atomspace.
 
-The scaffold's `^:force` metadata is an analogy, not a direct encoding. EDN atoms tagged `^:force` are evaluated immediately by the CLJS phase driver and replaced in-place with the result; in v0.1 this applies only to grounded atoms whose CLJS thin shim is annotated `:force`. The intent is similar — skip storage, produce a value now — but the mechanism and scope differ from MeTTa's `!`.
+`defrule` mirrors this — `:lhs` and `:rhs` patterns. The intent is
+egg-backed equality saturation (see `references/rewrite-rule-style.md`),
+which is a strict-superset of single-step rewriting and a closer
+analogue to MeTTa's open evaluator than naive substitution.
 
-## `(match $space pattern template)`
+The borrowed idea: rules are data, written in the same surface
+language as the facts they manipulate.
 
-Queries the named atomspace (`$space`) for atoms matching `pattern`, then projects each match through `template`. The conventional self-reference to the current atomspace is `&self`, so the standard idiom is `(match &self pattern template)`.
+## 2. MeTTa concepts the framework does NOT borrow
 
-In the scaffold, the atomspace is the cozo store plus `core.logic.pldb` in-memory. A query is a `core.logic/run*` form over a cozo Datalog clause, then a meander template substitution. See `cljs-orchestrator/src/main/<slug>/unify.cljs`.
+### 2.1 Full unification
 
-## `(superpose (a b c))` — non-determinism
+MeTTa's evaluator runs full unification — matching one structure
+against another with two-way variable substitution. That gives
+powerful but expensive search semantics.
 
-Produces non-deterministic branching: all of `a`, `b`, `c` are possible results simultaneously. The CLJS driver wraps an alternative set in `lazy-seq`. Each branch is shipped to Rust as a separate `assert_and_track` block with a per-branch tracker.
+This framework uses match-only via `meander.epsilon`: the LHS is a
+pattern, the data is concrete, and bindings flow one direction. No
+unifier crawls the e-graph at runtime. The Tier 3 egg integration
+will give one-step term unification within an e-class, but the
+arbitrary deep unification of MeTTa is out of scope.
 
-## `(collapse expr)` — reification
+### 2.2 Dynamic dispatch on atom shape
 
-`collapse` converts a nondeterministic result into a tuple of all branches. It does not reduce to a single verdict; it collects every branch `expr` can produce and returns them as a tuple.
+MeTTa atoms can carry arbitrary structure and the evaluator dispatches
+on shape at runtime. New atom shapes can appear without a schema
+update.
 
-In the scaffold, the CLJS driver collects each branch from the `lazy-seq` and the verdict EDN reports which branch was chosen and why. The collapse here selects one branch (the Rust verifier's chosen verdict) — a stronger reduction than MeTTa's tuple-returning `collapse`.
+This framework types atoms at compile time. `defpredicate` declares
+the arity and value-sort of every predicate that may appear in the
+atom stream; `defsort` declares the universe of sort names. The Rust
+verifier dispatches on `:kind` (a closed set of three) and
+`:predicate` (a closed set declared per project). Phase C's
+`booklogic-schema.edn` enforces this closed-world view at the
+EDN-level.
 
-## Grounded atoms
+The trade-off: less expressive than MeTTa's open evaluator, but
+auditable and Z3-friendly.
 
-A grounded atom is a host-language value or function. In the scaffold:
+### 2.3 MeTTa's dependent type system
 
-- Declared in `rules/grounded.edn`
-- Backed by a `#[napi]` Rust function in `rust-verifier/src/<lib>.rs`
-- Reachable from CLJS through a thin shim in `bridge.cljs`
+MeTTa's gradual dependent type system can express types like "even
+integer" or "list of length n", and the evaluator can refine types
+during reduction.
 
-Add one via `add_grounded_atom.py`. Default libraries: `z3`, `egg`, `cozo`, `tectonic`, `custom`.
+This framework uses a flat Quint-style sort lattice. The sorts in
+v1 are `:int`, `:real`, `:bool`, `:string`, plus domain-specific
+sorts like `:solution`. Sorts do not depend on values. Refinement
+predicates (the "even" / "positive" / "in-range" checks) live in
+`defconstraint` forms, not in the type system.
 
-## Self-reflection
+The trade-off: simpler reasoning at the cost of expressiveness.
 
-In MeTTa, self-reflection is a **runtime** capability: programs read and modify their own atomspace via `add-atom`, `remove-atom`, and `get-atoms` on `&self`. Any MeTTa expression can inspect or extend the live atomspace.
+### 2.4 Top-level evaluation directive `!`
 
-The scaffold encodes a **restricted** form: build-time, helper-mediated, checksummed. `rules/*.edn` is data, but the skill's `add_*` helpers are the only sanctioned editors. Manual edits are detected via checksums in `rules/.checksums.edn` and flagged by `lint_rewrite_coverage.py`. This is a safety policy — controlled mutation in place of MeTTa's open runtime self-modification.
+In MeTTa, `!` is a top-level directive: prefixing an atom with `!`
+causes immediate evaluation rather than insertion into the
+atomspace. There is no equivalent in this framework — every atom
+goes through the same pipeline; nothing is "evaluated now" outside
+the standard phase progression.
 
-Each scaffolded project is itself a Claude Code skill (it ships its own `SKILL.md`). The forge scaffolds skills.
+## 3. Cross-references: which backend handles what
 
----
+The framework supports three constraint backends (see
+`SUPPORT_MATRIX.md` for live/stub status):
 
-## What this mapping does NOT cover
+- `:z3` — the live path. Arithmetic-shaped constraints
+  (`approx=`, `<`, `<=`, `=`, `*`, `+`, `-`). Codegen runs through
+  `skills/neurosym-forge/scripts/codegen_axioms.py` to emit
+  `rust-verifier/src/axioms.rs`. Tracker names equal constraint
+  ids; on `:unsat`, the core names the offending claim.
+- `:egg` — STUB. Intended for canonical-form rewrites consumed by
+  an `egg::Runner` in `rust-verifier/src/eqsat.rs`. Today
+  `codegen_axioms` silently drops `:egg`-backed constraints
+  (cf. `references/rewrite-rule-style.md` § 3). Tier 3 makes it
+  live.
+- `:cozo` — STUB. Intended for entity-relationship Datalog queries
+  via `rust-verifier/src/kg.rs`. Today the same dropping behaviour
+  applies. The Cozo store is wired in `add_grounded_atom.py` but
+  the constraint codegen path is not.
 
-The sections above cover the idioms the scaffold encodes directly. Several MeTTa concepts appear in real programs and grounded-atom implementations but are outside the scaffold's current scope:
+The CLJS substitution layer (`cljs-orchestrator/src/main/<slug>/phases.cljs`)
+is where rules in `rules.edn` are consumed today — independent of the
+three constraint backends.
 
-- **`&self`** — the conventional symbol for the current atomspace, used in `(match &self ...)`. The scaffold calls its store the "atomspace" but does not expose `&self` as a first-class binding.
-- **`(-> T1 T2 ... Ret)`** — MeTTa's native function-type notation. The EDN IR uses `{:kind :fn :args [...] :ret ...}` instead.
-- **`(let $var value body)`** — sequential binding, ubiquitous in real MeTTa programs. The scaffold has no direct equivalent; CLJS `let` is used in generated code instead.
-- **`Empty` / `NotReducible`** — special non-result atoms. `Empty` signals no result; `NotReducible` signals that an expression cannot be reduced further. Grounded atoms that interact with match results need to handle both.
-- **`collapse-bind` / `superpose-bind`** — the minimal-MeTTa primitives underlying `collapse` and `superpose`. The scaffold works at the higher-level `collapse`/`superpose` abstraction.
+## 4. When to use each backend
 
-Writing a grounded atom that interacts with any of these requires reading the Hyperon docs at https://trueagi-io.github.io/hyperon-experimental/metta/.
+Recipe by problem shape:
+
+- **Arithmetic identities, tolerance checks, simple linear or
+  polynomial relations.** Use `:z3`. The osmotic-pressure verifier's
+  van 't Hoff constraint is a canonical example.
+- **Canonical algebraic form before assertion.** Use `:egg` (when
+  live). Write the rules as `defrule`. Today, hand-canonicalise the
+  constraint and use `:z3`.
+- **Entity-relationship queries, graph reachability, transitive
+  closures.** Use `:cozo` (when live). Today, encode the relation
+  as a `:z3` axiom or do the query in Python.
+- **Match-and-substitute on the atom stream itself.** Use the CLJS
+  rewrite pass (`phases.cljs` + `rules.edn`). This is live but
+  shallow — single-pass meander rewrites, not equality saturation.
+
+## 5. Form-by-form analogy table
+
+A concise summary of how MeTTa's surface forms map (or fail to map)
+onto BookLogic forms:
+
+| MeTTa | BookLogic | Notes |
+| --- | --- | --- |
+| `(= LHS RHS)` | `(defrule R### :lhs ... :rhs ...)` | Stub today; egg backend is the Tier 3 target. |
+| `(: x T)` | `(defpredicate :x [arg-sorts] :ret-sort)` plus `(defsort :T)` | Flat sort lattice, no dependent types. |
+| `!` (top-level eval) | (no equivalent) | Every atom goes through the standard phase pipeline; no inline force-eval. |
+| `(match $space pat tmpl)` | meander rewrite in `phases.cljs` plus Cozo Datalog queries (stub) | One-pass match; no full unification. |
+| `(superpose (a b c))` | (no equivalent in v1) | Non-determinism is unrealised. |
+| `(collapse expr)` | (no equivalent in v1) | Branching reification is unrealised. |
+| Grounded atoms | `:expression` atoms with native `:value` | Direct analogue; `parse-float` / `parse-int` produce them. |
+| Self-reflection (`add-atom`, `get-atoms`) | Build-time `add_*` helpers only | Restricted, helper-mediated, checksummed. |
+
+This table is the canonical "is this idiom available?" lookup. A row
+without a BookLogic entry is genuinely absent, not just renamed.
+
+## 6. What "we don't borrow" buys us
+
+The omissions are deliberate. They buy three properties:
+
+- **Decidability.** Without full unification, the rewrite layer is
+  guaranteed to terminate. Z3 stays the only source of search.
+- **Auditability.** Every atom is typed and every boundary is an EDN
+  file on disk. There is no hidden in-memory atomspace whose state
+  changes between phases.
+- **Tool compatibility.** Closed-world predicate dispatch is what
+  makes Z3 axiom codegen tractable. Open-world dispatch would force
+  runtime introspection and rule out static `assert_and_track`
+  emission.
+
+The borrowed concepts — atomspace-as-data, grounded values, rule
+forms — give us the readable surface. The omitted concepts —
+unification, non-determinism, runtime reflection — would give
+expressiveness we cannot yet verify.
+
+## See also
+
+- `references/atomspace-edn.md` — the atom shape that materialises
+  MeTTa's "atomspace" idea.
+- `references/grounded-atoms.md` — the deflift pass that produces
+  MeTTa-style grounded atoms.
+- `references/rewrite-rule-style.md` — `defrule` conventions and
+  the egg stub story.
+- `SUPPORT_MATRIX.md` — live/stub table for the three backends.
+- `verifiers/osmotic_pressure/cljs-orchestrator/src/main/osmotic_pressure/phases.cljs`
+  — where the substitution layer lives.
+- `skills/neurosym-forge/scripts/codegen_axioms.py` — the `:z3` path.

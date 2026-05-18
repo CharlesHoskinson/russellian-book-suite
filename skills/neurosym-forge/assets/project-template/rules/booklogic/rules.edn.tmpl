@@ -1,1 +1,25 @@
+;; rules/booklogic/rules.edn — rewrite rules for canonicalisation.
+;;
+;; FORM SYNTAX:
+;;   (defrule R001-name (= LHS RHS) :tags [...])
+;;
+;; The (= LHS RHS) equation is conceptually consumed by egg equality
+;; saturation; today it feeds the CLJS phases.cljs string-substitution
+;; pass for canonicalisation BEFORE Z3 sees the formula.
+;;
+;; CURRENT STATUS: STUB. The :egg backend is in SUPPORTED_BACKENDS but
+;; codegen_axioms.py silently drops :egg constraints. Tier 3 of the
+;; framework roadmap promotes egg from stub to live. See
+;; skills/neurosym-forge/SUPPORT_MATRIX.md and references/rewrite-rule-style.md.
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (defrule R001-commute-add
+;;   (= (+ ?a ?b) (+ ?b ?a))
+;;   :tags [:algebra :commutative])
+;;
+;; COMMON SILENT FAILURES:
+;;   - assuming defrule rewrites are applied by Z3 — they are not;
+;;     only :backend :z3 defconstraint forms reach the solver.
+;;   - LHS/RHS using sort-incompatible patterns — currently no static check.
+;;
 {:forms []}

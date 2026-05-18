@@ -56,12 +56,21 @@ def test_matrix_z3_is_wired():
     )
 
 
-def test_matrix_egg_is_drop():
+def test_matrix_egg_is_wired_post_phase_h():
+    """REQ-EQSAT-045: post-Phase-H, the matrix flips :egg to wired."""
     status = _matrix_row_status("defconstraint", "egg")
     assert status is not None, "matrix missing defconstraint :backend :egg row"
-    assert "drop" in status.lower(), (
-        f"matrix claims :egg status {status!r} — codegen_axioms.py "
-        f"still silently drops :egg backends; matrix must say DROP"
+    assert "wired" in status.lower(), (
+        f"matrix should report :egg as wired post-Phase-H; got {status!r}"
+    )
+
+
+def test_matrix_defrule_is_wired_post_phase_h():
+    """REQ-EQSAT-045: post-Phase-H, the matrix flips defrule to wired."""
+    status = _matrix_row_status("defrule")
+    assert status is not None, "matrix missing defrule row"
+    assert "wired" in status.lower(), (
+        f"matrix should report defrule as wired post-Phase-H; got {status!r}"
     )
 
 
@@ -102,21 +111,29 @@ def test_matrix_defremedy_is_query_bound():
     )
 
 
-def test_codegen_routes_cozo_through_emit_cozo_block():
-    """REQ-DATALOG-041: confirm the dispatch loop now reaches
-    `_emit_cozo_block` on the `:cozo` branch. Reading the codegen
-    source is the ground truth.
-    """
+def test_codegen_dispatches_egg_and_cozo_post_tier3():
+    """REQ-EQSAT-041 + REQ-DATALOG-041: codegen dispatches `:egg` to
+    `_emit_egg_block` and `:cozo` to `_emit_cozo_block`. No silent drop."""
     code = CODEGEN_AXIOMS.read_text(encoding="utf-8")
+    # No remaining pre-Tier-3 silent-drop pattern.
+    assert re.search(
+        r"if\s+backend\s*!=\s*Keyword\(['\"]z3['\"]\)\s*:",
+        code,
+    ) is None, (
+        "codegen_axioms.py still has the pre-Tier-3 "
+        "`if backend != Keyword('z3'): continue` drop pattern."
+    )
+    # :egg dispatch wired.
+    assert "_emit_egg_block" in code, (
+        "codegen_axioms.py is missing _emit_egg_block — :egg backend is "
+        "not actually wired despite SUPPORT_MATRIX claiming so."
+    )
+    # :cozo dispatch wired.
     assert "_emit_cozo_block" in code, (
-        "codegen_axioms.py no longer references _emit_cozo_block — Tier 3 "
-        "promotion lost; update SUPPORT_MATRIX."
+        "codegen_axioms.py is missing _emit_cozo_block — Tier 3 :cozo "
+        "promotion lost; update SUPPORT_MATRIX or codegen."
     )
     assert "cozo_constraints" in code, (
         "codegen_axioms.py no longer emits cozo_constraints() — Tier 3 "
-        "promotion lost; update SUPPORT_MATRIX."
-    )
-    # And the :egg branch should STILL drop silently (Tier 4 only).
-    assert re.search(r"Keyword\(['\"]cozo['\"]\)", code), (
-        "codegen_axioms.py no longer mentions Keyword('cozo') — dispatch lost"
+        "promotion lost."
     )

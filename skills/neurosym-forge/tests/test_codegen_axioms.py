@@ -121,31 +121,35 @@ def test_predicate_is_real_helper_empty_for_int_only_constraints() -> None:
     assert real_arms == [], f"unexpected Real arms: {real_arms}"
 
 
-def test_generate_skips_non_z3_backends() -> None:
-    """REQ-DSL-021: :egg constraints are still silently dropped from
-    axioms.rs (Tier 4 work). REQ-DATALOG-041: :cozo constraints DO
-    surface — but inside `cozo_constraints()`, not inside
-    `assert_axioms`. The Z3 entry point must not see them.
+def test_generate_routes_backends_to_separate_emitters() -> None:
+    """REQ-EQSAT-041 (Phase H): :egg constraints route through
+    `_emit_egg_block` into the axioms.rs body — eqsat::prove_equiv at
+    runtime.
+    REQ-DATALOG-041 (Phase I): :cozo constraints surface inside
+    `cozo_constraints()`, not inside `assert_axioms`. The Z3 entry point
+    must not see them.
     """
-    cs = [_constraint(name="C001"),
-          _constraint(name="C002", backend=":cozo",
-                      assert_form="(some-cozo-thing)"),
-          _constraint(name="C003", backend=":egg",
-                      assert_form="(some-egg-thing)")]
+    cs = [
+        _constraint(name="C001"),  # :z3
+        _constraint(name="C002", backend=":cozo",
+                    assert_form="(some-cozo-thing)"),
+        _constraint(name="C003", backend=":egg",
+                    assert_form="(= (:foo :s) (:bar :s))"),
+    ]
     src = generate_axioms_source(cs)
-    assert '"C001"' in src
-    # Z3-entry-point (assert_axioms) must not see the :cozo / :egg ids;
-    # split the source at `pub fn cozo_constraints` and inspect the Z3 half.
     assert_axioms_half, _, cozo_half = src.partition("pub fn cozo_constraints")
+    # :z3 lands in the assert_axioms body
+    assert '"C001"' in assert_axioms_half
+    # :egg lands in the assert_axioms body too (via eqsat::prove_equiv shim)
+    assert '"C003"' in assert_axioms_half, (
+        ":egg constraints should route through _emit_egg_block into "
+        "the assert_axioms body (Phase H, REQ-EQSAT-041)"
+    )
+    # :cozo lands in cozo_constraints() registry, NOT in assert_axioms
     assert '"C002"' not in assert_axioms_half, (
         ":cozo constraints must not leak into assert_axioms; "
         "they belong in cozo_constraints()"
     )
-    assert '"C003"' not in assert_axioms_half
-    assert '"C003"' not in cozo_half, (
-        ":egg constraints must not be emitted anywhere in axioms.rs (Tier 4)"
-    )
-    # :cozo constraints DO appear in the cozo_constraints() registry.
     assert '"C002"' in cozo_half, (
         "REQ-DATALOG-041: :cozo constraints must surface in cozo_constraints()"
     )
@@ -197,3 +201,95 @@ def test_output_is_byte_deterministic() -> None:
     src1 = generate_axioms_source(cs)
     src2 = generate_axioms_source(cs)
     assert src1 == src2
+
+
+# ---------------------------------------------------------------- encoder extensions
+
+def test_generate_less_than_constraint_emits_lt_call() -> None:
+    """REQ-SMT-040: `<` compiles to a Z3 `.lt(&rhs)` method call."""
+    cs = [_constraint(
+        name="C010",
+        assert_form="(< (:parishes-count :Bermuda) 10)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".lt(&" in src
+    assert '"C010"' in src
+    # No accidental fallback to `.eq` for a strict-inequality form.
+    assert "lhs.eq(&rhs)" not in src or src.count(".lt(&") >= 1
+
+
+def test_generate_less_equal_constraint_emits_le_call() -> None:
+    """REQ-SMT-040: `<=` compiles to a Z3 `.le(&rhs)` method call."""
+    cs = [_constraint(
+        name="C011",
+        assert_form="(<= (:parishes-count :Bermuda) 9)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".le(&" in src
+    assert '"C011"' in src
+
+
+def test_generate_greater_than_constraint_emits_gt_call() -> None:
+    """REQ-SMT-041: `>` compiles to a Z3 `.gt(&rhs)` method call."""
+    cs = [_constraint(
+        name="C012",
+        assert_form="(> (:population :Bermuda) 60000)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".gt(&" in src
+    assert '"C012"' in src
+
+
+def test_generate_greater_equal_constraint_emits_ge_call() -> None:
+    """REQ-SMT-041: `>=` compiles to a Z3 `.ge(&rhs)` method call."""
+    cs = [_constraint(
+        name="C013",
+        assert_form="(>= (:population :Bermuda) 60000)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".ge(&" in src
+    assert '"C013"' in src
+
+
+def test_generate_division_subexpression_emits_div_call() -> None:
+    """REQ-SMT-042: `/` compiles to a Z3 `.div(&rhs)` method call when
+    used inside a numeric subexpression (here an equality RHS)."""
+    cs = [_constraint(
+        name="C014",
+        assert_form="(= (:density :Sample) (/ (:mass :Sample) (:volume :Sample)))",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".div(&" in src
+    assert '"C014"' in src
+
+
+def test_generate_ite_constraint_emits_ite_call() -> None:
+    """REQ-SMT-043: `ite` compiles to a Z3 `cond.ite(&then, &else)` call."""
+    cs = [_constraint(
+        name="C015",
+        assert_form=(
+            "(ite (< (:parishes-count :Bermuda) 10) "
+            "(< (:population :Bermuda) 70000) "
+            "(> (:population :Bermuda) 70000))"
+        ),
+    )]
+    src = generate_axioms_source(cs)
+    assert ".ite(&" in src
+    assert '"C015"' in src
+
+
+def test_unsupported_operator_errors() -> None:
+    """REQ-SMT-044: an unknown assert head produces a CodegenError that
+    names the full supported set so authors can self-correct without
+    grepping for the operator table."""
+    cs = [_constraint(
+        name="C016",
+        assert_form="(xor (:a :S) (:b :S))",
+    )]
+    with pytest.raises(CodegenError) as excinfo:
+        generate_axioms_source(cs)
+    msg = str(excinfo.value)
+    assert "'xor'" in msg
+    # The error must enumerate the supported set; spot-check a representative.
+    for op in ("=", "<", "<=", ">", ">=", "/", "ite"):
+        assert repr(op) in msg, f"missing {op!r} in supported-set error: {msg}"

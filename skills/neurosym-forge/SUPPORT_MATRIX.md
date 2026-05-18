@@ -11,11 +11,11 @@
 | `defsort`                    | wired        | (validation only)   | n/a          | wired  |
 | `defpredicate`               | wired        | (validation only)   | n/a          | wired  |
 | `deflift`                    | wired        | `predicates.edn`    | n/a          | wired  |
-| `defrule`                    | wired        | none                | egg          | stub   |
+| `defrule`                    | wired        | `eqsat.rs::make_rewrites` | egg     | wired  |
 | `defconstraint :backend :z3` | wired        | `codegen_axioms.py` | Z3           | wired  |
-| `defconstraint :backend :egg`| wired        | none (silent drop)  | egg          | DROP   |
-| `defconstraint :backend :cozo` | wired      | `codegen_axioms.py` | Cozo         | wired  |
-| `defquery`                   | wired        | `codegen_kg.py`     | Cozo         | wired  |
+| `defconstraint :backend :egg`| wired        | `eqsat.rs::prove_equiv` | egg      | wired  |
+| `defconstraint :backend :cozo` | wired      | `kg.rs::evaluate_constraint` | Cozo | wired  |
+| `defquery`                   | wired        | `kg.rs::run_queries` | Cozo        | wired  |
 | `defremedy`                  | wired        | `verdict_to_qa.py`  | n/a          | wired (query-bound) |
 
 ## Status legend
@@ -26,18 +26,16 @@ reporting, and surfaces as a defect entry in `verification-defects.json`.
 
 **stub** — The form is recognised by the CLJS expander and stored in the
 intermediate registry, but no downstream codegen consumes it. Adding the form
-is a no-op at solver time. Tier 3 of the framework roadmap promotes egg from
-stub to live (REQ-EQSAT-* — not yet authored). Authors writing `defrule`
-forms today should not expect them to influence the verdict.
+is a no-op at solver time. (Phase H + I of the Tier 2-4 plan retired the last
+remaining stub rows; this entry is retained for any form that lands in this
+state in the future.)
 
 **DROP** — The form is recognised AND in `SUPPORTED_BACKENDS` AND passes the
 codegen validation gate, but the dispatch loop in `codegen_axioms.py`
-silently `continue`s on the unsupported branch. The constraint is omitted
-from every solver's input. The verdict is `:sat` for the wrong reason (the
-constraint that would have made it `:unsat` was never asserted). After
-Tier 3 only `:egg` constraints remain DROP'd; `:cozo` is now routed to
-`kg::evaluate_constraint`. Tier 4 of the framework roadmap promotes `:egg`
-constraints to first-class.
+silently `continue`s on the unsupported branch. After Phase H + I, no
+remaining backends are DROP'd; this row is retained as a class label for
+any future backend that lands in this state before its solver runtime wires
+up.
 
 **external** — Remedies whose `:when` clause does NOT reference a
 `defquery` still flow through the existing book-qa hook
@@ -63,13 +61,20 @@ had been dropped. SUPPORT_MATRIX.md + the drift lint
 
 ## Roadmap pointers
 
-- Tier 3 (this change): promote `defquery` from wired-builder → wired,
-  `defconstraint :backend :cozo` from DROP → wired, and query-bound
-  `defremedy` from external → wired. Tracked in
-  `openspec/changes/tier3-cozo-runtime/`.
-- Tier 3 follow-on: promote egg from stub → live (eqsat-driven
-  canonicalisation consumed by codegen_axioms before Z3 sees the formula).
-- Tier 4: promote `:egg` constraint backends from DROP → wired (separate
-  solver invocations integrated into the verdict).
-- Tier 2: stop the silent JS-to-Python regex converter in
-  `_to_python_regex` — surface JS-style `(?<v>)` as a hard error.
+- Tier 3 (Phase H, done): `defrule` and `defconstraint :backend :egg`
+  promoted from stub/DROP → wired. The codegen at
+  `skills/neurosym-forge/scripts/codegen_axioms.py` now dispatches on
+  `:backend`: `:z3` → `_emit_z3_block`, `:egg` → `_emit_egg_block`,
+  `:cozo` → `_emit_cozo_block`. The egg backend uses `egg = "0.10"`
+  (declared optional in each verifier's `Cargo.toml`, gated on the
+  `eqsat` feature). Equality saturation runs under a node-count budget
+  controlled by `VERIFIER_EQSAT_BUDGET` (default 10000 nodes); divergent
+  rewrite sets stop at the budget rather than wedging the codegen run.
+- Tier 3 (Phase I, done): `defquery`, `defconstraint :backend :cozo`,
+  and query-bound `defremedy` promoted from wired-builder/DROP/external
+  → wired. Cozo runs at `make ci` time via `kg::run_queries`. Cozo
+  scripts are sandboxed via `VERIFIER_DATALOG_TIMEOUT_MS` (default
+  10000 ms).
+- Tier 2 (done in PR #77): the silent JS-to-Python regex converter is
+  removed; JS-style `(?<v>)` is a hard `IngestRegexDialectError` at
+  ingest time.

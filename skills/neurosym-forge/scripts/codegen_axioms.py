@@ -27,6 +27,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from scripts._canonical import canonical_var_name
 from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file, write_edn_file
 
@@ -225,10 +226,10 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
             if isinstance(sub, Keyword):
                 sub_str = sub.name
             elif sub is not None:
-                sub_str = str(sub).lstrip("?")
+                sub_str = str(sub)
             else:
                 sub_str = "val"
-            var_name = f"{head.name}_{sub_str}"
+            var_name = canonical_var_name(head.name, sub_str)
             if z3_type == "Bool":
                 return f'Bool::new_const("{var_name}")'
             if z3_type == "Real":
@@ -302,10 +303,10 @@ def _emit_expr(node: Any) -> str:
             if isinstance(sub, Keyword):
                 sub_str = sub.name
             elif sub is not None:
-                sub_str = str(sub).lstrip("?")
+                sub_str = str(sub)
             else:
                 sub_str = "val"
-            var_name = f"{head.name}_{sub_str}"
+            var_name = canonical_var_name(head.name, sub_str)
             return f'Int::new_const("{var_name}")'
         # (* a b ...) / (+ ...) / (- a b)
         head_str = str(head)

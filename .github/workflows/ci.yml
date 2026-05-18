@@ -102,11 +102,41 @@ jobs:
             verifiers/osmotic_pressure/rust-verifier
       - run: nix develop -c make preflight
 
+  # Per-verifier cargo test on Linux + macOS (REQ-CI-041). Windows is
+  # deliberately skipped — the z3 crate's pkg-config probe doesn't reliably
+  # find a Windows-native libz3, so cargo test on windows-2022 would surface
+  # link errors that have nothing to do with the code under test. The
+  # WSL-fallback runbook in `docs/operations/ci-platforms.md` covers
+  # Windows contributors who need cargo signal locally.
+  cargo-test:
+    name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+        verifier: [bermuda, osmotic_pressure]
+    steps:
+      - uses: actions/checkout@v4
+      - name: install libz3 (linux)
+        if: matrix.os == 'ubuntu-24.04'
+        run: sudo apt-get update && sudo apt-get install -y libz3-dev
+      - name: install libz3 (macos)
+        if: matrix.os == 'macos-latest'
+        run: brew install z3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: verifiers/${{ matrix.verifier }}/rust-verifier
+      - name: cargo test
+        run: cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
+
   required:
     name: ci required ✓
     needs:
       - preflight
       - python-skill-matrix
+      - cargo-test
     runs-on: ubuntu-24.04
     if: always()
     steps:

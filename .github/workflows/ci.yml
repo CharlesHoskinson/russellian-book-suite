@@ -77,6 +77,13 @@ jobs:
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
     runs-on: ubuntu-24.04
+    # Workflow-level RUSTC_WRAPPER=sccache breaks here: sccache crashes
+    # with an opendal::services::ghac::error::parse_error when GHA Cache
+    # is contended (which it is, with magic-nix-cache + Swatinem already
+    # using it). Empty wrapper disables sccache for this job; Swatinem
+    # still caches target/, which carries the bulk of the speedup.
+    env:
+      RUSTC_WRAPPER: ""
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v22
@@ -86,7 +93,6 @@ jobs:
           workspaces: |
             verifiers/bermuda/rust-verifier
             verifiers/osmotic_pressure/rust-verifier
-      - uses: mozilla-actions/sccache-action@v0.0.7
       - run: nix develop -c make preflight
 
   required:

@@ -101,8 +101,7 @@ fn run_one_script(
 /// REQ-DATALOG-041.
 #[cfg(feature = "kg")]
 pub fn evaluate_constraint(name: &str, datalog_source: &str) -> Result<usize, String> {
-    let db = DbInstance::new("mem", "", "")
-        .map_err(|e| format!("cozo init: {e}"))?;
+    let db = DbInstance::new("mem", "", "").map_err(|e| format!("cozo init: {e}"))?;
     let timeout_ms = datalog_timeout_ms();
     let rows = run_one_script(&db, name, datalog_source, timeout_ms)?;
     Ok(rows.rows.len())
@@ -120,8 +119,7 @@ pub fn evaluate_constraint(_name: &str, _datalog_source: &str) -> Result<usize, 
 /// panicking. REQ-DATALOG-040, REQ-DATALOG-044.
 #[cfg(feature = "kg")]
 pub fn run_queries(query_edn: &str) -> Result<Vec<QueryRunResult>, String> {
-    let db = DbInstance::new("mem", "", "")
-        .map_err(|e| format!("cozo init: {e}"))?;
+    let db = DbInstance::new("mem", "", "").map_err(|e| format!("cozo init: {e}"))?;
     let timeout_ms = datalog_timeout_ms();
     let queries = parse_query_edn(query_edn)?;
     let mut results = Vec::with_capacity(queries.len());

@@ -21,7 +21,10 @@ fn expression_atom_value_is_double() {
     let raw = fs::read_to_string(golden_dir().join("expression_atom.edn")).unwrap();
     let edn: Edn = raw.parse().unwrap();
     let value = edn.get(":value").expect("value");
-    assert!(matches!(value, Edn::Double(_)), "expected Double, got {value:?}");
+    assert!(
+        matches!(value, Edn::Double(_)),
+        "expected Double, got {value:?}"
+    );
 }
 
 #[test]
@@ -37,5 +40,8 @@ fn verdict_status_is_keyword() {
     let raw = fs::read_to_string(golden_dir().join("verdict.edn")).unwrap();
     let edn: Edn = raw.parse().unwrap();
     let status = edn.get(":status").expect("status");
-    assert!(matches!(status, Edn::Key(_)), "expected Key, got {status:?}");
+    assert!(
+        matches!(status, Edn::Key(_)),
+        "expected Key, got {status:?}"
+    );
 }

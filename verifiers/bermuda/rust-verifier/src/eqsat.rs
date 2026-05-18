@@ -11,7 +11,7 @@
 //! constraints; that result is wrapped in a Z3 boolean tracker on the
 //! Z3 side so unsat-core reporting still works.
 
-use egg::{define_language, rewrite, AstSize, Extractor, Id, RecExpr, Rewrite, Runner, Symbol};
+use egg::{AstSize, Extractor, Id, RecExpr, Rewrite, Runner, Symbol, define_language, rewrite};
 
 define_language! {
     pub enum BookLogic {

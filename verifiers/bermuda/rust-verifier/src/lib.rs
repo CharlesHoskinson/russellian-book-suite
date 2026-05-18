@@ -2,13 +2,15 @@
 use napi_derive::napi;
 
 mod axioms;
-pub mod canonical;
 mod ir;
-pub mod kg;
 mod smt;
+pub mod var_name;
 
 #[cfg(feature = "eqsat")]
 pub mod eqsat;
+
+#[cfg(feature = "kg")]
+pub mod kg;
 
 #[cfg(feature = "pdf")]
 mod typeset;
@@ -19,11 +21,15 @@ pub fn verify_formulas(formulas_edn: String) -> napi::Result<String> {
         .map_err(|e| napi::Error::from_reason(format!("parse: {e}")))?;
     let verdict =
         smt::check_all(&formulas).map_err(|e| napi::Error::from_reason(format!("smt: {e}")))?;
-    let kg_summary = kg::ingest_and_summarize(&verdict.verified)
-        .map_err(|e| napi::Error::from_reason(format!("kg: {e}")))?;
-    let mut out = verdict;
-    out.graph_summary = Some(kg_summary);
-    Ok(ir::emit_verdict(&out))
+    #[cfg(feature = "kg")]
+    let verdict = {
+        let mut v = verdict;
+        let kg_summary = kg::ingest_and_summarize(&v.verified)
+            .map_err(|e| napi::Error::from_reason(format!("kg: {e}")))?;
+        v.graph_summary = Some(kg_summary);
+        v
+    };
+    Ok(ir::emit_verdict(&verdict))
 }
 
 /// Run every `defquery` declared in `query_edn` via Cozo (REQ-DATALOG-040)
@@ -32,6 +38,7 @@ pub fn verify_formulas(formulas_edn: String) -> napi::Result<String> {
 /// verdict slice that book-qa merges with the SMT verdict. `query_edn`
 /// carries the shape
 /// `{:queries [{:id "Q001" :source "?[c] := claim[c, _]"} ...]}`.
+#[cfg(feature = "kg")]
 #[napi]
 pub fn run_queries(query_edn: String) -> napi::Result<String> {
     let results = kg::run_queries(&query_edn)

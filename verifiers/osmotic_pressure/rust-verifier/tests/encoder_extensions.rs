@@ -29,8 +29,8 @@ fn lt_le_gt_ge_round_trip_through_z3() {
     let one_half = Real::from_rational(3, 2);
     let two = Real::from_rational(2, 1);
 
-    solver.assert(&one.le(&x));      // 1 <= x
-    solver.assert(&x.lt(&two));      // x < 2
+    solver.assert(&one.le(&x)); // 1 <= x
+    solver.assert(&x.lt(&two)); // x < 2
     solver.assert(&x.ge(&one_half)); // x >= 1.5
     assert_eq!(solver.check(), SatResult::Sat);
 

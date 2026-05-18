@@ -68,7 +68,7 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
             Some(Edn::Key(k)) => k.clone(),
             _ => continue,
         };
-        let var_name = crate::canonical::canonical_var_name(&predicate, &subject);
+        let var_name = crate::var_name::canonical_var_name(&predicate, &subject);
         let tracker = Bool::new_const(id.as_str());
 
         let value = match atom.get(":value") {

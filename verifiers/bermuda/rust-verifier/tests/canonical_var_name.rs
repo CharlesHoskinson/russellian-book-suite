@@ -1,5 +1,5 @@
 //! REQ-EDN-046: Rust canonical_var_name matches the cross-language golden vectors.
-use bermuda_verifier::canonical::canonical_var_name;
+use bermuda_verifier::var_name::canonical_var_name;
 use edn_rs::Edn;
 use std::fs;
 use std::path::PathBuf;

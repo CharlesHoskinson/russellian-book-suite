@@ -56,6 +56,17 @@ def test_python_skill_matrix_fail_fast_false():
     )
 
 
+def test_python_skill_include_overrides_are_in_skill_axis():
+    """REQ-CI-040: include-only skills must still receive every OS value."""
+    text = _workflow_text()
+    skill_axis = text.split("        include:", 1)[0].split("        skill:", 1)[1]
+    for skill in ("book-compose", "neurosym-forge"):
+        assert f"          - {skill}" in skill_axis, (
+            f"{skill} must be in matrix.skill; otherwise its include override "
+            "creates a matrix row without matrix.os"
+        )
+
+
 # ---------- REQ-CI-041 ----------
 
 

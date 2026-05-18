@@ -13,8 +13,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
-  SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: sccache
+  # sccache temporarily disabled (opendal/ghac ConfigInvalid under cache contention
+  # from Swatinem + magic-nix-cache). Re-enable per-job by setting RUSTC_WRAPPER +
+  # SCCACHE_GHA_ENABLED alongside the sccache-action step once contention is fixed.
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
 
@@ -26,12 +27,6 @@ jobs:
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }})
     runs-on: ubuntu-24.04
-    # Workflow-level RUSTC_WRAPPER=sccache breaks the neurosym-forge cargo
-    # tests because sccache isn't installed on these python-only jobs. Empty
-    # string here disables the wrapper for the matrix without affecting the
-    # Nix-using jobs that DO have sccache via the nix devShell.
-    env:
-      RUSTC_WRAPPER: ""
     strategy:
       fail-fast: false
       matrix:
@@ -77,13 +72,6 @@ jobs:
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
     runs-on: ubuntu-24.04
-    # Workflow-level RUSTC_WRAPPER=sccache breaks here: sccache crashes
-    # with an opendal::services::ghac::error::parse_error when GHA Cache
-    # is contended (which it is, with magic-nix-cache + Swatinem already
-    # using it). Empty wrapper disables sccache for this job; Swatinem
-    # still caches target/, which carries the bulk of the speedup.
-    env:
-      RUSTC_WRAPPER: ""
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v22

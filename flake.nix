@@ -61,12 +61,14 @@
           packages = devPackages;
 
           shellHook = ''
-            export RUSTC_WRAPPER=sccache
+            # RUSTC_WRAPPER=sccache is set externally (by mozilla-actions/sccache-action
+            # in CI, or by the dev locally) — not here, so the shell stays usable in
+            # environments without GHA Cache (CI jobs that disable sccache, local
+            # dev, nightly runs).
             export CARGO_BUILD_RUSTFLAGS="-C link-arg=-fuse-ld=mold"
             export CARGO_INCREMENTAL=0
             export PATH="$HOME/.cargo/bin:$PATH"
             export NBB_PATH="$PWD/.nbb"
-            # Cachix uses these to skip rebuild on the runner
             export NIX_CONFIG="experimental-features = nix-command flakes"
           '';
         };

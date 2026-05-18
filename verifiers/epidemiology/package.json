@@ -1,0 +1,20 @@
+{
+  "name": "epidemiology",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build:cljs":         "shadow-cljs release main",
+    "build:rust":         "cargo build --manifest-path rust-verifier/Cargo.toml --release --features smt && mkdir -p cljs-orchestrator/native && cp rust-verifier/target/release/libepidemiology_verifier.so cljs-orchestrator/native/epidemiology-verifier.node",
+    "build":              "npm run booklogic-compile && npm run codegen-axioms && npm run build:rust && npm run build:cljs",
+    "verify":             "node cljs-orchestrator/dist/main.js verify",
+    "booklogic-compile":  "nbb -m epidemiology.booklogic .",
+    "codegen-axioms":     "python scripts/codegen_axioms.py",
+    "codegen-kg":         "python scripts/codegen_kg.py",
+    "test:booklogic":     "nbb -m epidemiology.booklogic-test"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.28.20",
+    "@napi-rs/cli": "^3.0.0",
+    "nbb": "^1.4.0"
+  }
+}

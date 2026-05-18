@@ -1,0 +1,1 @@
+{:version 1, :sorts [:disease :population], :predicates {:basic-reproduction-number {:arg-sorts nil, :return nil}, :vaccination-coverage {:arg-sorts nil, :return nil}, :herd-immunity-threshold {:arg-sorts nil, :return nil}}}

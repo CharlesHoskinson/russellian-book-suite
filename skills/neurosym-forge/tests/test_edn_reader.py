@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts._edn_reader import read_edn, EdnReadError, Keyword
+from scripts._edn_reader import read_edn, EdnReadError, EdnList, EdnVector, Keyword
 
 
 def test_read_int() -> None:
@@ -77,7 +77,7 @@ def test_read_map_with_keyword_keys() -> None:
 
 def test_read_list() -> None:
     result = read_edn("(:source/ingested {:doc-id \"d1\"})")
-    assert isinstance(result, list)
+    assert isinstance(result, EdnList)
     assert result[0] == Keyword("ingested", namespace="source")
     assert result[1] == {Keyword("doc-id"): "d1"}
 

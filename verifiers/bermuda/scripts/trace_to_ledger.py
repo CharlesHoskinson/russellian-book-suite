@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from scripts._edn_reader import Keyword, Symbol, read_edn
+from scripts._edn_reader import EdnList, EdnVector, Keyword, Symbol, read_edn
 
 
 class TraceProjectionError(ValueError):
@@ -45,7 +45,7 @@ def read_trace(path: Path) -> dict:
     raw = edn.get(Keyword("events"), [])
     events: list[dict] = []
     for entry in raw:
-        if not isinstance(entry, list) or len(entry) < 2:
+        if not isinstance(entry, (list, EdnList, EdnVector)) or len(entry) < 2:
             continue
         head, payload = entry[0], entry[1]
         head_str = str(head) if isinstance(head, Symbol) else str(head).lstrip(":")

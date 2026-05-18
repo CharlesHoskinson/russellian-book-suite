@@ -121,15 +121,38 @@ def test_predicate_is_real_helper_empty_for_int_only_constraints() -> None:
     assert real_arms == [], f"unexpected Real arms: {real_arms}"
 
 
-def test_generate_skips_non_z3_backends() -> None:
-    """REQ-DSL-021: non-z3 constraints are not emitted into axioms.rs."""
-    cs = [_constraint(name="C001"),
-          _constraint(name="C002", backend=":cozo",
-                      assert_form="(some-cozo-thing)")]
+def test_generate_routes_backends_to_separate_emitters() -> None:
+    """REQ-EQSAT-041 (Phase H): :egg constraints route through
+    `_emit_egg_block` into the axioms.rs body — eqsat::prove_equiv at
+    runtime.
+    REQ-DATALOG-041 (Phase I): :cozo constraints surface inside
+    `cozo_constraints()`, not inside `assert_axioms`. The Z3 entry point
+    must not see them.
+    """
+    cs = [
+        _constraint(name="C001"),  # :z3
+        _constraint(name="C002", backend=":cozo",
+                    assert_form="(some-cozo-thing)"),
+        _constraint(name="C003", backend=":egg",
+                    assert_form="(= (:foo :s) (:bar :s))"),
+    ]
     src = generate_axioms_source(cs)
-    assert '"C001"' in src
-    # Non-z3 constraints must NOT be emitted into axioms.rs (they belong in kg.rs).
-    assert '"C002"' not in src
+    assert_axioms_half, _, cozo_half = src.partition("pub fn cozo_constraints")
+    # :z3 lands in the assert_axioms body
+    assert '"C001"' in assert_axioms_half
+    # :egg lands in the assert_axioms body too (via eqsat::prove_equiv shim)
+    assert '"C003"' in assert_axioms_half, (
+        ":egg constraints should route through _emit_egg_block into "
+        "the assert_axioms body (Phase H, REQ-EQSAT-041)"
+    )
+    # :cozo lands in cozo_constraints() registry, NOT in assert_axioms
+    assert '"C002"' not in assert_axioms_half, (
+        ":cozo constraints must not leak into assert_axioms; "
+        "they belong in cozo_constraints()"
+    )
+    assert '"C002"' in cozo_half, (
+        "REQ-DATALOG-041: :cozo constraints must surface in cozo_constraints()"
+    )
 
 
 def test_tracker_map_links_constraint_to_claim_binding() -> None:

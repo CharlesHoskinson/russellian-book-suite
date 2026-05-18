@@ -10,39 +10,34 @@
 // == Unsat`, `solver.get_unsat_core()` returns these names. Use
 // `rules/axioms-tracker-map.edn` to translate them back to BookLogic
 // ids and to the bound claim id.
+//
+// Constraints with :backend :egg discharge through the eqsat module
+// (egg-rs 0.10); the resulting ProofResult is wrapped in a Z3 boolean
+// tracker so unsat-core reporting keeps working uniformly.
 
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
-use std::ops::{Add as _, Mul as _, Sub as _};
+use z3::{
+    ast::{Array, Bool, Int, Real, Set, String as Z3String},
+    Solver,
+};
 #[cfg(feature = "smt")]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
-use z3::{
-    Solver,
-    ast::{Bool, Int, Real, String as Z3String},
-};
+#[allow(unused_imports)]
+use std::ops::{Add as _, Mul as _, Sub as _};
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {
     // constraint C001-vant-hoff (approx-equality, relative tolerance 0.03)
     {
         let lhs = Real::new_const("osmotic-pressure-pa_s");
-        let rhs = Real::new_const("vant-hoff-i_s")
-            .mul(&Real::new_const("molarity_s"))
-            .mul(&Real::from_rational(8314000, 1000000))
-            .mul(&Real::new_const("temperature-k_s"));
+        let rhs = Real::new_const("vant-hoff-i_s").mul(&Real::new_const("molarity_s")).mul(&Real::from_rational(8314000, 1000000)).mul(&Real::new_const("temperature-k_s"));
         let diff = lhs.sub(&rhs);
-        let eps = Real::from_rational(30000, 1000000);
+        let eps  = Real::from_rational(30000, 1000000);
         let neg_eps = Real::from_rational(-30000, 1000000);
-        // |diff| <= |rhs| * eps, written without abs() as a
-        // sign-aware pair of products. (rhs * eps) is the
-        // positive-rhs bound; we add (rhs * neg_eps) so the
-        // case where rhs is negative collapses correctly.
         let bound_pos = rhs.clone().mul(&eps);
         let bound_neg = rhs.clone().mul(&neg_eps);
-        // diff <= max(bound_pos, bound_neg) AND diff >= min(...).
-        // Encoded as: (diff <= bound_pos OR diff <= bound_neg) but
-        // since Z3 normalises, the conjunction below is sufficient.
         let upper_pos = diff.le(&bound_pos);
         let upper_neg = diff.le(&bound_neg);
         let lower_pos = bound_neg.le(&diff);
@@ -79,6 +74,20 @@ pub fn predicate_is_real(name: &str) -> bool {
 
 #[cfg(not(feature = "smt"))]
 pub fn predicate_is_real(_name: &str) -> bool {
+    false
+}
+
+#[cfg(feature = "smt")]
+/// True if the named predicate-subject symbol carries a multi-valued
+/// `[:vector <T>]` return-sort. smt.rs queries this to fail loudly
+/// when an atom binds a scalar to a vector-typed predicate
+/// (REQ-DSL-054).
+pub fn predicate_is_vector(name: &str) -> bool {
+    let _ = name; false
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn predicate_is_vector(_name: &str) -> bool {
     false
 }
 

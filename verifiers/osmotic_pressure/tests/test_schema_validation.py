@@ -24,6 +24,30 @@ def test_schema_lists_four_predicates_with_return_real():
     assert ":arg-sorts [:solution]" in text or ":arg-sorts (:solution)" in text
 
 
+def test_schema_emits_vector_set_return_shapes(tmp_path):
+    """REQ-DSL-055: a multi-valued return shape ([:vector T] / [:set T]) in
+    a hand-rolled booklogic-schema.edn round-trips through the EDN reader
+    used by ingest_ledger, preserving the container head + inner sort."""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from scripts._edn_reader import read_edn, Keyword
+
+    text = (
+        "{:version 1 "
+        " :sorts [:solution :chapter] "
+        " :predicates {"
+        "   :solutes           {:arg-sorts [:solution] :return [:vector :real]} "
+        "   :upstream-chapters {:arg-sorts [:chapter]  :return [:set :chapter]}}}"
+    )
+    parsed = read_edn(text)
+    preds  = parsed[Keyword("predicates")]
+    solutes = preds[Keyword("solutes")]
+    assert solutes[Keyword("return")][0] == Keyword("vector")
+    assert solutes[Keyword("return")][1] == Keyword("real")
+    upstream = preds[Keyword("upstream-chapters")]
+    assert upstream[Keyword("return")][0] == Keyword("set")
+    assert upstream[Keyword("return")][1] == Keyword("chapter")
+
+
 def test_unknown_predicate_rejects_ingest(tmp_path):
     """REQ-EDN-053: ingest fails fast if predicates.edn references a name
     not in the schema."""

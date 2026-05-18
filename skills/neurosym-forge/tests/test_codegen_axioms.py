@@ -203,6 +203,113 @@ def test_output_is_byte_deterministic() -> None:
     assert src1 == src2
 
 
+# -------- REQ-DSL-050..055: multi-valued predicates --------
+
+def test_vector_predicate_emits_z3_array() -> None:
+    """REQ-DSL-051: [:vector :real] return → Z3 Array<Int, Real> symbol."""
+    cs = [_constraint(
+        name="C-vec",
+        assert_form="(= (select (:solutes :s) 0) 0)",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    assert "Array" in src, "vector predicate must lower to a Z3 Array<...>"
+    assert "Real" in src
+    # The helper predicate_is_vector lists vector-typed predicate symbols.
+    assert "pub fn predicate_is_vector(name: &str) -> bool" in src
+    assert '"solutes_s" => true' in src
+
+
+def test_set_predicate_emits_z3_set() -> None:
+    """REQ-DSL-052: [:set :chapter] return → Z3 Set<...> symbol."""
+    cs = [_constraint(
+        name="C-set",
+        assert_form="(= (count (:upstream-chapters :c)) 0)",
+    )]
+    schema = {
+        Keyword("upstream-chapters"): {
+            Keyword("arg-sorts"): [Keyword("chapter")],
+            Keyword("return"):    [Keyword("set"), Keyword("chapter")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    assert "Set" in src, "set predicate must lower to a Z3 Set<...>"
+    assert "pub fn predicate_is_vector(name: &str) -> bool" in src
+    # set-typed predicates are NOT vectors; predicate_is_vector returns false.
+    assert '"upstream-chapters_c" => true' not in src
+
+
+def test_count_aggregate_uses_paired_length_symbol() -> None:
+    """REQ-DSL-053: (count vec) lowers to the paired <var>_len Int symbol."""
+    cs = [_constraint(
+        name="C-count",
+        assert_form="(= (count (:solutes :s)) 3)",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    assert "solutes_s_len" in src, (
+        "count(vec) must use the codegen's paired <var>_len Int symbol"
+    )
+
+
+def test_sum_aggregate_emits_array_fold() -> None:
+    """REQ-DSL-053: (sum vec) over a known-length vector unrolls statically."""
+    cs = [_constraint(
+        name="C-sum",
+        assert_form="(= (sum (:solutes :s)) 0)",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    # Sum lowers to a fold over Array<Int, Real>::select(i).
+    assert "select" in src
+    # Either a chained .add or a Real::add fold; both encode the unrolled sum.
+    assert ".add(" in src or "Real::add" in src
+
+
+def test_forall_aggregate_emits_bounded_unroll() -> None:
+    """REQ-DSL-053: (forall ?x in vec body) emits an array-indexed quantifier
+    or bounded Bool::and unroll."""
+    cs = [_constraint(
+        name="C-forall",
+        assert_form="(forall ?x in (:solutes :s) (= ?x 0))",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    # The forall lowers to either a Z3 forall_const or a Bool::and over slices.
+    assert "forall" in src.lower() or "Bool::and" in src
+
+
+def test_schema_optional_back_compat() -> None:
+    """Calling generate_axioms_source without schema= must still work
+    (backwards-compatible default for projects predating REQ-DSL-050)."""
+    cs = [_constraint(name="C001")]
+    src = generate_axioms_source(cs)  # no schema kwarg
+    assert "assert_and_track" in src
+    # predicate_is_vector is emitted regardless, with no true arms when no
+    # vector predicates exist.
+    assert "pub fn predicate_is_vector(name: &str) -> bool" in src
+
+
 # ---------------------------------------------------------------- encoder extensions
 
 def test_generate_less_than_constraint_emits_lt_call() -> None:

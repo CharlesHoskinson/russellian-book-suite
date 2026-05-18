@@ -1,0 +1,45 @@
+;; rules/booklogic/lifts.edn — prose-to-atom extractors.
+;;
+;; FORM SYNTAX:
+;;   (deflift name
+;;     :from :claim/canonical-text
+;;     :when "REGEX WITH (?P<v>capture-group)"
+;;     :emit (fact ?claim-id SUBJECT :predicate-name (parse-float ?v)))
+;;
+;; The regex captures a value via a named group (Python `(?P<v>...)`); the
+;; :emit form binds it as `?v` and produces a typed atom. Common :emit
+;; coercions: (parse-float ?v), (parse-int ?v), or pass through as a string.
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (deflift L001-molarity
+;;   :from :claim/canonical-text
+;;   :when "(?i)molarity\\s*(?:M\\s*)?(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+;;   :emit (fact ?claim-id :s :molarity (parse-float ?v)))
+;;
+;; COMMON SILENT FAILURES:
+;;   - JS-style `(?<v>)` instead of Python-form `(?P<v>)` → the regex-compile
+;;     gate in CI rejects this (also see Tier 2 follow-up to remove the
+;;     silent JS-to-Python converter in ingest_ledger).
+;;   - apostrophe in the source text (`van 't Hoff`) → the regex MUST allow
+;;     both space and apostrophe in the gap: `van[' \\s]*t\\s*Hoff`, not
+;;     `van['?]t` (zero-or-one) which fails on the two-char gap.
+;;   - :emit referencing an undeclared predicate → nbb expand throws
+;;     "deflift <name>: unknown predicate <pred>".
+;;   - regex compiles but matches nothing → Phase A's extract gate
+;;     surfaces this as a high OPAQUE fraction.
+;;
+{:forms
+ [(deflift L001-basic-reproduction-number
+    :from :claim/canonical-text
+    :when "(?i)R\\s*[_0]?\\s*=\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+    :emit (fact ?claim-id :d :basic-reproduction-number (parse-float ?v)))
+
+  (deflift L002-vaccination-coverage
+    :from :claim/canonical-text
+    :when "(?i)vaccination\\s+coverage\\s*(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+    :emit (fact ?claim-id :p :vaccination-coverage (parse-float ?v)))
+
+  (deflift L003-herd-immunity-threshold
+    :from :claim/canonical-text
+    :when "(?i)herd\\s+immunity\\s+threshold\\s*(?:=|is|of)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)"
+    :emit (fact ?claim-id :d :herd-immunity-threshold (parse-float ?v)))]}

@@ -1,0 +1,7 @@
+{
+ :checksums {
+             "grounded.edn" "7b37e188db002feff6ea0132666f02b1097dc45eaf7d6ed226d76b6257cd26ed"
+             "predicates.edn" "81f577e89b2d02e551b99d04d14326d095442930ae3e9e2a2868db5c7588461b"
+             "seed.edn" "e8256924a61c1308500b407abb9ddf388632fe6d19db905eb18fab56c29f32ca"
+            }
+}

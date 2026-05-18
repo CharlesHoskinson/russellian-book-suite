@@ -24,12 +24,17 @@ jobs:
   # The setup-book-python composite action handles pip + venv per skill; the
   # matrix.include lines override `extra` and add sibling-skill symlinks /
   # pytest deselect arguments where individual skills need them.
+  #
+  # The matrix runs on three OSes (REQ-CI-040). `fail-fast: false` is
+  # mandatory so the divergence-summary aggregator (REQ-CI-042) sees every
+  # leg, not just the first failure.
   python-skill-matrix:
-    name: python-skill (${{ matrix.skill }})
-    runs-on: ubuntu-24.04
+    name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04, macos-latest, windows-2022]
         skill:
           - book-qa
           - book-thesis
@@ -52,15 +57,29 @@ jobs:
           python-version: "3.13"
           skill-path: skills/${{ matrix.skill }}
           extra: ${{ matrix.extra || 'ci' }}
+      # Portable symlink: `ln -sfn` requires Developer Mode (or admin) on
+      # Windows. The Node `fs.symlinkSync` path works uniformly across
+      # ubuntu/macos/windows runners.
       - name: symlink siblings
         if: matrix.siblings != ''
-        run: |
-          mkdir -p "$HOME/.claude/skills"
-          for sibling in ${{ matrix.siblings }}; do
-            ln -sfn "$PWD/skills/$sibling" "$HOME/.claude/skills/$sibling"
-          done
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
+            const { join } = require('path');
+            const home = process.env.HOME || process.env.USERPROFILE;
+            const target = join(home, '.claude', 'skills');
+            mkdirSync(target, { recursive: true });
+            const cwd = process.cwd();
+            const raw = `${{ matrix.siblings }}`;
+            for (const s of raw.split(/\s+/).filter(Boolean)) {
+              const link = join(target, s);
+              if (existsSync(link)) rmSync(link, { recursive: true, force: true });
+              symlinkSync(join(cwd, 'skills', s), link, 'dir');
+            }
       - name: pytest
         working-directory: skills/${{ matrix.skill }}
+        shell: bash
         run: python -m pytest tests/ -v ${{ matrix.pytest-deselect }}
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally

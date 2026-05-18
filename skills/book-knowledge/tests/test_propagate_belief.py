@@ -70,7 +70,6 @@ def test_addressed_counter_claim_damps_more_than_open():
 
 
 import json
-from pathlib import Path
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.propagate_belief import write_snapshot
 

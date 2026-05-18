@@ -58,7 +58,6 @@ def test_plain_session_passes_politeness_kwargs_to_fetcher(monkeypatch):
 
 def test_per_host_rate_limiter_sleeps_between_same_host_requests(monkeypatch):
     """Two consecutive requests to the same host trigger a sleep on the second."""
-    import time as _time
     sleeps: list[float] = []
     monkeypatch.setattr("scripts.session.time.sleep", lambda s: sleeps.append(s))
     _last_request_by_host.clear()

@@ -17,7 +17,7 @@ def _load_book_knowledge():
 
 def _legacy_build_disputed_questions(bk, workspace_root: Path) -> list[Path]:
     """Fallback path: use book-knowledge.detect_conflicts if available."""
-    verified = bk.query_claims({"state": "verified"}, workspace_root)
+    bk.query_claims({"state": "verified"}, workspace_root)
     pairs = []
     try:
         pairs = bk.detect_conflicts(workspace_root)

@@ -39,7 +39,7 @@ def test_positive_triggers_referenced_in_description():
 
 def test_negative_triggers_documented_in_description():
     description = _description().lower()
-    fixture = yaml.safe_load((ROOT / "tests/trigger_tests.yaml").read_text(encoding="utf-8"))
+    yaml.safe_load((ROOT / "tests/trigger_tests.yaml").read_text(encoding="utf-8"))
     refusal_terms = ["marketing", "fiction", "casual", "persuasive", "launch announcement"]
     description_refusals = [t for t in refusal_terms if t in description]
     assert len(description_refusals) >= 4

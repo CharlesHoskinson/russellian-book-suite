@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import pytest
 from scripts.acquire.manifest import (
     append_run_record, AcquireHaltedError, halt_check, read_pending_seeds,

@@ -7,7 +7,6 @@ torch/sentence-transformers are also stubbed so rank() works without them."""
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-import pytest
 
 ROOT = Path(__file__).resolve().parents[4]  # repo root
 STUB = Path(__file__).resolve().parents[1] / "fixtures" / "booklogic_stub.py"

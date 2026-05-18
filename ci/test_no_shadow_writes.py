@@ -5,7 +5,6 @@ Here we verify the plugin helpers behave correctly on synthetic paths.
 
 Invoke via:  ci/.venv/Scripts/python.exe -m pytest ci/test_no_shadow_writes.py -v
 """
-from pathlib import Path
 
 from ci.lint_no_shadow_writes import (
     _is_write_mode,

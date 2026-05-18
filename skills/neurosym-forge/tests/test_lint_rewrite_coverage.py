@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 from scripts._edn_reader import Keyword
 from scripts._io import write_edn_file, file_checksum

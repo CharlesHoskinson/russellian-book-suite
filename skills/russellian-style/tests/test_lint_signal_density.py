@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 from scripts.lint_signal_density import lint_signal_density

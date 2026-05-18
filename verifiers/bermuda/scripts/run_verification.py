@@ -28,7 +28,6 @@ from scripts._io import write_edn_file  # noqa: E402
 from scripts.extract_prose import extract_release
 from scripts.ingest_ledger import ingest
 from scripts.trace_to_ledger import (
-    TraceProjectionError,
     project_trace_to_ledger_rows,
     read_trace,
 )

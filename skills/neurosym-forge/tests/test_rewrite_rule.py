@@ -7,7 +7,6 @@ import pytest
 from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file
 from scripts.rewrite_rule import RewriteRule
-from scripts.sort_registry import _dict_get
 
 ID_KEY = Keyword("id")
 TAGS_KEY = Keyword("tags")

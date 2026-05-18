@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 def test_skill_api_loads_via_sibling_skills(monkeypatch):

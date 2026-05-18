@@ -1,5 +1,4 @@
 from scripts.adapters import semantic_scholar
-from scripts.adapters.openalex import PaperRef
 
 def test_references_stubbed(monkeypatch):
     # The unit test stubs out the network — semantic_scholar's behavior against

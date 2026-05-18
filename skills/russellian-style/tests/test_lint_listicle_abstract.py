@@ -1,5 +1,3 @@
-from pathlib import Path
-import pytest
 from scripts.lint_listicle_abstract import lint_listicle_abstract
 
 

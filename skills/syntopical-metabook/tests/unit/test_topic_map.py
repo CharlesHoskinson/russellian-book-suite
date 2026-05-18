@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 from scripts.synthesize.topic_map import build_topic_map
 

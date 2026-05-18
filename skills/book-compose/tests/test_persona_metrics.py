@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.chapter_contract_check import check_draft, _compute_metrics

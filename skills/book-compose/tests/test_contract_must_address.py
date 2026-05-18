@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-import pytest
 
 from scripts.chapter_contract import load_brief
 

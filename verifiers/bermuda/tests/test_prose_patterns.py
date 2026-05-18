@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 
 from scripts._edn_reader import Keyword
 from scripts.prose_patterns import extract_pass_a

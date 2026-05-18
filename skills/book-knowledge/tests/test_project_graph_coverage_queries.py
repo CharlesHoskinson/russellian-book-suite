@@ -1,8 +1,7 @@
 """Tests for C-001: chapter/wiki-page/dateCreated triples emitted by project_graph."""
 import json
-from pathlib import Path
 
-from rdflib import Dataset, Graph, Namespace, URIRef, Literal
+from rdflib import Graph, Namespace, URIRef
 from rdflib.namespace import RDF
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.project_graph import project_graph

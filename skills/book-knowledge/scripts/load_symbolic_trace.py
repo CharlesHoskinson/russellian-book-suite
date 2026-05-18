@@ -26,7 +26,6 @@ access. The schema at ingest-trace.schema.json is enforced.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
 

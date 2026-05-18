@@ -1,4 +1,3 @@
-from pathlib import Path
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.wiki_index_regen import wiki_index_regen
 

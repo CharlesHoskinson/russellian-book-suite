@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file
@@ -87,6 +86,6 @@ def test_extract_release_with_pass_b_enabled(tmp_path: Path) -> None:
 
     n = extract_release(bundles, tmp_path / "prose-facts.edn",
                         llm_call=fake_llm)
-    payload = read_edn_file(tmp_path / "prose-facts.edn")
+    read_edn_file(tmp_path / "prose-facts.edn")
     # Pass A finds parishes, Pass B finds population → 2 atoms
     assert n == 2

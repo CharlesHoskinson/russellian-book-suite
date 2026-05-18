@@ -4,7 +4,7 @@ Each fragment is then spliced into the chapter draft replacing the existing mark
 """
 from pathlib import Path
 import pandas as pd
-from great_tables import GT, html, md, loc, style
+from great_tables import GT, md, loc, style
 
 OUT = Path("C:/bermuda-manual/chapters/assets/shared/tables")
 OUT.mkdir(parents=True, exist_ok=True)

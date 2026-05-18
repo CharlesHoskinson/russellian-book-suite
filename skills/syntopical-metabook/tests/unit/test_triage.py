@@ -1,6 +1,5 @@
-from pathlib import Path
 from scripts.acquire.rank_candidates import ScoredCandidate
-from scripts.acquire.triage import triage, TriageResult, TriageConfig
+from scripts.acquire.triage import triage, TriageConfig
 
 def test_partition_three_buckets(tmp_path):
     scored = [

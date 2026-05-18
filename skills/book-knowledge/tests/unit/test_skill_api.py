@@ -1,11 +1,9 @@
 """Unit tests for the book-knowledge public skill_api surface (IF-BK-1..4)."""
 from __future__ import annotations
 
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 
 # The skill_api lives at the skill root, not under scripts/.
 import sys

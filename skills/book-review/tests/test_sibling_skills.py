@@ -1,4 +1,3 @@
-from pathlib import Path
 import pytest
 from scripts.sibling_skills import (
     book_knowledge_root, russellian_style_root, book_compose_root,

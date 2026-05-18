@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from types import SimpleNamespace
 from scripts.synthesize.disputed_questions import build_disputed_questions
 from scripts.synthesize.concept_reconcile import build_concept_reconciliation

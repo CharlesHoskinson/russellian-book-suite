@@ -12,13 +12,10 @@ preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
 
 lint:
 	clj-kondo --lint $$(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn') --fail-level error
+	ruff check .
 	cargo fmt --check --manifest-path verifiers/bermuda/rust-verifier/Cargo.toml
 	cargo fmt --check --manifest-path verifiers/osmotic_pressure/rust-verifier/Cargo.toml
 	nixpkgs-fmt --check $$(git ls-files '*.nix')
-# Python lint deliberately omitted from `make lint`. The repo has ~210 pre-
-# existing ruff violations across legacy code; bringing them clean is a
-# multi-PR effort tracked separately. Per-skill tests still enforce ruff
-# where each skill's pyproject.toml declares it as a [dev]/[ci] dependency.
 
 scaffold-bake:
 	pytest skills/neurosym-forge/tests/test_scaffold_bake.py -x

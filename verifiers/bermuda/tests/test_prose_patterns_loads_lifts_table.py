@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 from scripts._edn_reader import Keyword  # noqa: E402
 from scripts._io import read_edn_file  # noqa: E402

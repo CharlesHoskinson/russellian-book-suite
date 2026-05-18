@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.ledger import append_claim
@@ -21,7 +20,7 @@ def _seed_claim(tmp_path):
 
 
 def test_apply_writeback_propose_only_default(tmp_path):
-    layout = _seed_claim(tmp_path)
+    _seed_claim(tmp_path)
     (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "from": "verified", "to": "disputed",
@@ -35,7 +34,7 @@ def test_apply_writeback_propose_only_default(tmp_path):
 
 
 def test_apply_writeback_auto_apply_critical(tmp_path):
-    layout = _seed_claim(tmp_path)
+    _seed_claim(tmp_path)
     (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "from": "verified", "to": "disputed",
@@ -49,7 +48,7 @@ def test_apply_writeback_auto_apply_critical(tmp_path):
 
 
 def test_apply_writeback_skips_non_critical_in_auto(tmp_path):
-    layout = _seed_claim(tmp_path)
+    _seed_claim(tmp_path)
     (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "from": "verified", "to": "disputed",
@@ -62,7 +61,7 @@ def test_apply_writeback_skips_non_critical_in_auto(tmp_path):
 
 def test_apply_writeback_blocks_human_review_proposals(tmp_path):
     """REQ-QA-PIPE-012: :requires :human-review blocks auto-apply."""
-    layout = _seed_claim(tmp_path)
+    _seed_claim(tmp_path)
     (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "to": "refuted",
@@ -74,7 +73,7 @@ def test_apply_writeback_blocks_human_review_proposals(tmp_path):
 
 
 def test_apply_writeback_counter_claim_auto_applies(tmp_path):
-    layout = init_workspace(tmp_path)
+    init_workspace(tmp_path)
     append_counter_claim(tmp_path, {
         "id": "cc-2026-abcdef", "target_claim_id": "clm-2026-000001",
         "text": "Rival hypothesis here.", "disagreement_vector": "scope",

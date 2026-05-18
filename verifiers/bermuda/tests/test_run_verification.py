@@ -4,7 +4,6 @@ import inspect
 import json
 from pathlib import Path
 
-import pytest
 
 from scripts.run_verification import run
 

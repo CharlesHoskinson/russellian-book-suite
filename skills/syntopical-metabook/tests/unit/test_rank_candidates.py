@@ -1,5 +1,5 @@
 import pytest
-from scripts.acquire.rank_candidates import rank, Candidate, ScoredCandidate
+from scripts.acquire.rank_candidates import rank, Candidate
 
 
 def _ml_deps_available() -> bool:

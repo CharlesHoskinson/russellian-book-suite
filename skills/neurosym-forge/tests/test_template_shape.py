@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent / "assets" / "project-template"

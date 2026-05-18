@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 from scripts.gap.coverage_report import build_coverage_report
 from scripts.gap.feed_acquire import seed_from_gap_report
@@ -22,7 +21,7 @@ def test_uncovered_statements_appended_to_pending_seeds(tmp_path, monkeypatch):
         raw = _yaml.safe_load((root / "chapters" / chap_id / "thesis-tree.yaml").read_text(encoding="utf-8"))
         return SimpleNamespace(chapter_id=raw["chapter_id"], nodes=[SimpleNamespace(**n) for n in raw["nodes"]])
     monkeypatch.setattr(gr, "_load_book_thesis", lambda: SimpleNamespace(read_thesis_tree=_read_tree))
-    report = build_coverage_report(tmp_path, chapter_id="ch-01", required_per_node=3)
+    build_coverage_report(tmp_path, chapter_id="ch-01", required_per_node=3)
     seed_from_gap_report(tmp_path, chapter_id="ch-01")
     seeds = read_pending_seeds(tmp_path / "syntopical" / "acquisition" / "pending-seeds.txt")
     assert "Finality is irreversible." in seeds

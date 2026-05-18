@@ -5,7 +5,6 @@ Each chapter has a markdown table whose header row uniquely identifies it.
 We delete from that header line through the contiguous markdown table block
 and insert the HTML fragment in its place.
 """
-import re
 from pathlib import Path
 
 CH = Path("C:/bermuda-manual/chapters/drafts")

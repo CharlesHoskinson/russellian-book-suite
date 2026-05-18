@@ -1,6 +1,6 @@
 """arxiv.org adapter — abstract page parsing and search."""
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from scripts.fetch import fetch
 from scripts.exceptions import ArxivIdNotFound
 

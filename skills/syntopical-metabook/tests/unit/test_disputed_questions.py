@@ -1,5 +1,3 @@
-import os
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 from scripts.synthesize.disputed_questions import build_disputed_questions

@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 from scripts.gap.coverage_report import build_coverage_report
 

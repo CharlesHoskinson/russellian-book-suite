@@ -5,12 +5,10 @@ CLI lands, the same tests run nightly via `pytest -m live` against the real
 binary by setting BOOKLOGIC_BIN.
 """
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 STUB = Path(__file__).resolve().parents[2] / "fixtures" / "booklogic_stub.py"
 

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from scripts.acquire.expand_seeds import expand_seeds, PaperRef
 
 def test_dedup_by_arxiv_id(monkeypatch):

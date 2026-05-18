@@ -8,7 +8,6 @@ REQ-VERIFIER-BUILD-010: byte-deterministic output.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 import pytest
 

@@ -1,6 +1,5 @@
-from pathlib import Path
 import pytest
-from scripts.print_pdf import print_pdf, PrintPdfError
+from scripts.print_pdf import print_pdf
 from scripts._playwright_check import is_playwright_ready
 
 playwright_required = pytest.mark.skipif(

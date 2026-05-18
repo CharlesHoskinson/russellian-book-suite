@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file

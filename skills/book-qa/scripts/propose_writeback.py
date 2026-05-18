@@ -31,7 +31,8 @@ def _read_verdict(workspace_root: Path) -> dict | None:
 
 def _get_edn_reader():
     """Lazy-load the neurosym-forge EDN reader (same strategy as booklogic_remedies)."""
-    import importlib.util, sys as _sys
+    import importlib.util
+    import sys as _sys
     _mod_name = "_nf_edn_reader"
     if _mod_name in _sys.modules:
         return _sys.modules[_mod_name]

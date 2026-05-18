@@ -1,5 +1,4 @@
 from pathlib import Path
-from types import SimpleNamespace
 import yaml
 from scripts.lens.project_lens import project_lens
 
@@ -49,7 +48,8 @@ def test_project_lens_writes_lens_file(tmp_path, monkeypatch):
     assert "n_topics" in fm and "n_disputed" in fm and "n_concepts" in fm
     assert "coverage_score" in fm
     # Required section order
-    idx = lambda s: body.index(s)
+    def idx(s):
+        return body.index(s)
     assert idx("## Topics") < idx("## Disputed Questions") < idx("## Concept Reconciliation") < idx("## Coverage")
     # Tag-filtered: finality content appears, unrelated does NOT appear in topics
     assert "finality" in body

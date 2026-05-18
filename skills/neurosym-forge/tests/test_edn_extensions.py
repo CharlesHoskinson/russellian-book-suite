@@ -10,7 +10,6 @@ from scripts._edn_reader import (
     Keyword,
     Symbol,
     read_edn,
-    read_edn_all,
 )
 
 

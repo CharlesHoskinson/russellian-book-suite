@@ -1,6 +1,4 @@
-from pathlib import Path
-import pytest
-from scripts.chapter_contract_check import check_draft, ContractCheckResult
+from scripts.chapter_contract_check import check_draft
 
 
 GOOD_DRAFT = """

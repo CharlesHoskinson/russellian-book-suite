@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from scripts.propose_writeback import propose_writeback
 
 
@@ -17,7 +16,7 @@ def test_writes_proposed_transitions_and_md(tmp_path):
          "counter_claim_id": "cc-2026-abcdef", "chapter_id": "ch07",
          "severity": "important"}
     ]}), encoding="utf-8")
-    out = propose_writeback(ws, version="v5")
+    propose_writeback(ws, version="v5")
     proposed_lines = (ws / "claims" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(proposed_lines) == 2
     md = (ws / "qa" / "ledger-writeback-v5.md").read_text(encoding="utf-8")
@@ -30,7 +29,7 @@ def test_missing_files_gracefully_returns_zero(tmp_path):
     (ws / "qa").mkdir(parents=True)
     (ws / "claims").mkdir(parents=True)
     # No findings files written.
-    out = propose_writeback(ws, version="v5")
+    propose_writeback(ws, version="v5")
     proposed = (ws / "claims" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
     assert proposed == []
 
@@ -67,7 +66,7 @@ def test_writeback_includes_booklogic_remedy_proposal(tmp_path):
         ':explanation "x" :verified-count 1}',
         encoding="utf-8",
     )
-    out = propose_writeback(ws, version="v5")
+    propose_writeback(ws, version="v5")
     proposed_lines = (ws / "claims" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
     # 1 from the ticket, 1 from the remedy
     assert len(proposed_lines) == 2

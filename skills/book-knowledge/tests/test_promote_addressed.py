@@ -1,4 +1,3 @@
-import json
 from scripts.workspace import init_workspace
 from scripts.counter_claims import append_counter_claim, read_counter_claims
 from scripts.promote_addressed import promote_addressed

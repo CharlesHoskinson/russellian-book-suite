@@ -132,21 +132,51 @@ def test_bug6_slurp_undeclared(fresh_bake) -> None:
     assert "slurp" in result.stderr.lower() or "undeclared" in result.stderr.lower()
 
 
-# ----- Bug #7: JS-style (?<name>) named group -----
+# ----- Bug #7: silent regex break in lifts.edn -----
 
-def test_bug7_js_named_group_caught_by_regex_check(fresh_bake) -> None:
+def test_bug7_regex_break_caught_by_extract_gate(fresh_bake) -> None:
+    """REQ-INGEST-048: A regex break in a baked project's lifts.edn
+    causes `make ci` to fail at the new extract gate (OPAQUE-fraction
+    threshold), BEFORE reaching the smoke step.
+
+    The spec wording targets JS-style `(?<v>)` named groups specifically,
+    but `ingest_ledger.py` has a `_to_python_regex` converter that
+    silently rewrites JS-form to Python-form — masking that exact bug at
+    the ingest layer. We mutate the regex's literal prefix instead to a
+    non-matching token, which is the same class of silent failure (the
+    sprint-5 root cause was a regex that compiled fine but didn't match
+    the fixture).
+
+    Removing the silent converter is tracked separately (general-purpose
+    framework hardening, Tier 2+).
+    """
     project = fresh_bake("bug7")
     lifts = project / "rules" / "booklogic" / "lifts.edn"
     text = lifts.read_text(encoding="utf-8")
-    # Mutate (?P<v> back to (?<v>
-    bad = text.replace("(?P<v>", "(?<v>")
-    assert bad != text, "couldn't find (?P<v> to mutate"
+    # Mutate `count\\s*(?P<v>...)` → `zzzNEVERMATCH\\s*(?P<v>...)` — the
+    # regex still compiles but never matches the smoke-fixture claims.
+    bad = text.replace("count\\s*(?P<v>", "zzzNEVERMATCH\\s*(?P<v>")
+    assert bad != text, "couldn't find `count\\s*(?P<v>` to mutate in lifts.edn"
     lifts.write_text(bad, encoding="utf-8")
-    # Direct script check (faster than full make ci):
-    result = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts" / "regex-compile-check.py"),
-         str(lifts)],
-        capture_output=True, text=True,
+
+    # The baked project also needs a fixture for the extract target to
+    # run — drop a one-line known-good claim. (The smoke-rules fixture
+    # doesn't ship one because the bake's primary purpose is the cljs
+    # compile / cargo build chain.)
+    fixtures_dir = project / "fixtures"
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    (fixtures_dir / "claims_clean.jsonl").write_text(
+        '{"claim_id":"smk-001","status":"verified","canonical_text":"count 7","claim_type":"fact"}\n',
+        encoding="utf-8",
     )
-    assert result.returncode != 0
-    assert "?<" in result.stderr or "(?P<" in result.stderr
+
+    result = run_make_ci(project)
+    assert result.returncode != 0, (
+        f"expected `make ci` to fail at extract gate; stdout: {result.stdout!r}\n"
+        f"stderr: {result.stderr!r}"
+    )
+    # The error message from extract_preview includes "exceeds threshold"
+    combined = (result.stdout + result.stderr).lower()
+    assert "exceeds threshold" in combined or "opaque" in combined, (
+        f"extract-gate failure mode not surfaced; combined output:\n{combined}"
+    )

@@ -7,7 +7,7 @@
 preflight: lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic
 
 lint:
-	clj-kondo --lint $$(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn')
+	clj-kondo --lint $$(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn') --fail-level error
 	ruff check .
 	cargo fmt --check
 	nixpkgs-fmt --check $$(git ls-files '*.nix')

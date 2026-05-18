@@ -27,14 +27,29 @@ _session_cache: dict[str, object] = {}
 def _session_for_mode(mode: Mode):
     if mode not in _session_cache:
         sess_obj = build_session(SessionMode(mode))
-        if hasattr(sess_obj, '__enter__') and hasattr(sess_obj, 'get'):
-            _session_cache[mode] = sess_obj
-        elif hasattr(sess_obj, '__enter__'):
-            live = sess_obj.__enter__()
-            _session_cache[mode] = live
+        # Scrapling 0.4.8's FetcherSession exposes .get only after __enter__,
+        # and a wrapper that defines its own .get can still delegate to an
+        # un-entered inner — so `hasattr(sess_obj, 'get')` is not a sufficient
+        # readiness signal. Always enter the context manager when it exists.
+        if hasattr(sess_obj, '__enter__'):
+            _session_cache[mode] = sess_obj.__enter__()
         else:
             _session_cache[mode] = sess_obj
     return _session_cache[mode]
+
+
+def _response_html(resp) -> str:
+    """Extract the HTML body from a Scrapling response.
+
+    Scrapling 0.4.8 carries the body on `html_content`; earlier and future
+    versions have used `html` and `text`. Try in order so the fetcher stays
+    compatible across upstream changes."""
+    return (
+        getattr(resp, "html_content", None)
+        or getattr(resp, "html", None)
+        or getattr(resp, "text", None)
+        or ""
+    )
 
 def _dispatch_status(url: str, status: int) -> None:
     """Translate non-success HTTP status codes into typed exceptions.
@@ -65,7 +80,7 @@ def fetch(url: str, mode: Mode = "plain", timeout_s: int = 20) -> Page:
         url=url,
         final_url=getattr(resp, "url", url),
         status=resp.status,
-        html=resp.html,
+        html=_response_html(resp),
         fetched_at=datetime.now(timezone.utc),
         headers=dict(getattr(resp, "headers", {})),
     )

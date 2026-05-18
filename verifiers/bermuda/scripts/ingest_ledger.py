@@ -118,8 +118,9 @@ def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | Non
                 continue
             pred_raw = spec.get(_KW_PREDICATE)
             subj_raw = spec.get(_KW_SUBJECT)
-            pred = f":{pred_raw.name}" if isinstance(pred_raw, Keyword) else str(pred_raw)
-            subj = f":{subj_raw.name}" if isinstance(subj_raw, Keyword) else str(subj_raw)
+            # REQ-EDN-049: emit Keyword objects, not string-with-colon-prefix.
+            pred = pred_raw if isinstance(pred_raw, Keyword) else Keyword(str(pred_raw).lstrip(":"))
+            subj = subj_raw if isinstance(subj_raw, Keyword) else Keyword(str(subj_raw).lstrip(":"))
             return pred, value, subj
     return None
 

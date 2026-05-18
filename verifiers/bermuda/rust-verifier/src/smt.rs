@@ -45,14 +45,15 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
         if kind != ":expression" {
             continue;
         }
+        // REQ-EDN-049: :predicate and :subject MUST be Keywords.
+        // ingest_ledger now emits Keywords; the legacy Str fallback is
+        // removed so any drift surfaces as a hard parse failure.
         let predicate = match atom.get(":predicate") {
             Some(Edn::Key(k)) => k.clone(),
-            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let subject = match atom.get(":subject") {
             Some(Edn::Key(k)) => k.clone(),
-            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let var_name = crate::canonical::canonical_var_name(&predicate, &subject);

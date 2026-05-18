@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from scripts._edn_reader import Keyword
+from scripts._edn_reader import EdnList, EdnVector, Keyword
 from scripts._io import read_edn_file
 from scripts.atom import Atom
 from scripts.rewrite_rule import RewriteRule
@@ -105,9 +105,10 @@ def lint_atomspace(payload: dict[str, Any]) -> LintReport:
         report.errors.append("atomspace missing 'sorts' field")
         return report
     sorts_val = sorts_raw
-    if not isinstance(sorts_val, list):
+    if not isinstance(sorts_val, (list, EdnList, EdnVector)):
         report.errors.append("atomspace 'sorts' must be a list")
         return report
+    sorts_val = list(sorts_val)
     try:
         registry = SortRegistry.from_dict({SORTS_KEY: sorts_val})
     except ValueError as e:

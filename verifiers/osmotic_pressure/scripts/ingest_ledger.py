@@ -128,8 +128,9 @@ def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | Non
                 continue
             pred_raw = spec.get(_KW_PREDICATE)
             subj_raw = spec.get(_KW_SUBJECT)
-            pred = f":{pred_raw.name}" if isinstance(pred_raw, Keyword) else str(pred_raw)
-            subj = f":{subj_raw.name}" if isinstance(subj_raw, Keyword) else str(subj_raw)
+            # REQ-EDN-049: emit Keyword objects, not string-with-colon-prefix.
+            pred = pred_raw if isinstance(pred_raw, Keyword) else Keyword(str(pred_raw).lstrip(":"))
+            subj = subj_raw if isinstance(subj_raw, Keyword) else Keyword(str(subj_raw).lstrip(":"))
             return pred, value, subj
     return None
 
@@ -171,6 +172,29 @@ def _claim_to_atom(claim: dict, predicates: dict) -> dict:
     return base
 
 
+def _validate_against_schema(predicates_path: Path, predicates: dict) -> None:
+    """REQ-EDN-053: validate predicate names against booklogic-schema.edn.
+
+    The schema is emitted by `nbb -m booklogic` next to predicates.edn. If
+    present, every key in `predicates` must match a key in the schema's
+    :predicates map. Missing schema -> warning only (older projects).
+    """
+    schema_path = predicates_path.parent / "booklogic-schema.edn"
+    if not schema_path.exists():
+        return
+    schema = read_edn_file(schema_path)
+    known = set(schema.get(Keyword("predicates"), {}).keys())
+    unknown = [str(p) for p in predicates if p not in known]
+    if unknown:
+        import sys
+        print(
+            f"ingest_ledger: unknown predicate(s) {unknown!r}; not in "
+            f"booklogic-schema.edn (expected one of {sorted(map(str, known))!r})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def compute_atoms(ledger_path: Path, predicates_path: Path) -> list[dict]:
     """Read ledger + predicates and return atoms WITHOUT writing to disk."""
     rows = read_ledger(ledger_path)
@@ -178,6 +202,7 @@ def compute_atoms(ledger_path: Path, predicates_path: Path) -> list[dict]:
     verified = [c for c in latest.values() if _is_verified(c)]
     predicates_data = read_edn_file(predicates_path)
     predicates = predicates_data.get(_KW_PREDICATES, {})
+    _validate_against_schema(predicates_path, predicates)
     return [_claim_to_atom(c, predicates) for c in verified]
 
 

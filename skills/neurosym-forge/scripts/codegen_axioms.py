@@ -27,7 +27,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from scripts._edn_reader import Keyword
+from scripts._canonical import canonical_var_name
+from scripts._edn_reader import EdnList, EdnVector, Keyword
 from scripts._io import read_edn_file, write_edn_file
 
 
@@ -157,7 +158,7 @@ def _emit_z3_block(c: dict) -> str:
     if isinstance(assert_, str):
         from scripts._edn_reader import read_edn
         assert_ = read_edn(assert_)
-    if not isinstance(assert_, list) or len(assert_) < 3:
+    if not isinstance(assert_, (list, EdnList, EdnVector)) or len(assert_) < 3:
         raise CodegenError(f"constraint {cid!r}: malformed assert form: {assert_!r}")
     head_node = assert_[0]
     head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
@@ -218,17 +219,17 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
     if isinstance(node, str):
         escaped = node.replace('"', '\\"')
         return f'Z3String::from_str("{escaped}").expect("valid utf-8")'
-    if isinstance(node, list) and node:
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
         head = node[0]
         if isinstance(head, Keyword):
             sub = node[1] if len(node) >= 2 else None
             if isinstance(sub, Keyword):
                 sub_str = sub.name
             elif sub is not None:
-                sub_str = str(sub).lstrip("?")
+                sub_str = str(sub)
             else:
                 sub_str = "val"
-            var_name = f"{head.name}_{sub_str}"
+            var_name = canonical_var_name(head.name, sub_str)
             if z3_type == "Bool":
                 return f'Bool::new_const("{var_name}")'
             if z3_type == "Real":
@@ -238,7 +239,7 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
             return f'Int::new_const("{var_name}")'
         head_str = str(head)
         if head_str in {"*", "+", "-"} and len(node) >= 3:
-            children = [_emit_expr_typed(n, z3_type) for n in node[1:]]
+            children = [_emit_expr_typed(n, z3_type) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             return _left_fold(method, children)
     return _emit_expr(node)
@@ -250,7 +251,7 @@ def _subtree_has_float(node: Any) -> bool:
         return False
     if isinstance(node, float):
         return True
-    if isinstance(node, list):
+    if isinstance(node, (list, EdnList, EdnVector)):
         return any(_subtree_has_float(child) for child in node)
     return False
 
@@ -266,7 +267,7 @@ def _parse_assert(assert_form: Any) -> tuple[str, str, str]:
     if isinstance(assert_form, str):
         from scripts._edn_reader import read_edn
         assert_form = read_edn(assert_form)
-    if not isinstance(assert_form, list) or len(assert_form) < 3:
+    if not isinstance(assert_form, (list, EdnList, EdnVector)) or len(assert_form) < 3:
         raise CodegenError(f"malformed assert form: {assert_form!r}")
     head = assert_form[0]
     head_str = head.name if isinstance(head, Keyword) else str(head)
@@ -294,7 +295,7 @@ def _emit_expr(node: Any) -> str:
     if isinstance(node, float):
         num, den = _rational_approx(node)
         return f"Real::from_rational({num}, {den})"
-    if isinstance(node, list) and node:
+    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
         head = node[0]
         # (:predicate ...)
         if isinstance(head, Keyword):
@@ -302,15 +303,15 @@ def _emit_expr(node: Any) -> str:
             if isinstance(sub, Keyword):
                 sub_str = sub.name
             elif sub is not None:
-                sub_str = str(sub).lstrip("?")
+                sub_str = str(sub)
             else:
                 sub_str = "val"
-            var_name = f"{head.name}_{sub_str}"
+            var_name = canonical_var_name(head.name, sub_str)
             return f'Int::new_const("{var_name}")'
         # (* a b ...) / (+ ...) / (- a b)
         head_str = str(head)
         if head_str in {"*", "+", "-"} and len(node) >= 3:
-            children = [_emit_expr(n) for n in node[1:]]
+            children = [_emit_expr(n) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             # Z3 Rust API uses pairwise; nest left-fold.
             return _left_fold(method, children)

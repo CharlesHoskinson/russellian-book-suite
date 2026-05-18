@@ -1,0 +1,6 @@
+{:id "design-001"
+ :kind :symbol
+ :sort :formula
+ :name :CONTEXT
+ :context true
+ :doc "Decision: use SI units"}

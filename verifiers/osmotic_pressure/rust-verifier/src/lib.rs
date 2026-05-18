@@ -2,6 +2,7 @@
 use napi_derive::napi;
 
 mod axioms;
+pub mod canonical;
 mod ir;
 mod smt;
 

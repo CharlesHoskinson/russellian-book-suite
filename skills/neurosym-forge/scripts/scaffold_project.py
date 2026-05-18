@@ -110,6 +110,7 @@ def scaffold_project(
         ("_edn_reader.py",   "_edn_reader.py"),
         ("_edn_writer.py",   "_edn_writer.py"),
         ("_io.py",           "_io.py"),
+        ("_canonical.py",    "_canonical.py"),
         ("codegen_axioms.py","_codegen_axioms_lib.py"),
         ("codegen_kg.py",    "_codegen_kg_lib.py"),
         ("_extract_preview_lib.py", "_extract_preview_lib.py"),

@@ -16,7 +16,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from scripts._edn_reader import Keyword, Symbol
+from scripts._edn_reader import EdnList, EdnVector, Keyword, Symbol
 
 
 class EdnWriteError(ValueError):
@@ -57,6 +57,10 @@ def _emit_compact(value: Any) -> str:
         return str(value)
     if isinstance(value, float):
         return _emit_float(value)
+    if isinstance(value, EdnList):
+        return "(" + " ".join(_emit_compact(v) for v in value) + ")"
+    if isinstance(value, EdnVector):
+        return "[" + " ".join(_emit_compact(v) for v in value) + "]"
     if isinstance(value, list):
         return "[" + " ".join(_emit_compact(v) for v in value) + "]"
     if isinstance(value, dict):
@@ -78,8 +82,26 @@ def _emit_pretty(value: Any, indent: int) -> str:
             lines.append(f"{prefix} {kstr} {vstr}")
         lines.append(f"{prefix}}}")
         return "\n".join(lines)
+    if isinstance(value, EdnList) and len(value) > 0:
+        if all(not isinstance(x, (dict, list, EdnList, EdnVector)) or not x for x in value):
+            return _emit_compact(value)
+        prefix = " " * indent
+        lines = ["("]
+        for v in value:
+            lines.append(f"{prefix} {_emit_pretty(v, indent + 1)}")
+        lines.append(f"{prefix})")
+        return "\n".join(lines)
+    if isinstance(value, EdnVector) and len(value) > 0:
+        if all(not isinstance(x, (dict, list, EdnList, EdnVector)) or not x for x in value):
+            return _emit_compact(value)
+        prefix = " " * indent
+        lines = ["["]
+        for v in value:
+            lines.append(f"{prefix} {_emit_pretty(v, indent + 1)}")
+        lines.append(f"{prefix}]")
+        return "\n".join(lines)
     if isinstance(value, list) and value:
-        if all(not isinstance(x, (dict, list)) or not x for x in value):
+        if all(not isinstance(x, (dict, list, EdnList, EdnVector)) or not x for x in value):
             return _emit_compact(value)
         prefix = " " * indent
         lines = ["["]
@@ -99,5 +121,26 @@ def _emit_string(s: str) -> str:
 
 
 def _emit_float(f: float) -> str:
-    # Use repr to round-trip; strip trailing 'e' suffix where Python emits scientific
-    return repr(f)
+    """Emit a float as EDN-readable text WITHOUT scientific notation.
+
+    edn-rs 0.19 does not parse scientific notation; falling back to a
+    fixed-point representation is mandatory for the Rust read side to
+    parse the value as Edn::Double rather than silently fall through to
+    Edn::Str. REQ-EDN-050.
+    """
+    from math import isfinite, isnan
+    if isnan(f) or not isfinite(f):
+        raise EdnWriteError(f"cannot emit non-finite float: {f!r}")
+    # `repr(f)` gives the shortest decimal that round-trips and is
+    # canonical for non-extreme floats (e.g. 3.14 → "3.14"). Use it
+    # when it does not contain an exponent.
+    s = repr(f)
+    if "e" in s.lower():
+        # Fall back to fixed-point. Use a generous fractional precision;
+        # strip trailing zeros but keep the decimal point so EDN reads
+        # this as a Double rather than an Int. Pick a width large enough
+        # for sub-normal doubles (~1e-308) so the value is not lost.
+        s = f"{f:.325f}".rstrip("0").rstrip(".") or "0"
+    if "." not in s:
+        s += ".0"
+    return s

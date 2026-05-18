@@ -74,6 +74,31 @@ class Symbol:
         return hash(("Symbol", self.namespace, self.name))
 
 
+class EdnList(list):
+    """An EDN list, written as `(a b c ...)`. Distinct from EdnVector.
+
+    REQ-EDN-051: the paren/bracket distinction is preserved through
+    read_edn -> write_edn -> read_edn.
+
+    Subclasses `list` so `isinstance(x, list)` keeps working for legacy
+    callers; use `isinstance(x, EdnList)` to distinguish from a vector
+    or a plain Python list.
+    """
+    def __repr__(self) -> str:
+        return f"EdnList({list.__repr__(self)})"
+
+
+class EdnVector(list):
+    """An EDN vector, written as `[a b c ...]`. Distinct from EdnList.
+
+    Subclasses `list` so `isinstance(x, list)` keeps working for legacy
+    callers; use `isinstance(x, EdnVector)` to distinguish from a list
+    or a plain Python list.
+    """
+    def __repr__(self) -> str:
+        return f"EdnVector({list.__repr__(self)})"
+
+
 def _parse_inst(s: str) -> dt.datetime:
     """Parse an ISO-8601 timestamp into a timezone-aware datetime.
 
@@ -187,11 +212,13 @@ class _Parser:
             value = self._parse_form()
             out[key] = value
 
-    def _parse_vector(self) -> list[Any]:
-        return self._parse_seq("[", "]")
+    def _parse_vector(self) -> "EdnVector":
+        items = self._parse_seq("[", "]")
+        return EdnVector(items)
 
-    def _parse_list(self) -> list[Any]:
-        return self._parse_seq("(", ")")
+    def _parse_list(self) -> "EdnList":
+        items = self._parse_seq("(", ")")
+        return EdnList(items)
 
     def _parse_seq(self, open_c: str, close_c: str) -> list[Any]:
         self._advance()  # consume opener

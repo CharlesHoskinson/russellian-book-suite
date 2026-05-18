@@ -463,6 +463,24 @@
   (let [text (emit-predicates-edn-string expanded)]
     (.writeFileSync fs out-path text)))
 
+;; ----- booklogic-schema.edn (cross-language predicate signature schema) -----
+
+(defn- emit-schema-edn-string
+  "Build the EDN string for rules/booklogic-schema.edn — the predicate
+   signature schema consumed by the Python ingester (REQ-EDN-052)."
+  [{:keys [predicate-registry sort-registry]}]
+  (let [preds (into {} (for [p predicate-registry]
+                         [(:name p) {:arg-sorts (:arg-sorts p)
+                                     :return    (:return p)}]))]
+    (pr-str {:version 1
+             :sorts (mapv :name sort-registry)
+             :predicates preds})))
+
+(defn emit-schema-edn
+  "Write rules/booklogic-schema.edn at out-path."
+  [expanded out-path]
+  (.writeFileSync fs out-path (emit-schema-edn-string expanded)))
+
 ;; ----- main expansion driver -----
 
 (defn expand
@@ -498,6 +516,7 @@
         expanded     (expand booklogic)
         rules-dir    (path/join project-root "rules")]
     (emit-predicates-edn   expanded (path/join rules-dir "predicates.edn"))
+    (emit-schema-edn       expanded (path/join rules-dir "booklogic-schema.edn"))
     (emit-rewrite-rules-edn expanded (path/join rules-dir "rules.edn"))
     (emit-constraints-edn  expanded (path/join rules-dir "constraints.edn"))
     (emit-queries-edn      expanded (path/join rules-dir "queries.edn"))

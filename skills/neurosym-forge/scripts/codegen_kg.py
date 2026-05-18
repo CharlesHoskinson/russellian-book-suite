@@ -157,7 +157,8 @@ def cozo_script_from_query(q: dict) -> str:
 
 
 def _render_term(term: Any) -> str:
-    if isinstance(term, list) and len(term) >= 1:
+    from scripts._edn_reader import EdnList, EdnVector
+    if isinstance(term, (list, EdnList, EdnVector)) and len(term) >= 1:
         sym = term[0]
         return sym.name if isinstance(sym, Keyword) else str(sym)
     if isinstance(term, Keyword):
@@ -179,10 +180,11 @@ def _render_clause(clause: list) -> str:
         pred = f"{head.namespace}/{head.name}" if head.namespace else head.name
     else:
         pred = str(head)
-    args = clause[1:]
+    from scripts._edn_reader import EdnList, EdnVector
+    args = list(clause)[1:]
     rendered = []
     for a in args:
-        if isinstance(a, list) and len(a) == 1:
+        if isinstance(a, (list, EdnList, EdnVector)) and len(a) == 1:
             rendered.append(_render_term(a))
         else:
             rendered.append(_render_value(a))

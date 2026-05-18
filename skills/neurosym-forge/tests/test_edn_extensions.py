@@ -49,8 +49,9 @@ def test_true_false_nil_still_literals() -> None:
 
 
 def test_symbol_in_list_head() -> None:
+    from scripts._edn_reader import EdnList
     result = read_edn("(source/ingested {:doc/id \"d1\"})")
-    assert isinstance(result, list)
+    assert isinstance(result, EdnList)
     assert result[0] == Symbol("ingested", namespace="source")
     assert result[1] == {Keyword("id", namespace="doc"): "d1"}
 

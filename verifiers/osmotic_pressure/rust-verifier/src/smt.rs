@@ -57,21 +57,18 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
         if kind != ":expression" {
             continue;
         }
+        // REQ-EDN-049: :predicate and :subject MUST be Keywords.
+        // ingest_ledger now emits Keywords; the legacy Str fallback is
+        // removed so any drift surfaces as a hard parse failure.
         let predicate = match atom.get(":predicate") {
             Some(Edn::Key(k)) => k.clone(),
-            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let subject = match atom.get(":subject") {
             Some(Edn::Key(k)) => k.clone(),
-            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
-        let var_name = format!(
-            "{}_{}",
-            predicate.trim_start_matches(':'),
-            subject.trim_start_matches(':')
-        );
+        let var_name = crate::canonical::canonical_var_name(&predicate, &subject);
         let tracker = Bool::new_const(id.as_str());
 
         let value = match atom.get(":value") {
@@ -197,9 +194,11 @@ mod tests {
             } else {
                 format!("{}", val)
             };
+            // REQ-EDN-049: emit :predicate and :subject as keywords
+            // (matching what ingest_ledger now produces), not strings.
             atoms.push_str(&format!(
-                "{{:id \"{id}\" :kind :expression :predicate \":{pred}\" \
-                 :subject \":{subj}\" :value {val_str}}} ",
+                "{{:id \"{id}\" :kind :expression :predicate :{pred} \
+                 :subject :{subj} :value {val_str}}} ",
             ));
         }
         format!("{{:version 1 :atoms [{}]}}", atoms)

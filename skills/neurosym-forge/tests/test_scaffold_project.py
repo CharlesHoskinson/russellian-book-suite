@@ -234,7 +234,10 @@ def test_scaffolded_booklogic_active_form_seeds(tmp_project_root: Path, skill_ro
     for fname in ("rules.edn", "constraints.edn", "queries.edn", "remedies.edn"):
         p = booklogic / fname
         assert p.exists(), f"missing scaffold seed: {p}"
-        assert p.read_text(encoding="utf-8").strip() == "{:forms []}"
+        # REQ-BOOKLOGIC-046: each seed ships with comments + example + silent-failure
+        # notes; the empty `{:forms []}` literal remains at the bottom.
+        assert p.read_text(encoding="utf-8").rstrip().endswith("{:forms []}"), \
+            f"{fname} seed must end with the {{:forms []}} literal"
 
 
 def test_scaffolded_axioms_rs_exists(tmp_project_root: Path, skill_root: Path) -> None:

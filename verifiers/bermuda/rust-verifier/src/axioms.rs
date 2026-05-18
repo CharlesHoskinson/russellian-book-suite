@@ -13,14 +13,15 @@
 
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
-use std::ops::{Add as _, Mul as _, Sub as _};
+use z3::{
+    ast::{Array, Bool, Int, Real, Set, String as Z3String},
+    Solver,
+};
 #[cfg(feature = "smt")]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
-use z3::{
-    Solver,
-    ast::{Bool, Int, Real, String as Z3String},
-};
+#[allow(unused_imports)]
+use std::ops::{Add as _, Mul as _, Sub as _};
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {
@@ -100,4 +101,37 @@ pub fn assert_axioms(solver: &Solver) {
 #[cfg(not(feature = "smt"))]
 pub fn assert_axioms(_solver: &()) {
     // No-op: built without smt feature.
+}
+
+#[cfg(feature = "smt")]
+/// True if the named predicate-subject symbol should be bound as
+/// `z3::ast::Real` rather than `z3::ast::Int`. The codegen promotes
+/// a constraint subtree to Real whenever any float literal appears
+/// anywhere in it; smt.rs uses this to keep value-bindings in the
+/// same Z3 sort as the axioms reference.
+pub fn predicate_is_real(name: &str) -> bool {
+    match name {
+        "gdp-usd-billion_Bermuda" => true,
+        "land-area-km2_Bermuda" => true,
+        _ => false,
+    }
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn predicate_is_real(_name: &str) -> bool {
+    false
+}
+
+#[cfg(feature = "smt")]
+/// True if the named predicate-subject symbol carries a multi-valued
+/// `[:vector <T>]` return-sort. smt.rs queries this to fail loudly
+/// when an atom binds a scalar to a vector-typed predicate
+/// (REQ-DSL-054).
+pub fn predicate_is_vector(name: &str) -> bool {
+    let _ = name; false
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn predicate_is_vector(_name: &str) -> bool {
+    false
 }

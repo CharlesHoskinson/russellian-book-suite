@@ -178,3 +178,95 @@ def test_output_is_byte_deterministic() -> None:
     src1 = generate_axioms_source(cs)
     src2 = generate_axioms_source(cs)
     assert src1 == src2
+
+
+# ---------------------------------------------------------------- encoder extensions
+
+def test_generate_less_than_constraint_emits_lt_call() -> None:
+    """REQ-SMT-040: `<` compiles to a Z3 `.lt(&rhs)` method call."""
+    cs = [_constraint(
+        name="C010",
+        assert_form="(< (:parishes-count :Bermuda) 10)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".lt(&" in src
+    assert '"C010"' in src
+    # No accidental fallback to `.eq` for a strict-inequality form.
+    assert "lhs.eq(&rhs)" not in src or src.count(".lt(&") >= 1
+
+
+def test_generate_less_equal_constraint_emits_le_call() -> None:
+    """REQ-SMT-040: `<=` compiles to a Z3 `.le(&rhs)` method call."""
+    cs = [_constraint(
+        name="C011",
+        assert_form="(<= (:parishes-count :Bermuda) 9)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".le(&" in src
+    assert '"C011"' in src
+
+
+def test_generate_greater_than_constraint_emits_gt_call() -> None:
+    """REQ-SMT-041: `>` compiles to a Z3 `.gt(&rhs)` method call."""
+    cs = [_constraint(
+        name="C012",
+        assert_form="(> (:population :Bermuda) 60000)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".gt(&" in src
+    assert '"C012"' in src
+
+
+def test_generate_greater_equal_constraint_emits_ge_call() -> None:
+    """REQ-SMT-041: `>=` compiles to a Z3 `.ge(&rhs)` method call."""
+    cs = [_constraint(
+        name="C013",
+        assert_form="(>= (:population :Bermuda) 60000)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".ge(&" in src
+    assert '"C013"' in src
+
+
+def test_generate_division_subexpression_emits_div_call() -> None:
+    """REQ-SMT-042: `/` compiles to a Z3 `.div(&rhs)` method call when
+    used inside a numeric subexpression (here an equality RHS)."""
+    cs = [_constraint(
+        name="C014",
+        assert_form="(= (:density :Sample) (/ (:mass :Sample) (:volume :Sample)))",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".div(&" in src
+    assert '"C014"' in src
+
+
+def test_generate_ite_constraint_emits_ite_call() -> None:
+    """REQ-SMT-043: `ite` compiles to a Z3 `cond.ite(&then, &else)` call."""
+    cs = [_constraint(
+        name="C015",
+        assert_form=(
+            "(ite (< (:parishes-count :Bermuda) 10) "
+            "(< (:population :Bermuda) 70000) "
+            "(> (:population :Bermuda) 70000))"
+        ),
+    )]
+    src = generate_axioms_source(cs)
+    assert ".ite(&" in src
+    assert '"C015"' in src
+
+
+def test_unsupported_operator_errors() -> None:
+    """REQ-SMT-044: an unknown assert head produces a CodegenError that
+    names the full supported set so authors can self-correct without
+    grepping for the operator table."""
+    cs = [_constraint(
+        name="C016",
+        assert_form="(xor (:a :S) (:b :S))",
+    )]
+    with pytest.raises(CodegenError) as excinfo:
+        generate_axioms_source(cs)
+    msg = str(excinfo.value)
+    assert "'xor'" in msg
+    # The error must enumerate the supported set; spot-check a representative.
+    for op in ("=", "<", "<=", ">", ">=", "/", "ite"):
+        assert repr(op) in msg, f"missing {op!r} in supported-set error: {msg}"

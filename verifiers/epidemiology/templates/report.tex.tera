@@ -1,0 +1,14 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb,hyperref}
+\title{ {{ title | escape_tex }} }
+\author{Verified by epidemiology v0.1}
+\begin{document}\maketitle
+
+\section{Verified claims}
+\begin{enumerate}
+{% for c in claims %}
+  \item[\textbf{ {{ c.id }} }] {{ c.prose | escape_tex }}
+{% endfor %}
+\end{enumerate}
+
+\end{document}

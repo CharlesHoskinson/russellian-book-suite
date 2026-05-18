@@ -1,0 +1,16 @@
+{:version 1
+ :grounded [{:kind :grounded
+             :name :z3-check-all
+             :sort {:kind :fn :args [:atom] :ret :verdict}
+             :grounded {:lib "z3" :fn "verify_formulas" :napi true}
+             :doc "Top-level SMT check; calls Z3 with assert_and_track."}
+            {:kind :grounded
+             :name :egg-saturate
+             :sort {:kind :fn :args [:atom :atom] :ret :atom}
+             :grounded {:lib "egg" :fn "saturate" :napi true}
+             :doc "Equality saturation; returns shortest equivalent form."}
+            {:kind :grounded
+             :name :cozo-contradictions
+             :sort {:kind :fn :args [:atom] :ret :atom}
+             :grounded {:lib "cozo" :fn "ingest_and_summarize" :napi true}
+             :doc "Datalog contradiction scan over verified claims."}]}

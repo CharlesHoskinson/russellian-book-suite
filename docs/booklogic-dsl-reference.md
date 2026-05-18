@@ -438,23 +438,40 @@ Where:
 
 #### Assert-sexp grammar
 
-The expressions admitted on the right of `:assert`:
+The full set of expressions admitted on the right of `:assert`
+(REQ-SMT-045). The codegen lowers each head to the Z3 Rust call
+shown in the second column; anything outside this set is rejected by
+`codegen_axioms` with an error that re-prints the supported set
+(REQ-SMT-044).
 
-- Equality: `(= LHS RHS)`.
-- Approximate equality: `(approx= LHS RHS :tolerance N)` where `N`
-  is a Double — the assertion is
-  `abs(LHS - RHS) <= |LHS| * N` (relative tolerance).
-  `~=` is accepted as an alias.
-- Boolean connectives: `(and EXPR ...)`, `(or EXPR ...)`,
-  `(not EXPR)`, `(=> EXPR EXPR)`.
-- Comparison: `(< LHS RHS)`, `(<= LHS RHS)`, `(> LHS RHS)`,
-  `(>= LHS RHS)`.
-- Arithmetic: `(+ X Y ...)`, `(- X Y ...)`, `(* X Y ...)`,
-  `(/ X Y)`.
-- Predicate application: `(:predicate-name ?subject)` — looks up
-  the Z3 variable bound to the predicate-subject pair via
-  `canonical_var_name`.
-- Literals: numbers, true/false, EDN strings.
+| Head             | Z3 lowering                          | Notes                                                                  |
+| ---------------- | ------------------------------------ | ---------------------------------------------------------------------- |
+| `(= L R)`        | `lhs.eq(&rhs)`                       | Sort inferred from RHS literal.                                        |
+| `(approx= L R …)`| relative `\|L - R\| <= \|R\|·ε`      | `:tolerance N` is required. `~=` is an alias.                          |
+| `(< L R)`        | `lhs.lt(&rhs)`                       | REQ-SMT-040. Bool-typed; promotes to `Real` if either side has a float.|
+| `(<= L R)`       | `lhs.le(&rhs)`                       | REQ-SMT-040.                                                           |
+| `(> L R)`        | `lhs.gt(&rhs)`                       | REQ-SMT-041.                                                           |
+| `(>= L R)`       | `lhs.ge(&rhs)`                       | REQ-SMT-041.                                                           |
+| `(+ X Y …)`      | left-fold `.add(&_)`                 | Variadic.                                                              |
+| `(- X Y …)`      | left-fold `.sub(&_)`                 | Variadic.                                                              |
+| `(* X Y …)`      | left-fold `.mul(&_)`                 | Variadic.                                                              |
+| `(/ L R)`        | `lhs.div(&rhs)`                      | REQ-SMT-042. Binary only — emitter rejects arity ≠ 2.                  |
+| `(ite C T E)`    | `cond.ite(&then, &else)`             | REQ-SMT-043. `T` and `E` share the caller's sort; `C` is Bool.         |
+| `(:pred ?subj)`  | `Real::new_const("…")` / `Int::…`    | Looks up the canonical Z3 variable for the predicate-subject pair.     |
+| literals         | `Int::from_i64`, `Real::from_rational`, `Bool::from_bool`, `Z3String::from_str` | Numbers, true/false, EDN strings, EDN keywords. |
+
+Comparison heads (`<`, `<=`, `>`, `>=`) and `ite` may appear at the
+top level of `:assert` (the result must be Bool); they may also
+appear nested inside any numeric subexpression. `/` is only valid
+inside a numeric subexpression — it produces a numeric AST, not a
+Bool, so it cannot stand alone as the top of `:assert`.
+
+The Boolean connectives `(and …)`, `(or …)`, `(not …)`, and
+`(=> …)` are listed in earlier drafts of this section but the v0.4
+emitter does NOT lower them yet; `defconstraint` with one of those
+heads produces a `CodegenError`. The fallback is to factor the
+assertion into multiple `defconstraint` forms — Z3 conjoins all
+asserted axioms by default.
 
 #### Compilation target
 

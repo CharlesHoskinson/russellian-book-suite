@@ -24,19 +24,26 @@ jobs:
   # The setup-book-python composite action handles pip + venv per skill; the
   # matrix.include lines override `extra` and add sibling-skill symlinks /
   # pytest deselect arguments where individual skills need them.
+  #
+  # The matrix runs on three OSes (REQ-CI-040). `fail-fast: false` is
+  # mandatory so the divergence-summary aggregator (REQ-CI-042) sees every
+  # leg, not just the first failure.
   python-skill-matrix:
-    name: python-skill (${{ matrix.skill }})
-    runs-on: ubuntu-24.04
+    name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04, macos-latest, windows-2022]
         skill:
           - book-qa
           - book-thesis
           - book-knowledge
           - book-review
+          - book-compose
           - russellian-style
           - review-conductor
+          - neurosym-forge
         include:
           # book-compose needs sibling skills symlinked under ~/.claude/skills/
           - skill: book-compose
@@ -52,15 +59,29 @@ jobs:
           python-version: "3.13"
           skill-path: skills/${{ matrix.skill }}
           extra: ${{ matrix.extra || 'ci' }}
+      # Portable symlink: `ln -sfn` requires Developer Mode (or admin) on
+      # Windows. The Node `fs.symlinkSync` path works uniformly across
+      # ubuntu/macos/windows runners.
       - name: symlink siblings
         if: matrix.siblings != ''
-        run: |
-          mkdir -p "$HOME/.claude/skills"
-          for sibling in ${{ matrix.siblings }}; do
-            ln -sfn "$PWD/skills/$sibling" "$HOME/.claude/skills/$sibling"
-          done
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
+            const { join } = require('path');
+            const home = process.env.HOME || process.env.USERPROFILE;
+            const target = join(home, '.claude', 'skills');
+            mkdirSync(target, { recursive: true });
+            const cwd = process.cwd();
+            const raw = `${{ matrix.siblings }}`;
+            for (const s of raw.split(/\s+/).filter(Boolean)) {
+              const link = join(target, s);
+              if (existsSync(link)) rmSync(link, { recursive: true, force: true });
+              symlinkSync(join(cwd, 'skills', s), link, 'dir');
+            }
       - name: pytest
         working-directory: skills/${{ matrix.skill }}
+        shell: bash
         run: python -m pytest tests/ -v ${{ matrix.pytest-deselect }}
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally
@@ -83,11 +104,92 @@ jobs:
             verifiers/osmotic_pressure/rust-verifier
       - run: nix develop -c make preflight
 
+  # Per-verifier cargo test on Linux + macOS (REQ-CI-041). Windows is
+  # deliberately skipped — the z3 crate's pkg-config probe doesn't reliably
+  # find a Windows-native libz3, so cargo test on windows-2022 would surface
+  # link errors that have nothing to do with the code under test. The
+  # WSL-fallback runbook in `docs/operations/ci-platforms.md` covers
+  # Windows contributors who need cargo signal locally.
+  cargo-test:
+    name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+        verifier: [bermuda, osmotic_pressure]
+    steps:
+      - uses: actions/checkout@v4
+      - name: install libz3 (linux)
+        if: matrix.os == 'ubuntu-24.04'
+        run: sudo apt-get update && sudo apt-get install -y libz3-dev
+      - name: install libz3 (macos)
+        if: matrix.os == 'macos-latest'
+        run: brew install z3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: verifiers/${{ matrix.verifier }}/rust-verifier
+      - name: cargo test
+        run: cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
+
+  # Divergence summary (REQ-CI-042). Runs regardless of upstream status so
+  # the summary is published even on red runs. Emits a markdown table to
+  # $GITHUB_STEP_SUMMARY naming each matrix job's aggregate result and
+  # calling out per-OS divergence visible from the PR's checks page
+  # without expanding any per-job logs.
+  ci-divergence-summary:
+    name: ci divergence summary
+    needs:
+      - python-skill-matrix
+      - cargo-test
+    runs-on: ubuntu-24.04
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: emit per-OS divergence table
+        env:
+          PYTHON_SKILL_RESULT: ${{ needs.python-skill-matrix.result }}
+          CARGO_TEST_RESULT: ${{ needs.cargo-test.result }}
+        run: |
+          {
+            echo "## Per-OS CI divergence"
+            echo
+            echo "Aggregate result per matrix job. Individual matrix legs"
+            echo "(per-OS, per-skill) are visible on the run page; this"
+            echo "table is the at-a-glance summary."
+            echo
+            echo "| Job | Linux | macOS | Windows |"
+            echo "|---|---|---|---|"
+            case "$PYTHON_SKILL_RESULT" in
+              success)   ps_l="pass"; ps_m="pass"; ps_w="pass" ;;
+              failure)   ps_l="see legs"; ps_m="see legs"; ps_w="see legs" ;;
+              skipped)   ps_l="skip"; ps_m="skip"; ps_w="skip" ;;
+              cancelled) ps_l="cancel"; ps_m="cancel"; ps_w="cancel" ;;
+              *)         ps_l="$PYTHON_SKILL_RESULT"; ps_m="$PYTHON_SKILL_RESULT"; ps_w="$PYTHON_SKILL_RESULT" ;;
+            esac
+            case "$CARGO_TEST_RESULT" in
+              success)   ct_l="pass"; ct_m="pass" ;;
+              failure)   ct_l="see legs"; ct_m="see legs" ;;
+              skipped)   ct_l="skip"; ct_m="skip" ;;
+              cancelled) ct_l="cancel"; ct_m="cancel" ;;
+              *)         ct_l="$CARGO_TEST_RESULT"; ct_m="$CARGO_TEST_RESULT" ;;
+            esac
+            echo "| python-skill | $ps_l | $ps_m | $ps_w |"
+            echo "| cargo-test | $ct_l | $ct_m | n/a (REQ-CI-044: WSL fallback) |"
+            echo
+            echo "See \`docs/operations/ci-platforms.md\` for the libz3"
+            echo "matrix, the Windows-cargo skip rationale, and the"
+            echo "WSL fallback runbook."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   required:
     name: ci required ✓
     needs:
       - preflight
       - python-skill-matrix
+      - cargo-test
+      - ci-divergence-summary
     runs-on: ubuntu-24.04
     if: always()
     steps:

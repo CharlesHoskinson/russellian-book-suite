@@ -1,6 +1,1 @@
-{:version 1
- :sorts [:solution]
- :predicates {:osmotic-pressure-pa {:arg-sorts [:solution] :return :real}
-              :vant-hoff-i         {:arg-sorts [:solution] :return :real}
-              :molarity            {:arg-sorts [:solution] :return :real}
-              :temperature-k       {:arg-sorts [:solution] :return :real}}}
+{:version 1, :sorts [:solution], :predicates {:osmotic-pressure-pa {:arg-sorts [:solution], :return :real}, :vant-hoff-i {:arg-sorts [:solution], :return :real}, :molarity {:arg-sorts [:solution], :return :real}, :temperature-k {:arg-sorts [:solution], :return :real}}}

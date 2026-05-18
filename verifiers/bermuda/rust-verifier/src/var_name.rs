@@ -1,4 +1,4 @@
-//! Canonical Z3-variable-name algorithm. Mirrors Python
+//! Z3-variable-name algorithm. Mirrors Python
 //! `_canonical.canonical_var_name` and CLJS `canonical-var-name`. The
 //! golden test vectors at
 //! `skills/neurosym-forge/tests/golden/canonical_var_name.edn` are the

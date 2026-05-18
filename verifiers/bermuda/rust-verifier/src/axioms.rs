@@ -10,11 +10,15 @@
 // == Unsat`, `solver.get_unsat_core()` returns these names. Use
 // `rules/axioms-tracker-map.edn` to translate them back to BookLogic
 // ids and to the bound claim id.
+//
+// Constraints with :backend :egg discharge through the eqsat module
+// (egg-rs 0.10); the resulting ProofResult is wrapped in a Z3 boolean
+// tracker so unsat-core reporting keeps working uniformly.
 
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
 use z3::{
-    ast::{Bool, Int, Real, String as Z3String},
+    ast::{Array, Bool, Int, Real, Set, String as Z3String},
     Solver,
 };
 #[cfg(feature = "smt")]
@@ -177,4 +181,26 @@ pub fn predicate_is_real(name: &str) -> bool {
 #[allow(dead_code)]
 pub fn predicate_is_real(_name: &str) -> bool {
     false
+}
+
+#[cfg(feature = "smt")]
+/// True if the named predicate-subject symbol carries a multi-valued
+/// `[:vector <T>]` return-sort. smt.rs queries this to fail loudly
+/// when an atom binds a scalar to a vector-typed predicate
+/// (REQ-DSL-054).
+pub fn predicate_is_vector(name: &str) -> bool {
+    let _ = name; false
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn predicate_is_vector(_name: &str) -> bool {
+    false
+}
+
+/// REQ-DATALOG-041: every `defconstraint :backend :cozo` form
+/// surfaces here as a (name, datalog-source) pair. lib.rs runs
+/// each pair through `kg::evaluate_constraint` and lifts a
+/// non-empty row count into the verdict's `:cozo-defects` field.
+pub fn cozo_constraints() -> Vec<(String, String)> {
+    Vec::new()
 }

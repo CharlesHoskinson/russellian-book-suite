@@ -41,7 +41,7 @@ def test_emits_atoms_for_verified_facts(fixtures_dir: Path, project_root: Path,
     atoms = payload[_KW_ATOMS]
     assert len(atoms) == 3
     # Parish-count fact should match the predicate map → :parishes-count atom
-    parish_atoms = [a for a in atoms if a.get(_KW_PREDICATE) == ":parishes-count"]
+    parish_atoms = [a for a in atoms if a.get(_KW_PREDICATE) == Keyword("parishes-count")]
     assert len(parish_atoms) == 1
     assert parish_atoms[0][_KW_VALUE] == 9
     assert parish_atoms[0][_KW_ID] == "clm-2026-000001"

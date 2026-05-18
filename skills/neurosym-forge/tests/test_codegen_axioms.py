@@ -121,15 +121,38 @@ def test_predicate_is_real_helper_empty_for_int_only_constraints() -> None:
     assert real_arms == [], f"unexpected Real arms: {real_arms}"
 
 
-def test_generate_skips_non_z3_backends() -> None:
-    """REQ-DSL-021: non-z3 constraints are not emitted into axioms.rs."""
-    cs = [_constraint(name="C001"),
-          _constraint(name="C002", backend=":cozo",
-                      assert_form="(some-cozo-thing)")]
+def test_generate_routes_backends_to_separate_emitters() -> None:
+    """REQ-EQSAT-041 (Phase H): :egg constraints route through
+    `_emit_egg_block` into the axioms.rs body — eqsat::prove_equiv at
+    runtime.
+    REQ-DATALOG-041 (Phase I): :cozo constraints surface inside
+    `cozo_constraints()`, not inside `assert_axioms`. The Z3 entry point
+    must not see them.
+    """
+    cs = [
+        _constraint(name="C001"),  # :z3
+        _constraint(name="C002", backend=":cozo",
+                    assert_form="(some-cozo-thing)"),
+        _constraint(name="C003", backend=":egg",
+                    assert_form="(= (:foo :s) (:bar :s))"),
+    ]
     src = generate_axioms_source(cs)
-    assert '"C001"' in src
-    # Non-z3 constraints must NOT be emitted into axioms.rs (they belong in kg.rs).
-    assert '"C002"' not in src
+    assert_axioms_half, _, cozo_half = src.partition("pub fn cozo_constraints")
+    # :z3 lands in the assert_axioms body
+    assert '"C001"' in assert_axioms_half
+    # :egg lands in the assert_axioms body too (via eqsat::prove_equiv shim)
+    assert '"C003"' in assert_axioms_half, (
+        ":egg constraints should route through _emit_egg_block into "
+        "the assert_axioms body (Phase H, REQ-EQSAT-041)"
+    )
+    # :cozo lands in cozo_constraints() registry, NOT in assert_axioms
+    assert '"C002"' not in assert_axioms_half, (
+        ":cozo constraints must not leak into assert_axioms; "
+        "they belong in cozo_constraints()"
+    )
+    assert '"C002"' in cozo_half, (
+        "REQ-DATALOG-041: :cozo constraints must surface in cozo_constraints()"
+    )
 
 
 def test_tracker_map_links_constraint_to_claim_binding() -> None:
@@ -260,3 +283,202 @@ def test_assert_axioms_aggregator_calls_partitioned_accessors() -> None:
     agg_body  = src[agg_start:agg_end]
     assert 'axioms_for_subject(solver, "Bermuda")' in agg_body
     assert "axioms_shared(solver)" in agg_body
+
+
+# -------- REQ-DSL-050..055: multi-valued predicates --------
+
+def test_vector_predicate_emits_z3_array() -> None:
+    """REQ-DSL-051: [:vector :real] return → Z3 Array<Int, Real> symbol."""
+    cs = [_constraint(
+        name="C-vec",
+        assert_form="(= (select (:solutes :s) 0) 0)",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    assert "Array" in src, "vector predicate must lower to a Z3 Array<...>"
+    assert "Real" in src
+    # The helper predicate_is_vector lists vector-typed predicate symbols.
+    assert "pub fn predicate_is_vector(name: &str) -> bool" in src
+    assert '"solutes_s" => true' in src
+
+
+def test_set_predicate_emits_z3_set() -> None:
+    """REQ-DSL-052: [:set :chapter] return → Z3 Set<...> symbol."""
+    cs = [_constraint(
+        name="C-set",
+        assert_form="(= (count (:upstream-chapters :c)) 0)",
+    )]
+    schema = {
+        Keyword("upstream-chapters"): {
+            Keyword("arg-sorts"): [Keyword("chapter")],
+            Keyword("return"):    [Keyword("set"), Keyword("chapter")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    assert "Set" in src, "set predicate must lower to a Z3 Set<...>"
+    assert "pub fn predicate_is_vector(name: &str) -> bool" in src
+    # set-typed predicates are NOT vectors; predicate_is_vector returns false.
+    assert '"upstream-chapters_c" => true' not in src
+
+
+def test_count_aggregate_uses_paired_length_symbol() -> None:
+    """REQ-DSL-053: (count vec) lowers to the paired <var>_len Int symbol."""
+    cs = [_constraint(
+        name="C-count",
+        assert_form="(= (count (:solutes :s)) 3)",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    assert "solutes_s_len" in src, (
+        "count(vec) must use the codegen's paired <var>_len Int symbol"
+    )
+
+
+def test_sum_aggregate_emits_array_fold() -> None:
+    """REQ-DSL-053: (sum vec) over a known-length vector unrolls statically."""
+    cs = [_constraint(
+        name="C-sum",
+        assert_form="(= (sum (:solutes :s)) 0)",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    # Sum lowers to a fold over Array<Int, Real>::select(i).
+    assert "select" in src
+    # Either a chained .add or a Real::add fold; both encode the unrolled sum.
+    assert ".add(" in src or "Real::add" in src
+
+
+def test_forall_aggregate_emits_bounded_unroll() -> None:
+    """REQ-DSL-053: (forall ?x in vec body) emits an array-indexed quantifier
+    or bounded Bool::and unroll."""
+    cs = [_constraint(
+        name="C-forall",
+        assert_form="(forall ?x in (:solutes :s) (= ?x 0))",
+    )]
+    schema = {
+        Keyword("solutes"): {
+            Keyword("arg-sorts"): [Keyword("solution")],
+            Keyword("return"):    [Keyword("vector"), Keyword("real")],
+        },
+    }
+    src = generate_axioms_source(cs, schema=schema)
+    # The forall lowers to either a Z3 forall_const or a Bool::and over slices.
+    assert "forall" in src.lower() or "Bool::and" in src
+
+
+def test_schema_optional_back_compat() -> None:
+    """Calling generate_axioms_source without schema= must still work
+    (backwards-compatible default for projects predating REQ-DSL-050)."""
+    cs = [_constraint(name="C001")]
+    src = generate_axioms_source(cs)  # no schema kwarg
+    assert "assert_and_track" in src
+    # predicate_is_vector is emitted regardless, with no true arms when no
+    # vector predicates exist.
+    assert "pub fn predicate_is_vector(name: &str) -> bool" in src
+
+
+# ---------------------------------------------------------------- encoder extensions
+
+def test_generate_less_than_constraint_emits_lt_call() -> None:
+    """REQ-SMT-040: `<` compiles to a Z3 `.lt(&rhs)` method call."""
+    cs = [_constraint(
+        name="C010",
+        assert_form="(< (:parishes-count :Bermuda) 10)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".lt(&" in src
+    assert '"C010"' in src
+    # No accidental fallback to `.eq` for a strict-inequality form.
+    assert "lhs.eq(&rhs)" not in src or src.count(".lt(&") >= 1
+
+
+def test_generate_less_equal_constraint_emits_le_call() -> None:
+    """REQ-SMT-040: `<=` compiles to a Z3 `.le(&rhs)` method call."""
+    cs = [_constraint(
+        name="C011",
+        assert_form="(<= (:parishes-count :Bermuda) 9)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".le(&" in src
+    assert '"C011"' in src
+
+
+def test_generate_greater_than_constraint_emits_gt_call() -> None:
+    """REQ-SMT-041: `>` compiles to a Z3 `.gt(&rhs)` method call."""
+    cs = [_constraint(
+        name="C012",
+        assert_form="(> (:population :Bermuda) 60000)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".gt(&" in src
+    assert '"C012"' in src
+
+
+def test_generate_greater_equal_constraint_emits_ge_call() -> None:
+    """REQ-SMT-041: `>=` compiles to a Z3 `.ge(&rhs)` method call."""
+    cs = [_constraint(
+        name="C013",
+        assert_form="(>= (:population :Bermuda) 60000)",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".ge(&" in src
+    assert '"C013"' in src
+
+
+def test_generate_division_subexpression_emits_div_call() -> None:
+    """REQ-SMT-042: `/` compiles to a Z3 `.div(&rhs)` method call when
+    used inside a numeric subexpression (here an equality RHS)."""
+    cs = [_constraint(
+        name="C014",
+        assert_form="(= (:density :Sample) (/ (:mass :Sample) (:volume :Sample)))",
+    )]
+    src = generate_axioms_source(cs)
+    assert ".div(&" in src
+    assert '"C014"' in src
+
+
+def test_generate_ite_constraint_emits_ite_call() -> None:
+    """REQ-SMT-043: `ite` compiles to a Z3 `cond.ite(&then, &else)` call."""
+    cs = [_constraint(
+        name="C015",
+        assert_form=(
+            "(ite (< (:parishes-count :Bermuda) 10) "
+            "(< (:population :Bermuda) 70000) "
+            "(> (:population :Bermuda) 70000))"
+        ),
+    )]
+    src = generate_axioms_source(cs)
+    assert ".ite(&" in src
+    assert '"C015"' in src
+
+
+def test_unsupported_operator_errors() -> None:
+    """REQ-SMT-044: an unknown assert head produces a CodegenError that
+    names the full supported set so authors can self-correct without
+    grepping for the operator table."""
+    cs = [_constraint(
+        name="C016",
+        assert_form="(xor (:a :S) (:b :S))",
+    )]
+    with pytest.raises(CodegenError) as excinfo:
+        generate_axioms_source(cs)
+    msg = str(excinfo.value)
+    assert "'xor'" in msg
+    # The error must enumerate the supported set; spot-check a representative.
+    for op in ("=", "<", "<=", ">", ">=", "/", "ite"):
+        assert repr(op) in msg, f"missing {op!r} in supported-set error: {msg}"

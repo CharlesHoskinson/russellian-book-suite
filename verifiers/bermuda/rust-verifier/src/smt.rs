@@ -24,6 +24,43 @@ use z3::{
     ast::{Bool, Int, Real, String as Z3String},
 };
 
+/// REQ-DSL-054: check that a value's shape is compatible with the
+/// declared return-sort of its predicate. Returns `Err(Error::Smt(...))`
+/// when `is_vector` is true and the value is a scalar (Int/Real/Bool/Str);
+/// returns `Ok(())` otherwise.
+///
+/// Extracted from `check_all` so cargo tests can drive the path with a
+/// synthetic `is_vector` closure (the codegen-emitted
+/// `axioms::predicate_is_vector` returns false for every name when no
+/// vector predicate has been declared in `booklogic-schema.edn`).
+#[cfg(feature = "smt")]
+pub fn check_value_sort_compat(
+    var_name: &str,
+    atom_id: &str,
+    value: &edn_rs::Edn,
+    is_vector: impl Fn(&str) -> bool,
+) -> Result<(), Error> {
+    use edn_rs::Edn;
+    if !is_vector(var_name) {
+        return Ok(());
+    }
+    if matches!(value, Edn::Vector(_) | Edn::Set(_)) {
+        return Ok(());
+    }
+    let value_shape = match value {
+        Edn::Int(n)    => format!("scalar Int({n})"),
+        Edn::Double(_) => format!("scalar Real({})", value.to_float().unwrap_or(0.0)),
+        Edn::Str(s)    => format!("scalar String({s:?})"),
+        Edn::Bool(b)   => format!("scalar Bool({b})"),
+        other          => format!("{other:?}"),
+    };
+    Err(Error::Smt(format!(
+        "sort mismatch: predicate {var_name:?} declared as \
+         [:vector <T>] in booklogic-schema.edn, but atom \
+         {atom_id:?} bound value as {value_shape}",
+    )))
+}
+
 #[cfg(feature = "smt")]
 const SHARED_BUCKET: &str = "_shared";
 
@@ -197,13 +234,22 @@ fn bind_atoms(
             Some(Edn::Key(k)) => k.clone(),
             _ => continue,
         };
-        let var_name = crate::canonical::canonical_var_name(&predicate, &subject);
+        let var_name = crate::var_name::canonical_var_name(&predicate, &subject);
         let tracker = Bool::new_const(id.as_str());
 
         let value = match atom.get(":value") {
             Some(v) => v,
             None => continue,
         };
+
+        // REQ-DSL-054: fail loudly when an atom binds a scalar value to
+        // a predicate the schema declared as `[:vector T]` / `[:set T]`.
+        check_value_sort_compat(
+            var_name.as_str(),
+            id.as_str(),
+            value,
+            crate::axioms::predicate_is_vector,
+        )?;
 
         let assertion: Bool = match value {
             Edn::Int(n) => {

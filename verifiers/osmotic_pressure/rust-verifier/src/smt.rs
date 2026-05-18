@@ -48,6 +48,43 @@ struct PartitionVerdict {
     reason_unknown: String,
 }
 
+/// REQ-DSL-054: check that a value's shape is compatible with the
+/// declared return-sort of its predicate. Returns `Err(Error::Smt(...))`
+/// when `is_vector` is true and the value is a scalar (Int/Real/Bool/Str);
+/// returns `Ok(())` otherwise.
+///
+/// Extracted from `check_all` so cargo tests can drive the path with a
+/// synthetic `is_vector` closure (the codegen-emitted
+/// `axioms::predicate_is_vector` returns false for every name when no
+/// vector predicate has been declared in `booklogic-schema.edn`).
+#[cfg(feature = "smt")]
+pub fn check_value_sort_compat(
+    var_name: &str,
+    atom_id: &str,
+    value: &edn_rs::Edn,
+    is_vector: impl Fn(&str) -> bool,
+) -> Result<(), Error> {
+    use edn_rs::Edn;
+    if !is_vector(var_name) {
+        return Ok(());
+    }
+    if matches!(value, Edn::Vector(_) | Edn::Set(_)) {
+        return Ok(());
+    }
+    let value_shape = match value {
+        Edn::Int(n)    => format!("scalar Int({n})"),
+        Edn::Double(_) => format!("scalar Real({})", value.to_float().unwrap_or(0.0)),
+        Edn::Str(s)    => format!("scalar String({s:?})"),
+        Edn::Bool(b)   => format!("scalar Bool({b})"),
+        other          => format!("{other:?}"),
+    };
+    Err(Error::Smt(format!(
+        "sort mismatch: predicate {var_name:?} declared as \
+         [:vector <T>] in booklogic-schema.edn, but atom \
+         {atom_id:?} bound value as {value_shape}",
+    )))
+}
+
 #[cfg(feature = "smt")]
 pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     // Read the Tier-1 timeout once; every partition's solver gets the
@@ -260,6 +297,27 @@ fn bind_atoms(
             Some(v) => v,
             None => continue,
         };
+
+        // For numeric predicates the codegen tells us which sort the axioms
+        // reference. Without this query, an integer claim value (e.g. i=2)
+        // would bind `Int::new_const("vant-hoff-i_s")` while the axiom
+        // references `Real::new_const("vant-hoff-i_s")` — same name,
+        // different Z3 sorts = two distinct symbols, leaving the axiom
+        // predicate unbound and the solver free to pick arbitrary values
+        // (the doctored-fixture :sat regression).
+        // Use Real::from_rational_str (not from_rational) because z3-0.20's
+        // from_rational(i64, i64) truncates the numerator to c_int (i32) before
+        // calling Z3_mk_real. Numerator overflow corrupts π=780202.5 into a
+        // negative value, leaving the axiom satisfiable for any input (the
+        // sprint-5 doctored-fixture :sat regression).
+        // REQ-DSL-054: fail loudly when an atom binds a scalar value to a
+        // predicate the schema declared as `[:vector T]` / `[:set T]`.
+        check_value_sort_compat(
+            var_name.as_str(),
+            id.as_str(),
+            value,
+            crate::axioms::predicate_is_vector,
+        )?;
 
         let want_real = crate::axioms::predicate_is_real(var_name.as_str());
         let assertion: Bool = match value {

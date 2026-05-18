@@ -1,0 +1,108 @@
+;; rules/booklogic/constraints.edn — hard constraints checked by the solver.
+;;
+;; FORM SYNTAX:
+;;   (defconstraint :C001-name
+;;     :backend :z3
+;;     :assert FORMULA
+;;     :on-unsat {:defect :D## :severity :critical :message "..."})
+;;
+;; The :assert form is a sexp the codegen translates to Z3. Use:
+;;   (= LHS RHS)              equality
+;;   (approx= LHS RHS :tolerance 0.03)   approximate equality (relative)
+;;   (and EXPR EXPR ...)      conjunction
+;;   (or  EXPR EXPR ...)      disjunction
+;;   (* x y), (+ x y)         arithmetic
+;;   (:predicate-name ?subj)  predicate value for subject ?subj
+;;
+;; Only :backend :z3 reaches the solver today. :egg and :cozo are in
+;; SUPPORTED_BACKENDS but silently drop. See SUPPORT_MATRIX.md.
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (defconstraint :C001-vant-hoff
+;;   :backend :z3
+;;   :assert (approx= (:osmotic-pressure-pa ?s)
+;;                    (* (:vant-hoff-i ?s) (:molarity ?s) 8.314 (:temperature-k ?s))
+;;                    :tolerance 0.03)
+;;   :on-unsat {:defect :D13 :severity :critical
+;;              :message "van 't Hoff equation violated"})
+;;
+;; COMMON SILENT FAILURES:
+;;   - :backend :egg or :cozo set — codegen silently drops the constraint
+;;     and Z3 verifies only the remaining :z3 constraints. The verdict is
+;;     :sat for the wrong reason. (Phase A's extract gate doesn't catch
+;;     this; Phase D's SUPPORT_MATRIX.md lint does.)
+;;   - typo in :predicate-name → Z3 variable is unbound, free to take any
+;;     value, the constraint is trivially satisfied with random binding.
+;;   - mixing Int and Real values for the same predicate → Z3 names the
+;;     two binds as separate symbols; constraint is unbound.
+;;
+;; -----------------------------------------------------------------------
+;; Phase F gaps surfaced authoring this file (see
+;; docs/eval/2026-05-18-third-verifier-build-log.md):
+;;
+;;   1. `>=` and `>` are not yet supported assert heads in codegen_axioms.py
+;;      (only `=` and `approx=`). The semantically correct C001 form is
+;;        (>= (:vaccination-coverage ?p) (:herd-immunity-threshold ?d))
+;;      DEFERRED to Phase F. Workaround used here: encode the operational
+;;      requirement as `approx=` with relative tolerance 0.06 (about the
+;;      gap between a 0.94 textbook threshold and an 0.88 lower-bound
+;;      tolerable coverage); fixtures with coverage well below threshold
+;;      (e.g. 0.80) trip the tolerance and the solver reports :unsat with
+;;      D20 in the unsat core.
+;;
+;;   1b. Float-type inference is *subtree-local*. An `approx=` whose both
+;;      sides are pure predicate references with no float literal anywhere
+;;      defaults to Int (`Int::new_const`) even when the predicate is
+;;      declared `:real`. The codegen's `_subtree_has_float` only inspects
+;;      literals in the assert subtree. WORKAROUND TRIED FIRST: anchor with
+;;      `(+ ... 0.0)`. Failed — see 1c. DEFERRED a proper fix to a Tier 2
+;;      follow-up: `approx=` should consult `predicate_is_real` (which it
+;;      itself emits!) when typing predicate references.
+;;
+;;   1c. The CLJS BookLogic compiler's EDN writer rounds `0.0` → `0` and
+;;      `1.0` → `1` on round-trip. The float-anchor workaround from 1b
+;;      fails because the anchor literal becomes an integer in
+;;      rules/constraints.edn. WORKAROUND USED: anchor both sides with
+;;      a non-trivial float `0.5` (`(+ (...) 0.5)` on each side); the
+;;      anchor cancels in the approx= relative-tolerance check but
+;;      survives the EDN round-trip and forces the codegen onto Real.
+;;      This is fragile and ugly; the proper fix is Tier 2.
+;;
+;;   1d. defconstraint takes a *symbol* name (e.g. `C001-herd-immunity`),
+;;      not a keyword. The scaffold template's docstring example is wrong:
+;;      it shows `(defconstraint :C001-name ...)` which fails with
+;;      "defconstraint: name must be a symbol". Tier 2 follow-up to fix
+;;      the template.
+;;
+;;   2. `/` (division) is not yet a supported arithmetic head (only
+;;      `*`, `+`, `-`). The semantically correct C002 form is
+;;        (approx= (:herd-immunity-threshold ?d)
+;;                 (- 1.0 (/ 1.0 (:basic-reproduction-number ?d)))
+;;                 :tolerance 0.05)
+;;      ALGEBRAIC WORKAROUND: multiply both sides by R0 to eliminate the
+;;      division — `threshold * R0 = R0 - 1` — which uses only `*`,
+;;      `-`, and `approx=`, all available today. Codegen emits this
+;;      cleanly; tested doctored fixture with inconsistent threshold
+;;      trips :unsat with D21 in the unsat core.
+
+{:forms
+ [(defconstraint C001-herd-immunity
+    :backend :z3
+    :assert (approx= (+ (:vaccination-coverage ?p) 0.5)
+                     (+ (:herd-immunity-threshold ?d) 0.5)
+                     :tolerance 0.06)
+    :on-unsat {:defect :D20
+               :severity :critical
+               :message "vaccination coverage below herd immunity threshold"})
+
+  (defconstraint C002-threshold-formula
+    :backend :z3
+    :assert (approx= (+ (* (:herd-immunity-threshold ?d)
+                           (:basic-reproduction-number ?d))
+                        0.5)
+                     (+ (- (:basic-reproduction-number ?d) 1)
+                        0.5)
+                     :tolerance 0.05)
+    :on-unsat {:defect :D21
+               :severity :critical
+               :message "herd-immunity threshold inconsistent with R0 (formula H = 1 - 1/R0)"})]}

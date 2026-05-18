@@ -48,9 +48,7 @@ def test_matrix_rows_match_codegen_supported_backends():
 
 
 def test_matrix_z3_is_wired():
-    """REQ-BOOKLOGIC-050: matrix claims :z3 is the live path; codegen
-    confirms — line 138 of codegen_axioms.py shows `if backend !=
-    Keyword('z3'): continue`, meaning ONLY :z3 emits."""
+    """REQ-BOOKLOGIC-050: matrix claims :z3 is the live path."""
     status = _matrix_row_status("defconstraint", "z3")
     assert status is not None, "matrix missing defconstraint :backend :z3 row"
     assert "wired" in status.lower(), (
@@ -58,34 +56,84 @@ def test_matrix_z3_is_wired():
     )
 
 
-def test_matrix_egg_is_drop():
+def test_matrix_egg_is_wired_post_phase_h():
+    """REQ-EQSAT-045: post-Phase-H, the matrix flips :egg to wired."""
     status = _matrix_row_status("defconstraint", "egg")
     assert status is not None, "matrix missing defconstraint :backend :egg row"
-    assert "drop" in status.lower(), (
-        f"matrix claims :egg status {status!r} — codegen_axioms.py:138 "
-        f"silently drops non-z3 backends; matrix must say DROP"
+    assert "wired" in status.lower(), (
+        f"matrix should report :egg as wired post-Phase-H; got {status!r}"
     )
 
 
-def test_matrix_cozo_is_drop():
+def test_matrix_defrule_is_wired_post_phase_h():
+    """REQ-EQSAT-045: post-Phase-H, the matrix flips defrule to wired."""
+    status = _matrix_row_status("defrule")
+    assert status is not None, "matrix missing defrule row"
+    assert "wired" in status.lower(), (
+        f"matrix should report defrule as wired post-Phase-H; got {status!r}"
+    )
+
+
+def test_matrix_cozo_is_wired():
+    """REQ-DATALOG-045: after Tier 3, :cozo constraints route through
+    `_emit_cozo_block` into `axioms::cozo_constraints` and lib.rs runs
+    each through `kg::evaluate_constraint`. The matrix must say wired.
+    """
     status = _matrix_row_status("defconstraint", "cozo")
     assert status is not None, "matrix missing defconstraint :backend :cozo row"
-    assert "drop" in status.lower(), (
-        f"matrix claims :cozo status {status!r} — codegen drops it; "
-        f"matrix must say DROP"
+    assert "wired" in status.lower(), (
+        f"matrix claims :cozo status {status!r} — Tier 3 promoted "
+        f":cozo to wired (REQ-DATALOG-041)"
     )
 
 
-def test_codegen_actually_drops_non_z3():
-    """REQ-BOOKLOGIC-050: confirm the lint's claim that codegen silently
-    drops non-z3 constraints. Reading the codegen source is the ground
-    truth."""
+def test_matrix_defquery_is_wired():
+    """REQ-DATALOG-045: after Tier 3, `defquery` forms run at smoke
+    time via `kg::run_queries` and surface on the verdict."""
+    status = _matrix_row_status("defquery")
+    assert status is not None, "matrix missing defquery row"
+    assert "wired" in status.lower() and "wired-builder" not in status.lower(), (
+        f"matrix claims defquery status {status!r} — Tier 3 promoted "
+        f"defquery to wired (REQ-DATALOG-040)"
+    )
+
+
+def test_matrix_defremedy_is_query_bound():
+    """REQ-DATALOG-045: after Tier 3, `defremedy` whose `:when` references
+    a `defquery` receives the query's row count via `verdict_to_qa.py`.
+    """
+    status = _matrix_row_status("defremedy")
+    assert status is not None, "matrix missing defremedy row"
+    s = status.lower()
+    assert "wired" in s and "query-bound" in s, (
+        f"matrix claims defremedy status {status!r} — Tier 3 promoted "
+        f"defremedy to wired (query-bound) (REQ-DATALOG-043)"
+    )
+
+
+def test_codegen_dispatches_egg_and_cozo_post_tier3():
+    """REQ-EQSAT-041 + REQ-DATALOG-041: codegen dispatches `:egg` to
+    `_emit_egg_block` and `:cozo` to `_emit_cozo_block`. No silent drop."""
     code = CODEGEN_AXIOMS.read_text(encoding="utf-8")
-    # The drop happens via `if backend != Keyword("z3"): continue`
+    # No remaining pre-Tier-3 silent-drop pattern.
     assert re.search(
         r"if\s+backend\s*!=\s*Keyword\(['\"]z3['\"]\)\s*:",
         code,
-    ) is not None and "continue" in code, (
-        "codegen_axioms.py no longer has the `if backend != Keyword('z3'): continue` "
-        "drop pattern — :egg / :cozo may now actually emit. Update SUPPORT_MATRIX."
+    ) is None, (
+        "codegen_axioms.py still has the pre-Tier-3 "
+        "`if backend != Keyword('z3'): continue` drop pattern."
+    )
+    # :egg dispatch wired.
+    assert "_emit_egg_block" in code, (
+        "codegen_axioms.py is missing _emit_egg_block — :egg backend is "
+        "not actually wired despite SUPPORT_MATRIX claiming so."
+    )
+    # :cozo dispatch wired.
+    assert "_emit_cozo_block" in code, (
+        "codegen_axioms.py is missing _emit_cozo_block — Tier 3 :cozo "
+        "promotion lost; update SUPPORT_MATRIX or codegen."
+    )
+    assert "cozo_constraints" in code, (
+        "codegen_axioms.py no longer emits cozo_constraints() — Tier 3 "
+        "promotion lost."
     )

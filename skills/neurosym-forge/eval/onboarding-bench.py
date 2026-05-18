@@ -52,9 +52,37 @@ def assemble_doc_bundle() -> str:
 
 
 def detect_doc_gaps(agent_log_dir: Path) -> list[str]:
-    """REQ-EVAL-052: placeholder; real implementation lands in the next commit."""
-    _ = agent_log_dir
-    return []
+    """REQ-EVAL-052: paths the agent grepped outside the doc bundle.
+
+    Scans every ``*.log`` file under ``agent_log_dir`` for path-shaped
+    strings, returns the deduplicated list of paths that do NOT fall
+    inside the canonical doc bundle. The stub backend produces no log
+    files, so this returns ``[]``.
+    """
+    if not agent_log_dir.exists():
+        return []
+    allowed_prefixes = [
+        str((SKILL_ROOT / "SKILL.md").resolve()),
+        str((SKILL_ROOT / "SUPPORT_MATRIX.md").resolve()),
+        str((SKILL_ROOT / "references").resolve()),
+        str((REPO_ROOT / "docs" / "booklogic-dsl-reference.md").resolve()),
+    ]
+    seen: set[str] = set()
+    for log_path in agent_log_dir.rglob("*.log"):
+        try:
+            text = log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for token in text.split():
+            if "/" not in token and "\\" not in token:
+                continue
+            candidate = token.strip(",;:\"'()[]<>")
+            if not candidate.endswith((".md", ".py", ".rs", ".edn", ".cljs")):
+                continue
+            if any(candidate.startswith(p) for p in allowed_prefixes):
+                continue
+            seen.add(candidate)
+    return sorted(seen)
 
 
 def run_agent(

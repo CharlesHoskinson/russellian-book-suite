@@ -3,10 +3,12 @@ use napi_derive::napi;
 
 mod axioms;
 pub mod canonical;
-mod eqsat;
 mod ir;
 mod kg;
 mod smt;
+
+#[cfg(feature = "eqsat")]
+pub mod eqsat;
 
 #[cfg(feature = "pdf")]
 mod typeset;
@@ -24,6 +26,7 @@ pub fn verify_formulas(formulas_edn: String) -> napi::Result<String> {
     Ok(ir::emit_verdict(&out))
 }
 
+#[cfg(feature = "eqsat")]
 #[napi]
 pub fn saturate(terms_edn: String, rules_edn: String) -> napi::Result<String> {
     eqsat::saturate(&terms_edn, &rules_edn).map_err(|e| napi::Error::from_reason(e.to_string()))

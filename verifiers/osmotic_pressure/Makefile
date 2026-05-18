@@ -1,10 +1,15 @@
-.PHONY: ci build smoke clean
+.PHONY: ci build extract smoke clean
 
-ci: build smoke
+ci: build extract smoke
 
 build:
 	npm install
 	npm run build
+
+extract:
+	python scripts/extract_preview.py \
+	  --claims fixtures/claims_clean.jsonl \
+	  --predicates rules/predicates.edn
 
 smoke:
 	pytest tests/ -v \

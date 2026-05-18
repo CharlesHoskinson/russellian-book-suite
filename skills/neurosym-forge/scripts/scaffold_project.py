@@ -113,6 +113,7 @@ def scaffold_project(
         ("_canonical.py",    "_canonical.py"),
         ("codegen_axioms.py","_codegen_axioms_lib.py"),
         ("codegen_kg.py",    "_codegen_kg_lib.py"),
+        ("_extract_preview_lib.py", "_extract_preview_lib.py"),
     ):
         _src = scripts_src / _dep_src
         if _src.exists():

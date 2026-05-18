@@ -1,10 +1,7 @@
-"""Translate the verifier's verdict.edn into book-qa's verification-defects.json.
-
-The output format is consumed by book-qa.lint_artifact.lint_d13. See
-docs/specs/2026-05-14-bermuda-verifier-design.md § "book-qa D13 hook".
-
-Reads verdict.edn as real EDN (Keyword-keyed map). Writes
-verification-defects.json as JSON (book-qa reads JSON).
+"""Translate the osmotic_pressure verifier's verdict.edn into a
+book-qa-friendly verification-defects.json. Mirrors bermuda's
+verdict_to_qa.py so the same shape consumes both verifiers'
+verdicts (REQ-DATALOG-042, REQ-DATALOG-043).
 """
 from __future__ import annotations
 
@@ -14,12 +11,10 @@ import json
 import sys
 from pathlib import Path
 
-# scripts/__init__.py extends this package's __path__ to include forge's
-# scripts/ dir, so the imports below resolve to neurosym-forge's modules.
 from scripts._edn_reader import Keyword  # noqa: E402
 from scripts._io import read_edn_file  # noqa: E402
 
-FORGE_BERMUDA_VERSION = "bermuda 0.1.0 / neurosym-forge 0.2.0"
+FORGE_OSMOTIC_VERSION = "osmotic_pressure 0.1.0 / neurosym-forge 0.2.0"
 
 _KW_VERDICT = Keyword("verdict")
 _KW_STATUS = Keyword("status")
@@ -40,17 +35,12 @@ _KW_QUERY = Keyword("query")
 
 
 def _str_verdict(v: object) -> str:
-    """Accept Keyword or str verdict value; return plain string."""
     if isinstance(v, Keyword):
         return v.name
     return str(v) if v is not None else "unknown"
 
 
 def _query_rows(payload: dict, key: Keyword) -> list[dict]:
-    """Read a `:queries` / `:cozo-defects` vector off the verdict. Each
-    entry is a `{:name "..." :rows N}` map. Returns a JSON-friendly
-    list of dicts ordered by name (REQ-DATALOG-042).
-    """
     raw = payload.get(key, []) or []
     out: list[dict] = []
     for entry in raw:
@@ -65,9 +55,8 @@ def _query_rows(payload: dict, key: Keyword) -> list[dict]:
 
 def _remedy_query_name(when_clause: object) -> str | None:
     """Inspect a `defremedy :when` clause and return the bound query name
-    (the keyword inside `:when {:query :Q002-low-confidence}`) when the
-    clause references a defquery. Returns None for unsat-core /
-    structural patterns that don't bind a Datalog query.
+    (the keyword inside `:when {:query :Q###}`) when the clause
+    references a defquery (REQ-DATALOG-043).
     """
     if isinstance(when_clause, dict):
         q = when_clause.get(_KW_QUERY)
@@ -79,12 +68,6 @@ def _remedy_query_name(when_clause: object) -> str | None:
 
 
 def _bind_remedies(remedies_path: Path, query_rows: list[dict]) -> list[dict]:
-    """REQ-DATALOG-043: walk `rules/remedies.edn`; for any `defremedy`
-    whose `:when {:query :Q###}` references a `defquery` name that
-    appears in `query_rows`, materialise `{:rows N :propose ...}` into
-    the remedy's `:propose` action surface. Remedies whose `:when`
-    does not reference a query pass through unchanged.
-    """
     if not remedies_path.exists():
         return []
     payload = read_edn_file(remedies_path)
@@ -121,15 +104,12 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
     if not verdict_path.exists():
         raise FileNotFoundError(verdict_path)
     payload = read_edn_file(verdict_path)
-    # Accept :verdict (legacy) or :status (post-Phase-I).
     verdict_raw = payload.get(_KW_VERDICT)
     if verdict_raw is None:
         verdict_raw = payload.get(_KW_STATUS, "unknown")
     verdict_str = _str_verdict(verdict_raw)
     queries = _query_rows(payload, _KW_QUERIES)
     cozo_defects = _query_rows(payload, _KW_COZO_DEFECTS)
-    # Default to the canonical `rules/remedies.edn` location next to
-    # the project root when the caller doesn't override.
     if remedies_path is None:
         remedies_path = verdict_path.resolve().parent.parent / "rules" / "remedies.edn"
     remedies = _bind_remedies(remedies_path, queries)
@@ -142,7 +122,7 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
         "cozo_defects": cozo_defects,
         "remedies": remedies,
         "produced_at": dt.datetime.now(dt.UTC).isoformat(),
-        "verifier_version": FORGE_BERMUDA_VERSION,
+        "verifier_version": FORGE_OSMOTIC_VERSION,
     }
     if verdict_str == "unknown":
         result["reason"] = payload.get(_KW_REASON, "unknown") or "unknown"

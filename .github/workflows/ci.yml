@@ -19,8 +19,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Python-only skills don't need Nix — pip + pytest in standard setup-python
-  # runs faster and avoids magic-nix-cache rate-limiting when matrix fans out.
+  # Python-only skills don't need Nix — they run under standard setup-python.
+  # The setup-book-python composite action handles pip + venv per skill; the
+  # matrix.include lines override `extra` and add sibling-skill symlinks /
+  # pytest deselect arguments where individual skills need them.
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }})
     runs-on: ubuntu-24.04
@@ -31,26 +33,34 @@ jobs:
           - book-qa
           - book-thesis
           - book-knowledge
-          - book-compose
           - book-review
           - russellian-style
           - review-conductor
-          - neurosym-forge
+        include:
+          # book-compose needs sibling skills symlinked under ~/.claude/skills/
+          - skill: book-compose
+            siblings: book-knowledge russellian-style book-review review-conductor
+            pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
+          # neurosym-forge only ships a [dev] extras section, not [ci]
+          - skill: neurosym-forge
+            extra: dev
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: skills/${{ matrix.skill }}/pyproject.toml
-      - name: install ${{ matrix.skill }}[ci]
-        working-directory: skills/${{ matrix.skill }}
+          skill-path: skills/${{ matrix.skill }}
+          extra: ${{ matrix.extra || 'ci' }}
+      - name: symlink siblings
+        if: matrix.siblings != ''
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[ci]"
+          mkdir -p "$HOME/.claude/skills"
+          for sibling in ${{ matrix.siblings }}; do
+            ln -sfn "$PWD/skills/$sibling" "$HOME/.claude/skills/$sibling"
+          done
       - name: pytest
         working-directory: skills/${{ matrix.skill }}
-        run: pytest -q
+        run: python -m pytest tests/ -v ${{ matrix.pytest-deselect }}
 
   # Nix-using jobs are chained via `needs:` to serialize magic-nix-cache
   # writes. Parallelizing all of them at once gets the cache rate-limited

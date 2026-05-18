@@ -80,20 +80,37 @@ def _kind_str(v: Any) -> str:
 _JS_NAMED_GROUP = re.compile(r"\(\?<([A-Za-z_][A-Za-z0-9_]*)>")
 
 
-def _to_python_regex(pat: str) -> str:
-    """Translate JS-style `(?<name>...)` named groups to Python `(?P<name>...)`.
+class IngestRegexDialectError(ValueError):
+    """REQ-INGEST-050, 051: a predicate pattern uses a regex dialect
+    other than Python's `re` module.
 
-    BookLogic lifts.edn authors patterns in JS syntax (the CLJS compiler
-    consumes them via JS regex). Python's `re` module uses the older
-    Perl-style `(?P<name>...)` form.
+    The most common case is JS-style `(?<name>...)` named groups
+    (lifts.edn authored against the CLJS/JS regex engine). Python uses
+    the Perl-style `(?P<name>...)` form. Earlier versions silently
+    rewrote one to the other; we now reject the input so the author
+    fixes the source rather than relying on a hidden translation layer.
     """
-    return _JS_NAMED_GROUP.sub(r"(?P<\1>", pat)
+
+
+def _assert_python_regex_dialect(pat: str) -> None:
+    """REQ-INGEST-050, 051: hard-fail on non-Python regex dialect.
+
+    Catches JS-style `(?<name>...)` named groups. Re.compile errors
+    surface as their native exceptions (re.error) when the search runs.
+    """
+    m = _JS_NAMED_GROUP.search(pat)
+    if m is not None:
+        raise IngestRegexDialectError(
+            f"predicate pattern uses JS-style named group `(?<{m.group(1)}>...)`; "
+            f"Python regex requires `(?P<{m.group(1)}>...)`. Offending pattern: {pat!r}"
+        )
 
 
 def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | None:
     for _name, spec in predicates.items():
         for pat in spec.get(_KW_PATTERNS, []):
-            m = re.search(_to_python_regex(pat), text, flags=re.IGNORECASE | re.DOTALL)
+            _assert_python_regex_dialect(pat)
+            m = re.search(pat, text, flags=re.IGNORECASE | re.DOTALL)
             if not m:
                 continue
             value_kind = _kind_str(_get_spec(spec, _KW_VALUE_KIND, _KW_VALUE_KIND_H))

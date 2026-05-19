@@ -55,7 +55,9 @@ fn extract_status(verdict_edn: &str) -> String {
     // controlled by `ir::emit_verdict` and the keyword name is the
     // first whitespace-delimited token after `:status :`.
     let needle = ":status :";
-    let i = verdict_edn.find(needle).expect("status keyword in verdict EDN");
+    let i = verdict_edn
+        .find(needle)
+        .expect("status keyword in verdict EDN");
     let rest = &verdict_edn[i + needle.len()..];
     let end = rest
         .find(|c: char| c.is_whitespace() || c == '}')
@@ -68,7 +70,9 @@ fn three_subjects_all_sat_returns_sat() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // Ensure no leaked 1ms timeout from a racing test.
     let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-    unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000"); }
+    unsafe {
+        std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+    }
     // REQ-PERF-040: every subject has its own partition; with no axiom
     // contradicting any subject's atoms, the merged verdict is :sat.
     let edn = common::ledger_edn(&[
@@ -82,16 +86,18 @@ fn three_subjects_all_sat_returns_sat() {
         // subject :u — unconstrained predicates, any value is fine
         ("osm-006", "some-other-int", "u", 7.0),
     ]);
-    let out = osmotic_pressure_verifier::verify_formulas(edn)
-        .expect("verify_formulas");
+    let out = osmotic_pressure_verifier::verify_formulas(edn).expect("verify_formulas");
     unsafe {
         match prev {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
         }
     }
     let status = extract_status(&out);
-    assert_eq!(status, "sat", "merged verdict should be :sat, got {status:?} ({out})");
+    assert_eq!(
+        status, "sat",
+        "merged verdict should be :sat, got {status:?} ({out})"
+    );
 }
 
 #[test]
@@ -105,7 +111,9 @@ fn per_subject_unknown_does_not_poison_other_subjects() {
     let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
     // SAFETY: cargo test runs each test in a single-threaded context
     // by default — set_var is sound here. We restore on the way out.
-    unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "1"); }
+    unsafe {
+        std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "1");
+    }
 
     // We intentionally feed a fixture that — with a 1ms timeout — may
     // come back as :unsat (Z3 solves the doctored case fast) OR
@@ -123,7 +131,7 @@ fn per_subject_unknown_does_not_poison_other_subjects() {
     unsafe {
         match prev {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
         }
     }
     let out = out.expect("verify_formulas");
@@ -147,8 +155,10 @@ fn per_subject_unknown_does_not_poison_other_subjects() {
         let expl_end = after.find('"').unwrap();
         let explanation = &after[..expl_end];
         assert!(
-            !explanation.contains(", t,") && !explanation.contains(", u,")
-                && !explanation.ends_with(" t") && !explanation.ends_with(" u"),
+            !explanation.contains(", t,")
+                && !explanation.contains(", u,")
+                && !explanation.ends_with(" t")
+                && !explanation.ends_with(" u"),
             "explanation should not name unrelated subjects t/u: {explanation:?}",
         );
     }
@@ -166,7 +176,7 @@ fn serial_default_is_deterministic() {
         ("osm-004", "osmotic-pressure-pa", "s", 763.27),
     ]);
     let prev_par = std::env::var("VERIFIER_SOLVER_PARALLELISM").ok();
-    let prev_to  = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
+    let prev_to = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
     unsafe {
         std::env::remove_var("VERIFIER_SOLVER_PARALLELISM");
         std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
@@ -179,7 +189,7 @@ fn serial_default_is_deterministic() {
         }
         match prev_to {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
         }
     }
     assert_eq!(extract_status(&a), extract_status(&b));
@@ -202,22 +212,24 @@ fn parallelism_four_workers_returns_same_verdict_as_serial() {
         ("osm-006", "some-other-int", "u", 7.0),
     ]);
     let prev_par = std::env::var("VERIFIER_SOLVER_PARALLELISM").ok();
-    let prev_to  = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
+    let prev_to = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
     unsafe {
         std::env::remove_var("VERIFIER_SOLVER_PARALLELISM");
         std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
     }
     let serial = osmotic_pressure_verifier::verify_formulas(edn.clone()).unwrap();
-    unsafe { std::env::set_var("VERIFIER_SOLVER_PARALLELISM", "4"); }
+    unsafe {
+        std::env::set_var("VERIFIER_SOLVER_PARALLELISM", "4");
+    }
     let parallel = osmotic_pressure_verifier::verify_formulas(edn).unwrap();
     unsafe {
         match prev_par {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_PARALLELISM", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_PARALLELISM"),
+            None => std::env::remove_var("VERIFIER_SOLVER_PARALLELISM"),
         }
         match prev_to {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
         }
     }
     assert_eq!(extract_status(&serial), extract_status(&parallel));

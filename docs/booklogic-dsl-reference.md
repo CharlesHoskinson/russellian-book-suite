@@ -565,6 +565,64 @@ fixture (`i=1, M=0.154, T=298.15, π=763.27`) fails with
   Every `?s` in a constraint should appear inside at least one
   predicate application.
 
+#### Scope (REQ-CORPUS-050..056)
+
+A `defconstraint` may declare an explicit `:scope`:
+
+- `:scope :subject` (default) — Phase J behaviour. The constraint
+  emits into `axioms_for_subject(solver, subject)` and runs once
+  per subject in its own Z3 solver. Cross-subject constraints
+  (those whose `:assert` references two or more distinct subject
+  identifiers without `:scope :corpus`) flow into `axioms_shared`
+  and run after the per-subject partitions complete.
+
+- `:scope :corpus` — the constraint runs once over the union of
+  every subject's atoms, in a dedicated corpus partition that
+  fires after `axioms_shared`. An unsat result surfaces on the
+  verdict's `:corpus-defects` field instead of `:core`. This is
+  the surface for cross-chapter consistency rules: trial-n must
+  agree across chapters, units must be consistent across the
+  manuscript, etc.
+
+Any value of `:scope` other than `:subject` or `:corpus` is rejected
+at ingest time with an error naming the offending constraint id.
+
+##### Worked example — Mizuno trial in two chapters
+
+The ADSC report cites the Mizuno 2008 trial in two chapters. Chapter 3
+ingest produces `:trial-n :mizuno-2008-chap-a 37`; chapter 7 ingest
+produces `:trial-n :mizuno-2008-chap-b 42` after a copy-paste drift.
+
+```
+(defconstraint C050-trial-n-agrees
+  :backend :z3
+  :scope   :corpus
+  :assert  (= (:trial-n :mizuno-2008-chap-a) (:trial-n :mizuno-2008-chap-b))
+  :track   :claim/id
+  :on-unsat {:defect   :D050
+             :severity :critical
+             :message  "trial-n disagrees across chapters"})
+```
+
+Under `:scope :subject` alone each chapter's solver `:sat`-isfies
+trivially. Under `:scope :corpus` the corpus solver sees both atoms,
+the equality fails, and the verdict's `:corpus-defects` field names
+`C050-trial-n-agrees` plus both subjects as the conflict source. The
+top-level `:status` flips to `:unsat` and `verdict_to_qa.py` lifts
+the defect into the QA pipeline.
+
+##### Authoring guidance
+
+- Use `:scope :corpus` when the same logical entity appears in
+  multiple subjects and must agree (trial-n, unit, citation date).
+- Keep the body small — corpus solvers see every subject's atoms
+  simultaneously, so a quadratic comparison across N subjects scales
+  with N. Author one corpus constraint per cross-chapter invariant
+  rather than one mega-constraint that quantifies over everything.
+- The default `:scope :subject` is the right choice for any rule
+  whose body references a single subject. Use `:scope :corpus`
+  only when you want Z3 to see two or more subjects together.
+
 ### 2.6 `defquery`
 
 Datalog rule against the claim graph. Emits via `codegen_kg.py` into

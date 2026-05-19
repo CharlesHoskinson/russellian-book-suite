@@ -57,6 +57,26 @@ pub struct Verdict {
     /// witness row; `rows` is the violation count.
     #[serde(default)]
     pub cozo_defects: Vec<QueryResult>,
+    /// `defconstraint :scope :corpus` defects (REQ-CORPUS-053).
+    /// Each entry names a corpus-scope constraint that returned
+    /// `:unsat` on the corpus solver and the subjects whose atoms
+    /// participated in the unsat core.
+    #[serde(default)]
+    pub corpus_defects: Vec<CorpusDefect>,
+}
+
+/// REQ-CORPUS-053: per-defect record for `:scope :corpus` constraints
+/// that returned `:unsat` on the corpus solver. `conflicting_subjects`
+/// names every subject whose atoms participated in the unsat core;
+/// `explanation` is a human-readable rendering suitable for
+/// `verdict_to_qa.py` to lift into a QA defect.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CorpusDefect {
+    pub id: String,
+    #[serde(default)]
+    pub conflicting_subjects: Vec<String>,
+    #[serde(default)]
+    pub explanation: String,
 }
 
 /// Per-query summary recorded on the verdict. `sample` is `Some` for
@@ -139,6 +159,27 @@ pub fn emit_verdict(v: &Verdict) -> String {
         out.push_str("\" :rows ");
         out.push_str(&qr.rows.to_string());
         out.push('}');
+    }
+    // REQ-CORPUS-053: serialise corpus-scope defects.
+    out.push_str("] :corpus-defects [");
+    for (i, cd) in v.corpus_defects.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push_str("{:constraint-id \"");
+        out.push_str(&edn_escape(&cd.id));
+        out.push_str("\" :subjects [");
+        for (j, s) in cd.conflicting_subjects.iter().enumerate() {
+            if j > 0 {
+                out.push(' ');
+            }
+            out.push('"');
+            out.push_str(&edn_escape(s));
+            out.push('"');
+        }
+        out.push_str("] :explanation \"");
+        out.push_str(&edn_escape(&cd.explanation));
+        out.push_str("\"}");
     }
     out.push_str("]}");
     out

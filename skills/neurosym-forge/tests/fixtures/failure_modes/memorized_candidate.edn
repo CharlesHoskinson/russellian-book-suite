@@ -1,0 +1,14 @@
+; Fixture: failure-mode REQ-TEST-043 (Memorization-vs-Induction).
+;
+; A candidate that fits the training corpus (all 10 documents in the
+; 5-fold split satisfy `(:r0 ?d) >= 0`) but fails on the held-out
+; document set in `holdout_folds/fold_4.jsonl`, where one document
+; has `:r0 = -1`. The orchestrator must run the candidate across all
+; 5 folds, observe fold_4's sat-rate drop below 0.5, and reject with
+; reason `:memorization`.
+(defconstraint :induced/memorized
+  :scope :subject
+  :backend :z3
+  :assert (>= (:r0 ?d) 0)
+  :on-unsat {:defect :D-induced-memorized
+             :severity :low})

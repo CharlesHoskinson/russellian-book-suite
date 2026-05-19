@@ -4,9 +4,25 @@
 Covers REQ-TEST-040..045 from
 `openspec/changes/tier6-failure-mode-tests/specs/framework-eval/spec.md`.
 Each test exercises one documented LLM-symbolic-loop failure mode and
-asserts the framework's mitigation activates. Subsequent commits in this
-phase add the remaining three failure modes; this commit ships the
-False-Correction Loop case (REQ-TEST-040).
+asserts the framework's mitigation activates:
+
+- REQ-TEST-040: False-Correction Loop — the proposer is idempotent in
+  the face of out-of-band error noise (`test_false_correction_loop_rejected`).
+- REQ-TEST-041: Outcome-Driven Constraint Violation — the validator
+  rejects trivial tautologies (`(or true ...)`) with reason
+  `:trivial-tautology` before counting support
+  (`test_outcome_driven_constraint_violation_rejected`).
+- REQ-TEST-042: Proof-Level Confabulation — the grammar enforcer
+  rejects `:assert` ASTs that reference their own `:on-unsat` defect id
+  (`test_proof_level_confabulation_rejected`).
+- REQ-TEST-043: Memorization-vs-Induction — the orchestrator rejects
+  candidates whose held-out sat-rate falls below 0.5 on any of the 5
+  document-held-out folds (`test_memorization_vs_induction_rejected`).
+- REQ-TEST-044: Module layout — all four tests live in this file with
+  matching names so `pytest -k failure_mode` discovers all four
+  (`test_failure_modes_module_layout`).
+- REQ-TEST-045: Wall-clock budget — each test completes in under 5
+  seconds (surfaced through `pytest --durations=10` in CI).
 
 The four mitigations live in Tier 6 phases V (grammar), W
 (orchestrator), and X (validation). Phase BB tests are SCAFFOLDING: a
@@ -18,6 +34,7 @@ rather than at runtime in production.
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 from scripts._edn_reader import read_edn
@@ -43,6 +60,7 @@ def _has_module(name: str) -> bool:
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "failure_modes"
+HOLDOUT_FOLDS = FIXTURES / "holdout_folds"
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +205,54 @@ def _contains_term(form, target) -> bool:
     return False
 
 
+class _StubHoldoutResult:
+    def __init__(
+        self,
+        rejected: bool,
+        reason: str | None = None,
+        failing_folds: list[int] | None = None,
+    ) -> None:
+        self.rejected = rejected
+        self.reason = reason
+        self.failing_folds = failing_folds or []
+
+
+def _stub_validate_with_holdout(
+    candidate, folds: list[list[dict]], threshold: float = 0.5
+) -> _StubHoldoutResult:
+    """Stub orchestrator: evaluate the candidate's assert on each fold.
+
+    Hardcoded to the `(>= (:r0 ?d) 0)` predicate used by the
+    memorization fixture. For each fold, sat-rate = fraction of
+    documents with `r0 >= 0`; folds whose sat-rate falls below
+    `threshold` are reported as failing. If any fold fails, reject with
+    `:memorization`.
+    """
+    failing: list[int] = []
+    for idx, fold in enumerate(folds):
+        if not fold:
+            continue
+        sat = sum(1 for doc in fold if doc.get("r0", 0) >= 0) / len(fold)
+        if sat < threshold:
+            failing.append(idx)
+    if failing:
+        return _StubHoldoutResult(
+            rejected=True, reason=":memorization", failing_folds=failing
+        )
+    return _StubHoldoutResult(rejected=False)
+
+
+def _load_fold(path: Path) -> list[dict]:
+    """Read a JSONL fold file into a list of dicts."""
+    docs: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        docs.append(json.loads(line))
+    return docs
+
+
 # ---------------------------------------------------------------------------
 # REQ-TEST-040 — False-Correction Loop
 # ---------------------------------------------------------------------------
@@ -281,3 +347,78 @@ def test_proof_level_confabulation_rejected():
 
     assert result.ok is False
     assert result.tag == ":grammar-fail/circular-definition"
+
+
+# ---------------------------------------------------------------------------
+# REQ-TEST-043 — Memorization-vs-Induction
+# ---------------------------------------------------------------------------
+
+
+def test_memorization_vs_induction_rejected():
+    """REQ-TEST-043: orchestrator rejects rules that fail any held-out fold.
+
+    Mitigation under test: Phase W's orchestrator runs the candidate
+    across all 5 document-held-out folds, computes per-fold sat-rate,
+    and rejects when at least one fold's sat-rate falls below 0.5.
+    The rejection result carries reason `:memorization` and lists the
+    failing fold indices. The memorized candidate `(>= (:r0 ?d) 0)`
+    fits folds 0-3 (all positive `r0`) but fails fold 4 (negative
+    `r0`), so the orchestrator must surface fold 4.
+    """
+    candidate = read_edn(
+        (FIXTURES / "memorized_candidate.edn").read_text(encoding="utf-8")
+    )
+    folds = [_load_fold(HOLDOUT_FOLDS / f"fold_{i}.jsonl") for i in range(5)]
+
+    if _has_module("scripts._induction_orchestrator"):
+        from scripts._induction_orchestrator import validate_with_holdout  # type: ignore
+
+        result = validate_with_holdout(candidate, folds)
+    else:
+        result = _stub_validate_with_holdout(candidate, folds)
+
+    assert result.rejected is True
+    assert result.reason == ":memorization"
+    assert result.failing_folds, "expected at least one held-out fold to fail"
+    # fold_4 carries the negative-r0 documents; it must be among the failures.
+    assert 4 in result.failing_folds
+
+
+# ---------------------------------------------------------------------------
+# REQ-TEST-044 — Module layout self-check
+# ---------------------------------------------------------------------------
+
+
+def test_failure_modes_module_layout():
+    """REQ-TEST-044: all four failure-mode tests live in this file.
+
+    Asserts the four canonical test names are defined in this module so
+    `pytest -k failure_mode` discovers them as a set. A regression that
+    renames or drops a test surfaces here rather than silently
+    shrinking the safety net. Also verifies that every fixture
+    referenced by the failure-mode tests is present on disk.
+    """
+    import sys
+
+    mod = sys.modules[__name__]
+    expected = {
+        "test_false_correction_loop_rejected",
+        "test_outcome_driven_constraint_violation_rejected",
+        "test_proof_level_confabulation_rejected",
+        "test_memorization_vs_induction_rejected",
+    }
+    actual = {name for name in dir(mod) if name.startswith("test_")}
+    missing = expected - actual
+    assert not missing, f"failure-mode tests missing from module: {missing}"
+    for name in (
+        "valid_candidate.edn",
+        "spurious_error.txt",
+        "tautology_candidate.edn",
+        "circular_candidate.edn",
+        "memorized_candidate.edn",
+    ):
+        assert (FIXTURES / name).is_file(), f"missing fixture: {name}"
+    for i in range(5):
+        assert (HOLDOUT_FOLDS / f"fold_{i}.jsonl").is_file(), (
+            f"missing fold fixture: fold_{i}.jsonl"
+        )

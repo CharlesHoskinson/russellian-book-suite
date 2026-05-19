@@ -46,9 +46,10 @@ def test_seed_has_silent_failure_notes(seed: Path):
         f"{seed.name} has no 'common silent failures' notes"
 
 
-def test_all_seven_seeds_present():
+def test_all_seeds_present():
     expected = {"sorts.edn.tmpl", "predicates.edn.tmpl", "lifts.edn.tmpl",
                 "rules.edn.tmpl", "constraints.edn.tmpl",
-                "queries.edn.tmpl", "remedies.edn.tmpl"}
+                "queries.edn.tmpl", "remedies.edn.tmpl",
+                "induced-theory.prov.edn.tmpl"}
     actual = {p.name for p in SEEDS}
     assert actual == expected, f"missing seeds: {expected - actual}; extra: {actual - expected}"

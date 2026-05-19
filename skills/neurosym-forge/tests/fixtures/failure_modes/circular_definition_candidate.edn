@@ -1,0 +1,10 @@
+; Alias for circular_candidate.edn. The Phase BB plan body refers to this
+; name; the design spec refers to `circular_candidate.edn`. Both names
+; resolve to the same canonical proof-level confabulation fixture so
+; reviewers grepping either filename land on the case.
+(defconstraint :induced/self-ref
+  :scope :subject
+  :backend :z3
+  :assert (= (:defect-id :D-induced-self-ref) :D-induced-self-ref)
+  :on-unsat {:defect :D-induced-self-ref
+             :severity :low})

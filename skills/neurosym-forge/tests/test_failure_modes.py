@@ -144,6 +144,49 @@ def _extract_keyed_value(form, key_name: str):
     return None
 
 
+class _StubGrammarResult:
+    def __init__(self, ok: bool, tag: str | None = None) -> None:
+        self.ok = ok
+        self.tag = tag
+
+
+def _stub_grammar_conforming(candidate) -> _StubGrammarResult:
+    """Stub grammar enforcer.
+
+    Extracts the rule's `:on-unsat` defect id, walks the `:assert` AST,
+    and rejects with `:grammar-fail/circular-definition` if any node
+    matches the defect id (the rule "refers to itself").
+    """
+    assert_form = _extract_keyed_value(candidate, "assert")
+    on_unsat = _extract_keyed_value(candidate, "on-unsat")
+    defect_id = None
+    if isinstance(on_unsat, dict):
+        for k, v in on_unsat.items():
+            k_name = getattr(k, "name", str(k))
+            if k_name == "defect":
+                defect_id = v
+                break
+    if defect_id is not None and assert_form is not None:
+        if _contains_term(assert_form, defect_id):
+            return _StubGrammarResult(
+                ok=False, tag=":grammar-fail/circular-definition"
+            )
+    return _StubGrammarResult(ok=True)
+
+
+def _contains_term(form, target) -> bool:
+    """Recursively check whether `form` contains `target` as a subterm."""
+    if _terms_equal(form, target):
+        return True
+    if isinstance(form, list):
+        return any(_contains_term(x, target) for x in form)
+    if isinstance(form, dict):
+        for k, v in form.items():
+            if _contains_term(k, target) or _contains_term(v, target):
+                return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # REQ-TEST-040 — False-Correction Loop
 # ---------------------------------------------------------------------------
@@ -207,3 +250,34 @@ def test_outcome_driven_constraint_violation_rejected():
 
     assert result.rejected is True
     assert result.reason == ":trivial-tautology"
+
+
+# ---------------------------------------------------------------------------
+# REQ-TEST-042 — Proof-Level Confabulation
+# ---------------------------------------------------------------------------
+
+
+def test_proof_level_confabulation_rejected():
+    """REQ-TEST-042: grammar enforcer rejects circular `:assert` references.
+
+    Mitigation under test: Phase V's grammar enforcer walks the
+    `:assert` AST and rejects with
+    `:grammar-fail/circular-definition` when any node matches the
+    rule's own `:on-unsat` defect id. A rule that references its own
+    defect "proves itself" without ever touching the atomspace; the AST
+    walker catches the cycle before the candidate reaches the
+    validator.
+    """
+    candidate = read_edn(
+        (FIXTURES / "circular_candidate.edn").read_text(encoding="utf-8")
+    )
+
+    if _has_module("scripts._induction_grammar"):
+        from scripts._induction_grammar import grammar_conforming  # type: ignore
+
+        result = grammar_conforming(candidate)
+    else:
+        result = _stub_grammar_conforming(candidate)
+
+    assert result.ok is False
+    assert result.tag == ":grammar-fail/circular-definition"

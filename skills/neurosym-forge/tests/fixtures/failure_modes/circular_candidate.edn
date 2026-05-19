@@ -1,0 +1,13 @@
+; Fixture: failure-mode REQ-TEST-042 (Proof-Level Confabulation).
+;
+; The `:assert` body references the rule's own `:on-unsat` defect id
+; (:D-induced-self-ref) — a circular structure that lets the rule
+; "prove itself" without ever connecting to the atomspace. The grammar
+; enforcer's AST walker must reject this with tag
+; `:grammar-fail/circular-definition`.
+(defconstraint :induced/self-ref
+  :scope :subject
+  :backend :z3
+  :assert (= (:defect-id :D-induced-self-ref) :D-induced-self-ref)
+  :on-unsat {:defect :D-induced-self-ref
+             :severity :low})

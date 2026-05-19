@@ -1,0 +1,19 @@
+(ns adsc-clinical.bridge
+  "Calls into the native Rust addon built by napi-rs."
+  (:require [cljs.reader :as edn]))
+
+;; Resolve the .node addon at runtime relative to the bundled main.js
+;; (`cljs-orchestrator/dist/main.js`). Compile-time relative requires in
+;; shadow-cljs resolve against the source path, which is two levels deeper
+;; than the dist output and would not find the addon.
+(def ^:private native (js/require "../native/adsc-clinical-verifier.node"))
+
+(defn verify-formulas [formulas-edn]
+  (let [verdict-edn (.verifyFormulas native formulas-edn)]
+    (edn/read-string verdict-edn)))
+
+(defn saturate-equalities [terms-edn rules-edn]
+  (edn/read-string (.saturate native terms-edn rules-edn)))
+
+(defn render-pdf [latex-source out-path]
+  (.renderPdf native latex-source out-path))

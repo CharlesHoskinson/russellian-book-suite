@@ -1,0 +1,29 @@
+;; rules/booklogic/remedies.edn — proposed actions when a claim is refuted.
+;;
+;; FORM SYNTAX:
+;;   (defremedy :W001-name
+;;     :when CONDITION
+;;     :propose ACTION
+;;     :requires :auto-apply OR :human-review)
+;;
+;; Remedies are consumed by external workflow code (book-qa) when the
+;; verifier reports a refutation. They are NOT executed inside the
+;; verifier itself — defremedy forms compile to declarative entries
+;; that the QA harness reads. See references/phase-boundaries.md.
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (defremedy :W001-unsat-core-to-refutation
+;;   :when    (unsat-core-contains ?claim)
+;;   :propose (ledger/transition ?claim :refuted)
+;;   :requires :human-review)
+;;
+;; COMMON SILENT FAILURES:
+;;   - :requires omitted → defaults to :auto-apply. Confirm this is what
+;;     you want for the action — auto-applying ledger transitions on every
+;;     refutation can cascade quickly. Prefer :human-review for any
+;;     remedy that mutates the ledger.
+;;   - Remedies are not consumed inside the verifier — they're an
+;;     external-consumer contract. Pure defremedy forms don't make the
+;;     verifier verdict change.
+;;
+{:forms []}

@@ -1,0 +1,25 @@
+;; rules/booklogic/predicates.edn — predicate signatures for this verifier.
+;;
+;; FORM SYNTAX:
+;;   (defpredicate :predicate-name [:arg-sort-1 :arg-sort-2 ...] :return-sort)
+;;
+;; Valid sorts: anything declared in sorts.edn OR the primitive set
+;;   {:int :real :bool :string :entity :formula}
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (defpredicate :osmotic-pressure-pa [:solution] :real)
+;; (defpredicate :molarity            [:solution] :real)
+;; (defpredicate :vant-hoff-i         [:solution] :real)
+;; (defpredicate :temperature-k       [:solution] :real)
+;;
+;; COMMON SILENT FAILURES:
+;;   - declaring :return :int when the regex extracts "2.5" → the lift coerces
+;;     to int(0) silently. Pick :real for any predicate whose canonical text
+;;     may contain a decimal point.
+;;   - uppercase letters in the predicate name (`:Osmotic-Pressure`) → all
+;;     claims for that predicate fall through to OPAQUE; Phase A's
+;;     extract gate (`make extract`) surfaces this as "OPAQUE fraction exceeds
+;;     threshold". Use kebab-case for predicate names.
+;;   - missing :arg-sorts vector entirely → nbb throws at compile time.
+;;
+{:forms []}

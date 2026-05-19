@@ -1,0 +1,35 @@
+[package]
+name    = "adsc_clinical-verifier"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["smt", "eqsat", "kg"]
+smt   = ["dep:z3"]
+eqsat = ["dep:egg"]
+kg    = ["dep:cozo"]
+pdf   = ["dep:tectonic"]
+
+[dependencies]
+napi          = { version = "3", features = ["napi9", "serde-json", "async"] }
+napi-derive   = "3"
+serde         = { version = "1", features = ["derive"] }
+serde_json    = "1"
+edn-rs        = "0.19"
+thiserror     = "2"
+ordered-float = "4"
+# Cap rayon to the last 1.10.x — rayon 1.11+ changed Box<[T]>::into_par_iter()
+# to yield T (was &T), which breaks graph_builder 0.4.1 (pulled transitively
+# by cozo "0.7"). Lift this cap when cozo upgrades graph_builder.
+rayon         = "~1.10"
+
+z3            = { version = "0.20", optional = true }
+egg           = { version = "0.10", optional = true }
+cozo          = { version = "0.7", default-features = false, features = ["compact"], optional = true }
+tectonic      = { version = "0.16", optional = true }
+
+[build-dependencies]
+napi-build = "2"

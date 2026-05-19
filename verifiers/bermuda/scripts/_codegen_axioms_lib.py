@@ -279,6 +279,8 @@ def generate_axioms_source(constraints: list[dict],
     _SET_SYMBOLS = set()
     per_subject_blocks: dict[str, list[str]] = {}
     shared_blocks: list[str] = []
+    corpus_blocks: list[str] = []
+    corpus_ids: list[str] = []
     all_body_for_sort: list[str] = []
     cozo_entries: list[tuple[str, str]] = []
     for c in constraints:
@@ -293,9 +295,25 @@ def generate_axioms_source(constraints: list[dict],
                 f"constraint {c.get(Keyword('id'))!r}: unknown backend {backend!r}; "
                 f"expected one of {SUPPORTED_BACKENDS}"
             )
+        # REQ-CORPUS-050: scope dispatch. Default :subject preserves Phase J
+        # behaviour. :corpus routes the emitted block into axioms_corpus
+        # regardless of how many subjects the body references.
+        scope = c.get(Keyword("scope"), Keyword("subject"))
+        if scope not in (Keyword("subject"), Keyword("corpus")):
+            raise CodegenError(
+                f"constraint {c.get(Keyword('id'))!r}: invalid :scope {scope!r}; "
+                "expected :subject or :corpus"
+            )
+        is_corpus = scope == Keyword("corpus")
         if backend == Keyword("z3"):
             block = _emit_z3_block(c)
             all_body_for_sort.append(block)
+            if is_corpus:
+                # REQ-CORPUS-051: corpus-scope constraints land in
+                # axioms_corpus, never in per-subject or shared buckets.
+                corpus_blocks.append(block)
+                corpus_ids.append(str(c[Keyword("id")]))
+                continue
             # Collect every distinct subject identifier referenced inside
             # the :assert form. >1 distinct subject => cross-subject, lands
             # in axioms_shared (REQ-PERF-043). Exactly 1 => per-subject
@@ -310,10 +328,15 @@ def generate_axioms_source(constraints: list[dict],
         elif backend == Keyword("egg"):
             # :egg constraints emit a Bool tracker block; route them to
             # axioms_shared so they run once per check (they don't bind to
-            # a subject — eqsat.rs is whole-graph).
+            # a subject — eqsat.rs is whole-graph). A :scope :corpus :egg
+            # constraint lands in axioms_corpus instead.
             block = _emit_egg_block(c)
             all_body_for_sort.append(block)
-            shared_blocks.append(block)
+            if is_corpus:
+                corpus_blocks.append(block)
+                corpus_ids.append(str(c[Keyword("id")]))
+            else:
+                shared_blocks.append(block)
         elif backend == Keyword("cozo"):
             # REQ-DATALOG-041: route :cozo constraints to kg.rs at smoke
             # time via a sibling registry that lib.rs runs through
@@ -330,8 +353,13 @@ def generate_axioms_source(constraints: list[dict],
         HEADER
         + _emit_axioms_for_subject(per_subject_blocks)
         + _emit_axioms_shared(shared_blocks)
+        + _emit_axioms_corpus(corpus_blocks)
         + _emit_axioms_subjects(sorted(per_subject_blocks.keys()))
-        + _emit_assert_axioms_aggregator(sorted(per_subject_blocks.keys()))
+        + _emit_axioms_corpus_ids(corpus_ids)
+        + _emit_assert_axioms_aggregator(
+            sorted(per_subject_blocks.keys()),
+            has_corpus=bool(corpus_blocks),
+        )
         + FOOTER
         + sort_helper
         + is_vector_helper
@@ -375,6 +403,39 @@ def _emit_axioms_for_subject(per_subject_blocks: dict[str, list[str]]) -> str:
         "\n"
         "#[cfg(not(feature = \"smt\"))]\n"
         "pub fn axioms_for_subject(_solver: &(), _subject: &str) {\n"
+        "    // No-op: built without smt feature.\n"
+        "}\n"
+        "\n"
+    )
+    return out
+
+
+def _emit_axioms_corpus(corpus_blocks: list[str]) -> str:
+    """REQ-CORPUS-051: emit `pub fn axioms_corpus(solver)` covering every
+    constraint declared with `:scope :corpus`. `smt::check_all` runs this
+    once over the union of every subject's atoms, after per-subject and
+    shared partitions complete.
+    """
+    out = (
+        "#[cfg(feature = \"smt\")]\n"
+        "/// Assert every z3 constraint declared with `:scope :corpus`\n"
+        "/// (REQ-CORPUS-050, 051). `smt::check_all` runs this once over a\n"
+        "/// solver seeded with the union of every subject's atoms, after\n"
+        "/// per-subject and shared partitions complete. A failed corpus\n"
+        "/// constraint surfaces on the verdict's `:corpus-defects` field.\n"
+        "pub fn axioms_corpus(solver: &Solver) {\n"
+    )
+    if not corpus_blocks:
+        out += "    let _ = solver;\n"
+    else:
+        for block in corpus_blocks:
+            out += block
+            out += "\n"
+    out += (
+        "}\n"
+        "\n"
+        "#[cfg(not(feature = \"smt\"))]\n"
+        "pub fn axioms_corpus(_solver: &()) {\n"
         "    // No-op: built without smt feature.\n"
         "}\n"
         "\n"
@@ -433,24 +494,49 @@ def _emit_axioms_subjects(subjects: list[str]) -> str:
     )
 
 
-def _emit_assert_axioms_aggregator(subjects: list[str]) -> str:
+def _emit_axioms_corpus_ids(corpus_ids: list[str]) -> str:
+    """REQ-CORPUS-053: emit `pub fn axioms_corpus_ids() -> &'static [&'static str]`
+    so `smt::check_all` can map an unsat-core tracker name back to the
+    corpus-scope constraint it came from when building the
+    `:corpus-defects` field.
+    """
+    arms = ", ".join(f'"{i}"' for i in corpus_ids)
+    body = f"&[{arms}]" if corpus_ids else "&[]"
+    return (
+        "/// REQ-CORPUS-053: every constraint id whose declared `:scope` is\n"
+        "/// `:corpus`. `smt::check_all` reads this to map unsat-core trackers\n"
+        "/// back to the constraint that drove the corpus-scope failure when\n"
+        "/// populating the verdict's `:corpus-defects` field.\n"
+        "pub fn axioms_corpus_ids() -> &'static [&'static str] {\n"
+        f"    {body}\n"
+        "}\n"
+        "\n"
+    )
+
+
+def _emit_assert_axioms_aggregator(subjects: list[str],
+                                    has_corpus: bool = False) -> str:
     """Emit the legacy `assert_axioms(solver)` entry point so callers
-    written before the partition refactor still work. It simply calls
-    every per-subject assertion plus the shared one.
+    written before the partition refactor still work. It calls every
+    per-subject assertion plus the shared one, and (REQ-CORPUS-051) the
+    corpus-scope axioms when any are declared.
     """
     out = (
         "#[cfg(feature = \"smt\")]\n"
         "/// Backward-compatible aggregator. Asserts every per-subject\n"
-        "/// constraint and the shared bucket on a single solver. New\n"
-        "/// callers should prefer `axioms_for_subject` + `axioms_shared`\n"
-        "/// so the timeout and unknown blast-radius stays per-subject.\n"
+        "/// constraint, the shared bucket, and any corpus-scope constraints\n"
+        "/// on a single solver. New callers should prefer\n"
+        "/// `axioms_for_subject` + `axioms_shared` + `axioms_corpus` so the\n"
+        "/// timeout and unknown blast-radius stays per-partition.\n"
         "#[allow(dead_code)]\n"
         "pub fn assert_axioms(solver: &Solver) {\n"
     )
     for s in subjects:
         out += f'    axioms_for_subject(solver, "{s}");\n'
+    out += "    axioms_shared(solver);\n"
+    if has_corpus:
+        out += "    axioms_corpus(solver);\n"
     out += (
-        "    axioms_shared(solver);\n"
         "}\n"
         "\n"
         "#[cfg(not(feature = \"smt\"))]\n"

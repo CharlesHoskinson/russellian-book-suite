@@ -16,6 +16,8 @@
 | `defconstraint :backend :z3` | wired        | `codegen_axioms.py` | Z3           | wired  |
 | `defconstraint :backend :egg`| wired        | `eqsat.rs::prove_equiv` | egg      | wired  |
 | `defconstraint :backend :cozo` | wired      | `kg.rs::evaluate_constraint` | Cozo | wired  |
+| `defconstraint :scope :subject` | wired      | `codegen_axioms.py` (`axioms_for_subject`) | Z3 | wired  |
+| `defconstraint :scope :corpus` | wired      | `codegen_axioms.py` (`axioms_corpus`) | Z3 | wired  |
 | `defquery`                   | wired        | `kg.rs::run_queries` | Cozo        | wired  |
 | `defremedy`                  | wired        | `verdict_to_qa.py`  | n/a          | wired (query-bound) |
 
@@ -58,6 +60,16 @@ should expect proposal-quality variance and exercise the cache +
 schema validation as belt-and-braces. Promoted to `wired` once
 Phase Q's eval bench confirms detection rates within 5 percentage
 points of the regex baseline.
+
+**Scope modifier (REQ-CORPUS-050..056)** — A `defconstraint` may declare
+`:scope :subject` (default — runs once per subject in its own solver,
+matches Phase J behaviour) or `:scope :corpus` (runs once over the union
+of every subject's atoms after the per-subject and shared partitions
+complete). A failed `:scope :corpus` constraint surfaces on the verdict's
+`:corpus-defects` field (constraint id + conflicting subjects +
+explanation) rather than `:core`. See
+[docs/booklogic-dsl-reference.md § 2.5 — Scope](../../docs/booklogic-dsl-reference.md#scope-req-corpus-050056)
+for the worked Mizuno-trial example.
 
 ## Why this exists
 

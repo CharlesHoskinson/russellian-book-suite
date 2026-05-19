@@ -134,6 +134,21 @@ pub fn axioms_shared(_solver: &()) {
     // No-op: built without smt feature.
 }
 
+#[cfg(feature = "smt")]
+/// Assert every z3 constraint declared with `:scope :corpus`
+/// (REQ-CORPUS-050, 051). `smt::check_all` runs this once over a
+/// solver seeded with the union of every subject's atoms, after
+/// per-subject and shared partitions complete. A failed corpus
+/// constraint surfaces on the verdict's `:corpus-defects` field.
+pub fn axioms_corpus(solver: &Solver) {
+    let _ = solver;
+}
+
+#[cfg(not(feature = "smt"))]
+pub fn axioms_corpus(_solver: &()) {
+    // No-op: built without smt feature.
+}
+
 /// Enumerate every subject identifier (canonical form, e.g.
 /// `"Bermuda"` or `"s"`) that has at least one declared
 /// constraint. `smt::check_all` iterates this list to build
@@ -142,11 +157,20 @@ pub fn axioms_subjects() -> &'static [&'static str] {
     &["BMD", "Bermuda", "Bermuda_cedar", "KEMH", "L_F_Wade"]
 }
 
+/// REQ-CORPUS-053: every constraint id whose declared `:scope` is
+/// `:corpus`. `smt::check_all` reads this to map unsat-core trackers
+/// back to the constraint that drove the corpus-scope failure when
+/// populating the verdict's `:corpus-defects` field.
+pub fn axioms_corpus_ids() -> &'static [&'static str] {
+    &[]
+}
+
 #[cfg(feature = "smt")]
 /// Backward-compatible aggregator. Asserts every per-subject
-/// constraint and the shared bucket on a single solver. New
-/// callers should prefer `axioms_for_subject` + `axioms_shared`
-/// so the timeout and unknown blast-radius stays per-subject.
+/// constraint, the shared bucket, and any corpus-scope constraints
+/// on a single solver. New callers should prefer
+/// `axioms_for_subject` + `axioms_shared` + `axioms_corpus` so the
+/// timeout and unknown blast-radius stays per-partition.
 #[allow(dead_code)]
 pub fn assert_axioms(solver: &Solver) {
     axioms_for_subject(solver, "BMD");

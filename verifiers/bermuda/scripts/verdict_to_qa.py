@@ -36,6 +36,9 @@ _KW_VERIFIED_COUNT = Keyword("verified-count")
 _KW_REASON = Keyword("reason")
 _KW_QUERIES = Keyword("queries")
 _KW_COZO_DEFECTS = Keyword("cozo-defects")
+_KW_CORPUS_DEFECTS = Keyword("corpus-defects")
+_KW_CONSTRAINT_ID = Keyword("constraint-id")
+_KW_SUBJECTS = Keyword("subjects")
 _KW_NAME = Keyword("name")
 _KW_ROWS = Keyword("rows")
 _KW_REMEDIES = Keyword("remedies")
@@ -261,6 +264,27 @@ def _bind_remedies(remedies_path: Path, query_rows: list[dict]) -> list[dict]:
     return out
 
 
+def _corpus_defect_rows(payload: dict) -> list[dict]:
+    """REQ-CORPUS-053: read the verdict's :corpus-defects vector and
+    surface each entry as `{constraint_id, subjects[], explanation}`.
+    """
+    raw = payload.get(_KW_CORPUS_DEFECTS, []) or []
+    out: list[dict] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        cid = entry.get(_KW_CONSTRAINT_ID, "")
+        subjects = entry.get(_KW_SUBJECTS, []) or []
+        explanation = entry.get(_KW_EXPLANATION, "") or ""
+        out.append({
+            "constraint_id": str(cid),
+            "subjects":      [str(s) for s in subjects],
+            "explanation":   str(explanation),
+        })
+    out.sort(key=lambda e: e["constraint_id"])
+    return out
+
+
 def _semantic_neighbours(
     defect_claim_ids: list[str], npz_path: Path
 ) -> list[dict]:
@@ -303,6 +327,7 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
     verdict_str = _str_verdict(verdict_raw)
     queries = _query_rows(payload, _KW_QUERIES)
     cozo_defects = _query_rows(payload, _KW_COZO_DEFECTS)
+    corpus_defects = _corpus_defect_rows(payload)
     # Default to the canonical `rules/remedies.edn` location next to
     # the project root when the caller doesn't override.
     if remedies_path is None:
@@ -325,6 +350,7 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
         "verified_count": payload.get(_KW_VERIFIED_COUNT, 0),
         "queries": queries,
         "cozo_defects": cozo_defects,
+        "corpus_defects": corpus_defects,
         "critical_defects": critical_defects,
         "advisory_defects": advisory_defects,
         "verdict_confidence": verdict_confidence,

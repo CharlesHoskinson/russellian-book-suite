@@ -117,6 +117,51 @@
                                                    :message "x"})]
                     :queries [] :remedies []}))))
 
+(deftest expand-defconstraint-scope-defaults-to-subject
+  ;; REQ-CORPUS-050: omitted :scope defaults to :subject.
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules []
+                  :constraints
+                    [(list 'defconstraint 'C001-default-scope
+                           :backend :z3
+                           :assert (list '= (list :parishes-count :Bermuda) 9)
+                           :on-unsat {:defect :D13 :severity :critical
+                                      :message "x"})]
+                  :queries [] :remedies []}
+        expanded (bl/expand src)
+        c        (first (:constraint-decls expanded))]
+    (is (= :subject (:scope c)))))
+
+(deftest expand-defconstraint-scope-corpus
+  ;; REQ-CORPUS-050: :scope :corpus threads through to the constraint map.
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules []
+                  :constraints
+                    [(list 'defconstraint 'C001-cross
+                           :backend :z3
+                           :scope :corpus
+                           :assert (list 'approx=
+                                         (list :trial-n :t1)
+                                         (list :trial-n :t2)
+                                         :tolerance 0)
+                           :on-unsat {:defect :D-Cross :severity :high
+                                      :message "n mismatch"})]
+                  :queries [] :remedies []}
+        expanded (bl/expand src)
+        c        (first (:constraint-decls expanded))]
+    (is (= :corpus (:scope c)))))
+
+(deftest expand-defconstraint-bad-scope-throws
+  ;; REQ-CORPUS-050: any value other than :subject or :corpus errors out.
+  (is (thrown-with-msg?
+        js/Error #"defconstraint.*:scope"
+        (bl/expand {:sorts [] :predicates [] :lifts [] :rules []
+                    :constraints [(list 'defconstraint 'CX
+                                        :backend :z3
+                                        :scope :bogus
+                                        :assert (list '= 1 1)
+                                        :on-unsat {:defect :D13 :severity :critical
+                                                   :message "x"})]
+                    :queries [] :remedies []}))))
+
 (deftest expand-defquery-basic
   (let [src      {:sorts [] :predicates [] :lifts [] :rules [] :constraints []
                   :queries

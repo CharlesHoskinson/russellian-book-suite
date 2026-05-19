@@ -19,7 +19,7 @@
 //! explanation names which subject(s) drove the outcome — a single
 //! intractable subject no longer poisons evidence from the rest.
 
-use crate::ir::{Atom, ClaimId, Error, Verdict};
+use crate::ir::{Atom, ClaimId, CorpusDefect, Error, Verdict};
 
 #[cfg(feature = "smt")]
 use std::collections::BTreeMap;
@@ -73,6 +73,10 @@ pub fn check_value_sort_compat(
     }
     let value_shape = match value {
         Edn::Int(n)    => format!("scalar Int({n})"),
+        // edn-rs maps bare non-negative integers to Edn::UInt; surface
+        // the same `scalar Int(...)` shape so the error message stays
+        // stable regardless of how the atom's int literal was printed.
+        Edn::UInt(n)   => format!("scalar Int({n})"),
         Edn::Double(_) => format!("scalar Real({})", value.to_float().unwrap_or(0.0)),
         Edn::Str(s)    => format!("scalar String({s:?})"),
         Edn::Bool(b)   => format!("scalar Bool({b})"),
@@ -178,7 +182,139 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     let shared_atoms: Vec<(ClaimId, Atom)> = Vec::new();
     let shared_verdict = solve_shared_partition(&shared_atoms, timeout_ms)?;
 
-    Ok(merge_verdicts(&per_partition_verdicts, &shared_verdict))
+    // REQ-CORPUS-052, 053: corpus partition runs LAST, after every
+    // per-subject and the shared bucket complete. The corpus solver is
+    // seeded with the union of every subject's atoms so a corpus-scope
+    // axiom (e.g. "every Mizuno-2008 atom must agree on :trial-n") sees
+    // every binding from every chapter simultaneously.
+    let corpus_atoms: Vec<(ClaimId, Atom)> = formulas.to_vec();
+    let corpus_verdict = solve_corpus_partition(&corpus_atoms, timeout_ms)?;
+    let corpus_defects = corpus_defects_from(&corpus_verdict, &corpus_atoms);
+
+    let mut verdict = merge_verdicts(&per_partition_verdicts, &shared_verdict);
+    if !corpus_defects.is_empty() {
+        // A corpus-scope defect dominates: the top-level status flips to
+        // :unsat and the explanation grows a corpus-scope tag so
+        // verdict_to_qa can surface the failure on the QA side.
+        verdict.status = "unsat".into();
+        if verdict.explanation.is_empty() {
+            verdict.explanation = format!(
+                "Z3 reports corpus-scope unsat: {}",
+                corpus_defects
+                    .iter()
+                    .map(|d| d.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+        } else {
+            verdict.explanation.push_str(&format!(
+                "; corpus-scope unsat: {}",
+                corpus_defects
+                    .iter()
+                    .map(|d| d.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ));
+        }
+    }
+    verdict.corpus_defects = corpus_defects;
+    Ok(verdict)
+}
+
+/// REQ-CORPUS-052: build one fresh solver, seed it with EVERY subject's
+/// atoms, install the corpus-scope axioms, and return its
+/// `PartitionVerdict`. The unsat-core trackers identify which
+/// corpus-scope constraint(s) drove the failure.
+#[cfg(feature = "smt")]
+fn solve_corpus_partition(
+    atoms:      &[(ClaimId, Atom)],
+    timeout_ms: u32,
+) -> Result<PartitionVerdict, Error> {
+    let solver = Solver::new();
+    let mut params = Params::new();
+    params.set_u32("timeout", timeout_ms);
+    solver.set_params(&params);
+
+    crate::axioms::axioms_corpus(&solver);
+    let tracker_ids = bind_atoms(&solver, atoms)?;
+
+    if std::env::var("VERIFIER_DEBUG_SMT").is_ok() {
+        eprintln!("=== Z3 solver state (corpus) ===\n{}", solver);
+        eprintln!("=== /Z3 solver state ===");
+    }
+
+    Ok(collect_partition_verdict(&solver, "_corpus", &tracker_ids))
+}
+
+/// REQ-CORPUS-053: turn the corpus partition's unsat core into the list
+/// of `CorpusDefect`s that lands on the verdict. Each defect names the
+/// constraint id (a `axioms_corpus_ids()` entry), the subjects whose
+/// atoms participated in the core, and a human-readable explanation.
+#[cfg(feature = "smt")]
+fn corpus_defects_from(
+    partition_verdict: &PartitionVerdict,
+    atoms:             &[(ClaimId, Atom)],
+) -> Vec<CorpusDefect> {
+    use edn_rs::Edn;
+    if partition_verdict.status != "unsat" {
+        return Vec::new();
+    }
+    // Build a map (claim-id -> subject) so we can attribute core trackers
+    // back to the subject(s) whose atoms drove the failure.
+    let mut claim_to_subject: std::collections::BTreeMap<ClaimId, String> =
+        std::collections::BTreeMap::new();
+    for (id, atom) in atoms {
+        let subject = match atom.get(":subject") {
+            Some(Edn::Key(k)) => k.trim_start_matches(':').to_string(),
+            Some(Edn::Str(s)) => s.trim_start_matches(':').to_string(),
+            _ => continue,
+        };
+        claim_to_subject.insert(id.clone(), subject);
+    }
+
+    // The unsat-core members fall into two classes:
+    // - constraint-id trackers (corpus-scope axioms): map via axioms_corpus_ids
+    // - claim-id trackers (per-atom bindings): map via claim_to_subject
+    let corpus_ids: std::collections::BTreeSet<&'static str> =
+        crate::axioms::axioms_corpus_ids().iter().copied().collect();
+    let mut subjects: std::collections::BTreeSet<String> =
+        std::collections::BTreeSet::new();
+    let mut firing_ids: Vec<String> = Vec::new();
+    for core_id in &partition_verdict.core {
+        if corpus_ids.contains(core_id.as_str()) {
+            firing_ids.push(core_id.clone());
+        } else if let Some(subject) = claim_to_subject.get(core_id) {
+            subjects.insert(subject.clone());
+        }
+    }
+    // If no specific corpus-id appeared in the core (Z3 may surface only
+    // claim-id trackers), fall back to every declared corpus-scope id so
+    // operators still get an actionable defect.
+    if firing_ids.is_empty() {
+        firing_ids = crate::axioms::axioms_corpus_ids()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+    }
+
+    let subjects_vec: Vec<String> = subjects.into_iter().collect();
+    let mut out: Vec<CorpusDefect> = Vec::with_capacity(firing_ids.len());
+    for id in firing_ids {
+        let explanation = if subjects_vec.is_empty() {
+            format!("corpus-scope constraint {id} unsat")
+        } else {
+            format!(
+                "corpus-scope constraint {id} unsat across subjects: {}",
+                subjects_vec.join(", "),
+            )
+        };
+        out.push(CorpusDefect {
+            id,
+            conflicting_subjects: subjects_vec.clone(),
+            explanation,
+        });
+    }
+    out
 }
 
 /// Build one fresh Z3 solver, install the per-subject axioms, bind
@@ -330,6 +466,25 @@ fn bind_atoms(
                 } else {
                     let z3_var = Int::new_const(var_name.as_str());
                     z3_var.eq(&Int::from_i64(*n))
+                }
+            }
+            // edn-rs renders bare non-negative integers as `Edn::UInt`
+            // rather than `Edn::Int`. Treat them identically so the
+            // cross-chapter integration test (which encodes `:trial-n`
+            // as a plain int) binds the atom value the same way as
+            // float-printed integers do.
+            Edn::UInt(n) => {
+                let n_i64: i64 = (*n).try_into().map_err(|_| {
+                    Error::Smt(format!("value too large to bind as Int: {n}"))
+                })?;
+                if want_real {
+                    let z3_var = Real::new_const(var_name.as_str());
+                    let lit = Real::from_rational_str(&n_i64.to_string(), "1")
+                        .ok_or_else(|| Error::Smt(format!("from_rational_str({n_i64}, 1) failed")))?;
+                    z3_var.eq(&lit)
+                } else {
+                    let z3_var = Int::new_const(var_name.as_str());
+                    z3_var.eq(&Int::from_i64(n_i64))
                 }
             }
             Edn::Double(_) => {

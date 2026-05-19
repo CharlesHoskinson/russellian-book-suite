@@ -12,7 +12,7 @@
 //! `crate::axioms::assert_axioms` (the backward-compat aggregator) and
 //! is no longer used by `check_all`.
 
-use crate::ir::{Atom, ClaimId, Error, Verdict};
+use crate::ir::{Atom, ClaimId, CorpusDefect, Error, Verdict};
 
 #[cfg(feature = "smt")]
 use std::collections::BTreeMap;
@@ -49,6 +49,7 @@ pub fn check_value_sort_compat(
     }
     let value_shape = match value {
         Edn::Int(n)    => format!("scalar Int({n})"),
+        Edn::UInt(n)   => format!("scalar Int({n})"),
         Edn::Double(_) => format!("scalar Real({})", value.to_float().unwrap_or(0.0)),
         Edn::Str(s)    => format!("scalar String({s:?})"),
         Edn::Bool(b)   => format!("scalar Bool({b})"),
@@ -136,7 +137,113 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     let shared_atoms: Vec<(ClaimId, Atom)> = Vec::new();
     let shared_verdict = solve_shared_partition(&shared_atoms, timeout_ms)?;
 
-    Ok(merge_verdicts(&per_partition_verdicts, &shared_verdict))
+    // REQ-CORPUS-052, 053: corpus partition runs LAST, after every
+    // per-subject and the shared bucket complete. The corpus solver is
+    // seeded with the union of every subject's atoms so a corpus-scope
+    // axiom sees every binding from every chapter simultaneously.
+    let corpus_atoms: Vec<(ClaimId, Atom)> = formulas.to_vec();
+    let corpus_verdict = solve_corpus_partition(&corpus_atoms, timeout_ms)?;
+    let corpus_defects = corpus_defects_from(&corpus_verdict, &corpus_atoms);
+
+    let mut verdict = merge_verdicts(&per_partition_verdicts, &shared_verdict);
+    if !corpus_defects.is_empty() {
+        verdict.status = "unsat".into();
+        let ids = corpus_defects
+            .iter()
+            .map(|d| d.id.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        if verdict.explanation.is_empty() {
+            verdict.explanation = format!("Z3 reports corpus-scope unsat: {ids}");
+        } else {
+            verdict
+                .explanation
+                .push_str(&format!("; corpus-scope unsat: {ids}"));
+        }
+    }
+    verdict.corpus_defects = corpus_defects;
+    Ok(verdict)
+}
+
+/// REQ-CORPUS-052: build one fresh solver, seed it with EVERY subject's
+/// atoms, install the corpus-scope axioms, and return its
+/// `PartitionVerdict`. The unsat-core trackers identify which
+/// corpus-scope constraint(s) drove the failure.
+#[cfg(feature = "smt")]
+fn solve_corpus_partition(
+    atoms:      &[(ClaimId, Atom)],
+    timeout_ms: u32,
+) -> Result<PartitionVerdict, Error> {
+    let solver = Solver::new();
+    let mut params = Params::new();
+    params.set_u32("timeout", timeout_ms);
+    solver.set_params(&params);
+
+    crate::axioms::axioms_corpus(&solver);
+    let tracker_ids = bind_atoms(&solver, atoms)?;
+
+    Ok(collect_partition_verdict(&solver, "_corpus", &tracker_ids))
+}
+
+/// REQ-CORPUS-053: turn the corpus partition's unsat core into the list
+/// of `CorpusDefect`s that lands on the verdict.
+#[cfg(feature = "smt")]
+fn corpus_defects_from(
+    partition_verdict: &PartitionVerdict,
+    atoms:             &[(ClaimId, Atom)],
+) -> Vec<CorpusDefect> {
+    use edn_rs::Edn;
+    if partition_verdict.status != "unsat" {
+        return Vec::new();
+    }
+    let mut claim_to_subject: std::collections::BTreeMap<ClaimId, String> =
+        std::collections::BTreeMap::new();
+    for (id, atom) in atoms {
+        let subject = match atom.get(":subject") {
+            Some(Edn::Key(k)) => k.trim_start_matches(':').to_string(),
+            Some(Edn::Str(s)) => s.trim_start_matches(':').to_string(),
+            _ => continue,
+        };
+        claim_to_subject.insert(id.clone(), subject);
+    }
+
+    let corpus_ids: std::collections::BTreeSet<&'static str> =
+        crate::axioms::axioms_corpus_ids().iter().copied().collect();
+    let mut subjects: std::collections::BTreeSet<String> =
+        std::collections::BTreeSet::new();
+    let mut firing_ids: Vec<String> = Vec::new();
+    for core_id in &partition_verdict.core {
+        if corpus_ids.contains(core_id.as_str()) {
+            firing_ids.push(core_id.clone());
+        } else if let Some(subject) = claim_to_subject.get(core_id) {
+            subjects.insert(subject.clone());
+        }
+    }
+    if firing_ids.is_empty() {
+        firing_ids = crate::axioms::axioms_corpus_ids()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+    }
+
+    let subjects_vec: Vec<String> = subjects.into_iter().collect();
+    let mut out: Vec<CorpusDefect> = Vec::with_capacity(firing_ids.len());
+    for id in firing_ids {
+        let explanation = if subjects_vec.is_empty() {
+            format!("corpus-scope constraint {id} unsat")
+        } else {
+            format!(
+                "corpus-scope constraint {id} unsat across subjects: {}",
+                subjects_vec.join(", "),
+            )
+        };
+        out.push(CorpusDefect {
+            id,
+            conflicting_subjects: subjects_vec.clone(),
+            explanation,
+        });
+    }
+    out
 }
 
 #[cfg(feature = "smt")]
@@ -255,6 +362,17 @@ fn bind_atoms(
             Edn::Int(n) => {
                 let z3_var = Int::new_const(var_name.as_str());
                 z3_var.eq(&Int::from_i64(*n))
+            }
+            // edn-rs renders bare non-negative integers as `Edn::UInt`
+            // rather than `Edn::Int`. Treat them identically so corpus-scope
+            // integration tests that encode integer values as plain ints
+            // (e.g. `:trial-n 15`) bind the atom value the same way.
+            Edn::UInt(n) => {
+                let n_i64: i64 = (*n).try_into().map_err(|_| {
+                    Error::Smt(format!("value too large to bind as Int: {n}"))
+                })?;
+                let z3_var = Int::new_const(var_name.as_str());
+                z3_var.eq(&Int::from_i64(n_i64))
             }
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);

@@ -1032,7 +1032,7 @@ def _aggregate_theory_summary(
     avg_e = sum(entrenchments) / len(entrenchments) if entrenchments else 0.0
 
     out = [
-        f"Theory summary:",
+        "Theory summary:",
         f"  Rules:                {total_rules}",
         (
             f"  Status:               :active {status_counts[':active']}  "

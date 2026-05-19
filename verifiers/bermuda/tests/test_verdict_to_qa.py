@@ -104,7 +104,7 @@ def test_semantic_neighbours_populated_from_npz(
     translate(work / "verdict.edn", out)
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert len(payload["semantic_neighbours"]) == 2
-    by_id = {
+    _by_id = {
         n["defect_claim_id"]: n for n in payload["semantic_neighbours"]
     }
     # Each defect carries up to 3 OTHER claims (self excluded).

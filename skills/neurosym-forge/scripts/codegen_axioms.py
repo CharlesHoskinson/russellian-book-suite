@@ -1273,8 +1273,8 @@ def _emit_bool_subexpr(
     if head_str in ("forall", "exists"):
         if declared_sort_names is None:
             raise CodegenError(
-                f"_emit_bool_subexpr: nested quantifier requires declared_sort_names; "
-                f"this is an internal codegen bug."
+                "_emit_bool_subexpr: nested quantifier requires declared_sort_names; "
+                "this is an internal codegen bug."
             )
         return _emit_quantifier_expr(node, declared_sort_names, outer_bound_vars=bound_vars)
     # Keyword-headed predicate application: (:predicate arg1 arg2 ...)

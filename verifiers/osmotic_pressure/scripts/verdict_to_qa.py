@@ -9,13 +9,19 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
+from typing import Iterable, Sequence
 
 from scripts._edn_reader import Keyword  # noqa: E402
 from scripts._io import read_edn_file  # noqa: E402
 
 FORGE_OSMOTIC_VERSION = "osmotic_pressure 0.1.0 / neurosym-forge 0.2.0"
+
+# REQ-CONFIDENCE-041: env var override for the advisory-downgrade threshold.
+DEFAULT_CONFIDENCE_THRESHOLD = 0.5
+_CONFIDENCE_THRESHOLD_ENV = "VERIFIER_CONFIDENCE_THRESHOLD"
 
 _KW_VERDICT = Keyword("verdict")
 _KW_STATUS = Keyword("status")
@@ -33,6 +39,163 @@ _KW_WHEN = Keyword("when")
 _KW_PROPOSE = Keyword("propose")
 _KW_REQUIRES = Keyword("requires")
 _KW_QUERY = Keyword("query")
+_KW_DEFECTS = Keyword("defects")
+_KW_SEVERITY = Keyword("severity")
+_KW_CHAIN = Keyword("chain")
+_KW_CONFIDENCE = Keyword("confidence")
+
+
+def _kw_to_str(v: object) -> str:
+    if isinstance(v, Keyword):
+        return v.name
+    return str(v) if v is not None else ""
+
+
+def _resolve_threshold(threshold: float | None) -> float:
+    """Pick the active downgrade threshold.
+
+    Precedence: explicit `threshold` arg > `VERIFIER_CONFIDENCE_THRESHOLD`
+    env var > `DEFAULT_CONFIDENCE_THRESHOLD` (0.5).
+    """
+    if threshold is not None:
+        return float(threshold)
+    env = os.environ.get(_CONFIDENCE_THRESHOLD_ENV)
+    if env is not None and env != "":
+        try:
+            return float(env)
+        except ValueError:
+            pass
+    return DEFAULT_CONFIDENCE_THRESHOLD
+
+
+def compute_defect_confidence(chain_atoms: Sequence[dict] | Iterable[dict]) -> float:
+    """REQ-CONFIDENCE-040: defect confidence = min of unsat-core atom confidences.
+
+    The min is taken over the *distinct* claim ids in the chain (duplicate
+    references to the same claim do not alter the result). Each chain entry
+    may be a Keyword-keyed dict (as read off an EDN verdict) or a plain
+    string-keyed dict (as built by callers in Python).
+    """
+    seen: dict[str, float] = {}
+    for atom in chain_atoms:
+        if not isinstance(atom, dict):
+            continue
+        # Accept either Keyword-keyed (from EDN) or str-keyed (from Python).
+        cid = atom.get(_KW_ID) if _KW_ID in atom else atom.get("id")
+        conf = atom.get(_KW_CONFIDENCE) if _KW_CONFIDENCE in atom else atom.get("confidence")
+        if conf is None:
+            # Missing confidence on a chain entry — treat as full-confidence
+            # so we don't silently downgrade defects from upstream that lack
+            # the field. (Ingest validation enforces presence on real atoms.)
+            conf = 1.0
+        cid_str = str(cid) if cid is not None else f"__anon_{id(atom)}"
+        prev = seen.get(cid_str)
+        if prev is None or float(conf) < prev:
+            seen[cid_str] = float(conf)
+    if not seen:
+        return 1.0
+    return min(seen.values())
+
+
+def apply_confidence_downgrade(
+    defect: dict, threshold: float | None = None,
+) -> None:
+    """REQ-CONFIDENCE-041: downgrade severity to 'advisory' when every atom
+    in the defect's unsat core is strictly below the active threshold.
+
+    Mutates `defect` in place. `declared_severity` preserves the original
+    severity for downstream consumers.
+
+    Behaviour:
+
+    - If the defect carries a `chain` (list of `{id, confidence}` dicts),
+      the downgrade fires only when *every* atom in the chain is below
+      threshold — one high-confidence anchor is enough to preserve the
+      declared severity, matching the design.md rule.
+    - If the defect carries only `defect_confidence` (min-of-chain) with no
+      explicit chain, the min alone gates the downgrade. This is the
+      simple-call shape used by callers that have already collapsed the
+      chain to a single float.
+    """
+    t = _resolve_threshold(threshold)
+    declared = defect.get("severity", "critical")
+    defect.setdefault("declared_severity", declared)
+    chain = defect.get("chain")
+    if chain:
+        # Downgrade only if every atom < threshold.
+        all_below = all(float(a.get("confidence", 1.0)) < t for a in chain)
+        if all_below:
+            defect["severity"] = "advisory"
+        return
+    dc = defect.get("defect_confidence", 1.0)
+    if float(dc) < t:
+        defect["severity"] = "advisory"
+
+
+def compute_verdict_confidence(defects: Sequence[dict] | Iterable[dict]) -> float:
+    """REQ-CONFIDENCE-042: verdict confidence = geometric mean of defect
+    confidences.
+
+    A verdict with zero defects reports 1.0 (no evidence against the corpus
+    => full confidence in cleanliness).
+    """
+    confidences = [
+        float(d.get("defect_confidence", 1.0))
+        for d in defects
+        if isinstance(d, dict)
+    ]
+    if not confidences:
+        return 1.0
+    product = 1.0
+    for c in confidences:
+        product *= c
+    return product ** (1.0 / len(confidences))
+
+
+def _chain_from_verdict_defect(raw: dict) -> list[dict]:
+    """Pull the unsat-core chain off a verdict-shaped defect entry.
+
+    Accepts either a `:chain [{:id ... :confidence ...}]` vector or a
+    `:core ["claim-id" ...]` list of bare ids (no confidence — defaults to 1.0).
+    """
+    chain = raw.get(_KW_CHAIN) or raw.get("chain") or []
+    if chain:
+        return list(chain)
+    bare = raw.get(_KW_CORE) or raw.get("core") or []
+    return [{"id": cid, "confidence": 1.0} for cid in bare]
+
+
+def _build_defects(payload: dict) -> list[dict]:
+    """Normalise verdict-shaped defects into plain dicts the QA JSON can
+    serialise. Each entry gains `defect_confidence` (min-of-chain) and the
+    advisory-downgrade rule is applied. Returns a list ordered as it was
+    read off the verdict.
+    """
+    raw_defects = payload.get(_KW_DEFECTS) or payload.get("defects") or []
+    out: list[dict] = []
+    for raw in raw_defects:
+        if not isinstance(raw, dict):
+            continue
+        chain = _chain_from_verdict_defect(raw)
+        dc = compute_defect_confidence(chain)
+        entry: dict = {
+            "id": str(raw.get(_KW_ID, raw.get("id", ""))),
+            "severity": _kw_to_str(raw.get(_KW_SEVERITY, raw.get("severity", "critical"))),
+            "defect_confidence": dc,
+            "chain": [
+                {
+                    "id": str(a.get(_KW_ID, a.get("id", ""))),
+                    "confidence": float(
+                        a.get(_KW_CONFIDENCE, a.get("confidence", 1.0))
+                    ),
+                }
+                for a in chain
+                if isinstance(a, dict)
+            ],
+        }
+        apply_confidence_downgrade(entry)
+        out.append(entry)
+    return out
 
 
 def _str_verdict(v: object) -> str:
@@ -114,6 +277,13 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
     if remedies_path is None:
         remedies_path = verdict_path.resolve().parent.parent / "rules" / "remedies.edn"
     remedies = _bind_remedies(remedies_path, queries)
+    # REQ-CONFIDENCE-042, 044: surface verdict-level confidence (geometric
+    # mean over all defects, 1.0 for an empty defect set) and partition
+    # defects into critical vs advisory (post-downgrade severity).
+    all_defects = _build_defects(payload)
+    critical_defects = [d for d in all_defects if d["severity"] != "advisory"]
+    advisory_defects = [d for d in all_defects if d["severity"] == "advisory"]
+    verdict_confidence = compute_verdict_confidence(all_defects)
     result = {
         "verdict": verdict_str,
         "core": list(payload.get(_KW_CORE, [])),
@@ -121,6 +291,9 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
         "verified_count": payload.get(_KW_VERIFIED_COUNT, 0),
         "queries": queries,
         "cozo_defects": cozo_defects,
+        "critical_defects": critical_defects,
+        "advisory_defects": advisory_defects,
+        "verdict_confidence": verdict_confidence,
         "remedies": remedies,
         "produced_at": dt.datetime.now(dt.UTC).isoformat(),
         "verifier_version": FORGE_OSMOTIC_VERSION,

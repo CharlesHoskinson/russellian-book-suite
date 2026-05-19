@@ -118,6 +118,36 @@ class IngestRegexDialectError(ValueError):
     """
 
 
+class IngestConfidenceError(ValueError):
+    """REQ-CONFIDENCE-043: a claim's `:confidence` is non-numeric or out
+    of the closed interval `[0, 1]`. Missing fields default to 1.0
+    (backwards-compatible with pre-Tier-5 fixtures) and do *not* raise.
+    """
+
+
+def _validated_confidence(claim: dict) -> float:
+    """REQ-CONFIDENCE-043: parse + validate a claim's `:confidence`.
+
+    Missing field => 1.0 (backwards-compat). Non-numeric or out-of-range
+    raises ``IngestConfidenceError`` naming the claim id and value.
+    """
+    cid = claim.get("claim_id") or claim.get("id") or "<unknown>"
+    if "confidence" not in claim:
+        return 1.0
+    raw = claim["confidence"]
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise IngestConfidenceError(
+            f"claim {cid!r} has non-numeric :confidence {raw!r} "
+            f"(type {type(raw).__name__})"
+        )
+    val = float(raw)
+    if not (0.0 <= val <= 1.0):
+        raise IngestConfidenceError(
+            f"claim {cid!r} :confidence {val} out of range [0, 1]"
+        )
+    return val
+
+
 def _assert_python_regex_dialect(pat: str) -> None:
     """REQ-INGEST-050, 051: hard-fail on non-Python regex dialect.
 
@@ -275,12 +305,15 @@ def _claim_to_atom(
 ) -> dict:
     text = claim.get("canonical_text", "")
     claim_id = claim.get("claim_id", "?")
+    # REQ-CONFIDENCE-043: validate :confidence at the boundary; missing
+    # field defaults to 1.0 (backwards-compat with pre-Tier-5 fixtures).
+    confidence = _validated_confidence(claim)
     base: dict = {
         _KW_ID: claim_id,
         _KW_DOC: text[:200],
         _KW_SOURCE_SPANS: claim.get("source_spans", []),
         _KW_SUPPORTS_CHAPTERS: claim.get("supports_chapters", []),
-        _KW_CONFIDENCE: claim.get("confidence", 0.0),
+        _KW_CONFIDENCE: confidence,
     }
     if claim.get("claim_type") == "design_decision":
         base.update({

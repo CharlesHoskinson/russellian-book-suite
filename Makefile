@@ -2,7 +2,7 @@
 # step list. Every shell line is the unit of comparison against
 # scripts/ci-steps.txt — keep them aligned (the flake-drift check enforces).
 
-.PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean
+.PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean install-hooks
 
 preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
 
@@ -39,3 +39,13 @@ clean:
 	rm -rf verifiers/*/cljs-orchestrator/dist
 	rm -rf verifiers/*/cljs-orchestrator/.shadow-cljs
 	rm -rf verifiers/*/cljs-orchestrator/native
+
+install-hooks:
+	@command -v lefthook >/dev/null 2>&1 || { \
+		echo "ERROR: lefthook not found. Install it first:"; \
+		echo "  nix develop  # (recommended — lefthook is in flake.nix)"; \
+		echo "  OR: go install github.com/evilmartians/lefthook@latest"; \
+		exit 1; \
+	}
+	lefthook install
+	@echo "Pre-commit hooks installed. They will run on every git commit."

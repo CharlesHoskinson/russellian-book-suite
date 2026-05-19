@@ -12,6 +12,18 @@ The suite enforces a weaker version of the same standard: every sentence atomic,
 
 This repo runs CI on Ubuntu Linux. To avoid "works on my machine" drift, see [`docs/dev-environment.md`](docs/dev-environment.md) for the WSL2 + Nix bootstrap. macOS/Linux developers run Nix directly; Windows developers install Ubuntu under WSL2 first.
 
+### First-time setup
+
+After cloning, install the pre-commit hooks:
+
+```bash
+make install-hooks
+```
+
+This installs lefthook's pre-commit hook, which runs `cargo fmt --check`, `ruff check`, `clj-kondo`, and other linters before each commit. Without it, formatting drift won't be caught locally and will surface as a CI failure on your PR instead.
+
+If `lefthook` is not on your PATH, enter the Nix dev shell first (`nix develop` — lefthook is included) or install it directly with `go install github.com/evilmartians/lefthook@latest`.
+
 ## For readers in a hurry
 
 Authors want a working book, not an architecture tour. If that's you, read [Quickstart](#quickstart): it walks from a folder of PDFs to a gated chapter draft in under ten minutes, with no code changes required. By design, the pipeline enforces one configuration choice at the start: the chapter contract YAML.

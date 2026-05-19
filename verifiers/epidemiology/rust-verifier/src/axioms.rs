@@ -12,24 +12,26 @@
 // ids and to the bound claim id.
 
 #[cfg(feature = "smt")]
-use z3::{
-    ast::{Bool, Int, Real, String as Z3String},
-    Solver,
-};
+#[allow(unused_imports)]
+use std::ops::{Add as _, Mul as _, Sub as _};
 #[cfg(feature = "smt")]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
-#[allow(unused_imports)]
-use std::ops::{Add as _, Mul as _, Sub as _};
+use z3::{
+    Solver,
+    ast::{Bool, Int, Real, String as Z3String},
+};
 
 #[cfg(feature = "smt")]
 pub fn assert_axioms(solver: &Solver) {
     // constraint C001-herd-immunity (approx-equality, relative tolerance 0.06)
     {
-        let lhs = Real::new_const("vaccination-coverage_p").add(&Real::from_rational(500000, 1000000));
-        let rhs = Real::new_const("herd-immunity-threshold_d").add(&Real::from_rational(500000, 1000000));
+        let lhs =
+            Real::new_const("vaccination-coverage_p").add(&Real::from_rational(500000, 1000000));
+        let rhs =
+            Real::new_const("herd-immunity-threshold_d").add(&Real::from_rational(500000, 1000000));
         let diff = lhs.sub(&rhs);
-        let eps  = Real::from_rational(60000, 1000000);
+        let eps = Real::from_rational(60000, 1000000);
         let neg_eps = Real::from_rational(-60000, 1000000);
         let bound_pos = rhs.clone().mul(&eps);
         let bound_neg = rhs.clone().mul(&neg_eps);
@@ -47,10 +49,14 @@ pub fn assert_axioms(solver: &Solver) {
 
     // constraint C002-threshold-formula (approx-equality, relative tolerance 0.05)
     {
-        let lhs = Real::new_const("herd-immunity-threshold_d").mul(&Real::new_const("basic-reproduction-number_d")).add(&Real::from_rational(500000, 1000000));
-        let rhs = Real::new_const("basic-reproduction-number_d").sub(&Real::from_rational(1, 1)).add(&Real::from_rational(500000, 1000000));
+        let lhs = Real::new_const("herd-immunity-threshold_d")
+            .mul(&Real::new_const("basic-reproduction-number_d"))
+            .add(&Real::from_rational(500000, 1000000));
+        let rhs = Real::new_const("basic-reproduction-number_d")
+            .sub(&Real::from_rational(1, 1))
+            .add(&Real::from_rational(500000, 1000000));
         let diff = lhs.sub(&rhs);
-        let eps  = Real::from_rational(50000, 1000000);
+        let eps = Real::from_rational(50000, 1000000);
         let neg_eps = Real::from_rational(-50000, 1000000);
         let bound_pos = rhs.clone().mul(&eps);
         let bound_neg = rhs.clone().mul(&neg_eps);

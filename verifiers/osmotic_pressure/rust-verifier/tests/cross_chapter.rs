@@ -36,7 +36,9 @@ fn ledger_edn(values: &[(&str, &str, &str, i64)]) -> String {
 
 fn extract_status(verdict_edn: &str) -> String {
     let needle = ":status :";
-    let i = verdict_edn.find(needle).expect("status keyword in verdict EDN");
+    let i = verdict_edn
+        .find(needle)
+        .expect("status keyword in verdict EDN");
     let rest = &verdict_edn[i + needle.len()..];
     let end = rest
         .find(|c: char| c.is_whitespace() || c == '}')
@@ -52,20 +54,21 @@ fn two_subject_disagreement_surfaces_corpus_defect() {
     // bindings and the equality axiom flips it to :unsat. The verdict's
     // :corpus-defects field names both subjects.
     let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-    unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000"); }
+    unsafe {
+        std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+    }
 
     // chap-a reports trial-n = 15; chap-b reports trial-n = 5.
     // The corpus-scope C050 axiom asserts the two must be equal.
     let edn = ledger_edn(&[
         ("clm-a-1", "trial-n", "mizuno-2008-chap-a", 15),
-        ("clm-b-1", "trial-n", "mizuno-2008-chap-b",  5),
+        ("clm-b-1", "trial-n", "mizuno-2008-chap-b", 5),
     ]);
-    let out = osmotic_pressure_verifier::verify_formulas(edn)
-        .expect("verify_formulas");
+    let out = osmotic_pressure_verifier::verify_formulas(edn).expect("verify_formulas");
     unsafe {
         match prev {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
         }
     }
 
@@ -108,18 +111,19 @@ fn two_subject_agreement_keeps_corpus_clean() {
     // solver is :sat and the verdict carries an empty :corpus-defects
     // vector.
     let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-    unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000"); }
+    unsafe {
+        std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+    }
 
     let edn = ledger_edn(&[
         ("clm-a-1", "trial-n", "mizuno-2008-chap-a", 15),
         ("clm-b-1", "trial-n", "mizuno-2008-chap-b", 15),
     ]);
-    let out = osmotic_pressure_verifier::verify_formulas(edn)
-        .expect("verify_formulas");
+    let out = osmotic_pressure_verifier::verify_formulas(edn).expect("verify_formulas");
     unsafe {
         match prev {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
         }
     }
 
@@ -144,7 +148,9 @@ fn corpus_partition_does_not_affect_per_subject_paths() {
     // exercised by `tests/partitioning.rs` is still :sat with no
     // corpus-defects, because no `:trial-n` atom is present.
     let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-    unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000"); }
+    unsafe {
+        std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+    }
 
     // Standard subject `:s` van 't Hoff fixture — no cross-chapter atoms.
     let edn = format!(
@@ -155,17 +161,19 @@ fn corpus_partition_does_not_affect_per_subject_paths() {
          {{:id \"osm-004\" :kind :expression :predicate :osmotic-pressure-pa :subject :s :value 763.27}} \
          ]}}",
     );
-    let out = osmotic_pressure_verifier::verify_formulas(edn)
-        .expect("verify_formulas");
+    let out = osmotic_pressure_verifier::verify_formulas(edn).expect("verify_formulas");
     unsafe {
         match prev {
             Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-            None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
         }
     }
 
     let status = extract_status(&out);
-    assert_eq!(status, "sat", "clean van 't Hoff fixture should remain :sat after corpus path is wired in: {out}");
+    assert_eq!(
+        status, "sat",
+        "clean van 't Hoff fixture should remain :sat after corpus path is wired in: {out}"
+    );
     assert!(
         out.contains(":corpus-defects []"),
         "no :trial-n atoms => empty corpus-defects: {out}",

@@ -63,7 +63,9 @@ pub struct Claim {
 /// Parse the EDN atomspace into a vector of (id, atom) pairs.
 pub fn parse_formulas(edn: &str) -> Result<Vec<(ClaimId, Atom)>, Error> {
     use edn_rs::{Edn, EdnError};
-    let parsed: Edn = edn.parse::<Edn>().map_err(|e: EdnError| Error::Parse(e.to_string()))?;
+    let parsed: Edn = edn
+        .parse::<Edn>()
+        .map_err(|e: EdnError| Error::Parse(e.to_string()))?;
     let atoms = match parsed.get(":atoms") {
         Some(Edn::Vector(v)) => v.clone().to_vec(),
         Some(_) | None => return Err(Error::Parse("missing or non-vector :atoms".into())),

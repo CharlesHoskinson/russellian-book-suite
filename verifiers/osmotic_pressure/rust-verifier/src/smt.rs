@@ -42,9 +42,9 @@ const SHARED_BUCKET: &str = "_shared";
 /// collapses everything into a single top-level `Verdict`.
 #[cfg(feature = "smt")]
 struct PartitionVerdict {
-    subject:        String,
-    status:         &'static str, // "sat" | "unsat" | "unknown"
-    core:           Vec<ClaimId>,
+    subject: String,
+    status: &'static str, // "sat" | "unsat" | "unknown"
+    core: Vec<ClaimId>,
     reason_unknown: String,
 }
 
@@ -72,15 +72,15 @@ pub fn check_value_sort_compat(
         return Ok(());
     }
     let value_shape = match value {
-        Edn::Int(n)    => format!("scalar Int({n})"),
+        Edn::Int(n) => format!("scalar Int({n})"),
         // edn-rs maps bare non-negative integers to Edn::UInt; surface
         // the same `scalar Int(...)` shape so the error message stays
         // stable regardless of how the atom's int literal was printed.
-        Edn::UInt(n)   => format!("scalar Int({n})"),
+        Edn::UInt(n) => format!("scalar Int({n})"),
         Edn::Double(_) => format!("scalar Real({})", value.to_float().unwrap_or(0.0)),
-        Edn::Str(s)    => format!("scalar String({s:?})"),
-        Edn::Bool(b)   => format!("scalar Bool({b})"),
-        other          => format!("{other:?}"),
+        Edn::Str(s) => format!("scalar String({s:?})"),
+        Edn::Bool(b) => format!("scalar Bool({b})"),
+        other => format!("{other:?}"),
     };
     Err(Error::Smt(format!(
         "sort mismatch: predicate {var_name:?} declared as \
@@ -118,9 +118,12 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     for (id, atom) in formulas {
         let subject = match atom_subject(atom) {
             Some(s) => s,
-            None    => SHARED_BUCKET.to_string(),
+            None => SHARED_BUCKET.to_string(),
         };
-        per_subject.entry(subject).or_default().push((id.clone(), atom.clone()));
+        per_subject
+            .entry(subject)
+            .or_default()
+            .push((id.clone(), atom.clone()));
     }
 
     // Pass 2: run one solver per per-subject bucket. The shared bucket
@@ -160,9 +163,7 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
             use rayon::prelude::*;
             partition_inputs
                 .par_iter()
-                .map(|(subject, atoms)| {
-                    solve_partition(subject, atoms, timeout_ms)
-                })
+                .map(|(subject, atoms)| solve_partition(subject, atoms, timeout_ms))
                 .collect::<Result<Vec<_>, _>>()
         })?
     } else {
@@ -227,7 +228,7 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
 /// corpus-scope constraint(s) drove the failure.
 #[cfg(feature = "smt")]
 fn solve_corpus_partition(
-    atoms:      &[(ClaimId, Atom)],
+    atoms: &[(ClaimId, Atom)],
     timeout_ms: u32,
 ) -> Result<PartitionVerdict, Error> {
     let solver = Solver::new();
@@ -253,7 +254,7 @@ fn solve_corpus_partition(
 #[cfg(feature = "smt")]
 fn corpus_defects_from(
     partition_verdict: &PartitionVerdict,
-    atoms:             &[(ClaimId, Atom)],
+    atoms: &[(ClaimId, Atom)],
 ) -> Vec<CorpusDefect> {
     use edn_rs::Edn;
     if partition_verdict.status != "unsat" {
@@ -277,8 +278,7 @@ fn corpus_defects_from(
     // - claim-id trackers (per-atom bindings): map via claim_to_subject
     let corpus_ids: std::collections::BTreeSet<&'static str> =
         crate::axioms::axioms_corpus_ids().iter().copied().collect();
-    let mut subjects: std::collections::BTreeSet<String> =
-        std::collections::BTreeSet::new();
+    let mut subjects: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut firing_ids: Vec<String> = Vec::new();
     for core_id in &partition_verdict.core {
         if corpus_ids.contains(core_id.as_str()) {
@@ -321,8 +321,8 @@ fn corpus_defects_from(
 /// every atom in the bucket, and return a `PartitionVerdict`.
 #[cfg(feature = "smt")]
 fn solve_partition(
-    subject:    &str,
-    atoms:      &[(ClaimId, Atom)],
+    subject: &str,
+    atoms: &[(ClaimId, Atom)],
     timeout_ms: u32,
 ) -> Result<PartitionVerdict, Error> {
     let solver = Solver::new();
@@ -347,7 +347,7 @@ fn solve_partition(
 
 #[cfg(feature = "smt")]
 fn solve_shared_partition(
-    atoms:      &[(ClaimId, Atom)],
+    atoms: &[(ClaimId, Atom)],
     timeout_ms: u32,
 ) -> Result<PartitionVerdict, Error> {
     let solver = Solver::new();
@@ -358,20 +358,24 @@ fn solve_shared_partition(
     crate::axioms::axioms_shared(&solver);
     let tracker_ids = bind_atoms(&solver, atoms)?;
 
-    Ok(collect_partition_verdict(&solver, SHARED_BUCKET, &tracker_ids))
+    Ok(collect_partition_verdict(
+        &solver,
+        SHARED_BUCKET,
+        &tracker_ids,
+    ))
 }
 
 #[cfg(feature = "smt")]
 fn collect_partition_verdict(
-    solver:      &Solver,
-    subject:     &str,
+    solver: &Solver,
+    subject: &str,
     tracker_ids: &[ClaimId],
 ) -> PartitionVerdict {
     match solver.check() {
         SatResult::Sat => PartitionVerdict {
-            subject:        subject.to_string(),
-            status:         "sat",
-            core:           Vec::new(),
+            subject: subject.to_string(),
+            status: "sat",
+            core: Vec::new(),
             reason_unknown: String::new(),
         },
         SatResult::Unsat => {
@@ -383,16 +387,16 @@ fn collect_partition_verdict(
                 .filter(|s| tracker_ids.iter().any(|tid| tid == s))
                 .collect();
             PartitionVerdict {
-                subject:        subject.to_string(),
-                status:         "unsat",
-                core:           core_ids,
+                subject: subject.to_string(),
+                status: "unsat",
+                core: core_ids,
                 reason_unknown: String::new(),
             }
         }
         SatResult::Unknown => PartitionVerdict {
-            subject:        subject.to_string(),
-            status:         "unknown",
-            core:           Vec::new(),
+            subject: subject.to_string(),
+            status: "unknown",
+            core: Vec::new(),
             reason_unknown: solver.get_reason_unknown().unwrap_or_default(),
         },
     }
@@ -402,10 +406,7 @@ fn collect_partition_verdict(
 /// return the per-atom tracker ids so the caller can map an unsat core
 /// back to ClaimIds.
 #[cfg(feature = "smt")]
-fn bind_atoms(
-    solver: &Solver,
-    atoms:  &[(ClaimId, Atom)],
-) -> Result<Vec<ClaimId>, Error> {
+fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>, Error> {
     use edn_rs::Edn;
     let mut tracker_ids: Vec<ClaimId> = Vec::with_capacity(atoms.len());
 
@@ -474,13 +475,15 @@ fn bind_atoms(
             // as a plain int) binds the atom value the same way as
             // float-printed integers do.
             Edn::UInt(n) => {
-                let n_i64: i64 = (*n).try_into().map_err(|_| {
-                    Error::Smt(format!("value too large to bind as Int: {n}"))
-                })?;
+                let n_i64: i64 = (*n)
+                    .try_into()
+                    .map_err(|_| Error::Smt(format!("value too large to bind as Int: {n}")))?;
                 if want_real {
                     let z3_var = Real::new_const(var_name.as_str());
-                    let lit = Real::from_rational_str(&n_i64.to_string(), "1")
-                        .ok_or_else(|| Error::Smt(format!("from_rational_str({n_i64}, 1) failed")))?;
+                    let lit =
+                        Real::from_rational_str(&n_i64.to_string(), "1").ok_or_else(|| {
+                            Error::Smt(format!("from_rational_str({n_i64}, 1) failed"))
+                        })?;
                     z3_var.eq(&lit)
                 } else {
                     let z3_var = Int::new_const(var_name.as_str());
@@ -541,10 +544,7 @@ fn atom_subject(atom: &Atom) -> Option<String> {
 /// explanation names the subject(s) that produced the dominant verdict
 /// so operators can see which partition drove the outcome.
 #[cfg(feature = "smt")]
-fn merge_verdicts(
-    per_subject: &[PartitionVerdict],
-    shared:      &PartitionVerdict,
-) -> Verdict {
+fn merge_verdicts(per_subject: &[PartitionVerdict], shared: &PartitionVerdict) -> Verdict {
     let all: Vec<&PartitionVerdict> = per_subject.iter().chain(std::iter::once(shared)).collect();
 
     let unsat_subjects: Vec<&str> = all
@@ -578,7 +578,13 @@ fn merge_verdicts(
     if !unknown_subjects.is_empty() {
         let detail = unknown_subjects
             .iter()
-            .map(|(s, r)| if r.is_empty() { s.clone() } else { format!("{s} ({r})") })
+            .map(|(s, r)| {
+                if r.is_empty() {
+                    s.clone()
+                } else {
+                    format!("{s} ({r})")
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ");
         return Verdict {
@@ -648,7 +654,9 @@ mod tests {
     fn doctored_van_t_hoff_is_unsat() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-        unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000"); }
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+        }
         let edn = ledger_edn(&[
             ("osm-doc-001", "vant-hoff-i", "s", 1.0),
             ("osm-doc-002", "molarity", "s", 0.154),
@@ -660,7 +668,7 @@ mod tests {
         unsafe {
             match prev {
                 Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-                None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+                None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
             }
         }
         assert_eq!(
@@ -678,7 +686,9 @@ mod tests {
         // a racing timeout-mutating test cannot flip the verdict to
         // :unknown half-way through.
         let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-        unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000"); }
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+        }
 
         let edn = ledger_edn(&[
             ("osm-clean-001", "vant-hoff-i", "s", 2.0),
@@ -692,7 +702,7 @@ mod tests {
         unsafe {
             match prev {
                 Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-                None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+                None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
             }
         }
         assert_eq!(
@@ -803,26 +813,38 @@ mod tests {
         // We exercise the merge_verdicts pure function directly to keep
         // this test isolated from Z3 timing variability.
         let sat = PartitionVerdict {
-            subject: "A".into(), status: "sat",
-            core: vec![], reason_unknown: String::new(),
+            subject: "A".into(),
+            status: "sat",
+            core: vec![],
+            reason_unknown: String::new(),
         };
         let unknown = PartitionVerdict {
-            subject: "B".into(), status: "unknown",
-            core: vec![], reason_unknown: "timeout".into(),
+            subject: "B".into(),
+            status: "unknown",
+            core: vec![],
+            reason_unknown: "timeout".into(),
         };
         let unsat = PartitionVerdict {
-            subject: "C".into(), status: "unsat",
-            core: vec!["clm-1".into()], reason_unknown: String::new(),
+            subject: "C".into(),
+            status: "unsat",
+            core: vec!["clm-1".into()],
+            reason_unknown: String::new(),
         };
         let empty_shared = PartitionVerdict {
-            subject: SHARED_BUCKET.into(), status: "sat",
-            core: vec![], reason_unknown: String::new(),
+            subject: SHARED_BUCKET.into(),
+            status: "sat",
+            core: vec![],
+            reason_unknown: String::new(),
         };
 
         // unsat dominates
         let v = merge_verdicts(&[sat, unknown, unsat], &empty_shared);
         assert_eq!(v.status, "unsat");
-        assert!(v.explanation.contains("C"), "explanation should name subject C: {}", v.explanation);
+        assert!(
+            v.explanation.contains("C"),
+            "explanation should name subject C: {}",
+            v.explanation
+        );
         assert_eq!(v.core, vec!["clm-1".to_string()]);
     }
 
@@ -835,7 +857,9 @@ mod tests {
         // timeout; the merged verdict is :unknown but the explanation
         // mentions :s, not :t.
         let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-        unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "1"); }
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "1");
+        }
 
         let edn = ledger_edn(&[
             ("osm-doc-001", "vant-hoff-i", "s", 1.0),
@@ -850,14 +874,15 @@ mod tests {
         unsafe {
             match prev {
                 Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-                None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+                None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
             }
         }
         // status must be a legal verdict; :t's atom should never drive
         // the explanation field.
         assert!(
             ["sat", "unsat", "unknown"].contains(&verdict.status.as_str()),
-            "verdict.status = {:?}", verdict.status,
+            "verdict.status = {:?}",
+            verdict.status,
         );
     }
 
@@ -876,7 +901,9 @@ mod tests {
         // top-level verdict that's NOT ``"unknown"`` purely because of
         // an empty shared partition.
         let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
-        unsafe { std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000"); }
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+        }
 
         let edn = ledger_edn(&[
             ("osm-001", "vant-hoff-i", "s", 2.0),
@@ -889,7 +916,7 @@ mod tests {
         unsafe {
             match prev {
                 Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-                None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+                None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
             }
         }
         assert_eq!(verdict.status, "sat");
@@ -914,22 +941,24 @@ mod tests {
         let formulas = parse_formulas(&edn).expect("parse_formulas");
 
         let prev_par = std::env::var("VERIFIER_SOLVER_PARALLELISM").ok();
-        let prev_to  = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
+        let prev_to = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
         unsafe {
             std::env::remove_var("VERIFIER_SOLVER_PARALLELISM");
             std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
         }
         let serial = check_all(&formulas).expect("check_all serial");
-        unsafe { std::env::set_var("VERIFIER_SOLVER_PARALLELISM", "4"); }
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_PARALLELISM", "4");
+        }
         let parallel = check_all(&formulas).expect("check_all parallel");
         unsafe {
             match prev_par {
                 Some(v) => std::env::set_var("VERIFIER_SOLVER_PARALLELISM", v),
-                None    => std::env::remove_var("VERIFIER_SOLVER_PARALLELISM"),
+                None => std::env::remove_var("VERIFIER_SOLVER_PARALLELISM"),
             }
             match prev_to {
                 Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
-                None    => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+                None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
             }
         }
         assert_eq!(serial.status, parallel.status);
@@ -941,16 +970,22 @@ mod tests {
         // evidence from other subjects. The merged verdict is :unknown
         // and the explanation names the timed-out subject.
         let sat_a = PartitionVerdict {
-            subject: "A".into(), status: "sat",
-            core: vec![], reason_unknown: String::new(),
+            subject: "A".into(),
+            status: "sat",
+            core: vec![],
+            reason_unknown: String::new(),
         };
         let unknown_b = PartitionVerdict {
-            subject: "B".into(), status: "unknown",
-            core: vec![], reason_unknown: "timeout".into(),
+            subject: "B".into(),
+            status: "unknown",
+            core: vec![],
+            reason_unknown: "timeout".into(),
         };
         let empty_shared = PartitionVerdict {
-            subject: SHARED_BUCKET.into(), status: "sat",
-            core: vec![], reason_unknown: String::new(),
+            subject: SHARED_BUCKET.into(),
+            status: "sat",
+            core: vec![],
+            reason_unknown: String::new(),
         };
         let v = merge_verdicts(&[sat_a, unknown_b], &empty_shared);
         assert_eq!(v.status, "unknown");

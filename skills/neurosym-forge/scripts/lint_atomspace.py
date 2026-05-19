@@ -178,9 +178,101 @@ def lint_atomspace(payload: dict[str, Any]) -> LintReport:
     return report
 
 
+def _lint_booklogic_sorts(sorts_path: Path) -> list[str]:
+    """Validate rules/booklogic/sorts.edn shape.
+
+    Expects ``{:forms [(defsort :name) ...]}``.  Returns a list of error
+    strings (empty means clean).
+    """
+    from scripts._edn_reader import EdnList, EdnVector, Symbol
+
+    errors: list[str] = []
+    try:
+        payload = read_edn_file(sorts_path)
+    except Exception as exc:
+        return [f"sorts.edn: cannot parse: {exc}"]
+
+    forms_val = _dict_get(payload, "forms")
+    if forms_val is None:
+        errors.append("sorts.edn: missing ':forms' key")
+        return errors
+    if not isinstance(forms_val, (list, EdnList, EdnVector)):
+        errors.append("sorts.edn: ':forms' must be a vector/list")
+        return errors
+
+    for i, form in enumerate(forms_val):
+        if not isinstance(form, (list, EdnList, EdnVector)):
+            errors.append(f"sorts.edn: forms[{i}]: expected a list, got {type(form).__name__}")
+            continue
+        elems = list(form)
+        if len(elems) != 2:
+            errors.append(
+                f"sorts.edn: forms[{i}]: defsort takes exactly 1 argument, got {len(elems) - 1}"
+            )
+            continue
+        head = elems[0]
+        if not (isinstance(head, Symbol) and head.name == "defsort"):
+            errors.append(f"sorts.edn: forms[{i}]: expected 'defsort' head, got {head!r}")
+        arg = elems[1]
+        if not isinstance(arg, Keyword):
+            errors.append(f"sorts.edn: forms[{i}]: sort name must be a keyword, got {arg!r}")
+
+    return errors
+
+
+def _lint_project(project_root: Path) -> int:
+    """Lint a neurosym-forge project directory.
+
+    Validates every booklogic EDN file that has been authored (non-empty
+    :forms).  Returns 0 on success, 1 on any error.
+    """
+    errors: list[str] = []
+    booklogic = project_root / "rules" / "booklogic"
+
+    if not booklogic.is_dir():
+        print(f"ERROR: {booklogic} is not a directory", file=sys.stderr)
+        return 1
+
+    sorts_path = booklogic / "sorts.edn"
+    if sorts_path.exists():
+        errs = _lint_booklogic_sorts(sorts_path)
+        errors.extend(errs)
+    else:
+        errors.append(f"sorts.edn: file not found at {sorts_path}")
+
+    seed_path = project_root / "rules" / "seed.edn"
+    if seed_path.exists():
+        try:
+            payload = read_edn_file(seed_path)
+            report = lint_atomspace(payload)
+            errors.extend(report.errors)
+        except Exception as exc:
+            errors.append(f"seed.edn: {exc}")
+
+    for err in errors:
+        print(err)
+
+    if errors:
+        return 1
+
+    sorts_path2 = booklogic / "sorts.edn"
+    payload2 = read_edn_file(sorts_path2)
+    forms_val = _dict_get(payload2, "forms") or []
+    print(f"OK: project {project_root} passes ({len(list(forms_val))} sorts declared in sorts.edn)")
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    # Support --project <dir> for project-level linting.
+    if len(argv) == 3 and argv[1] == "--project":
+        return _lint_project(Path(argv[2]))
+
     if len(argv) != 2:
-        print("usage: python -m scripts.lint_atomspace <atomspace.edn>", file=sys.stderr)
+        print(
+            "usage: python -m scripts.lint_atomspace <atomspace.edn>\n"
+            "       python -m scripts.lint_atomspace --project <project-root>",
+            file=sys.stderr,
+        )
         return 2
     path = Path(argv[1])
     payload = read_edn_file(path)

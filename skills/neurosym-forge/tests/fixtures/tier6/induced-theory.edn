@@ -1,0 +1,22 @@
+;; tier6 test fixture — induced-theory.edn
+;; Three induced rules covering :active, :tentative, :quarantined statuses.
+{:version 1
+ :inducer-version "0.1"
+ :induced-at "2026-05-19T18:00:00Z"
+ :source-corpus "fixture/claims.jsonl"
+ :forms
+ [(defconstraint :induced/herd-immunity-threshold
+    :backend :z3
+    :scope :subject
+    :assert (approx= (:hit ?d) (- 1.0 (/ 1.0 (:r0 ?d))) :tolerance 0.05)
+    :on-unsat {:defect :D-induced-001 :severity :advisory :message "hit inconsistent with R0"})
+  (defconstraint :induced/vaccine-efficacy-r0
+    :backend :z3
+    :scope :subject
+    :assert (>= (:efficacy ?d) 0.5)
+    :on-unsat {:defect :D-induced-002 :severity :advisory :message "efficacy too low"})
+  (defconstraint :induced/trial-cohort-size
+    :backend :z3
+    :scope :subject
+    :assert (>= (:n ?d) 10)
+    :on-unsat {:defect :D-induced-003 :severity :advisory :message "cohort too small"})]}

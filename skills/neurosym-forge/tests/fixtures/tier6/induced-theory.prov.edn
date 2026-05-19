@@ -1,0 +1,37 @@
+;; tier6 test fixture — PROV-O sidecar
+{:version 1
+ :rules
+ {:induced/herd-immunity-threshold
+  {:prov/derived-from-atoms ["a01" "a02" "a03"]
+   :prov/source-documents ["pmid:12345" "pmid:67890" "pmid:11111"]
+   :prov/contradiction-atoms []
+   :prov/proposed-by {:lineage :llm :model "claude-haiku-4-5" :provider :anthropic}
+   :prov/validated-by [{:backend :z3 :held-out-folds 5 :sat-rate 0.89 :tolerance-fit 0.043}
+                       {:backend :cozo :support-rate 0.94}]
+   :prov/entrenchment 0.83
+   :prov/status :active
+   :prov/llm-repair-calls 2
+   :prov/cost-usd 0.018
+   :prov/semantic-neighbours ["c-203" "c-411"]}
+  :induced/vaccine-efficacy-r0
+  {:prov/derived-from-atoms ["a10" "a11"]
+   :prov/source-documents ["pmid:12345" "pmid:22222"]
+   :prov/contradiction-atoms ["a99"]
+   :prov/proposed-by {:lineage :llm :model "claude-haiku-4-5" :provider :anthropic}
+   :prov/validated-by [{:backend :z3 :held-out-folds 5 :sat-rate 0.71}]
+   :prov/entrenchment 0.62
+   :prov/status :tentative
+   :prov/llm-repair-calls 3
+   :prov/cost-usd 0.024
+   :prov/semantic-neighbours []}
+  :induced/trial-cohort-size
+  {:prov/derived-from-atoms ["a20"]
+   :prov/source-documents ["pmid:33333"]
+   :prov/contradiction-atoms ["a98" "a97"]
+   :prov/proposed-by {:lineage :llm :model "claude-haiku-4-5" :provider :anthropic}
+   :prov/validated-by [{:backend :z3 :held-out-folds 5 :sat-rate 0.41}]
+   :prov/entrenchment 0.31
+   :prov/status :quarantined
+   :prov/llm-repair-calls 3
+   :prov/cost-usd 0.012
+   :prov/semantic-neighbours []}}}

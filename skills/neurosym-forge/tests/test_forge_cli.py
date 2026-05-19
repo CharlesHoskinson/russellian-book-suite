@@ -18,7 +18,11 @@ SUBCOMMANDS = (
     "explain-defect",
     "similar",
     "render",
+    "induce",
 )
+
+
+TIER6_FIXTURES = Path(__file__).parent / "fixtures" / "tier6"
 
 
 @pytest.fixture()
@@ -447,6 +451,136 @@ def test_debug_flag_re_enables_traceback(runner: CliRunner, tmp_path: Path) -> N
     )
     assert result.exit_code != 0
     assert "Traceback" in result.output or result.exc_info is not None
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — induce (REQ-AUTHOR-050, 051, 054, 055)
+# ---------------------------------------------------------------------------
+
+
+def _seed_inducible_project(tmp_path: Path) -> Path:
+    """Seed a project that doesn't yet have an induced theory (pre-induce)."""
+    root = tmp_path / "inducible"
+    (root / "rules" / "booklogic").mkdir(parents=True)
+    (root / "work").mkdir(parents=True)
+    return root
+
+
+def _fake_nbb_success(monkeypatch: pytest.MonkeyPatch, project: Path) -> None:
+    """Patch _run_nbb_induce to write the fixture sidecar and return 0."""
+
+    def _fake(_root: Path, _folds: int, _budget: float | None) -> subprocess.CompletedProcess[str]:
+        booklogic = project / "rules" / "booklogic"
+        booklogic.mkdir(parents=True, exist_ok=True)
+        (booklogic / "induced-theory.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        (booklogic / "induced-theory.prov.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.prov.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            args=["nbb"], returncode=0, stdout="orchestrator ok\n", stderr="",
+        )
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _fake)
+
+
+def test_induce_subcommand_exposed(runner: CliRunner) -> None:
+    """REQ-AUTHOR-050: forge --help lists the induce subcommand."""
+    result = runner.invoke(forge_cli.cli, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "induce" in result.output
+
+    sub_help = runner.invoke(forge_cli.cli, ["induce", "--help"])
+    assert sub_help.exit_code == 0
+    assert "Usage" in sub_help.output
+
+
+def test_induce_happy_path(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-051, 055: forge induce writes both artifacts + prints summary."""
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+    _fake_nbb_success(monkeypatch, project)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code == 0, result.output
+
+    assert (project / "rules" / "booklogic" / "induced-theory.edn").exists()
+    assert (project / "rules" / "booklogic" / "induced-theory.prov.edn").exists()
+
+    assert "Induction complete:" in result.output
+    assert "3 rule(s)" in result.output
+    assert "Top-3 highest-entrenchment rules:" in result.output
+    assert "herd-immunity-threshold" in result.output
+    assert "Total cost:" in result.output
+
+
+def test_induce_default_folds_is_five(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-051: --folds defaults to 5; --help confirms it."""
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+
+    seen_folds: list[int] = []
+
+    def _capture(_root: Path, folds: int, _budget: float | None) -> subprocess.CompletedProcess[str]:
+        seen_folds.append(folds)
+        (project / "rules" / "booklogic" / "induced-theory.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        (project / "rules" / "booklogic" / "induced-theory.prov.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.prov.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=["nbb"], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _capture)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code == 0, result.output
+    assert seen_folds == [5]
+
+    sub_help = runner.invoke(forge_cli.cli, ["induce", "--help"])
+    assert "default 5" in sub_help.output or "default: 5" in sub_help.output.lower()
+
+
+def test_induce_warns_when_semantic_index_absent(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-054: missing _semantic_index emits a warning but still runs."""
+    project = _seed_inducible_project(tmp_path)
+    _fake_nbb_success(monkeypatch, project)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code == 0, result.output
+    assert "warning: semantic index not found" in result.output
+    assert "pure-symbolic induction" in result.output
+
+
+def test_induce_pipeline_error_renders_user_message(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-055: nbb non-zero exit → InductionPipelineError → ERROR block."""
+    monkeypatch.delenv("FORGE_DEBUG", raising=False)
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+
+    def _fail(_root: Path, _folds: int, _budget: float | None) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=["nbb"], returncode=2, stdout="", stderr="grammar enforcer rejected 0/0\n",
+        )
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _fail)
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code != 0
+    assert "ERROR:" in result.output
+    assert "induction" in result.output.lower() or "nbb" in result.output
 
 
 def teardown_module(_module: object) -> None:  # pragma: no cover — env hygiene

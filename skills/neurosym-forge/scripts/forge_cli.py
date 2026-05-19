@@ -355,13 +355,17 @@ def _load_verdict(project_root: Path) -> dict[str, Any]:
 
 
 def _coerce_edn(value: Any) -> Any:
-    """Best-effort EDN→python coercion for verdict pretty-printing."""
+    """Best-effort EDN→python coercion for verdict / sidecar pretty-printing.
+
+    Keywords carry their namespace (``:induced/foo`` survives the round-trip);
+    legacy callers passing already-stringified keys are left untouched.
+    """
     try:
         from scripts._edn_reader import Keyword  # type: ignore[attr-defined]
     except ImportError:
         return value
     if isinstance(value, Keyword):
-        return f":{value.name}"
+        return str(value)
     if isinstance(value, dict):
         return {(_coerce_edn(k) if not isinstance(k, str) else k): _coerce_edn(v)
                 for k, v in value.items()}
@@ -540,6 +544,269 @@ def render(project_root: Path, manuscript: Path | None) -> None:
     proc = subprocess.run(cmd, check=False)
     if proc.returncode != 0:
         raise click.exceptions.Exit(proc.returncode)
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — induce / revise / theory (REQ-AUTHOR-050..056)
+# ---------------------------------------------------------------------------
+#
+# Each subcommand depends on phases V/W/X/Y/Z that may not be merged on this
+# checkout. Per the Phase U pattern, conditional imports degrade gracefully:
+# the subcommand surfaces a hand-readable pointer to the missing phase rather
+# than a Python ImportError stack trace.
+
+
+class InductionPipelineError(RuntimeError):
+    """Raised when the nbb induction orchestrator exits non-zero.
+
+    Surfaced via ``_cli_errors.interpret`` so the user sees a four-line
+    interpretive message rather than the raw subprocess return code.
+    """
+
+
+class RevisionInputError(click.UsageError):
+    """Raised when ``forge revise`` is invoked with no inputs.
+
+    Inherits ``click.UsageError`` so click's own help-formatter kicks in
+    naturally; the interpret-table entry matches on the class name and adds
+    the four-line ERROR block on top.
+    """
+
+
+class ProvenanceSidecarError(RuntimeError):
+    """Raised when the PROV-O sidecar is missing or malformed."""
+
+
+_PHASE_AA_INDUCE_MSG = (
+    "forge induce requires the nbb orchestrator at "
+    "scripts/induce_theory.cljs (Phase W) to be present, and Phase V/X/Y "
+    "modules merged first.\n"
+    "Run with --debug for the underlying error."
+)
+
+_PHASE_AA_REVISE_MSG = (
+    "forge revise requires Phase Z (tier6-agm-revision) merged first.\n"
+    "Until then, the scripts._agm_revision module is unavailable in this "
+    "checkout."
+)
+
+_PHASE_AA_THEORY_MSG = (
+    "forge theory requires Phase Y (tier6-provenance-sidecar) merged "
+    "first.\n"
+    "Until then, the scripts._provenance module is unavailable in this "
+    "checkout."
+)
+
+
+# Filenames the three subcommands operate on. Centralised so tests and the
+# implementation agree on the layout.
+_INDUCED_THEORY_FILE = "induced-theory.edn"
+_INDUCED_PROV_FILE = "induced-theory.prov.edn"
+_SEMANTIC_INDEX_FILE = "_semantic_index.bin"
+
+
+def _booklogic_dir(project_root: Path) -> Path:
+    return project_root / "rules" / "booklogic"
+
+
+def _induced_paths(project_root: Path) -> tuple[Path, Path]:
+    booklogic = _booklogic_dir(project_root)
+    return booklogic / _INDUCED_THEORY_FILE, booklogic / _INDUCED_PROV_FILE
+
+
+def _semantic_index_path(project_root: Path) -> Path:
+    return project_root / "work" / _SEMANTIC_INDEX_FILE
+
+
+def _check_semantic_index(project_root: Path) -> None:
+    """Warn (don't fail) when Phase Q's semantic index is absent.
+
+    REQ-AUTHOR-054: emits the prescribed warning string and proceeds.
+    """
+    idx = _semantic_index_path(project_root)
+    if not idx.exists():
+        click.echo(
+            f"warning: semantic index not found at {idx}; running pure-"
+            "symbolic induction (no atom clustering, no semantic neighbours).",
+            err=True,
+        )
+
+
+def _load_sidecar(prov_path: Path) -> dict[str, Any]:
+    """Best-effort load of induced-theory.prov.edn.
+
+    REQ-AUTHOR-053: when the sidecar is missing or malformed, we surface the
+    structured error and return an empty provenance dict so the rule list
+    still renders.
+    """
+    if not prov_path.exists():
+        raise ProvenanceSidecarError(
+            f"sidecar missing at {prov_path}"
+        )
+    try:
+        from scripts._edn_reader import read_edn  # type: ignore[attr-defined]
+    except ImportError:  # pragma: no cover — EDN reader is in-tree
+        raise ProvenanceSidecarError("EDN reader unavailable")
+    try:
+        return _coerce_edn(read_edn(prov_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # noqa: BLE001 — wrap all parse errors uniformly
+        raise ProvenanceSidecarError(
+            f"sidecar at {prov_path} is malformed: {exc}"
+        ) from exc
+
+
+def _sidecar_rules(prov: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Return the :rules dict from a loaded sidecar, normalised to plain dict."""
+    rules = prov.get("rules") or prov.get(":rules") or {}
+    if not isinstance(rules, dict):
+        return {}
+    return {str(k): v for k, v in rules.items() if isinstance(v, dict)}
+
+
+def _prov_field(rule_prov: dict[str, Any], *names: str) -> Any:
+    """Look up the first matching key from rule_prov.
+
+    Accepts both ``:prov/foo`` and ``prov/foo`` and bare ``foo`` because the
+    EDN coercion may flatten keywords to either form.
+    """
+    for name in names:
+        for candidate in (name, f":{name}", f":prov/{name}", f"prov/{name}"):
+            if candidate in rule_prov:
+                return rule_prov[candidate]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# forge induce — REQ-AUTHOR-050, 051, 054
+# ---------------------------------------------------------------------------
+
+
+def _run_nbb_induce(
+    project_root: Path,
+    folds: int,
+    budget_usd: float | None,
+) -> subprocess.CompletedProcess[str]:
+    """Shell out to the nbb orchestrator.
+
+    Separated so tests can monkeypatch the subprocess call without faking
+    a real nbb runtime.
+    """
+    script = Path(__file__).resolve().parent / "induce_theory.cljs"
+    cmd = [
+        "nbb",
+        "-m", "induce-theory",
+        str(project_root),
+        "--folds", str(folds),
+    ]
+    if budget_usd is not None:
+        cmd += ["--budget-usd", str(budget_usd)]
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=str(script.parent),
+    )
+
+
+def _format_induce_summary(prov: dict[str, Any]) -> str:
+    """Render the one-screen summary printed after a successful induce run."""
+    rules = _sidecar_rules(prov)
+    total = len(rules)
+
+    total_cost = 0.0
+    ranked: list[tuple[str, float, int]] = []
+    for rid, rprov in rules.items():
+        cost = _prov_field(rprov, "cost-usd") or 0.0
+        if isinstance(cost, (int, float)):
+            total_cost += float(cost)
+        entrench = _prov_field(rprov, "entrenchment") or 0.0
+        docs = _prov_field(rprov, "source-documents") or []
+        doc_count = len(docs) if isinstance(docs, (list, tuple)) else 0
+        try:
+            entrench_f = float(entrench)
+        except (TypeError, ValueError):
+            entrench_f = 0.0
+        ranked.append((rid, entrench_f, doc_count))
+
+    ranked.sort(key=lambda row: row[1], reverse=True)
+    top3 = ranked[:3]
+
+    lines = [
+        f"Induction complete: {total} rule(s) induced.",
+        f"Total cost: ${total_cost:.4f}",
+        "",
+        "Top-3 highest-entrenchment rules:",
+    ]
+    if not top3:
+        lines.append("  (none)")
+    else:
+        for rid, entrench, doc_count in top3:
+            lines.append(
+                f"  {rid:<48}  entrench={entrench:.3f}  docs={doc_count}"
+            )
+    return "\n".join(lines)
+
+
+@cli.command("induce")
+@click.argument("project_root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--folds", type=int, default=5,
+              help="Document-held-out validation folds (default 5).")
+@click.option("--budget-usd", "budget_usd", type=float, default=None,
+              help="Opt-in dollar ceiling across the induction run.")
+@_handle
+def induce(
+    project_root: Path,
+    folds: int,
+    budget_usd: float | None,
+) -> None:
+    """Induce a BookLogic theory from <project_root>'s atomspace.
+
+    Shells out to the nbb orchestrator at scripts/induce_theory.cljs.  On
+    success, emits rules/booklogic/induced-theory.edn and the PROV-O sidecar,
+    then prints a one-screen summary.
+    """
+    project_root = Path(project_root).resolve()
+    booklogic = _booklogic_dir(project_root)
+    if not booklogic.exists():
+        raise FileNotFoundError(
+            f"rules/booklogic/ not found under {project_root}"
+        )
+
+    # REQ-AUTHOR-054: warn when Phase Q's semantic index is absent.
+    _check_semantic_index(project_root)
+
+    click.echo(
+        f"forge induce: project={project_root} folds={folds} "
+        f"budget={'unset' if budget_usd is None else f'${budget_usd:.2f}'}"
+    )
+
+    proc = _run_nbb_induce(project_root, folds, budget_usd)
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip()
+        if len(tail) > 2000:
+            tail = tail[-2000:]
+        click.echo("---- nbb orchestrator stderr (tail) ----", err=True)
+        click.echo(tail, err=True)
+        raise InductionPipelineError(
+            f"nbb induce-theory exited {proc.returncode}"
+        )
+
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+
+    theory_path, prov_path = _induced_paths(project_root)
+    if not prov_path.exists():
+        raise ProvenanceSidecarError(
+            f"orchestrator exited 0 but sidecar missing at {prov_path}"
+        )
+
+    prov = _load_sidecar(prov_path)
+    click.echo("")
+    click.echo(_format_induce_summary(prov))
+    click.echo("")
+    click.echo(f"Wrote: {theory_path}")
+    click.echo(f"Wrote: {prov_path}")
 
 
 # ---------------------------------------------------------------------------

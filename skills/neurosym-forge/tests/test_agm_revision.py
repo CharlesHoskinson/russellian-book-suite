@@ -9,6 +9,7 @@ Both code paths share these tests.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from scripts._agm_revision import (
@@ -439,6 +440,169 @@ def test_contradicting_atom_downgrades_active_to_tentative(tmp_path: Path) -> No
     rule = _load_rule(prov_path, ":induced/boundary-active")
     assert rule[":prov/status"] == STATUS_TENTATIVE
     assert THRESHOLD_TENTATIVE <= rule[":prov/entrenchment"] < THRESHOLD_ACTIVE
+
+
+# ===========================================================================
+# Z3: full-quarantine warning
+# REQ-REVISE-044
+# ===========================================================================
+
+
+def test_full_quarantine_warning_fires(tmp_path: Path, caplog) -> None:
+    """REQ-REVISE-044: every rule quarantined in one revision -> warning fires."""
+    # 3 rules, each with a single supporting doc that we retract.
+    rules = {
+        f":induced/r{i}": {
+            ":prov/derived-from-atoms": [f"c-{i}"],
+            ":prov/source-documents": [f"pmid:doc-{i}"],
+            ":prov/entrenchment": 0.5,
+            ":prov/status": STATUS_TENTATIVE,
+            ":prov/validated-by": [{":sat-rate": 0.5}],
+        }
+        for i in range(3)
+    }
+    prov_path = _seed_sidecar(tmp_path, rules)
+
+    with caplog.at_level(logging.WARNING, logger="scripts._agm_revision"):
+        report = revise_theory(
+            induced_path=None,
+            prov_path=prov_path,
+            retracted_docs=[f"pmid:doc-{i}" for i in range(3)],
+        )
+
+    assert report.full_quarantine_warning is True
+    assert report.rules_quarantined == 3
+    assert report.rules_active == 0
+    assert report.rules_tentative == 0
+
+    # The structured warning must name the input counts.
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings, "expected a logging.warning for full quarantine"
+    msg = warnings[0].getMessage()
+    assert "quarantine" in msg.lower()
+
+
+def test_no_warning_when_some_rules_remain_active(tmp_path: Path, caplog) -> None:
+    """REQ-REVISE-044 (negative): partial quarantine MUST NOT fire the warning."""
+    prov_path = _seed_sidecar(
+        tmp_path,
+        {
+            ":induced/survives": {
+                ":prov/derived-from-atoms": ["c-1"],
+                ":prov/source-documents": [f"pmid:k{i}" for i in range(12)],
+                ":prov/entrenchment": 0.9,
+                ":prov/status": STATUS_ACTIVE,
+                ":prov/validated-by": [{":sat-rate": 0.9}],
+            },
+            ":induced/dies": {
+                ":prov/derived-from-atoms": ["c-2"],
+                ":prov/source-documents": ["pmid:lonely"],
+                ":prov/entrenchment": 0.4,
+                ":prov/status": STATUS_TENTATIVE,
+                ":prov/validated-by": [{":sat-rate": 0.4}],
+            },
+        },
+    )
+
+    with caplog.at_level(logging.WARNING, logger="scripts._agm_revision"):
+        report = revise_theory(
+            induced_path=None,
+            prov_path=prov_path,
+            retracted_docs=["pmid:lonely"],
+        )
+
+    assert report.full_quarantine_warning is False
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert not warnings, "warning fired despite a surviving :active rule"
+
+
+# ===========================================================================
+# REQ-REVISE-045: RevisionReport shape and counts
+# ===========================================================================
+
+
+def test_revision_report_shape_and_counts(tmp_path: Path) -> None:
+    """REQ-REVISE-045: report exposes per-status counts + transition count + diff."""
+    prov_path = _seed_sidecar(
+        tmp_path,
+        {
+            ":induced/a": {
+                ":prov/derived-from-atoms": ["c-a"],
+                ":prov/source-documents": [f"pmid:a{i}" for i in range(12)],
+                ":prov/entrenchment": 0.9,
+                ":prov/status": STATUS_ACTIVE,
+                ":prov/validated-by": [{":sat-rate": 0.9}],
+            },
+            ":induced/b": {
+                ":prov/derived-from-atoms": ["c-b"],
+                ":prov/source-documents": ["pmid:b-target", "pmid:b-keep"],
+                ":prov/entrenchment": 0.7,
+                ":prov/status": STATUS_ACTIVE,
+                ":prov/validated-by": [{":sat-rate": 0.9}],
+            },
+            ":induced/c": {
+                ":prov/derived-from-atoms": ["c-c"],
+                ":prov/source-documents": ["pmid:c"],
+                ":prov/entrenchment": 0.5,
+                ":prov/status": STATUS_TENTATIVE,
+            },
+        },
+    )
+
+    report = revise_theory(
+        induced_path=None,
+        prov_path=prov_path,
+        retracted_docs=["pmid:b-target"],
+    )
+
+    # Shape
+    assert isinstance(report, RevisionReport)
+    assert isinstance(report.rules_affected, int)
+    assert isinstance(report.rules_active, int)
+    assert isinstance(report.rules_tentative, int)
+    assert isinstance(report.rules_quarantined, int)
+    assert isinstance(report.diff_summary, str)
+    assert isinstance(report.full_quarantine_warning, bool)
+
+    # Counts add up.
+    total = (
+        report.rules_active + report.rules_tentative + report.rules_quarantined
+    )
+    assert total == 3
+
+    # diff_summary should mention only transitioning rules.
+    if report.rules_affected > 0:
+        assert "->" in report.diff_summary
+
+
+def test_revision_report_kebab_case_indexing(tmp_path: Path) -> None:
+    """REQ-REVISE-045: kebab-case indexing keeps the Phase Z1.1 micro-test contract."""
+    prov_path = _seed_sidecar(
+        tmp_path,
+        {
+            ":induced/r1": {
+                ":prov/derived-from-atoms": ["c-1"],
+                ":prov/source-documents": ["pmid:1", "pmid:2"],
+                ":prov/entrenchment": 0.85,
+                ":prov/status": STATUS_ACTIVE,
+                ":prov/validated-by": [{":sat-rate": 0.85}],
+            },
+        },
+    )
+
+    report = revise_theory(
+        induced_path=None,
+        prov_path=prov_path,
+        retracted_docs=["pmid:1"],
+    )
+
+    # Either kebab-case or snake_case must index identically.
+    assert report["rules-affected"] == report.rules_affected
+    assert report["rules-active"] == report.rules_active
+    assert report["rules-tentative"] == report.rules_tentative
+    assert report["rules-quarantined"] == report.rules_quarantined
+    assert report["diff-summary"] == report.diff_summary
+    assert report["full-quarantine-warning"] == report.full_quarantine_warning
 
 
 # ===========================================================================

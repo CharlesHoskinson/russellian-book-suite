@@ -13,6 +13,7 @@ dependencies = [
     "jsonschema>=4.21,<5.0",
     "pyyaml>=6.0.1,<7.0",
     "jinja2>=3.1.3,<4.0",
+    "click>=8.1,<9.0",
 ]
 
 [project.optional-dependencies]
@@ -21,6 +22,9 @@ dev = [
     "pytest-cov>=4.1,<8.0",
     "psutil>=5.9,<8.0",
 ]
+
+[project.scripts]
+forge = "scripts.forge_cli:main"
 
 [tool.setuptools]
 packages = ["scripts"]

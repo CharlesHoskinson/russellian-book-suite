@@ -14,6 +14,7 @@ Horn-body + Popper sources still run.
 """
 from __future__ import annotations
 
+import json
 import platform
 import sys
 from pathlib import Path
@@ -425,3 +426,56 @@ def test_singleton_cited_atom_has_unit_coherence() -> None:
     cands = [{"id": "c", "cited_atoms": ["only"], "origin": [sources.LLM]}]
     ranked = sources.rank_by_semantic_coherence(cands, idx)
     assert ranked[0]["coherence"] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# REQ-INDUCE-056: budget tracking halts LLM source
+# ---------------------------------------------------------------------------
+
+
+def test_budget_halts_llm_but_other_sources_complete(tmp_path: Path, monkeypatch) -> None:
+    """REQ-INDUCE-056: NEUROSYM_INDUCTION_BUDGET_USD=0.01 halts LLM after
+    the first call (each stub call costs 0.008); Horn-body and Popper
+    sources run to completion."""
+    proj = _seed_project(
+        tmp_path / "budget",
+        atoms=_fixture_atoms(),
+        predicates=_fixture_predicates(),
+    )
+    monkeypatch.setenv("NEUROSYM_INDUCTION_BUDGET_USD", "0.01")
+    # Force a high per-call cost so the budget exhausts on call 2.
+    monkeypatch.setenv("NEUROSYM_INDUCTION_STUB_COST_USD", "0.008")
+    rc = orch.main([str(proj)])
+    assert rc == 0
+    budget_log = proj / "work" / "induction" / "budget.json"
+    assert budget_log.exists()
+    data = json.loads(budget_log.read_text(encoding="utf-8"))
+    assert data["limit_usd"] == pytest.approx(0.01)
+    assert data["spent_usd"] <= 0.01 + 0.008  # one overshoot is allowed at the boundary
+    assert data["llm_halted"] is True
+    # Horn-body and Popper still contributed; verify by reading the queue.
+    payload = read_edn_file(proj / "work" / "induction" / "candidates.edn")
+    origins = set()
+    for c in payload[Keyword("candidates")]:
+        for o in c.get(Keyword("origin"), []):
+            origins.add(o)
+    assert Keyword("horn-body") in origins
+    assert Keyword("popper") in origins
+
+
+def test_budget_unset_does_not_halt_llm(tmp_path: Path, monkeypatch) -> None:
+    """REQ-INDUCE-056: WHERE NEUROSYM_INDUCTION_BUDGET_USD is unset, the
+    LLM source runs without spend-tracking enforcement; the budget log
+    still emits with limit_usd=null."""
+    proj = _seed_project(
+        tmp_path / "unbudgeted",
+        atoms=_fixture_atoms(),
+        predicates=_fixture_predicates(),
+    )
+    monkeypatch.delenv("NEUROSYM_INDUCTION_BUDGET_USD", raising=False)
+    rc = orch.main([str(proj)])
+    assert rc == 0
+    budget_log = proj / "work" / "induction" / "budget.json"
+    data = json.loads(budget_log.read_text(encoding="utf-8"))
+    assert data["limit_usd"] is None
+    assert data["llm_halted"] is False

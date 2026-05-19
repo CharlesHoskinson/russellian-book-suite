@@ -17,10 +17,14 @@ Pipeline:
   7. Persist the queue to work/induction/candidates.edn with rejection
      reasons retained (REQ-INDUCE-055).
 
-The budget tracker (REQ-INDUCE-056) is wired in a follow-on commit.
+The budget tracker (REQ-INDUCE-056) halts the LLM source when
+``NEUROSYM_INDUCTION_BUDGET_USD`` is exceeded; Horn-body and Popper
+sources are unaffected.
 """
 from __future__ import annotations
 
+import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -157,6 +161,33 @@ def _candidate_to_edn(c: dict[str, Any], cid: str) -> dict[Any, Any]:
     }
 
 
+def _read_budget_env() -> Optional[float]:
+    """REQ-INDUCE-056: read NEUROSYM_INDUCTION_BUDGET_USD from the
+    environment. Returns None when unset (no cap)."""
+    raw = os.environ.get("NEUROSYM_INDUCTION_BUDGET_USD")
+    if raw is None or raw == "":
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _persist_budget(project_root: Path, budget: sources.BudgetTracker) -> None:
+    """REQ-INDUCE-056: log the run's final spend + halt status to
+    work/induction/budget.json so callers can audit cost discipline."""
+    out_dir = project_root / "work" / "induction"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    data = {
+        "limit_usd": budget.limit_usd,
+        "spent_usd": budget.spent_usd,
+        "llm_halted": bool(budget.halted),
+    }
+    (out_dir / "budget.json").write_text(
+        json.dumps(data, indent=2), encoding="utf-8", newline="\n"
+    )
+
+
 def _persist_queue(
     project_root: Path,
     *,
@@ -200,16 +231,22 @@ def run(project_root: Path) -> int:
     # Source 2 — Popper-style typed search
     popper_cands = sources.popper_search(schema)
 
-    # Source 3 — LLM proposer (Phase V or Stub fallback)
+    # Source 3 — LLM proposer (Phase V or Stub fallback) — budget-tracked
+    budget = sources.BudgetTracker(limit_usd=_read_budget_env())
     llm_cands: list[dict[str, Any]] = []
     provider = sources.StubProposer()
     for cluster in _atom_clusters(atoms):
+        if budget.halted:
+            break
         cands = sources.llm_propose(
             schema=schema,
             cluster=cluster,
             provider=provider,
+            budget=budget,
         )
         llm_cands.extend(cands)
+        if budget.halted:
+            break
 
     # Dedup with rejection logging (REQ-INDUCE-052, 055)
     all_cands = horn_cands + popper_cands + llm_cands
@@ -225,6 +262,7 @@ def run(project_root: Path) -> int:
         rejected=rejected,
         corpus_size=len(atoms),
     )
+    _persist_budget(project_root, budget)
     return 0
 
 

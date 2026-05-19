@@ -34,6 +34,14 @@
   (let [raw (env "NEUROSYM_INDUCTION_CANDIDATES_PER_SOURCE" "20")]
     (or (try (js/parseInt raw 10) (catch :default _ 20)) 20)))
 
+(defn- budget-limit []
+  (let [raw (env "NEUROSYM_INDUCTION_BUDGET_USD" nil)]
+    (when raw (try (js/parseFloat raw) (catch :default _ nil)))))
+
+(defn- stub-cost []
+  (let [raw (env "NEUROSYM_INDUCTION_STUB_COST_USD" "0.001")]
+    (or (try (js/parseFloat raw) (catch :default _ 0.001)) 0.001)))
+
 ;; ----- I/O -----
 
 (defn- exists? [p]
@@ -47,6 +55,11 @@
   (let [dir (path/dirname p)]
     (when-not (exists? dir) (.mkdirSync fs dir #js {:recursive true}))
     (.writeFileSync fs p (pr-str value))))
+
+(defn- write-json-file [p value]
+  (let [dir (path/dirname p)]
+    (when-not (exists? dir) (.mkdirSync fs dir #js {:recursive true}))
+    (.writeFileSync fs p (.stringify js/JSON (clj->js value) nil 2))))
 
 ;; ----- canonical S-expr form (REQ-INDUCE-052) -----
 
@@ -218,9 +231,30 @@
     (boolean (some exists? candidates))))
 
 (defn llm-propose-clusters
-  [clusters schema]
-  (let [phase-v? (phase-v-grammar-available?)]
-    (vec (keep #(stub-propose % schema phase-v?) clusters))))
+  "REQ-INDUCE-056: per-cluster LLM propose with budget tracking. Returns
+   {:candidates [...] :spent-usd N :halted? bool}. When budget is
+   exhausted, halts and returns the partial collection so Horn-body and
+   Popper sources remain unaffected."
+  [clusters schema budget-state]
+  (let [phase-v? (phase-v-grammar-available?)
+        cost (stub-cost)
+        limit (:limit-usd budget-state)]
+    (loop [todo clusters
+           out []
+           spent (:spent-usd budget-state)
+           halted? (:halted? budget-state)]
+      (if (or (empty? todo) halted?)
+        {:candidates out :spent-usd spent :halted? halted?}
+        (let [can-spend? (or (nil? limit) (<= (+ spent cost) (+ limit 1e-9)))]
+          (if-not can-spend?
+            {:candidates out :spent-usd spent :halted? true}
+            (let [cand (stub-propose (first todo) schema phase-v?)
+                  spent' (+ spent cost)
+                  halted'? (and (some? limit) (>= spent' limit))]
+              (recur (rest todo)
+                     (if cand (conj out cand) out)
+                     spent'
+                     halted'?))))))))
 
 ;; ----- Clusters -----
 
@@ -303,6 +337,14 @@
    :status (or (:status c) :pending)
    :rejection-reason (:rejection-reason c)})
 
+(defn persist-budget
+  "REQ-INDUCE-056: log spend + halt status to work/induction/budget.json."
+  [project-root budget]
+  (write-json-file (path/join project-root "work" "induction" "budget.json")
+                   {:limit_usd (:limit-usd budget)
+                    :spent_usd (:spent-usd budget)
+                    :llm_halted (boolean (:halted? budget))}))
+
 (defn persist-queue [project-root survivors rejected corpus-size]
   (let [out-dir (path/join project-root "work" "induction")
         out (path/join out-dir "candidates.edn")
@@ -328,12 +370,20 @@
         atoms (load-atoms project-root)
         horn-cands (horn-mine atoms schema)
         popper-cands (popper-search schema)
-        llm-cands (llm-propose-clusters (atom-clusters atoms) schema)
+        budget0 {:limit-usd (budget-limit) :spent-usd 0.0 :halted? false}
+        llm-result (llm-propose-clusters (atom-clusters atoms) schema budget0)
+        llm-cands (:candidates llm-result)
+        budget {:limit-usd (:limit-usd budget0)
+                :spent-usd (:spent-usd llm-result)
+                :halted? (:halted? llm-result)}
         all (vec (concat horn-cands popper-cands llm-cands))
         {:keys [survivors rejected]} (dedup-with-rejection-log all)]
     (persist-queue project-root survivors rejected (count atoms))
+    (persist-budget project-root budget)
     (println (str "[induce-theory] " (count survivors) " candidates, "
-                  (count rejected) " rejected"))))
+                  (count rejected) " rejected, "
+                  "spent $" (:spent-usd budget) " of "
+                  (if-let [l (:limit-usd budget)] (str "$" l) "unbounded")))))
 
 ;; When invoked as `nbb <file> <args>`, nbb runs the file top-to-bottom and
 ;; does NOT auto-call -main. Inspect argv: if argv[2] is a file path matching

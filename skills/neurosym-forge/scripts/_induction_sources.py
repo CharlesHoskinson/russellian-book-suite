@@ -299,13 +299,40 @@ def popper_search(schema: dict[str, Any]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+class BudgetTracker:
+    """Tracks accumulated LLM spend against an optional cap.
+
+    REQ-INDUCE-056: when accumulated spend exceeds ``limit_usd``, the
+    tracker reports ``halted=True`` and subsequent LLM calls SHALL be
+    skipped. Horn-body and Popper sources are unaffected because they
+    never consult the tracker.
+    """
+
+    def __init__(self, *, limit_usd: Optional[float]) -> None:
+        self.limit_usd = limit_usd
+        self.spent_usd = 0.0
+        self.halted = False
+
+    def can_spend(self, amount: float) -> bool:
+        if self.limit_usd is None:
+            return True
+        if self.halted:
+            return False
+        return self.spent_usd + amount <= self.limit_usd + 1e-9
+
+    def charge(self, amount: float) -> None:
+        self.spent_usd += amount
+        if self.limit_usd is not None and self.spent_usd >= self.limit_usd:
+            self.halted = True
+
+
 class StubProposer:
     """Deterministic stub LLM proposer for CI.
 
     Emits a single ``defconstraint`` candidate per cluster, derived
     mechanically from the cluster's predicate name. The per-call cost
-    field is wired in C3 (REQ-INDUCE-056) when the budget tracker
-    lands; for the source-skeleton commit we expose the constant only.
+    is ``NEUROSYM_INDUCTION_STUB_COST_USD`` (default 0.001) so the
+    budget tracker has a concrete number to consume (REQ-INDUCE-056).
     """
 
     name = "stub"
@@ -350,15 +377,20 @@ def llm_propose(
     schema: dict[str, Any],
     cluster: list[dict[str, Any]],
     provider: Any,
-    budget: Any = None,
+    budget: Optional["BudgetTracker"] = None,
 ) -> list[dict[str, Any]]:
-    """REQ-INDUCE-051(c): invoke the LLM proposer for one cluster.
+    """REQ-INDUCE-051(c), 056: invoke the LLM proposer for one cluster.
 
     Phase V's ``propose_candidate`` is used when available; otherwise
-    the StubProposer's deterministic shape is the fallback. The
-    ``budget`` argument is a no-op in this commit; C3 wires the
-    BudgetTracker contract.
+    the StubProposer's deterministic shape is the fallback. The budget
+    tracker is consulted BEFORE each call; once exhausted, the source
+    returns [] and downstream Horn-body / Popper sources are unaffected.
     """
+    cost = provider.cost_per_call() if hasattr(provider, "cost_per_call") else 0.001
+    if budget is not None:
+        if not budget.can_spend(cost):
+            budget.halted = True
+            return []
     if PHASE_V_AVAILABLE and _phase_v_propose is not None:
         try:
             candidate = _phase_v_propose(schema=schema, cluster=cluster)
@@ -366,6 +398,8 @@ def llm_propose(
             candidate = provider.propose(cluster=cluster, schema=schema)
     else:
         candidate = provider.propose(cluster=cluster, schema=schema)
+    if budget is not None:
+        budget.charge(cost)
     if candidate is None:
         return []
     cap = per_source_cap()

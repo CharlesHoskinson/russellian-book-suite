@@ -1627,9 +1627,34 @@ def run(project_root: Path) -> None:
     src = generate_axioms_source(constraints, schema=schema_dict, sorts=sorts_list)
     axioms_path.parent.mkdir(parents=True, exist_ok=True)
     axioms_path.write_text(src, encoding="utf-8", newline="\n")
+    _rustfmt_in_place(axioms_path, project_root)
     tracker_map = generate_tracker_map(constraints)
     write_edn_file(tracker_path, {Keyword("version"):     1,
                                   Keyword("tracker-map"): tracker_map})
+
+
+def _rustfmt_in_place(rs_path: Path, project_root: Path) -> None:
+    """Run `cargo fmt` on the emitted file so CI's `cargo fmt --check`
+    sees no drift after a codegen run.
+
+    Best-effort: if cargo or rustfmt isn't on PATH (some packaging
+    environments), skip silently. CI will catch any drift either way.
+    """
+    import shutil
+    import subprocess
+    if shutil.which("cargo") is None:
+        return
+    manifest = project_root / "rust-verifier" / "Cargo.toml"
+    if not manifest.exists():
+        return
+    try:
+        subprocess.run(
+            ["cargo", "fmt", "--manifest-path", str(manifest), "--", str(rs_path)],
+            check=False,
+            capture_output=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def main(argv: list[str]) -> int:

@@ -17,16 +17,16 @@
 
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
-use z3::{
-    ast::{Array, Bool, Int, Real, Set, String as Z3String},
-    Solver,
-};
+use std::ops::{Add as _, Mul as _, Sub as _};
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
 use std::str::FromStr as _;
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
-use std::ops::{Add as _, Mul as _, Sub as _};
+use z3::{
+    Solver,
+    ast::{Array, Bool, Int, Real, Set, String as Z3String},
+};
 
 #[cfg(feature = "smt")]
 /// Assert every z3 constraint whose `:assert` references exactly
@@ -36,77 +36,77 @@ use std::ops::{Add as _, Mul as _, Sub as _};
 pub fn axioms_for_subject(solver: &Solver, subject: &str) {
     match subject {
         "BMD" => {
-        // constraint C003-bmd-usd-parity
-        {
-            let lhs = Bool::new_const("currency-pegged-at-parity_BMD");
-            let rhs = Bool::from_bool(true);
-            let tracker = Bool::new_const("C003-bmd-usd-parity");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
+            // constraint C003-bmd-usd-parity
+            {
+                let lhs = Bool::new_const("currency-pegged-at-parity_BMD");
+                let rhs = Bool::from_bool(true);
+                let tracker = Bool::new_const("C003-bmd-usd-parity");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
         }
         "Bermuda" => {
-        // constraint C001-bermuda-parishes
-        {
-            let lhs = Int::new_const("parishes-count_Bermuda");
-            let rhs = Int::from_i64(9);
-            let tracker = Bool::new_const("C001-bermuda-parishes");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
-        // constraint C002-named-islands-and-rocks
-        {
-            let lhs = Int::new_const("named-islands-and-rocks_Bermuda");
-            let rhs = Int::from_i64(181);
-            let tracker = Bool::new_const("C002-named-islands-and-rocks");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
-        // constraint C006-population
-        {
-            let lhs = Int::new_const("population_Bermuda");
-            let rhs = Int::from_i64(63918);
-            let tracker = Bool::new_const("C006-population");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
-        // constraint C007-land-area-km2
-        {
-            let lhs = Real::new_const("land-area-km2_Bermuda");
-            let rhs = Real::from_rational(53200000, 1000000);
-            let tracker = Bool::new_const("C007-land-area-km2");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
-        // constraint C008-gdp-usd-billion
-        {
-            let lhs = Real::new_const("gdp-usd-billion_Bermuda");
-            let rhs = Real::from_rational(7700000, 1000000);
-            let tracker = Bool::new_const("C008-gdp-usd-billion");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
+            // constraint C001-bermuda-parishes
+            {
+                let lhs = Int::new_const("parishes-count_Bermuda");
+                let rhs = Int::from_i64(9);
+                let tracker = Bool::new_const("C001-bermuda-parishes");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
+            // constraint C002-named-islands-and-rocks
+            {
+                let lhs = Int::new_const("named-islands-and-rocks_Bermuda");
+                let rhs = Int::from_i64(181);
+                let tracker = Bool::new_const("C002-named-islands-and-rocks");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
+            // constraint C006-population
+            {
+                let lhs = Int::new_const("population_Bermuda");
+                let rhs = Int::from_i64(63918);
+                let tracker = Bool::new_const("C006-population");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
+            // constraint C007-land-area-km2
+            {
+                let lhs = Real::new_const("land-area-km2_Bermuda");
+                let rhs = Real::from_rational(53200000, 1000000);
+                let tracker = Bool::new_const("C007-land-area-km2");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
+            // constraint C008-gdp-usd-billion
+            {
+                let lhs = Real::new_const("gdp-usd-billion_Bermuda");
+                let rhs = Real::from_rational(7700000, 1000000);
+                let tracker = Bool::new_const("C008-gdp-usd-billion");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
         }
         "Bermuda_cedar" => {
-        // constraint C005-cedar-binomial
-        {
-            let lhs = Z3String::new_const("binomial_Bermuda_cedar");
-            let rhs = Z3String::from_str("Juniperus bermudiana").expect("valid utf-8");
-            let tracker = Bool::new_const("C005-cedar-binomial");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
+            // constraint C005-cedar-binomial
+            {
+                let lhs = Z3String::new_const("binomial_Bermuda_cedar");
+                let rhs = Z3String::from_str("Juniperus bermudiana").expect("valid utf-8");
+                let tracker = Bool::new_const("C005-cedar-binomial");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
         }
         "KEMH" => {
-        // constraint C009-hospital-beds-kemh
-        {
-            let lhs = Int::new_const("hospital-beds-kemh_KEMH");
-            let rhs = Int::from_i64(90);
-            let tracker = Bool::new_const("C009-hospital-beds-kemh");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
+            // constraint C009-hospital-beds-kemh
+            {
+                let lhs = Int::new_const("hospital-beds-kemh_KEMH");
+                let rhs = Int::from_i64(90);
+                let tracker = Bool::new_const("C009-hospital-beds-kemh");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
         }
         "L_F_Wade" => {
-        // constraint C004-airport-st-davids
-        {
-            let lhs = Z3String::new_const("airport-on-island_L_F_Wade");
-            let rhs = Z3String::from_str("St_Davids_Island").expect("valid utf-8");
-            let tracker = Bool::new_const("C004-airport-st-davids");
-            solver.assert_and_track(&lhs.eq(&rhs), &tracker);
-        }
+            // constraint C004-airport-st-davids
+            {
+                let lhs = Z3String::new_const("airport-on-island_L_F_Wade");
+                let rhs = Z3String::from_str("St_Davids_Island").expect("valid utf-8");
+                let tracker = Bool::new_const("C004-airport-st-davids");
+                solver.assert_and_track(&lhs.eq(&rhs), &tracker);
+            }
         }
         _ => {
             let _ = solver;
@@ -213,7 +213,8 @@ pub fn predicate_is_real(_name: &str) -> bool {
 /// when an atom binds a scalar to a vector-typed predicate
 /// (REQ-DSL-054).
 pub fn predicate_is_vector(name: &str) -> bool {
-    let _ = name; false
+    let _ = name;
+    false
 }
 
 #[cfg(not(feature = "smt"))]

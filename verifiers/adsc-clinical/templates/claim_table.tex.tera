@@ -1,0 +1,5 @@
+\begin{tabular}{lll}
+{% for c in claims %}
+  {{ c.id }} & {{ c.source | escape_tex }} & {{ c.confidence }} \\
+{% endfor %}
+\end{tabular}

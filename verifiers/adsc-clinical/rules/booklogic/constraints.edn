@@ -1,0 +1,65 @@
+;; rules/booklogic/constraints.edn — hard constraints checked by the solver.
+;;
+;; FORM SYNTAX:
+;;   (defconstraint :C001-name
+;;     :backend :z3
+;;     :assert FORMULA
+;;     :on-unsat {:defect :D## :severity :critical :message "..."})
+;;
+;; The :assert form is a sexp the codegen translates to Z3. Use:
+;;   (= LHS RHS)              equality
+;;   (approx= LHS RHS :tolerance 0.03)   approximate equality (relative)
+;;   (and EXPR EXPR ...)      conjunction
+;;   (or  EXPR EXPR ...)      disjunction
+;;   (* x y), (+ x y)         arithmetic
+;;   (:predicate-name ?subj)  predicate value for subject ?subj
+;;
+;; Only :backend :z3 reaches the solver today. :egg and :cozo are in
+;; SUPPORTED_BACKENDS but silently drop. See SUPPORT_MATRIX.md.
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (defconstraint :C001-vant-hoff
+;;   :backend :z3
+;;   :assert (approx= (:osmotic-pressure-pa ?s)
+;;                    (* (:vant-hoff-i ?s) (:molarity ?s) 8.314 (:temperature-k ?s))
+;;                    :tolerance 0.03)
+;;   :on-unsat {:defect :D13 :severity :critical
+;;              :message "van 't Hoff equation violated"})
+;;
+;; COMMON SILENT FAILURES:
+;;   - :backend :egg or :cozo set — codegen silently drops the constraint
+;;     and Z3 verifies only the remaining :z3 constraints. The verdict is
+;;     :sat for the wrong reason. (Phase A's extract gate doesn't catch
+;;     this; Phase D's SUPPORT_MATRIX.md lint does.)
+;;   - typo in :predicate-name → Z3 variable is unbound, free to take any
+;;     value, the constraint is trivially satisfied with random binding.
+;;   - mixing Int and Real values for the same predicate → Z3 names the
+;;     two binds as separate symbols; constraint is unbound.
+;;
+;; ADSC clinical constraints — three within-trial hard rules. A fourth
+;; cross-trial corpus-scope constraint (e.g. same trial's p-value reported
+;; consistently across two sections) is DEFERRED to Phase R
+;; (`tier5-cross-chapter`) where `:scope :corpus` is wired. Logged in the
+;; build-log at `docs/eval/2026-05-19-scale-corpus-build-log.md`.
+
+{:forms
+ [(defconstraint C001-trial-n-minimum
+    :backend :z3
+    :assert (>= (:trial-n ?t) 10)
+    :on-unsat {:defect :D40
+               :severity :critical
+               :message "trial cohort size below the minimum-evidence floor (n >= 10)"})
+
+  (defconstraint C002-p-value-significance
+    :backend :z3
+    :assert (<= (:trial-p-value ?t) 0.05)
+    :on-unsat {:defect :D41
+               :severity :critical
+               :message "trial p-value above conventional significance threshold (p <= 0.05)"})
+
+  (defconstraint C003-efficacy-above-harm
+    :backend :z3
+    :assert (<= (:adverse-event-rate ?tx) (:treatment-efficacy ?tx))
+    :on-unsat {:defect :D42
+               :severity :critical
+               :message "treatment adverse-event rate exceeds efficacy — net-harm signal"})]}

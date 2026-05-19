@@ -353,3 +353,89 @@ def test_render_without_phase_t(runner: CliRunner, fake_project: Path) -> None:
     )
     assert result.exit_code == 2
     assert "Phase T" in result.output
+
+
+# ---------------------------------------------------------------------------
+# REQ-AUTHOR-045 — error UX
+# ---------------------------------------------------------------------------
+
+
+def test_add_constraint_missing_project_root(runner: CliRunner, tmp_path: Path) -> None:
+    """Pointing at a directory without rules/booklogic/constraints.edn surfaces a clean error."""
+    bare = tmp_path / "no-rules"
+    bare.mkdir()
+    result = runner.invoke(
+        forge_cli.cli,
+        [
+            "add-constraint",
+            str(bare),
+            "--non-interactive",
+            "--id", ":C1",
+            "--backend", ":z3",
+            "--scope", ":subject",
+            "--assert", "(>= x 1)",
+            "--on-unsat-defect", ":D1",
+            "--on-unsat-severity", ":critical",
+            "--skip-ci",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "ERROR" in result.output or "constraints.edn" in result.output
+
+
+def test_framework_error_renders_user_message_no_traceback(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """A framework error surfaces as the four-line interpretive message."""
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    result = runner.invoke(
+        forge_cli.cli,
+        [
+            "add-constraint",
+            str(bare),
+            "--non-interactive",
+            "--id", ":C1",
+            "--backend", ":z3",
+            "--scope", ":subject",
+            "--assert", "(>= x 1)",
+            "--on-unsat-defect", ":D1",
+            "--on-unsat-severity", ":critical",
+            "--skip-ci",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "ERROR:" in result.output
+    assert "What likely happened" in result.output
+    assert "Likely fix" in result.output
+    assert "Reference" in result.output
+    assert "--debug" in result.output
+    assert "Traceback (most recent call last)" not in result.output
+
+
+def test_debug_flag_re_enables_traceback(runner: CliRunner, tmp_path: Path) -> None:
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    result = runner.invoke(
+        forge_cli.cli,
+        [
+            "--debug",
+            "add-constraint",
+            str(bare),
+            "--non-interactive",
+            "--id", ":C1",
+            "--backend", ":z3",
+            "--scope", ":subject",
+            "--assert", "(>= x 1)",
+            "--on-unsat-defect", ":D1",
+            "--on-unsat-severity", ":critical",
+            "--skip-ci",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Traceback" in result.output or result.exc_info is not None
+
+
+def teardown_module(_module: object) -> None:  # pragma: no cover — env hygiene
+    import os
+    os.environ.pop("FORGE_DEBUG", None)

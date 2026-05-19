@@ -25,14 +25,64 @@ with a hand-readable pointer to the missing phase.
 """
 from __future__ import annotations
 
+import functools
 import json
+import os
 import subprocess
 import sys
 import textwrap
+import traceback
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import click
+
+from scripts._cli_errors import interpret
+
+
+# ---------------------------------------------------------------------------
+# Error decorator (REQ-AUTHOR-045)
+# ---------------------------------------------------------------------------
+
+
+_DEBUG_ENV = "FORGE_DEBUG"
+
+
+def _debug_enabled(ctx: click.Context | None) -> bool:
+    if ctx is not None:
+        root = ctx.find_root()
+        if root.params.get("debug"):
+            return True
+    return os.environ.get(_DEBUG_ENV) == "1"
+
+
+def _handle(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Wrap a click command body to translate framework errors.
+
+    Click's own usage / exit signals are re-raised so click handles them
+    itself; everything else is rendered via the ``_cli_errors`` table.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        ctx = click.get_current_context(silent=True)
+        try:
+            return func(*args, **kwargs)
+        except click.ClickException:
+            raise
+        except click.exceptions.Exit:
+            raise
+        except SystemExit:
+            raise
+        except BaseException as exc:  # noqa: BLE001 — last-resort surface
+            if _debug_enabled(ctx):
+                traceback.print_exc()
+                raise click.exceptions.Exit(1) from exc
+            entry = interpret(exc)
+            click.echo(entry.render(), err=True)
+            raise click.exceptions.Exit(1) from exc
+
+    return wrapper
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +103,8 @@ def cli(ctx: click.Context, debug: bool) -> None:
     """forge — interactive author tooling for neurosym-forge verifiers."""
     ctx.ensure_object(dict)
     ctx.obj["debug"] = debug
+    if debug:
+        os.environ[_DEBUG_ENV] = "1"
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +191,7 @@ def _run_make_ci(project_root: Path) -> subprocess.CompletedProcess[str]:
 @click.option("--non-interactive", is_flag=True, default=False,
               help="Fail fast on missing flags rather than prompting.")
 @click.option("--skip-ci", is_flag=True, default=False, help="Skip the make-ci verification step.")
+@_handle
 def add_constraint(
     project_root: Path,
     constraint_id: str | None,
@@ -252,6 +305,7 @@ def _load_claim(project_root: Path, claim_id: str) -> dict[str, Any]:
 @click.option("--project-root", "project_root", default=".", type=click.Path(path_type=Path),
               help="Project root (defaults to cwd).")
 @click.option("--k", type=int, default=3, help="Number of candidate lifts to request.")
+@_handle
 def suggest_lifts(claim_id: str, project_root: Path, k: int) -> None:
     """Propose deflift candidates for an unmatched claim via Phase P's LLM provider."""
     try:
@@ -359,6 +413,7 @@ def _render_context(text: str, line: int, before: int = 3, after: int = 3) -> st
 @click.argument("defect_id")
 @click.option("--project-root", "project_root", default=".", type=click.Path(path_type=Path),
               help="Project root (defaults to cwd).")
+@_handle
 def explain_defect(defect_id: str, project_root: Path) -> None:
     """Render an unsat-core walkthrough for a defect."""
     project_root = Path(project_root).resolve()
@@ -430,6 +485,7 @@ _PHASE_Q_MSG = (
 @click.option("--k", type=int, default=5, help="Number of neighbours to return.")
 @click.option("--project-root", "project_root", default=".", type=click.Path(path_type=Path),
               help="Project root (defaults to cwd).")
+@_handle
 def similar(claim_id: str, k: int, project_root: Path) -> None:
     """Print the top-k semantically-similar claims to <claim_id>."""
     try:
@@ -470,6 +526,7 @@ _PHASE_T_MSG = (
               help="Project root (defaults to cwd).")
 @click.option("--manuscript", "manuscript", default=None, type=click.Path(path_type=Path),
               help="Optional path to the manuscript .md file.")
+@_handle
 def render(project_root: Path, manuscript: Path | None) -> None:
     """Shell out to Phase T's render_annotations.py."""
     project_root = Path(project_root).resolve()

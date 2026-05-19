@@ -632,6 +632,7 @@ class _FakeRevisionReport:
 def _stub_agm_module(
     monkeypatch: pytest.MonkeyPatch,
     report_factory,
+    write_called_box: list[bool] | None = None,
 ) -> None:
     """Install a stub scripts._agm_revision module returning report_factory()."""
     import types
@@ -643,7 +644,10 @@ def _stub_agm_module(
         prov_path: Path,
         retracted_docs: list[str],
         contradicting_atoms: list[str],
+        dry_run: bool = False,
     ) -> _FakeRevisionReport:
+        if write_called_box is not None and not dry_run:
+            write_called_box.append(True)
         return report_factory(retracted_docs, contradicting_atoms)
 
     fake.revise_theory = revise_theory  # type: ignore[attr-defined]
@@ -769,6 +773,66 @@ def test_theory_renders_rules_with_missing_sidecar(
     assert ":induced/herd-immunity-threshold" in result.output
     assert ":induced/vaccine-efficacy-r0" in result.output
     assert ":induced/trial-cohort-size" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — --dry-run (REQ-AUTHOR-056) on induce + revise
+# ---------------------------------------------------------------------------
+
+
+def test_induce_dry_run_writes_no_files(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-056: --dry-run prints summary output but writes nothing."""
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+
+    def _fail_if_invoked(*_args, **_kwargs) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("_run_nbb_induce must not be invoked under --dry-run")
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _fail_if_invoked)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "dry-run" in result.output
+    assert not (project / "rules" / "booklogic" / "induced-theory.edn").exists()
+    assert not (project / "rules" / "booklogic" / "induced-theory.prov.edn").exists()
+
+
+def test_revise_dry_run_does_not_mutate_sidecar(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-056: --dry-run flows the report but does not mutate the sidecar."""
+    project = _seed_tier6_project(tmp_path)
+    write_called: list[bool] = []
+    _stub_agm_module(
+        monkeypatch,
+        lambda r, c: _FakeRevisionReport(),
+        write_called_box=write_called,
+    )
+
+    pre = (project / "rules" / "booklogic" / "induced-theory.prov.edn").read_text(
+        encoding="utf-8"
+    )
+    result = runner.invoke(
+        forge_cli.cli,
+        ["revise", str(project), "--retracted-paper", "pmid:12345", "--dry-run"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "dry-run" in result.output
+    # The stub records non-dry-run writes; the box must remain empty.
+    assert write_called == []
+    post = (project / "rules" / "booklogic" / "induced-theory.prov.edn").read_text(
+        encoding="utf-8"
+    )
+    assert pre == post
+
+
+def test_theory_has_no_dry_run_flag(runner: CliRunner) -> None:
+    """REQ-AUTHOR-056: forge theory is read-only; --dry-run is intentionally absent."""
+    result = runner.invoke(forge_cli.cli, ["theory", "--help"])
+    assert result.exit_code == 0
+    assert "--dry-run" not in result.output
 
 
 def teardown_module(_module: object) -> None:  # pragma: no cover — env hygiene

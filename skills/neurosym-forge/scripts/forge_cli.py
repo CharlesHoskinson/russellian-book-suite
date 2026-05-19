@@ -754,11 +754,14 @@ def _format_induce_summary(prov: dict[str, Any]) -> str:
               help="Document-held-out validation folds (default 5).")
 @click.option("--budget-usd", "budget_usd", type=float, default=None,
               help="Opt-in dollar ceiling across the induction run.")
+@click.option("--dry-run", "dry_run", is_flag=True, default=False,
+              help="Run the pipeline in memory; write no files.")
 @_handle
 def induce(
     project_root: Path,
     folds: int,
     budget_usd: float | None,
+    dry_run: bool,
 ) -> None:
     """Induce a BookLogic theory from <project_root>'s atomspace.
 
@@ -779,7 +782,22 @@ def induce(
     click.echo(
         f"forge induce: project={project_root} folds={folds} "
         f"budget={'unset' if budget_usd is None else f'${budget_usd:.2f}'}"
+        f"{' (dry-run)' if dry_run else ''}"
     )
+
+    if dry_run:
+        # REQ-AUTHOR-056: print what we would do but do not invoke nbb or
+        # mutate any file.  The induction pipeline itself is side-effect-
+        # bearing (it writes the sidecar from nbb); short-circuiting before
+        # the subprocess call is the only way to guarantee no writes.
+        click.echo(
+            "dry-run: would invoke nbb induction orchestrator and emit "
+            f"{booklogic / _INDUCED_THEORY_FILE} + sidecar."
+        )
+        click.echo(
+            "dry-run: no files written; re-run without --dry-run to commit."
+        )
+        return
 
     proc = _run_nbb_induce(project_root, folds, budget_usd)
     if proc.returncode != 0:
@@ -874,11 +892,14 @@ def _format_revision_report(report: Any) -> str:
               help="Document id retracted from the corpus (repeatable).")
 @click.option("--contradicting-atom", "contradicting_atoms", multiple=True,
               help="Atom id that contradicts an existing rule (repeatable).")
+@click.option("--dry-run", "dry_run", is_flag=True, default=False,
+              help="Compute the revision in memory; do not mutate the sidecar.")
 @_handle
 def revise(
     project_root: Path,
     retracted_papers: tuple[str, ...],
     contradicting_atoms: tuple[str, ...],
+    dry_run: bool,
 ) -> None:
     """Re-rank entrenchment and contract/quarantine rules on new evidence."""
     project_root = Path(project_root).resolve()
@@ -905,6 +926,7 @@ def revise(
         f"forge revise: project={project_root} "
         f"retracted={len(retracted_papers)} "
         f"contradicting={len(contradicting_atoms)}"
+        f"{' (dry-run)' if dry_run else ''}"
     )
 
     report = _agm_revision.revise_theory(
@@ -912,10 +934,14 @@ def revise(
         prov_path=prov_path,
         retracted_docs=list(retracted_papers),
         contradicting_atoms=list(contradicting_atoms),
+        dry_run=dry_run,
     )
 
     click.echo("")
     click.echo(_format_revision_report(report))
+    if dry_run:
+        click.echo("")
+        click.echo("dry-run: sidecar not written.")
 
 
 # ---------------------------------------------------------------------------

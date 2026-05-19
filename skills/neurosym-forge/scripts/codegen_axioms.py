@@ -69,8 +69,9 @@ _SUPPORTED_ASSERT_HEADS = frozenset({
     "=", "~=", "approx=",
     "<", "<=", ">", ">=",
     "+", "-", "*", "/",
-    "and", "or", "ite",
-    "sum", "count", "in", "select", "forall",
+    "and", "or", "not", "=>", "ite",
+    "sum", "count", "in", "select",
+    "forall", "exists",
 })
 
 # ----- REQ-DSL-050..053: multi-valued predicate schema lookup -----
@@ -149,7 +150,7 @@ HEADER = """\
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
 use z3::{
-    ast::{Array, Bool, Int, Real, Set, String as Z3String},
+    ast::{Array, Bool, Datatype, Int, Real, Set, String as Z3String},
     Solver,
 };
 #[cfg(feature = "smt")]
@@ -239,7 +240,8 @@ def _emit_predicate_sort_helper(body: str) -> str:
 
 
 def generate_axioms_source(constraints: list[dict],
-                            schema: dict | None = None) -> str:
+                            schema: dict | None = None,
+                            sorts: list[dict] | None = None) -> str:
     """Emit a complete axioms.rs file from a list of constraint dicts.
 
     Each dict is a constraint entry as written by emit-constraints-edn
@@ -266,6 +268,13 @@ def generate_axioms_source(constraints: list[dict],
     `(sum vec)`, `(count vec)`, `(forall ?x in vec ...)` desugar via
     `_AGGREGATE_DISPATCH`.
 
+    REQ-SMT-051..054: `sorts` is the parsed `:sorts` list from
+    `sorts.edn` (each entry a dict with a `:name` Keyword). When present,
+    its declared names form `declared_sort_names`, against which any
+    `(forall [(?v :sort)] body)` / `(exists [(?v :sort)] body)` quantifier
+    binding's sort keyword is validated before a `Datatype::new_const` is
+    emitted.
+
     REQ-EGG-*/REQ-DATALOG-041: :egg constraints are still emitted into
     the shared bucket (they discharge through eqsat.rs but the wrapping
     Bool tracker still needs to live on the solver); :cozo constraints
@@ -277,6 +286,14 @@ def generate_axioms_source(constraints: list[dict],
     _SCHEMA = schema or {}
     _VECTOR_SYMBOLS = set()
     _SET_SYMBOLS = set()
+    # REQ-SMT-051..054: build the declared-sort registry once per call.
+    declared_sort_names: set[str] = set()
+    if sorts:
+        for s in sorts:
+            if isinstance(s, dict) and Keyword("name") in s:
+                name_val = s[Keyword("name")]
+                name_str = name_val.name if isinstance(name_val, Keyword) else str(name_val)
+                declared_sort_names.add(name_str)
     per_subject_blocks: dict[str, list[str]] = {}
     shared_blocks: list[str] = []
     corpus_blocks: list[str] = []
@@ -306,7 +323,7 @@ def generate_axioms_source(constraints: list[dict],
             )
         is_corpus = scope == Keyword("corpus")
         if backend == Keyword("z3"):
-            block = _emit_z3_block(c)
+            block = _emit_z3_block(c, declared_sort_names=declared_sort_names)
             all_body_for_sort.append(block)
             if is_corpus:
                 # REQ-CORPUS-051: corpus-scope constraints land in
@@ -594,7 +611,7 @@ def _require(c: dict, key: str) -> None:
         raise CodegenError(f"constraint {c.get(Keyword('id'))!r}: missing {key}")
 
 
-def _emit_z3_block(c: dict) -> str:
+def _emit_z3_block(c: dict, declared_sort_names: set[str] | None = None) -> str:
     """Emit one `solver.assert_and_track(...)` block for a single :z3 constraint."""
     cid       = c[Keyword("id")]
     assert_   = c[Keyword("assert")]
@@ -602,11 +619,14 @@ def _emit_z3_block(c: dict) -> str:
     if isinstance(assert_, str):
         from scripts._edn_reader import read_edn
         assert_ = read_edn(assert_)
-    if not isinstance(assert_, (list, EdnList, EdnVector)) or len(assert_) < 3:
+    if not isinstance(assert_, (list, tuple, EdnList, EdnVector)) or len(assert_) < 2:
         raise CodegenError(f"constraint {cid!r}: malformed assert form: {assert_!r}")
     head_node = assert_[0]
     head = head_node.name if isinstance(head_node, Keyword) else str(head_node)
-    lhs_raw, rhs_raw = assert_[1], assert_[2]
+    # Binary heads need at least 3 elements; unary heads (not) need at least 2.
+    # Per-head arity checks below enforce the exact counts.
+    lhs_raw = assert_[1] if len(assert_) >= 2 else None
+    rhs_raw = assert_[2] if len(assert_) >= 3 else None
     if head in ("~=", "approx="):
         # Approx-equality is numeric. If anything in either subtree is a
         # float literal, the whole expression must be Real-typed so that
@@ -635,11 +655,59 @@ def _emit_z3_block(c: dict) -> str:
         # are emitted as Bool subexpressions.
         expr = _emit_ite(assert_, "Bool")
         return _emit_bool_assert_block(cid, expr)
-    if head == "forall":
-        # REQ-DSL-053: top-level forall over a vector/set. Lowers via
-        # `_emit_aggregate`; the result is a Z3 Bool asserted directly.
-        body_expr = _emit_expr_typed(assert_, "Bool")
-        return _emit_bool_assert_block(cid, body_expr)
+    if head == "and":
+        if len(assert_) < 3:
+            raise CodegenError(
+                f"constraint {cid!r}: 'and' requires at least 2 operands, got {len(assert_)-1}"
+            )
+        parts = [_emit_bool_subexpr(child, declared_sort_names=declared_sort_names) for child in assert_[1:]]
+        expr = f"Bool::and(&[{', '.join('&' + p for p in parts)}])"
+        return _emit_bool_assert_block(cid, expr)
+    if head == "or":
+        if len(assert_) < 3:
+            raise CodegenError(
+                f"constraint {cid!r}: 'or' requires at least 2 operands, got {len(assert_)-1}"
+            )
+        parts = [_emit_bool_subexpr(child, declared_sort_names=declared_sort_names) for child in assert_[1:]]
+        expr = f"Bool::or(&[{', '.join('&' + p for p in parts)}])"
+        return _emit_bool_assert_block(cid, expr)
+    if head == "not":
+        if len(assert_) != 2:
+            raise CodegenError(
+                f"constraint {cid!r}: 'not' requires exactly 1 operand, got {len(assert_)-1}"
+            )
+        inner = _emit_bool_subexpr(assert_[1], declared_sort_names=declared_sort_names)
+        body = f"{inner}.not()"
+        return _emit_bool_assert_block(cid, body)
+    if head == "=>":
+        if len(assert_) != 3:
+            raise CodegenError(
+                f"constraint {cid!r}: '=>' requires exactly 2 operands, got {len(assert_)-1}"
+            )
+        premise = _emit_bool_subexpr(assert_[1], declared_sort_names=declared_sort_names)
+        conclusion = _emit_bool_subexpr(assert_[2], declared_sort_names=declared_sort_names)
+        body = f"{premise}.implies(&{conclusion})"
+        return _emit_bool_assert_block(cid, body)
+    if head in ("forall", "exists"):
+        # Two shapes coexist:
+        #   Phase G (vector-bounded):  (forall ?x in <coll> body)
+        #     len >= 4 AND assert_[2] is the `in` marker. Lowers via
+        #     `_emit_aggregate`. `exists` of this shape is not supported
+        #     by Phase G — it falls through to the v0.5 path below.
+        #   v0.5 (general quantifier): (forall [(?v :sort) ...] body)
+        #     len == 3 AND assert_[1] is a vector of (?var :sort) pairs.
+        #     Lowers via `_emit_quantifier_expr`.
+        if head == "forall" and len(assert_) >= 4:
+            in_marker = assert_[2]
+            in_name = in_marker.name if isinstance(in_marker, Keyword) else str(in_marker)
+            if in_name == "in":
+                # Phase G vector-bounded forall; reuse the aggregate path.
+                body_expr = _emit_expr_typed(assert_, "Bool")
+                return _emit_bool_assert_block(cid, body_expr)
+        # v0.5 general quantifier.
+        _dsn = declared_sort_names or set()
+        quantified = _emit_quantifier_expr(assert_, _dsn, outer_bound_vars=None)
+        return _emit_bool_assert_block(cid, quantified)
     raise CodegenError(
         f"constraint {cid!r}: assert head {head!r} not supported; "
         f"expected one of {sorted(_SUPPORTED_ASSERT_HEADS)}"
@@ -913,7 +981,7 @@ class _RawZ3Expr:
         self.text = text
 
 
-def _emit_expr_typed(node: Any, z3_type: str) -> str:
+def _emit_expr_typed(node: Any, z3_type: str, bound_vars: dict[str, str] | None = None) -> str:
     """Emit a Z3 expression with an explicit type hint for variable declarations.
 
     Used when both sides of an equality share a Z3 type so the codegen
@@ -944,7 +1012,7 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
     agg = _emit_aggregate(node, z3_type)
     if agg is not None:
         return agg
-    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
+    if isinstance(node, (list, tuple, EdnList, EdnVector)) and len(node) > 0:
         head = node[0]
         if isinstance(head, Keyword):
             info = _predicate_call_info(node)
@@ -969,21 +1037,21 @@ def _emit_expr_typed(node: Any, z3_type: str) -> str:
                 return f'Int::new_const("{var_name}")'
         head_str = str(head)
         if head_str in {"*", "+", "-"} and len(node) >= 3:
-            children = [_emit_expr_typed(n, z3_type) for n in list(node)[1:]]
+            children = [_emit_expr_typed(n, z3_type, bound_vars=bound_vars) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             return _left_fold(method, children)
         if head_str in _REAL_BINOP_TO_Z3:
-            return _emit_real_binop(head_str, node, z3_type)
+            return _emit_real_binop(head_str, node, z3_type, bound_vars=bound_vars)
         if head_str == "ite":
-            return _emit_ite(node, z3_type)
+            return _emit_ite(node, z3_type, bound_vars=bound_vars)
         if head_str == "=" and len(node) == 3:
             # Nested equality inside a forall body or other aggregate.
             # Pick the child type from the literal on the right.
             child_type = _infer_z3_type(node[2])
-            lhs = _emit_expr_typed(node[1], child_type)
-            rhs = _emit_expr_typed(node[2], child_type)
+            lhs = _emit_expr_typed(node[1], child_type, bound_vars=bound_vars)
+            rhs = _emit_expr_typed(node[2], child_type, bound_vars=bound_vars)
             return f"{lhs}.eq(&{rhs})"
-    return _emit_expr(node)
+    return _emit_expr(node, bound_vars=bound_vars)
 
 
 def _subtree_has_float(node: Any) -> bool:
@@ -992,12 +1060,12 @@ def _subtree_has_float(node: Any) -> bool:
         return False
     if isinstance(node, float):
         return True
-    if isinstance(node, (list, EdnList, EdnVector)):
+    if isinstance(node, (list, tuple, EdnList, EdnVector)):
         return any(_subtree_has_float(child) for child in node)
     return False
 
 
-def _emit_real_binop(head: str, node: Any, z3_type: str) -> str:
+def _emit_real_binop(head: str, node: Any, z3_type: str, bound_vars: dict[str, str] | None = None) -> str:
     """Emit a Z3 `.method(&rhs)` call for one of the Real/Int binary ops in
     `_REAL_BINOP_TO_Z3` (`<`, `<=`, `>`, `>=`, `/`).
 
@@ -1011,7 +1079,7 @@ def _emit_real_binop(head: str, node: Any, z3_type: str) -> str:
     type the caller asks for so the result-sort matches a sibling
     operand.
     """
-    if not isinstance(node, (list, EdnList, EdnVector)) or len(node) != 3:
+    if not isinstance(node, (list, tuple, EdnList, EdnVector)) or len(node) != 3:
         raise CodegenError(
             f"operator {head!r} expects exactly two arguments, got: {node!r}"
         )
@@ -1025,12 +1093,12 @@ def _emit_real_binop(head: str, node: Any, z3_type: str) -> str:
     else:
         # `/` keeps the caller's type so its result composes correctly.
         sub_type = z3_type if z3_type in {"Real", "Int"} else "Real"
-    lhs = _emit_expr_typed(node[1], sub_type)
-    rhs = _emit_expr_typed(node[2], sub_type)
+    lhs = _emit_expr_typed(node[1], sub_type, bound_vars=bound_vars)
+    rhs = _emit_expr_typed(node[2], sub_type, bound_vars=bound_vars)
     return f"{lhs}.{method}(&{rhs})"
 
 
-def _emit_ite(node: Any, z3_type: str) -> str:
+def _emit_ite(node: Any, z3_type: str, bound_vars: dict[str, str] | None = None) -> str:
     """Emit a Z3 `cond.ite(&then, &else)` call for `(ite COND THEN ELSE)`.
 
     `COND` is always emitted as a Bool subexpression (so it may itself
@@ -1038,15 +1106,175 @@ def _emit_ite(node: Any, z3_type: str) -> str:
     the caller's `z3_type` because Z3 requires both arms of an ite to
     have the same sort (REQ-SMT-043).
     """
-    if not isinstance(node, (list, EdnList, EdnVector)) or len(node) != 4:
+    if not isinstance(node, (list, tuple, EdnList, EdnVector)) or len(node) != 4:
         raise CodegenError(
             f"operator 'ite' expects exactly three arguments "
             f"(condition, then, else); got: {node!r}"
         )
-    cond = _emit_expr_typed(node[1], "Bool")
-    then_branch = _emit_expr_typed(node[2], z3_type)
-    else_branch = _emit_expr_typed(node[3], z3_type)
+    cond = _emit_expr_typed(node[1], "Bool", bound_vars=bound_vars)
+    then_branch = _emit_expr_typed(node[2], z3_type, bound_vars=bound_vars)
+    else_branch = _emit_expr_typed(node[3], z3_type, bound_vars=bound_vars)
     return f"{cond}.ite(&{then_branch}, &{else_branch})"
+
+
+def _emit_quantifier_expr(
+    node: Any,
+    declared_sort_names: set[str],
+    outer_bound_vars: dict[str, str] | None = None,
+) -> str:
+    """Emit a quantified Bool expression for a `(forall/exists bindings body)` node.
+
+    Returns the expression string (not a full assert block). Works at both
+    top level (called from _emit_z3_block) and nested inside a body
+    (called from _emit_bool_subexpr's forall/exists arms).
+
+    outer_bound_vars: variables already in scope from an enclosing quantifier;
+    merged with the new bindings so inner references to outer variables resolve.
+    """
+    head = str(node[0])
+    if len(node) != 3:
+        raise CodegenError(
+            f"'{head}' requires (bindings, body), got {len(node) - 1} args"
+        )
+    bindings, body_node = node[1], node[2]
+    if not isinstance(bindings, (list, tuple, EdnList, EdnVector)):
+        raise CodegenError(
+            f"'{head}' bindings must be a vector, got {type(bindings).__name__}"
+        )
+    new_bound_vars: dict[str, str] = dict(outer_bound_vars or {})
+    const_decls: list[str] = []
+    for pair in bindings:
+        if not (isinstance(pair, (list, tuple, EdnList, EdnVector)) and len(pair) == 2):
+            raise CodegenError(
+                f"'{head}' binding must be (?var :sort), got {pair!r}"
+            )
+        var, sort_kw = pair[0], pair[1]
+        if not (isinstance(var, Symbol) and str(var).startswith("?")):
+            raise CodegenError(
+                f"'{head}' bound variable must start with '?', got {var!r}"
+            )
+        if not isinstance(sort_kw, Keyword):
+            raise CodegenError(
+                f"'{head}' bound variable sort must be a Keyword, got {sort_kw!r}"
+            )
+        sort_name = sort_kw.name if hasattr(sort_kw, "name") else str(sort_kw)
+        if sort_name not in declared_sort_names:
+            raise CodegenError(
+                f"sort {sort_name!r} not declared in sorts.edn"
+            )
+        var_str = str(var)
+        safe_var = var_str.lstrip("?").replace("-", "_")
+        safe_sort = sort_name.replace("-", "_")
+        const_name = f"{safe_var}_const"
+        sort_const = f"{safe_sort}_sort"
+        const_decls.append(
+            f"let {const_name} = Datatype::new_const(ctx, {var_str!r}, &{sort_const});"
+        )
+        new_bound_vars[var_str] = const_name
+    body_rendered = _emit_bool_subexpr(
+        body_node,
+        bound_vars=new_bound_vars,
+        declared_sort_names=declared_sort_names,
+    )
+    # Only the variables introduced by *this* quantifier (not outer ones)
+    # go into the bound-refs list.
+    new_var_names = [
+        new_bound_vars[k]
+        for k in new_bound_vars
+        if k not in (outer_bound_vars or {})
+    ]
+    bound_refs = ", ".join(f"&{n}.clone().into()" for n in new_var_names)
+    api = "mk_forall_const" if head == "forall" else "mk_exists_const"
+    return (
+        "{ "
+        + " ".join(const_decls)
+        + f" ctx.{api}(&[{bound_refs}], &{body_rendered}, &[], &[], &[], &[])"
+        + " }"
+    )
+
+
+def _emit_bool_subexpr(
+    node: Any,
+    bound_vars: dict[str, str] | None = None,
+    declared_sort_names: set[str] | None = None,
+) -> str:
+    """Emit a Bool-typed Rust expression for `node`, suitable as a child of
+    a top-level Bool assertion or of an outer boolean connective.
+
+    Handles the same heads as _emit_z3_block produces Bool outputs for:
+    `=`, `<`, `<=`, `>`, `>=`, `ite`, plus the boolean connectives added
+    in v0.5 (`and`, `or`, `not`, `=>`), plus nested quantifiers (`forall`,
+    `exists`) when declared_sort_names is provided (REQ-SMT-051, 052).
+
+    REQ-SMT-050."""
+    if not isinstance(node, (list, tuple, EdnList, EdnVector)):
+        raise CodegenError(f"_emit_bool_subexpr: expected an assert form, got {node!r}")
+    if len(node) < 1:
+        raise CodegenError("_emit_bool_subexpr: empty form")
+    head_node = node[0]
+    head_str = head_node.name if isinstance(head_node, Keyword) else str(head_node)
+    # Equality
+    if head_str == "=":
+        z3_type = _infer_z3_type(node[2])
+        lhs = _emit_expr_typed(node[1], z3_type, bound_vars=bound_vars)
+        rhs = _emit_expr_typed(node[2], z3_type, bound_vars=bound_vars)
+        return f"{lhs}.eq(&{rhs})"
+    # Comparison (binary)
+    if head_str in {"<", "<=", ">", ">="}:
+        return _emit_real_binop(head_str, node, "Bool", bound_vars=bound_vars)
+    if head_str in ("~=", "approx="):
+        raise CodegenError(
+            "approx= as nested subexpression: not yet supported in v0.5; only at top level"
+        )
+    if head_str == "ite":
+        return _emit_ite(node, "Bool", bound_vars=bound_vars)
+    # Nested boolean connectives — recurse.
+    if head_str == "and":
+        parts = [_emit_bool_subexpr(child, bound_vars=bound_vars, declared_sort_names=declared_sort_names) for child in node[1:]]
+        return f"Bool::and(&[{', '.join('&' + p for p in parts)}])"
+    if head_str == "or":
+        parts = [_emit_bool_subexpr(child, bound_vars=bound_vars, declared_sort_names=declared_sort_names) for child in node[1:]]
+        return f"Bool::or(&[{', '.join('&' + p for p in parts)}])"
+    if head_str == "not":
+        inner = _emit_bool_subexpr(node[1], bound_vars=bound_vars, declared_sort_names=declared_sort_names)
+        return f"{inner}.not()"
+    if head_str == "=>":
+        premise = _emit_bool_subexpr(node[1], bound_vars=bound_vars, declared_sort_names=declared_sort_names)
+        conclusion = _emit_bool_subexpr(node[2], bound_vars=bound_vars, declared_sort_names=declared_sort_names)
+        return f"{premise}.implies(&{conclusion})"
+    # Nested quantifiers — delegate to shared helper.
+    if head_str in ("forall", "exists"):
+        if declared_sort_names is None:
+            raise CodegenError(
+                f"_emit_bool_subexpr: nested quantifier requires declared_sort_names; "
+                f"this is an internal codegen bug."
+            )
+        return _emit_quantifier_expr(node, declared_sort_names, outer_bound_vars=bound_vars)
+    # Keyword-headed predicate application: (:predicate arg1 arg2 ...)
+    # Treated as a named Bool constant whose name encodes the predicate + args.
+    # TODO(Tier 3): proper predicate-as-uninterpreted-function semantics.
+    # Currently emits a Bool constant whose name encodes the predicate + bound-var
+    # references. Z3 sees a fresh opaque Bool per textual occurrence, so a quantified
+    # property over this predicate is NOT actually enforced across instantiations.
+    # Proper handling: declare `<pred>: <arg-sorts...> -> Bool` in the preamble and
+    # emit `<pred>_fn.apply(&[&a, &b])`. Tracked in SUPPORT_MATRIX.md §"Quantifier
+    # predicate-application semantics".
+    if isinstance(head_node, Keyword):
+        pred = head_node.name
+        arg_parts: list[str] = []
+        for arg in list(node)[1:]:
+            if isinstance(arg, Keyword):
+                arg_parts.append(arg.name)
+            elif isinstance(arg, Symbol):
+                arg_parts.append(str(arg).lstrip("?"))
+            else:
+                arg_parts.append(str(arg))
+        var_name = "_".join([pred] + arg_parts).replace("-", "_")
+        return f'Bool::new_const("{var_name}")'
+    raise CodegenError(
+        f"_emit_bool_subexpr: unsupported head {head_str!r}; "
+        f"expected one of =, ~=, approx=, <, <=, >, >=, ite, and, or, not, =>, forall, exists"
+    )
 
 
 def _parse_assert(assert_form: Any) -> tuple[str, str, str]:
@@ -1060,7 +1288,7 @@ def _parse_assert(assert_form: Any) -> tuple[str, str, str]:
     if isinstance(assert_form, str):
         from scripts._edn_reader import read_edn
         assert_form = read_edn(assert_form)
-    if not isinstance(assert_form, (list, EdnList, EdnVector)) or len(assert_form) < 3:
+    if not isinstance(assert_form, (list, tuple, EdnList, EdnVector)) or len(assert_form) < 3:
         raise CodegenError(f"malformed assert form: {assert_form!r}")
     head = assert_form[0]
     head_str = head.name if isinstance(head, Keyword) else str(head)
@@ -1069,7 +1297,7 @@ def _parse_assert(assert_form: Any) -> tuple[str, str, str]:
     return lhs, rhs, head_str
 
 
-def _emit_expr(node: Any) -> str:
+def _emit_expr(node: Any, bound_vars: dict[str, str] | None = None) -> str:
     """Translate one atomspace expression node to a Rust Z3 AST builder snippet.
 
     Recognised shapes (kept minimal for v0.4):
@@ -1083,12 +1311,21 @@ def _emit_expr(node: Any) -> str:
     used for any node that contains a float literal anywhere in its
     subtree.
     """
+    from scripts._edn_reader import Symbol as _Symbol
+    if isinstance(node, _Symbol):
+        name = str(node)
+        if name.startswith("?"):
+            if not bound_vars or name not in bound_vars:
+                raise CodegenError(
+                    f"unbound variable {name!r} (not in any forall/exists scope)"
+                )
+            return bound_vars[name]
     if isinstance(node, int) and not isinstance(node, bool):
         return f"Int::from_i64({node})"
     if isinstance(node, float):
         num, den = _rational_approx(node)
         return f"Real::from_rational({num}, {den})"
-    if isinstance(node, (list, EdnList, EdnVector)) and len(node) > 0:
+    if isinstance(node, (list, tuple, EdnList, EdnVector)) and len(node) > 0:
         head = node[0]
         # (:predicate ...)
         if isinstance(head, Keyword):
@@ -1104,7 +1341,7 @@ def _emit_expr(node: Any) -> str:
         # (* a b ...) / (+ ...) / (- a b)
         head_str = str(head)
         if head_str in {"*", "+", "-"} and len(node) >= 3:
-            children = [_emit_expr(n) for n in list(node)[1:]]
+            children = [_emit_expr(n, bound_vars=bound_vars) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             # Z3 Rust API uses pairwise; nest left-fold.
             return _left_fold(method, children)

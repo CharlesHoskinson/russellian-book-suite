@@ -16,7 +16,7 @@ from scripts.codegen_axioms import (
     generate_tracker_map,
     CodegenError,
 )
-from scripts._edn_reader import Keyword
+from scripts._edn_reader import Keyword, Symbol
 
 
 def _constraint(name="C001",
@@ -575,3 +575,141 @@ def test_unsupported_operator_errors() -> None:
     # The error must enumerate the supported set; spot-check a representative.
     for op in ("=", "<", "<=", ">", ">=", "/", "ite"):
         assert repr(op) in msg, f"missing {op!r} in supported-set error: {msg}"
+
+
+# ---------------------------------------------------------------- v0.5 boolean connectives
+
+def test_generate_and_assertion():
+    # (and (< (:f-stake :e) 0.3) (>= (:domain-count :e) 3))
+    constraints = [
+        {Keyword("id"):       "CB001",
+         Keyword("backend"):  Keyword("z3"),
+         Keyword("assert"):   (Symbol("and"),
+                               (Symbol("<"), (Keyword("f-stake"), Keyword("e")), 0.3),
+                               (Symbol(">="), (Keyword("domain-count"), Keyword("e")), 3)),
+         Keyword("on-unsat"): {Keyword("defect"):   Keyword("D13"),
+                               Keyword("severity"): Keyword("critical"),
+                               Keyword("message"):  "threshold fails"}}
+    ]
+    out = generate_axioms_source(constraints)
+    assert "Bool::and" in out
+    assert "Real::lt" in out or ".lt(&" in out
+    assert "Real::ge" in out or "Int::ge" in out or ".ge(&" in out
+
+
+def test_generate_or_assertion():
+    constraints = [
+        {Keyword("id"):       "CB002",
+         Keyword("backend"):  Keyword("z3"),
+         Keyword("assert"):   (Symbol("or"),
+                               (Symbol("="), (Keyword("status"), Keyword("e")), "ok"),
+                               (Symbol("="), (Keyword("status"), Keyword("e")), "pending")),
+         Keyword("on-unsat"): {Keyword("defect"):   Keyword("D13"),
+                               Keyword("severity"): Keyword("critical"),
+                               Keyword("message"):  "status mismatch"}}
+    ]
+    out = generate_axioms_source(constraints)
+    assert "Bool::or" in out
+
+
+def test_generate_nested_and_or():
+    inner_or = (Symbol("or"),
+                (Symbol("="), (Keyword("color"), Keyword("e")), "red"),
+                (Symbol("="), (Keyword("color"), Keyword("e")), "blue"))
+    body = (Symbol("and"),
+            (Symbol(">="), (Keyword("count"), Keyword("e")), 1),
+            inner_or)
+    constraints = [
+        {Keyword("id"):       "CB003",
+         Keyword("backend"):  Keyword("z3"),
+         Keyword("assert"):   body,
+         Keyword("on-unsat"): {Keyword("defect"):   Keyword("D13"),
+                               Keyword("severity"): Keyword("critical"),
+                               Keyword("message"):  "nested check"}}
+    ]
+    out = generate_axioms_source(constraints)
+    assert "Bool::and" in out
+    assert "Bool::or" in out
+
+
+def test_generate_not_assertion():
+    constraints = [
+        {Keyword("id"): "CB101",
+         Keyword("backend"): Keyword("z3"),
+         Keyword("assert"): (Symbol("not"),
+                             (Symbol("="), (Keyword("status"), Keyword("e")), "failed")),
+         Keyword("track"): Keyword("CB101"),
+         Keyword("on-unsat"): {Keyword("defect"): Keyword("D13"),
+                               Keyword("severity"): Keyword("critical"),
+                               Keyword("message"): "status check"}}
+    ]
+    out = generate_axioms_source(constraints)
+    assert ".not()" in out
+
+
+def test_generate_implies_assertion():
+    constraints = [
+        {Keyword("id"): "CB102",
+         Keyword("backend"): Keyword("z3"),
+         Keyword("assert"): (Symbol("=>"),
+                             (Symbol("<"), (Keyword("f-stake"), Keyword("e")), 0.3),
+                             (Symbol("<="), (Keyword("max-per-domain-fraction"), Keyword("e")), 0.25)),
+         Keyword("track"): Keyword("CB102"),
+         Keyword("on-unsat"): {Keyword("defect"): Keyword("D13"),
+                               Keyword("severity"): Keyword("critical"),
+                               Keyword("message"): "implication check"}}
+    ]
+    out = generate_axioms_source(constraints)
+    assert ".implies(" in out
+
+
+# ---------------------------------------------------------------- bound variable resolution (REQ-SMT-053)
+
+def test_unbound_variable_reference_raises():
+    # Plain `(= ?x 5)` outside any quantifier scope must raise.
+    constraints = [
+        {Keyword("id"): "CB201",
+         Keyword("backend"): Keyword("z3"),
+         Keyword("assert"): (Symbol("="), Symbol("?x"), 5),
+         Keyword("track"): Keyword("CB201"),
+         Keyword("on-unsat"): {Keyword("defect"): Keyword("D13"),
+                               Keyword("severity"): Keyword("critical"),
+                               Keyword("message"): "unbound var should fail"}}
+    ]
+    with pytest.raises(CodegenError, match=r"unbound variable '\?x'"):
+        generate_axioms_source(constraints)
+
+
+def test_bound_variable_reference_resolves_to_z3_const():
+    from scripts.codegen_axioms import _emit_expr
+    bound = {"?x": "x_const"}
+    rendered = _emit_expr(Symbol("?x"), bound_vars=bound)
+    assert rendered == "x_const"
+
+
+# ---------------------------------------------------------------- v0.5 golden fixture (REQ-BOOKLOGIC-051..053, REQ-SMT-055)
+
+def test_extended_operators_v0_5_golden_fixture():
+    """Pin canonical AST shapes for v0.5 extended operators (and/or/not/=>/forall/exists)."""
+    from scripts._edn_reader import read_edn
+    fixture_path = Path(__file__).parent / "golden" / "extended_operators_v0_5.edn"
+    raw = fixture_path.read_text(encoding="utf-8")
+    fixture = read_edn(raw)
+    for case in fixture[Keyword("cases")]:
+        constraint = {
+            Keyword("id"): case[Keyword("name")],
+            Keyword("backend"): Keyword("z3"),
+            Keyword("assert"): case[Keyword("assert")],
+            Keyword("track"): Keyword("claim/id"),
+            Keyword("on-unsat"): {
+                Keyword("defect"): Keyword("D13"),
+                Keyword("severity"): Keyword("critical"),
+                Keyword("message"): "golden fixture check",
+            },
+        }
+        sorts = list(case.get(Keyword("sorts"), []))
+        out = generate_axioms_source([constraint], sorts=sorts)
+        expected = case[Keyword("expected-z3-call")]
+        assert expected in out, (
+            f"case {case[Keyword('name')]!r}: expected {expected!r} in emitted source"
+        )

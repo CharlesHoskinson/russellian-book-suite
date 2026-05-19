@@ -467,11 +467,87 @@ inside a numeric subexpression — it produces a numeric AST, not a
 Bool, so it cannot stand alone as the top of `:assert`.
 
 The Boolean connectives `(and …)`, `(or …)`, `(not …)`, and
-`(=> …)` are listed in earlier drafts of this section but the v0.4
-emitter does NOT lower them yet; `defconstraint` with one of those
-heads produces a `CodegenError`. The fallback is to factor the
-assertion into multiple `defconstraint` forms — Z3 conjoins all
-asserted axioms by default.
+`(=> …)` are fully wired in v0.5 (see §2.5.6 below). Quantifiers
+`(forall …)` and `(exists …)` are wired with a caveat on predicate
+semantics (see §2.5.7 below).
+
+#### 2.5.6 Boolean connectives in `:assert`
+
+| Head | Arity | Children | Emits |
+|---|---|---|---|
+| `and` | n-ary (≥2) | Bool | `Bool::and(ctx, &[...])` |
+| `or` | n-ary (≥2) | Bool | `Bool::or(ctx, &[...])` |
+| `not` | unary | Bool | `<inner>.not()` |
+| `=>` | binary | Bool, Bool | `<premise>.implies(&<conclusion>)` |
+
+Bool-valued children are themselves `:assert`-style heads — equality (`=`),
+approximate equality (`approx=` / `~=`), comparisons (`<`, `<=`, `>`, `>=`),
+nested boolean connectives, or quantifiers (§2.5.7). Arithmetic sub-expressions
+(`+`, `*`, etc.) are NOT Bool and may not appear directly as boolean children;
+wrap them in a comparison.
+
+**Worked example.** A conjunctive bound:
+
+```edn
+(defconstraint C001-conjecture1
+  :backend  :z3
+  :assert   (and (>= (:domain-count :epochpoet) 3)
+                 (< (+ (:f-stake :epochpoet)
+                       (* (:f-tee :epochpoet) (:w-vendor :max-active-domain)))
+                    (/ 1 3))
+                 (<= (:max-per-domain-fraction :epochpoet) (/ 1 4)))
+  :track    :claim/id
+  :on-unsat {:defect :D13
+             :severity :critical
+             :message "Conjecture 1 joint threshold violated"})
+```
+
+#### 2.5.7 Quantifiers in `:assert`
+
+| Head | Arity | Bindings | Body | Emits |
+|---|---|---|---|---|
+| `forall` | (bindings, body) | typed `(?v :sort)` pairs | Bool | `ctx.mk_forall_const(...)` |
+| `exists` | (bindings, body) | typed `(?v :sort)` pairs | Bool | `ctx.mk_exists_const(...)` |
+
+Bindings are a vector of `(?var :sort-keyword)` pairs. Sorts must be declared
+in `sorts.edn` (an undeclared sort raises `CodegenError`). Variable references
+inside the body resolve to the bound Z3 const; references outside any
+quantifier scope are an error.
+
+**Worked example.** Universal contradiction-with-supersession:
+
+```edn
+(defconstraint C003-no-uncovered-contradiction
+  :backend  :z3
+  :assert   (forall [(?a :proof-obligation) (?b :proof-obligation)]
+              (=> (:contradicts ?a ?b)
+                  (:supersedes ?a ?b)))
+  :track    :claim/id
+  :on-unsat {:defect :D13
+             :severity :critical
+             :message "Two claims contradict without a supersession edge"})
+```
+
+##### Critical limitation (v0.5): predicate-application semantics
+
+Keyword-headed predicate calls inside a quantifier body currently emit a Bool
+constant whose name mentions the bound variables but does not bind to them at
+the solver level. The example above will produce SMT-LIB that declares
+`forall ?a, ?b: <Bool-atom-named-contradicts_a_b> => <Bool-atom-named-supersedes_a_b>`
+where the two Bool atoms are unrelated to the `?a` / `?b` instantiations. Z3
+treats them as fresh opaque Bools; the quantified property is **not** actually
+enforced over the obligation pairs.
+
+The structural wiring (typed bound constants + `mk_forall_const`) is correct;
+only the predicate semantics are stubbed. Authors should treat quantified
+predicate verdicts as wiring checks, not soundness proofs, until the Tier 3
+predicate-as-uninterpreted-function follow-up lands. See `SUPPORT_MATRIX.md`
+for the tracking note.
+
+##### Implementation note
+
+v0.5 emits empty trigger patterns; Z3's MBQI handles instantiation. Explicit
+trigger annotations are deferred to a future tier.
 
 #### Compilation target
 

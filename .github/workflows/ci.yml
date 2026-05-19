@@ -51,7 +51,7 @@ jobs:
             pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
           # neurosym-forge only ships a [dev] extras section, not [ci]
           - skill: neurosym-forge
-            extra: dev
+            extra: dev,semantic
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-book-python

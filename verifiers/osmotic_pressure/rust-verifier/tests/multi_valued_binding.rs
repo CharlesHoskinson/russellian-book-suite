@@ -10,8 +10,8 @@
 #![cfg(feature = "smt")]
 
 use edn_rs::Edn;
-use osmotic_pressure_verifier::ir::Error;
-use osmotic_pressure_verifier::smt::check_value_sort_compat;
+use osmotic_pressure_verifier::ir::{self, Error};
+use osmotic_pressure_verifier::smt::{self, check_value_sort_compat};
 
 fn always_vector(_name: &str) -> bool { true }
 fn never_vector(_name: &str) -> bool { false }
@@ -66,4 +66,45 @@ fn scalar_value_for_scalar_predicate_passes() {
     let value = parse_edn("9");
     let res   = check_value_sort_compat("parishes-count_Bermuda", "atom-005", &value, never_vector);
     assert!(res.is_ok(), "scalar-on-scalar must pass: {res:?}");
+}
+
+// edn-rs 0.19 parses positive integer literals as Edn::UInt, not Edn::Int.
+// Before the fix, bind_atoms hit the `_ => continue` arm for UInt values,
+// silently dropping every positive-integer atom. Two contradictory UInt
+// bindings on the same Z3 variable are unsatisfiable when bound; if they
+// are dropped, the solver has no constraints and returns :sat instead.
+#[test]
+fn positive_integer_atom_binds_to_z3() {
+    // Two expression atoms, same predicate+subject, contradictory values.
+    // count_probe-x == 5  AND  count_probe-x == 99  =>  :unsat when bound.
+    // Positive integer literals parse as Edn::UInt in edn-rs 0.19.
+    let edn = r#"{:atoms [
+        {:id "uint-a" :kind :expression :predicate :count :subject :probe-x :value 5}
+        {:id "uint-b" :kind :expression :predicate :count :subject :probe-x :value 99}
+    ]}"#;
+    let formulas = ir::parse_formulas(edn)
+        .expect("EDN must parse cleanly");
+    // Verify that the parser did produce Edn::UInt for the value field,
+    // confirming this test exercises the right code path.
+    let values: Vec<_> = formulas.iter()
+        .filter_map(|(_, atom)| atom.get(":value"))
+        .collect();
+    assert_eq!(values.len(), 2, "expected two atoms with :value");
+    for v in &values {
+        assert!(
+            matches!(v, Edn::UInt(_)),
+            "edn-rs 0.19 must parse positive int literal as Edn::UInt; got {v:?}"
+        );
+    }
+    // With both atoms bound, the solver must find the system unsatisfiable
+    // (count_probe-x cannot equal both 5 and 99 simultaneously).
+    // Before the Edn::UInt fix, the atoms are silently dropped and the
+    // solver returns :sat.
+    let verdict = smt::check_all(&formulas)
+        .expect("check_all must not error on well-formed UInt atoms");
+    assert_eq!(
+        verdict.status, "unsat",
+        "contradictory UInt atom bindings must be detected as :unsat; \
+         :sat means bind_atoms dropped the Edn::UInt values silently"
+    );
 }

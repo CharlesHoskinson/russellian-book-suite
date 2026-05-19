@@ -25,6 +25,7 @@ from __future__ import annotations
 import itertools
 import os
 import re
+import statistics
 import threading
 from collections import Counter, defaultdict
 from typing import Any, Iterable, Optional
@@ -441,3 +442,52 @@ def dedup_with_rejection_log(
             rejected.append(entry)
         seen.add(key)
     return merged, rejected
+
+
+# ---------------------------------------------------------------------------
+# Semantic-coherence ranking (REQ-INDUCE-053)
+# ---------------------------------------------------------------------------
+
+
+def coherence_score(candidate: dict[str, Any], sem_index: Any) -> float:
+    """Mean pairwise cosine similarity over the candidate's cited atoms.
+
+    A 0- or 1-atom candidate returns 1.0 (the empty pair set is
+    maximally coherent by convention; a 1-atom candidate is
+    self-coherent).
+    """
+    atoms = candidate.get("cited_atoms", []) or []
+    if len(atoms) < 2:
+        return 1.0
+    pairs = list(itertools.combinations(atoms, 2))
+    sims: list[float] = []
+    for a, b in pairs:
+        try:
+            sims.append(float(sem_index.cosine(a, b)))
+        except Exception:
+            sims.append(0.0)
+    if not sims:
+        return 1.0
+    return float(statistics.fmean(sims))
+
+
+def rank_by_semantic_coherence(
+    candidates: list[dict[str, Any]],
+    sem_index: Any,
+) -> list[dict[str, Any]]:
+    """REQ-INDUCE-053: order candidates by descending mean pairwise
+    cosine over cited atoms. WHERE sem_index is None, the function is a
+    no-op that preserves insertion order (graceful degradation when
+    Phase Q's SemanticIndex is unavailable).
+    """
+    if sem_index is None:
+        return [dict(c, coherence=c.get("coherence")) for c in candidates]
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for idx, c in enumerate(candidates):
+        sc = coherence_score(c, sem_index)
+        copy = dict(c)
+        copy["coherence"] = sc
+        scored.append((idx, copy))
+    # Stable sort: ties broken by original insertion order.
+    scored.sort(key=lambda kv: (-kv[1]["coherence"], kv[0]))
+    return [c for _idx, c in scored]

@@ -12,18 +12,19 @@ Pipeline:
   4. For each Phase Q semantic cluster, invoke the LLM proposer (Phase V
      when available, else the StubProposer fallback).
   5. Dedup by canonical S-expr form (REQ-INDUCE-052).
-  6. Persist the queue to work/induction/candidates.edn with rejection
+  6. Rank by semantic coherence when Phase Q is available
+     (REQ-INDUCE-053).
+  7. Persist the queue to work/induction/candidates.edn with rejection
      reasons retained (REQ-INDUCE-055).
 
-The ranking step (REQ-INDUCE-053) and the budget tracker
-(REQ-INDUCE-056) are wired in follow-on commits.
+The budget tracker (REQ-INDUCE-056) is wired in a follow-on commit.
 """
 from __future__ import annotations
 
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from scripts import _induction_sources as sources
 from scripts._edn_reader import Keyword
@@ -62,6 +63,56 @@ def load_atoms(project_root: Path) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Phase Q semantic-index probe (REQ-INDUCE-053)
+# ---------------------------------------------------------------------------
+
+
+def _try_load_semantic_index(project_root: Path) -> Optional[Any]:
+    """REQ-INDUCE-053: probe for Phase Q's persisted SemanticIndex.
+
+    Returns the loaded index when available; ``None`` when absent
+    (graceful degradation — ranking falls back to insertion order).
+    """
+    cache_path = project_root / "work" / "semantic-index.npz"
+    if not cache_path.exists():
+        return None
+    try:
+        from scripts._semantic_index import SemanticIndex  # type: ignore
+
+        idx = SemanticIndex(cache_path=cache_path)
+        idx.load()
+        if idx.count() == 0:
+            return None
+        return _CosineWrapper(idx)
+    except Exception:
+        return None
+
+
+class _CosineWrapper:
+    """Adapt ``SemanticIndex`` to the ranking helper's ``cosine`` API."""
+
+    def __init__(self, idx: Any) -> None:
+        self._idx = idx
+        try:
+            self._ids = list(idx._claim_ids)  # type: ignore[attr-defined]
+            self._embs = list(idx._embeddings)  # type: ignore[attr-defined]
+        except Exception:
+            self._ids = []
+            self._embs = []
+
+    def cosine(self, a: str, b: str) -> float:
+        if a == b:
+            return 1.0
+        if a not in self._ids or b not in self._ids:
+            return 0.0
+        import numpy as np
+
+        i = self._ids.index(a)
+        j = self._ids.index(b)
+        return float(np.dot(self._embs[i], self._embs[j]))
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +214,10 @@ def run(project_root: Path) -> int:
     # Dedup with rejection logging (REQ-INDUCE-052, 055)
     all_cands = horn_cands + popper_cands + llm_cands
     survivors, rejected = sources.dedup_with_rejection_log(all_cands)
+
+    # Rank by semantic coherence when Phase Q is available (REQ-INDUCE-053)
+    sem_index = _try_load_semantic_index(project_root)
+    survivors = sources.rank_by_semantic_coherence(survivors, sem_index)
 
     _persist_queue(
         project_root,

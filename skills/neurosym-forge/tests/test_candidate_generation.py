@@ -363,3 +363,65 @@ def test_duplicate_candidate_is_rejected_with_duplicate_reason() -> None:
     assert len(merged) == 1
     assert len(rejected) == 1
     assert rejected[0]["rejection_reason"] == "duplicate"
+
+
+# ---------------------------------------------------------------------------
+# REQ-INDUCE-053: semantic-coherence ranking
+# ---------------------------------------------------------------------------
+
+
+class _FakeSemanticIndex:
+    """Deterministic cosine over a small lookup table for ranking tests."""
+
+    def __init__(self, table: dict[tuple[str, str], float]) -> None:
+        self._table = table
+
+    def cosine(self, a: str, b: str) -> float:
+        if a == b:
+            return 1.0
+        key = tuple(sorted([a, b]))
+        return self._table.get(key, 0.0)
+
+
+def test_semantic_ranking_orders_by_coherence_descending() -> None:
+    """REQ-INDUCE-053: ranking puts higher-coherence candidates first."""
+    idx = _FakeSemanticIndex(
+        {
+            ("a-1", "a-2"): 0.9,   # high coherence
+            ("a-3", "a-4"): 0.5,   # mid
+            ("a-5", "a-6"): 0.1,   # low
+        }
+    )
+    cands = [
+        {"id": "c-low",  "cited_atoms": ["a-5", "a-6"], "origin": [sources.HORN_BODY]},
+        {"id": "c-high", "cited_atoms": ["a-1", "a-2"], "origin": [sources.HORN_BODY]},
+        {"id": "c-mid",  "cited_atoms": ["a-3", "a-4"], "origin": [sources.HORN_BODY]},
+    ]
+    ranked = sources.rank_by_semantic_coherence(cands, idx)
+    assert [c["id"] for c in ranked] == ["c-high", "c-mid", "c-low"]
+    assert ranked[0]["coherence"] == pytest.approx(0.9)
+    assert ranked[-1]["coherence"] == pytest.approx(0.1)
+
+
+def test_ranking_falls_back_to_stable_order_without_index() -> None:
+    """REQ-INDUCE-053: WHERE SemanticIndex is absent, ranking is a no-op
+    and preserves insertion order."""
+    cands = [
+        {"id": "c-a", "cited_atoms": ["x", "y"], "origin": [sources.HORN_BODY]},
+        {"id": "c-b", "cited_atoms": ["z", "w"], "origin": [sources.HORN_BODY]},
+    ]
+    ranked = sources.rank_by_semantic_coherence(cands, sem_index=None)
+    assert [c["id"] for c in ranked] == ["c-a", "c-b"]
+    # The coherence field is still present (None) so downstream consumers
+    # have a consistent shape.
+    assert all("coherence" in c for c in ranked)
+
+
+def test_singleton_cited_atom_has_unit_coherence() -> None:
+    """REQ-INDUCE-053: a candidate with <2 cited atoms has coherence 1.0
+    (the mean over an empty pair set is defined as 1.0 by convention; a
+    1-atom candidate is maximally self-coherent)."""
+    idx = _FakeSemanticIndex({})
+    cands = [{"id": "c", "cited_atoms": ["only"], "origin": [sources.LLM]}]
+    ranked = sources.rank_by_semantic_coherence(cands, idx)
+    assert ranked[0]["coherence"] == pytest.approx(1.0)

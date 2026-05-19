@@ -21,6 +21,12 @@ dev = [
     "pytest-cov>=4.1,<8.0",
     "psutil>=5.9,<8.0",
 ]
+# REQ-LLMLIFT-040, 041: optional LLM provider SDKs. The framework
+# operates fully offline with the StubLift provider; install these
+# extras only when wiring `:backend :llm` lifts to real providers.
+llm-openai = ["openai>=1.0,<2.0"]
+llm-anthropic = ["anthropic>=0.30,<1.0"]
+llm-all = ["openai>=1.0,<2.0", "anthropic>=0.30,<1.0"]
 
 [tool.setuptools]
 packages = ["scripts"]

@@ -161,3 +161,58 @@ def test_add_constraint_make_ci_failure_rolls_back(
     assert result.exit_code != 0
     after = (fake_project / "rules" / "booklogic" / "constraints.edn").read_text(encoding="utf-8")
     assert after == original_body
+
+
+# ---------------------------------------------------------------------------
+# REQ-AUTHOR-042 — suggest-lifts (Phase P optional)
+# ---------------------------------------------------------------------------
+
+
+def test_suggest_lifts_without_phase_p(runner: CliRunner, fake_project: Path) -> None:
+    """When scripts._llm_lift is unavailable, the subcommand exits with a pointer."""
+    try:
+        import scripts._llm_lift  # type: ignore[import-not-found]  # noqa: F401
+        pytest.skip("Phase P module is present — exercise the integration test instead.")
+    except ImportError:
+        pass
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["suggest-lifts", "C001", "--project-root", str(fake_project)],
+    )
+    assert result.exit_code == 2
+    assert "Phase P" in result.output
+
+
+def test_suggest_lifts_emits_candidates_no_auto_merge(
+    runner: CliRunner, fake_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With a stubbed Phase P module, candidate deflift forms reach stdout."""
+    claims_path = fake_project / "work" / "claims.jsonl"
+    claims_path.write_text(
+        json.dumps({"claim_id": "C001", "canonical_text": "37 patients enrolled"}) + "\n",
+        encoding="utf-8",
+    )
+
+    import types
+
+    fake_module = types.ModuleType("scripts._llm_lift")
+
+    class _Stub:
+        def suggest_lifts(self, _text: str, k: int = 3) -> list[str]:
+            return [
+                "(deflift L001\n  :from :claim/canonical-text\n  :when \"(?P<v>\\\\d+) patients\")",
+            ][:k]
+
+    fake_module.get_provider = lambda: _Stub()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "scripts._llm_lift", fake_module)
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["suggest-lifts", "C001", "--project-root", str(fake_project), "--k", "1"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "deflift" in result.output
+    assert "Not auto-merged" in result.output
+    lifts = fake_project / "rules" / "booklogic" / "lifts.edn"
+    assert not lifts.exists()

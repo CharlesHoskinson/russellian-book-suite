@@ -25,9 +25,11 @@ with a hand-readable pointer to the missing phase.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import textwrap
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -217,10 +219,61 @@ def add_constraint(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# suggest-lifts (REQ-AUTHOR-042) — Phase P optional integration
+# ---------------------------------------------------------------------------
+
+
+_PHASE_P_MSG = (
+    "suggest-lifts requires Phase P (tier5-llm-extractors) merged first.\n"
+    "Until then, the scripts._llm_lift module is unavailable in this "
+    "checkout."
+)
+
+
+def _load_claim(project_root: Path, claim_id: str) -> dict[str, Any]:
+    claims_path = project_root / "work" / "claims.jsonl"
+    if not claims_path.exists():
+        raise FileNotFoundError(f"claims.jsonl not found at {claims_path}")
+    with claims_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            if record.get("claim_id") == claim_id or record.get("id") == claim_id:
+                return record
+    raise LookupError(f"claim {claim_id} not found in {claims_path}")
+
+
 @cli.command("suggest-lifts")
-def suggest_lifts() -> None:
+@click.argument("claim_id")
+@click.option("--project-root", "project_root", default=".", type=click.Path(path_type=Path),
+              help="Project root (defaults to cwd).")
+@click.option("--k", type=int, default=3, help="Number of candidate lifts to request.")
+def suggest_lifts(claim_id: str, project_root: Path, k: int) -> None:
     """Propose deflift candidates for an unmatched claim via Phase P's LLM provider."""
-    click.echo("suggest-lifts not yet wired")
+    try:
+        from scripts import _llm_lift  # type: ignore[import-not-found]
+    except ImportError:
+        click.echo(_PHASE_P_MSG, err=True)
+        raise click.exceptions.Exit(2)
+
+    project_root = Path(project_root).resolve()
+    record = _load_claim(project_root, claim_id)
+    canonical_text = record.get("canonical_text") or record.get("text") or ""
+    if not canonical_text:
+        raise ValueError(f"claim {claim_id} has no canonical_text")
+
+    provider = _llm_lift.get_provider()
+    candidates = provider.suggest_lifts(canonical_text, k=k)
+    click.echo(f"Candidate deflift forms for {claim_id} ({len(candidates)} suggestions):")
+    click.echo("=" * 72)
+    for idx, cand in enumerate(candidates, 1):
+        click.echo(f";; candidate {idx} — review before merging")
+        click.echo(cand if isinstance(cand, str) else json.dumps(cand, indent=2))
+        click.echo()
+    click.echo("(Not auto-merged; copy a candidate into rules/booklogic/lifts.edn.)")
 
 
 @cli.command("explain-defect")

@@ -1,4 +1,4 @@
-"""REQ-LLMLIFT-040..043, 048: LLM-backed lift providers + schema validation.
+"""REQ-LLMLIFT-040..045, 048: LLM-backed lift providers + schema + cache.
 
 Four concrete implementations:
   OpenAILift    — uses openai SDK; needs OPENAI_API_KEY
@@ -15,11 +15,20 @@ before insertion into the claims registry. The predicate name and
 return sort are checked against `rules/booklogic-schema.edn`.
 Failures raise `LLMLiftRejected` which the ingest layer catches and
 surfaces as a structured `:llm-lift-rejected` defect.
+
+SQLite cache: enabled by NEUROSYM_LLM_CACHE=1. Default path
+~/.cache/neurosym-forge/llm-lift-cache.db, override with
+NEUROSYM_LLM_CACHE_PATH. Cache hits are deterministic by
+(canonical_text_sha256, lift_id); a `cache_stats` table records
+hit counts.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import sqlite3
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -323,3 +332,137 @@ def validate_proposal(schema_path: Path | str, proposal: dict) -> dict:
             )
     # Unknown return sort: pass-through (schema may extend later).
     return proposal
+
+
+# ---------------------------------------------------------------------------
+# SQLite cache (REQ-LLMLIFT-045)
+# ---------------------------------------------------------------------------
+
+
+def _default_cache_path() -> Path:
+    """Default cache DB location: ~/.cache/neurosym-forge/llm-lift-cache.db.
+
+    Override with NEUROSYM_LLM_CACHE_PATH.
+    """
+    override = os.environ.get("NEUROSYM_LLM_CACHE_PATH")
+    if override:
+        return Path(override)
+    return Path.home() / ".cache" / "neurosym-forge" / "llm-lift-cache.db"
+
+
+def _cache_enabled() -> bool:
+    return os.environ.get("NEUROSYM_LLM_CACHE", "0") == "1"
+
+
+def _open_cache(path: Path) -> sqlite3.Connection:
+    """Open (creating if needed) the cache DB. Schema:
+      llm_lift_cache (key_sha TEXT, lift_id TEXT, provider TEXT,
+                      canonical_text TEXT, proposal_json TEXT,
+                      created_at INTEGER, PRIMARY KEY (key_sha, lift_id))
+      cache_stats    (claim_id TEXT, lift_id TEXT, hit_count INTEGER,
+                      last_hit INTEGER, PRIMARY KEY (claim_id, lift_id))
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path))
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS llm_lift_cache ("
+        "  key_sha TEXT NOT NULL,"
+        "  lift_id TEXT NOT NULL,"
+        "  provider TEXT NOT NULL,"
+        "  canonical_text TEXT NOT NULL,"
+        "  proposal_json TEXT NOT NULL,"
+        "  created_at INTEGER NOT NULL,"
+        "  PRIMARY KEY (key_sha, lift_id)"
+        ")"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS cache_stats ("
+        "  claim_id TEXT NOT NULL,"
+        "  lift_id TEXT NOT NULL,"
+        "  hit_count INTEGER NOT NULL DEFAULT 0,"
+        "  last_hit INTEGER NOT NULL DEFAULT 0,"
+        "  PRIMARY KEY (claim_id, lift_id)"
+        ")"
+    )
+    conn.commit()
+    return conn
+
+
+def _key_sha(canonical_text: str) -> str:
+    return hashlib.sha256(canonical_text.encode("utf-8")).hexdigest()
+
+
+def _bump_hit(conn: sqlite3.Connection, claim_id: str, lift_id: str) -> None:
+    now = int(time.time())
+    conn.execute(
+        "INSERT INTO cache_stats (claim_id, lift_id, hit_count, last_hit) "
+        "VALUES (?, ?, 1, ?) "
+        "ON CONFLICT(claim_id, lift_id) DO UPDATE SET "
+        "  hit_count = hit_count + 1, last_hit = excluded.last_hit",
+        (claim_id, lift_id, now),
+    )
+    conn.commit()
+
+
+def cached_extract(
+    provider: LLMLiftProvider,
+    *,
+    claim_id: str,
+    canonical_text: str,
+    emit_template: str,
+    lift_id: str = "",
+) -> dict[str, Any] | None:
+    """REQ-LLMLIFT-045: SQLite-cached wrapper around `provider.extract`.
+
+    When NEUROSYM_LLM_CACHE=1, identical (canonical_text_sha256, lift_id)
+    tuples hit a local SQLite cache. Cache hits are free and
+    deterministic; cache misses call the provider, store the result,
+    and increment the stats counter on the next hit.
+
+    When the cache is disabled, falls through directly to the provider.
+    """
+    if not _cache_enabled():
+        return provider.extract(
+            claim_id=claim_id,
+            canonical_text=canonical_text,
+            emit_template=emit_template,
+        )
+
+    cache_path = _default_cache_path()
+    conn = _open_cache(cache_path)
+    try:
+        key_sha = _key_sha(canonical_text)
+        row = conn.execute(
+            "SELECT proposal_json FROM llm_lift_cache "
+            "WHERE key_sha = ? AND lift_id = ?",
+            (key_sha, lift_id),
+        ).fetchone()
+        if row is not None:
+            _bump_hit(conn, claim_id, lift_id)
+            return json.loads(row[0])
+
+        proposal = provider.extract(
+            claim_id=claim_id,
+            canonical_text=canonical_text,
+            emit_template=emit_template,
+        )
+        if proposal is None:
+            return None
+        conn.execute(
+            "INSERT OR REPLACE INTO llm_lift_cache "
+            "(key_sha, lift_id, provider, canonical_text, proposal_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                key_sha,
+                lift_id,
+                getattr(provider, "name", "unknown"),
+                canonical_text,
+                json.dumps(proposal),
+                int(time.time()),
+            ),
+        )
+        # Initialise (or bump) the stats row so subsequent hits accumulate.
+        _bump_hit(conn, claim_id, lift_id)
+        return proposal
+    finally:
+        conn.close()

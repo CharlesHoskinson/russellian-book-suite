@@ -1,12 +1,13 @@
-"""REQ-LLMLIFT-040..043, 048: LLM-backed lift extractors.
+"""REQ-LLMLIFT-040..045, 048: LLM-backed lift extractors.
 
-Tests the provider interface, schema validation, and offline-stub
-responder. The openai/anthropic SDK tests are guarded by
+Tests the provider interface, schema validation, SQLite cache, and
+offline-stub responder. The openai/anthropic SDK tests are guarded by
 `pytest.importorskip` so CI runs deterministically without the optional
 extras.
 """
 from __future__ import annotations
 
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from scripts._llm_lift import (  # noqa: E402
     LocalLift,
     OpenAILift,
     StubLift,
+    cached_extract,
     get_provider,
     validate_proposal,
 )
@@ -209,3 +211,95 @@ def test_validate_proposal_missing_schema_file_raises(tmp_path):
     missing = tmp_path / "no-such-schema.edn"
     with pytest.raises(LLMLiftRejected, match="booklogic-schema.edn not found"):
         validate_proposal(missing, {"predicate": ":x", "value": 1})
+
+
+# ---------------------------------------------------------------------------
+# REQ-LLMLIFT-045: SQLite cache + hit-count stats
+# ---------------------------------------------------------------------------
+
+
+def test_cache_disabled_falls_through_to_provider(monkeypatch, tmp_path):
+    """When NEUROSYM_LLM_CACHE != 1, cached_extract calls the provider
+    every time (no DB writes)."""
+    monkeypatch.delenv("NEUROSYM_LLM_CACHE", raising=False)
+    monkeypatch.setenv("NEUROSYM_LLM_CACHE_PATH", str(tmp_path / "cache.db"))
+    provider = StubLift(
+        canned_response='{"predicate": ":foo", "subject": ":s", "value": 1}'
+    )
+    a = cached_extract(
+        provider, claim_id="c", canonical_text="x", emit_template="t"
+    )
+    assert a["predicate"] == ":foo"
+    # Cache DB was never created since caching was off.
+    assert not (tmp_path / "cache.db").exists()
+
+
+def test_cache_hit_returns_same_atom_and_bumps_stats(monkeypatch, tmp_path):
+    """REQ-LLMLIFT-045: identical (canonical_text_sha256, lift_id) hits
+    the SQLite cache; the cache_stats table records the hit count."""
+    monkeypatch.setenv("NEUROSYM_LLM_CACHE", "1")
+    cache_db = tmp_path / "cache.db"
+    monkeypatch.setenv("NEUROSYM_LLM_CACHE_PATH", str(cache_db))
+    provider = StubLift(
+        canned_response='{"predicate": ":foo", "subject": ":s", "value": 1}'
+    )
+    a1 = cached_extract(
+        provider,
+        claim_id="c1",
+        canonical_text="x",
+        emit_template="t",
+        lift_id="L001",
+    )
+    a2 = cached_extract(
+        provider,
+        claim_id="c1",
+        canonical_text="x",
+        emit_template="t",
+        lift_id="L001",
+    )
+    assert a1 == a2
+    assert cache_db.exists()
+    db = sqlite3.connect(str(cache_db))
+    rows = list(
+        db.execute(
+            "SELECT hit_count FROM cache_stats "
+            "WHERE claim_id = 'c1' AND lift_id = 'L001'"
+        )
+    )
+    db.close()
+    assert rows and rows[0][0] >= 2, (
+        f"expected hit_count >= 2 after 2 cached_extract calls, got {rows!r}"
+    )
+
+
+def test_cache_distinct_lift_ids_are_separate(monkeypatch, tmp_path):
+    """Same canonical_text, different lift_id — must not collide."""
+    monkeypatch.setenv("NEUROSYM_LLM_CACHE", "1")
+    monkeypatch.setenv("NEUROSYM_LLM_CACHE_PATH", str(tmp_path / "cache.db"))
+    p1 = StubLift(canned_response='{"predicate": ":a", "value": 1}')
+    p2 = StubLift(canned_response='{"predicate": ":b", "value": 2}')
+    a = cached_extract(
+        p1, claim_id="c", canonical_text="x", emit_template="t", lift_id="L1"
+    )
+    b = cached_extract(
+        p2, claim_id="c", canonical_text="x", emit_template="t", lift_id="L2"
+    )
+    assert a["predicate"] == ":a"
+    assert b["predicate"] == ":b"
+
+
+def test_cache_none_proposal_is_not_stored(monkeypatch, tmp_path):
+    """When the provider returns None, do not store anything in cache."""
+    monkeypatch.setenv("NEUROSYM_LLM_CACHE", "1")
+    cache_db = tmp_path / "cache.db"
+    monkeypatch.setenv("NEUROSYM_LLM_CACHE_PATH", str(cache_db))
+    provider = StubLift(canned_response="")
+    a = cached_extract(
+        provider, claim_id="c", canonical_text="x", emit_template="t"
+    )
+    assert a is None
+    # The DB exists (we touched it) but llm_lift_cache has no entries.
+    db = sqlite3.connect(str(cache_db))
+    rows = list(db.execute("SELECT COUNT(*) FROM llm_lift_cache"))
+    db.close()
+    assert rows[0][0] == 0

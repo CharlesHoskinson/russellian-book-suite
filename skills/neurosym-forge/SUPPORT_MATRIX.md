@@ -20,6 +20,8 @@
 | `defconstraint :scope :corpus` | wired      | `codegen_axioms.py` (`axioms_corpus`) | Z3 | wired  |
 | `defquery`                   | wired        | `kg.rs::run_queries` | Cozo        | wired  |
 | `defremedy`                  | wired        | `verdict_to_qa.py`  | n/a          | wired (query-bound) |
+| `defconstraint :assert (and / or / not / =>)` | wired | `codegen_axioms.py` | Z3      | **wired (v0.5)** |
+| `defconstraint :assert (forall / exists)`     | wired | `codegen_axioms.py` | Z3      | **wired-with-caveat (v0.5)** |
 
 ## Status legend
 
@@ -80,6 +82,25 @@ the framework had validated their claims — when in fact the constraint
 had been dropped. SUPPORT_MATRIX.md + the drift lint
 (`test_support_matrix.py`) keep the doc-vs-code state synchronised.
 
+### Quantifier predicate-application semantics (v0.5 caveat)
+
+A Keyword-headed predicate `(:contradicts ?a ?b)` inside a quantifier body
+currently emits `Bool::new_const("contradicts_a_b")` — an opaque Bool atom
+whose **name** mentions the bound-variable references but does not bind to
+them at the solver level. Z3 sees a single Bool per textual occurrence; the
+quantifier therefore does not actually constrain the predicate's truth across
+instantiations. The structural wiring is complete (the `mk_forall_const` /
+`mk_exists_const` calls are emitted correctly with the right typed bound
+constants), but proper predicate-as-uninterpreted-function semantics — declaring
+`contradicts : ProofObligation × ProofObligation → Bool` in the Z3 preamble and
+emitting `.apply(&[&a, &b])` — is deferred to a Tier 3 follow-up. Until that
+lands, authors using quantified predicates should treat the verifier verdict
+as a structural check ("did the framework wire the quantifier?") rather than
+a soundness proof ("did Z3 actually verify the universal property?").
+
+Tracked as Tier 3 follow-up; see `references/tier-roadmap.md` (or open a new
+issue if that file doesn't exist yet).
+
 ## Roadmap pointers
 
 - Tier 3 (Phase H, done): `defrule` and `defconstraint :backend :egg`
@@ -99,3 +120,13 @@ had been dropped. SUPPORT_MATRIX.md + the drift lint
 - Tier 2 (done in PR #77): the silent JS-to-Python regex converter is
   removed; JS-style `(?<v>)` is a hard `IngestRegexDialectError` at
   ingest time.
+- Tier 3 follow-up: predicate-as-uninterpreted-function semantics for
+  Keyword-headed predicates inside quantifier bodies. v0.5 wires
+  `(forall [(?v :sort)] body)` / `(exists [(?v :sort)] body)` through
+  `mk_forall_const` / `mk_exists_const` with typed `Datatype` bound
+  constants, but Keyword-headed predicates inside the body (e.g.
+  `(:contradicts ?a ?b)`) still lower to opaque Bool constants whose
+  name encodes the bound-var refs. Full FOL semantics (declaring each
+  predicate as `… → Bool` in the preamble and emitting `.apply(...)`
+  at the call site) is deferred. See "Quantifier predicate-application
+  semantics (v0.5 caveat)" above.

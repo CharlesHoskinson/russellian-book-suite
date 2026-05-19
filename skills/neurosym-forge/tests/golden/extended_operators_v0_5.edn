@@ -1,0 +1,35 @@
+{:cases
+ [{:name "and-binary"
+   :sorts []
+   :assert (and (< (:f-stake :e) 0.3)
+                (>= (:domain-count :e) 3))
+   :expected-z3-call "Bool::and"}
+
+  {:name "or-binary"
+   :sorts []
+   :assert (or (= (:status :e) "ok")
+               (= (:status :e) "pending"))
+   :expected-z3-call "Bool::or"}
+
+  {:name "not-unary"
+   :sorts []
+   :assert (not (= (:status :e) "failed"))
+   :expected-z3-call ".not()"}
+
+  {:name "implies-binary"
+   :sorts []
+   :assert (=> (< (:f-stake :e) 0.3)
+               (<= (:max-per-domain-fraction :e) 0.25))
+   :expected-z3-call ".implies("}
+
+  {:name "forall-equality"
+   :sorts [{:name :proof-obligation}]
+   :assert (forall [(?o :proof-obligation)]
+             (= ?o :special))
+   :expected-z3-call "mk_forall_const"}
+
+  {:name "exists-equality"
+   :sorts [{:name :reference}]
+   :assert (exists [(?r :reference)]
+             (= ?r :v2-spec))
+   :expected-z3-call "mk_exists_const"}]}

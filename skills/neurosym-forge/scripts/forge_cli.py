@@ -276,10 +276,140 @@ def suggest_lifts(claim_id: str, project_root: Path, k: int) -> None:
     click.echo("(Not auto-merged; copy a candidate into rules/booklogic/lifts.edn.)")
 
 
+# ---------------------------------------------------------------------------
+# explain-defect (REQ-AUTHOR-043)
+# ---------------------------------------------------------------------------
+
+
+def _load_verdict(project_root: Path) -> dict[str, Any]:
+    """Load work/verdict.edn or work/verdict.json (whichever exists).
+
+    The JSON sibling is accepted for fixture friendliness; production
+    verdicts are EDN but the schema is structurally identical.
+    """
+    work = project_root / "work"
+    json_path = work / "verdict.json"
+    edn_path = work / "verdict.edn"
+    if json_path.exists():
+        return json.loads(json_path.read_text(encoding="utf-8"))
+    if edn_path.exists():
+        from scripts._edn_reader import read_edn  # type: ignore[attr-defined]
+
+        return _coerce_edn(read_edn(edn_path.read_text(encoding="utf-8")))
+    raise FileNotFoundError(f"verdict.edn not found at {edn_path}")
+
+
+def _coerce_edn(value: Any) -> Any:
+    """Best-effort EDN→python coercion for verdict pretty-printing."""
+    try:
+        from scripts._edn_reader import Keyword  # type: ignore[attr-defined]
+    except ImportError:
+        return value
+    if isinstance(value, Keyword):
+        return f":{value.name}"
+    if isinstance(value, dict):
+        return {(_coerce_edn(k) if not isinstance(k, str) else k): _coerce_edn(v)
+                for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_coerce_edn(v) for v in value]
+    return value
+
+
+def _find_defect(verdict: dict[str, Any], defect_id: str) -> dict[str, Any]:
+    defects = verdict.get("defects") or verdict.get(":defects") or []
+    for defect in defects:
+        if defect.get("id") == defect_id or defect.get(":id") == defect_id:
+            return defect
+    raise LookupError(f"defect {defect_id} not in verdict")
+
+
+def _load_claims_index(project_root: Path) -> dict[str, dict[str, Any]]:
+    path = project_root / "work" / "claims.jsonl"
+    if not path.exists():
+        return {}
+    index: dict[str, dict[str, Any]] = {}
+    with path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            cid = record.get("claim_id") or record.get("id")
+            if cid:
+                index[cid] = record
+    return index
+
+
+def _render_context(text: str, line: int, before: int = 3, after: int = 3) -> str:
+    if not text:
+        return "(no source context available)"
+    lines = text.splitlines()
+    start = max(0, line - 1 - before)
+    end = min(len(lines), line + after)
+    width = len(str(end))
+    out = []
+    for i in range(start, end):
+        marker = ">>" if (i + 1) == line else "  "
+        out.append(f"{marker} {str(i + 1).rjust(width)}: {lines[i]}")
+    return "\n".join(out)
+
+
 @cli.command("explain-defect")
-def explain_defect() -> None:
+@click.argument("defect_id")
+@click.option("--project-root", "project_root", default=".", type=click.Path(path_type=Path),
+              help="Project root (defaults to cwd).")
+def explain_defect(defect_id: str, project_root: Path) -> None:
     """Render an unsat-core walkthrough for a defect."""
-    click.echo("explain-defect not yet wired")
+    project_root = Path(project_root).resolve()
+    verdict = _load_verdict(project_root)
+    defect = _find_defect(verdict, defect_id)
+    claims = _load_claims_index(project_root)
+
+    constraint_id = defect.get("constraint") or defect.get(":constraint") or "(unknown)"
+    severity = defect.get("severity") or defect.get(":severity") or "(unknown)"
+    declared = defect.get("declared_severity") or defect.get(":declared-severity") or severity
+    conf = defect.get("defect_confidence") or defect.get(":defect-confidence") or "(unknown)"
+    message = defect.get("message") or defect.get(":message") or ""
+    core_ids = defect.get("unsat_core") or defect.get(":unsat-core") or []
+
+    click.echo(f"Defect: {defect_id} (constraint {constraint_id})")
+    click.echo(f"Severity: {declared} (declared) / {severity} (rendered)")
+    click.echo(f"Defect confidence: {conf}")
+    click.echo("")
+    click.echo("Source span:")
+    span = defect.get("span") or defect.get(":span") or {}
+    src_path = span.get("path") or span.get(":path")
+    src_line = span.get("line") or span.get(":line") or 0
+    if src_path:
+        full = project_root / src_path if not Path(src_path).is_absolute() else Path(src_path)
+        if full.exists():
+            click.echo(_render_context(full.read_text(encoding="utf-8"), int(src_line)))
+        else:
+            click.echo(f"  {src_path}:{src_line} (file missing on disk)")
+    else:
+        click.echo("  (no source span recorded)")
+
+    click.echo("")
+    click.echo("Unsat core (newest claim first):")
+    for cid in core_ids:
+        rec = claims.get(cid, {})
+        cconf = rec.get("confidence", "(unknown)")
+        snippet = (rec.get("canonical_text") or "").strip().replace("\n", " ")
+        if len(snippet) > 110:
+            snippet = snippet[:107] + "..."
+        click.echo(f"  {cid}  conf {cconf}")
+        if snippet:
+            click.echo(f"    \"{snippet}\"")
+
+    click.echo("")
+    click.echo("Interpretation:")
+    interpretation = (
+        f"Constraint {constraint_id} requires {message or 'a condition that does not hold'}. "
+        f"The unsat core lists {len(core_ids)} claim(s) whose values disagree under the "
+        "constraint; resolve by editing the conflicting source spans, downgrading the "
+        "defect's severity, or relaxing the constraint."
+    )
+    click.echo(textwrap.fill(interpretation, width=78))
 
 
 @cli.command("similar")

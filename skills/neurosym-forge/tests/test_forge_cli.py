@@ -216,3 +216,76 @@ def test_suggest_lifts_emits_candidates_no_auto_merge(
     assert "Not auto-merged" in result.output
     lifts = fake_project / "rules" / "booklogic" / "lifts.edn"
     assert not lifts.exists()
+
+
+# ---------------------------------------------------------------------------
+# REQ-AUTHOR-043 — explain-defect
+# ---------------------------------------------------------------------------
+
+
+def _seed_verdict_and_claims(project_root: Path) -> None:
+    """Populate work/verdict.json + work/claims.jsonl + a source span file."""
+    src = project_root / "manuscript" / "chap-3.md"
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text(
+        "Line 1\nLine 2\nLine 3 — Mizuno 2008 enrolled 37 patients\nLine 4\nLine 5\n",
+        encoding="utf-8",
+    )
+
+    verdict = {
+        "defects": [
+            {
+                "id": "D042",
+                "constraint": "X042-trial-n",
+                "severity": "hard",
+                "declared_severity": "hard",
+                "defect_confidence": 0.92,
+                "message": "trial patient counts disagree",
+                "unsat_core": ["C042", "C087"],
+                "span": {"path": "manuscript/chap-3.md", "line": 3},
+            }
+        ]
+    }
+    (project_root / "work" / "verdict.json").write_text(json.dumps(verdict), encoding="utf-8")
+
+    claims_path = project_root / "work" / "claims.jsonl"
+    with claims_path.open("w", encoding="utf-8") as fh:
+        fh.write(json.dumps({
+            "claim_id": "C042", "canonical_text": "Mizuno (2008) enrolled 37 patients",
+            "confidence": 0.95,
+        }) + "\n")
+        fh.write(json.dumps({
+            "claim_id": "C087", "canonical_text": "The Mizuno 2008 cohort of 42 patients",
+            "confidence": 0.92,
+        }) + "\n")
+
+
+def test_explain_defect_renders_chain_and_interpretation(
+    runner: CliRunner, fake_project: Path
+) -> None:
+    _seed_verdict_and_claims(fake_project)
+    result = runner.invoke(
+        forge_cli.cli,
+        ["explain-defect", "D042", "--project-root", str(fake_project)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "D042" in result.output
+    assert "X042-trial-n" in result.output
+    assert "C042" in result.output and "C087" in result.output
+    assert "0.95" in result.output
+    assert ">> 3:" in result.output
+    assert "Interpretation" in result.output
+
+
+def test_explain_defect_missing_verdict(runner: CliRunner, fake_project: Path) -> None:
+    result = runner.invoke(
+        forge_cli.cli,
+        ["explain-defect", "D999", "--project-root", str(fake_project)],
+    )
+    assert result.exit_code != 0
+    # The error surface is tightened by the REQ-AUTHOR-045 decorator below;
+    # at this point we only require a non-zero exit and either a clean
+    # rendered ERROR block (decorator wired) or a FileNotFoundError raised
+    # to the runner's `exception` capture.
+    surfaced = "verdict.edn" in result.output or "ERROR" in result.output
+    assert surfaced or isinstance(result.exception, FileNotFoundError)

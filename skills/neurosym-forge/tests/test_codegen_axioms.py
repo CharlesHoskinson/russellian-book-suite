@@ -285,6 +285,99 @@ def test_assert_axioms_aggregator_calls_partitioned_accessors() -> None:
     assert "axioms_shared(solver)" in agg_body
 
 
+# -------- REQ-CORPUS-050..056: corpus-scope constraints --------
+
+
+def test_corpus_scope_constraint_emits_axioms_corpus() -> None:
+    """REQ-CORPUS-050, 051: a `:scope :corpus` constraint emits a
+    `pub fn axioms_corpus(solver)` accessor and lands the tracker block
+    in its body, not in `axioms_for_subject` or `axioms_shared`.
+    """
+    c = _constraint(
+        name="C-corp",
+        assert_form="(>= (:trial-n :t) 10)",
+    )
+    c[Keyword("scope")] = Keyword("corpus")
+    src = generate_axioms_source([c])
+    assert "pub fn axioms_corpus(solver: &Solver)" in src
+    # The tracker for C-corp lives strictly within axioms_corpus.
+    corpus_start = src.index("pub fn axioms_corpus(solver: &Solver)")
+    corpus_end   = src.index("\npub fn", corpus_start + 1)
+    corpus_body  = src[corpus_start:corpus_end]
+    assert '"C-corp"' in corpus_body
+    # And NOT in axioms_for_subject or axioms_shared.
+    fs_start = src.index("pub fn axioms_for_subject(solver: &Solver, subject: &str)")
+    fs_end   = src.index("\npub fn", fs_start + 1)
+    assert '"C-corp"' not in src[fs_start:fs_end]
+    shared_start = src.index("pub fn axioms_shared(solver: &Solver)")
+    shared_end   = src.index("\npub fn", shared_start + 1)
+    assert '"C-corp"' not in src[shared_start:shared_end]
+
+
+def test_subject_scope_default_unaffected_by_corpus_addition() -> None:
+    """REQ-CORPUS-050: omitting `:scope` preserves Phase J behaviour.
+    A single-subject constraint still lands in the per-subject bucket,
+    not in axioms_corpus.
+    """
+    cs = [
+        _constraint(name="C001",
+                    assert_form="(= (:parishes-count :Bermuda) 9)"),
+    ]
+    src = generate_axioms_source(cs)
+    # axioms_corpus exists but is empty (no `assert_and_track` inside).
+    corpus_start = src.index("pub fn axioms_corpus(solver: &Solver)")
+    corpus_end   = src.index("\npub fn", corpus_start + 1)
+    corpus_body  = src[corpus_start:corpus_end]
+    assert "assert_and_track" not in corpus_body
+    # The C001 tracker lives in the per-subject bucket.
+    fs_start = src.index("pub fn axioms_for_subject(solver: &Solver, subject: &str)")
+    fs_end   = src.index("\npub fn", fs_start + 1)
+    assert '"C001"' in src[fs_start:fs_end]
+
+
+def test_axioms_corpus_ids_enumerates_corpus_scope_constraints() -> None:
+    """REQ-CORPUS-053: codegen emits `axioms_corpus_ids()` so smt.rs can
+    map unsat-core trackers back to corpus-scope constraint ids when
+    building the verdict's `:corpus-defects` field.
+    """
+    c1 = _constraint(name="C-sub", assert_form="(= (:p :x) 1)")
+    c2 = _constraint(name="C-corp1", assert_form="(>= (:trial-n :t) 10)")
+    c2[Keyword("scope")] = Keyword("corpus")
+    c3 = _constraint(name="C-corp2", assert_form="(<= (:trial-n :u) 100)")
+    c3[Keyword("scope")] = Keyword("corpus")
+    src = generate_axioms_source([c1, c2, c3])
+    assert "pub fn axioms_corpus_ids() -> &'static [&'static str]" in src
+    ids_start = src.index("pub fn axioms_corpus_ids()")
+    ids_end   = src.index("\n}\n", ids_start)
+    ids_body  = src[ids_start:ids_end]
+    assert '"C-corp1"' in ids_body
+    assert '"C-corp2"' in ids_body
+    assert '"C-sub"' not in ids_body
+
+
+def test_bad_scope_value_raises() -> None:
+    """REQ-CORPUS-050: any :scope value other than :subject/:corpus
+    is rejected at codegen time."""
+    c = _constraint(name="C-bad", assert_form="(= (:p :s) 1)")
+    c[Keyword("scope")] = Keyword("bogus")
+    with pytest.raises(CodegenError):
+        generate_axioms_source([c])
+
+
+def test_corpus_scope_aggregator_calls_axioms_corpus() -> None:
+    """REQ-CORPUS-051: when any corpus constraint is declared, the legacy
+    `assert_axioms` aggregator wires `axioms_corpus(solver)` after
+    `axioms_shared(solver)`.
+    """
+    c = _constraint(name="C-corp", assert_form="(>= (:trial-n :t) 10)")
+    c[Keyword("scope")] = Keyword("corpus")
+    src = generate_axioms_source([c])
+    agg_start = src.index("pub fn assert_axioms(solver: &Solver)")
+    agg_end   = src.index("\n}\n", agg_start) + 3
+    agg_body  = src[agg_start:agg_end]
+    assert "axioms_corpus(solver)" in agg_body
+
+
 # -------- REQ-DSL-050..055: multi-valued predicates --------
 
 def test_vector_predicate_emits_z3_array() -> None:

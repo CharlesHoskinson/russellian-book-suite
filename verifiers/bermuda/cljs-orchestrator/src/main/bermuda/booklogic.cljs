@@ -257,7 +257,7 @@
   "(defconstraint NAME :backend B :assert F :track T :on-unsat OU) → constraint map.
 
    Required: :backend, :assert, :on-unsat.
-   Optional: :track (defaults to :claim/id).
+   Optional: :track (defaults to :claim/id), :scope (defaults to :subject).
 
    The intermediate map carries everything the Python codegen needs to
    emit a Z3 assert_and_track call:
@@ -266,6 +266,7 @@
       :assert     full assert form (preserved for codegen tokenisation)
       :tolerance  number-or-nil  (extracted when :assert head is ~=)
       :track      :claim/id / literal
+      :scope      :subject (default) / :corpus (REQ-CORPUS-050)
       :on-unsat   {:defect :severity :message}}"
   [form]
   (let [[_ name & options] form
@@ -276,7 +277,8 @@
       (when-not (contains? opts required)
         (throw (ex-info (str "defconstraint " name ": missing required option " required)
                         {:form form}))))
-    (let [on-unsat (:on-unsat opts)]
+    (let [on-unsat (:on-unsat opts)
+          scope    (or (:scope opts) :subject)]
       (when-not (and (map? on-unsat)
                      (contains? on-unsat :defect)
                      (contains? on-unsat :severity)
@@ -284,11 +286,17 @@
         (throw (ex-info (str "defconstraint " name
                              ": :on-unsat must be {:defect :severity :message}")
                         {:form form :on-unsat on-unsat})))
+      (when-not (contains? #{:subject :corpus} scope)
+        (throw (ex-info (str "defconstraint " name
+                             ": :scope must be :subject or :corpus, got "
+                             scope)
+                        {:form form :scope scope})))
       {:name      name
        :backend   (:backend opts)
        :assert    (:assert opts)
        :tolerance (extract-tolerance (:assert opts))
        :track     (or (:track opts) :claim/id)
+       :scope     scope
        :on-unsat  on-unsat})))
 
 ;; ----- defquery expansion -----
@@ -392,6 +400,7 @@
    :assert    (:assert c)
    :tolerance (:tolerance c)
    :track     (:track c)
+   :scope     (or (:scope c) :subject)
    :on-unsat  (:on-unsat c)})
 
 (defn- emit-constraints-edn-string

@@ -919,6 +919,245 @@ def revise(
 
 
 # ---------------------------------------------------------------------------
+# forge theory — REQ-AUTHOR-050, 053
+# ---------------------------------------------------------------------------
+
+
+def _load_induced_theory(theory_path: Path) -> dict[str, Any]:
+    """Load induced-theory.edn (rule forms only; raises on absent file)."""
+    if not theory_path.exists():
+        raise FileNotFoundError(
+            f"induced-theory.edn not found at {theory_path}"
+        )
+    try:
+        from scripts._edn_reader import read_edn  # type: ignore[attr-defined]
+    except ImportError:  # pragma: no cover
+        return {}
+    return _coerce_edn(read_edn(theory_path.read_text(encoding="utf-8")))
+
+
+def _rule_ids_from_theory(theory: dict[str, Any]) -> list[str]:
+    """Walk the :forms vector and pull each defconstraint's id.
+
+    The schema (per design doc) is::
+
+        {:version 1 :forms [(defconstraint :induced/foo ...) ...]}
+
+    We tolerate the rule-id appearing either as the second element of a
+    sexp-shaped form or as an explicit ``:id`` key on a map-shaped form.
+    """
+    forms = theory.get("forms") or theory.get(":forms") or []
+    out: list[str] = []
+    for form in forms:
+        if isinstance(form, (list, tuple)) and len(form) >= 2:
+            head = form[0]
+            head_name = getattr(head, "name", None) or str(head)
+            if head_name in ("defconstraint", "defrule") and isinstance(form[1], str):
+                out.append(form[1])
+            elif head_name in ("defconstraint", "defrule"):
+                rid = str(form[1])
+                if rid.startswith(":"):
+                    out.append(rid)
+                else:
+                    out.append(f":{rid}")
+        elif isinstance(form, dict):
+            rid = form.get(":id") or form.get("id")
+            if rid:
+                out.append(str(rid))
+    return out
+
+
+def _aggregate_theory_summary(
+    theory: dict[str, Any], prov: dict[str, Any]
+) -> str:
+    rules_in_theory = _rule_ids_from_theory(theory)
+    rules_prov = _sidecar_rules(prov)
+
+    total_rules = len(rules_in_theory) if rules_in_theory else len(rules_prov)
+
+    status_counts = {":active": 0, ":tentative": 0, ":quarantined": 0}
+    entrenchments: list[float] = []
+    total_cost = 0.0
+    doc_counter: dict[str, int] = {}
+
+    for rprov in rules_prov.values():
+        status = _prov_field(rprov, "status")
+        status_key = str(status) if status else None
+        if status_key in status_counts:
+            status_counts[status_key] += 1
+        elif status_key and status_key.lstrip(":") in (
+            "active", "tentative", "quarantined"
+        ):
+            status_counts[f":{status_key.lstrip(':')}"] += 1
+
+        e = _prov_field(rprov, "entrenchment")
+        if isinstance(e, (int, float)):
+            entrenchments.append(float(e))
+
+        cost = _prov_field(rprov, "cost-usd")
+        if isinstance(cost, (int, float)):
+            total_cost += float(cost)
+
+        docs = _prov_field(rprov, "source-documents") or []
+        if isinstance(docs, (list, tuple)):
+            for d in docs:
+                doc_counter[str(d)] = doc_counter.get(str(d), 0) + 1
+
+    avg_e = sum(entrenchments) / len(entrenchments) if entrenchments else 0.0
+
+    out = [
+        f"Theory summary:",
+        f"  Rules:                {total_rules}",
+        (
+            f"  Status:               :active {status_counts[':active']}  "
+            f":tentative {status_counts[':tentative']}  "
+            f":quarantined {status_counts[':quarantined']}"
+        ),
+        f"  Average entrenchment: {avg_e:.3f}",
+        f"  Total induction cost: ${total_cost:.4f}",
+        "",
+        "Top-5 most-cited source documents:",
+    ]
+    top_docs = sorted(doc_counter.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    if not top_docs:
+        out.append("  (no provenance source documents recorded)")
+    else:
+        for doc_id, n in top_docs:
+            label = "rule" if n == 1 else "rules"
+            out.append(f"  {doc_id:<32}  {n} {label}")
+    return "\n".join(out)
+
+
+def _deep_dive_rule(rule_id: str, prov: dict[str, Any]) -> str:
+    rules = _sidecar_rules(prov)
+    rprov = rules.get(rule_id) or rules.get(f":{rule_id.lstrip(':')}")
+    if rprov is None:
+        return f"Rule {rule_id} not found in sidecar."
+
+    out = [f"Rule {rule_id}"]
+
+    def _row(label: str, value: Any) -> None:
+        if value is None:
+            return
+        out.append(f"  {label:<14} {value}")
+
+    _row("Status:", _prov_field(rprov, "status"))
+    e = _prov_field(rprov, "entrenchment")
+    if isinstance(e, (int, float)):
+        _row("Entrenchment:", f"{float(e):.3f}")
+
+    atoms = _prov_field(rprov, "derived-from-atoms") or []
+    docs = _prov_field(rprov, "source-documents") or []
+    contras = _prov_field(rprov, "contradiction-atoms") or []
+    if atoms or docs:
+        atom_n = len(atoms) if isinstance(atoms, (list, tuple)) else 0
+        doc_n = len(docs) if isinstance(docs, (list, tuple)) else 0
+        _row("Support:", f"{atom_n} atoms across {doc_n} documents")
+    if contras:
+        contra_n = len(contras) if isinstance(contras, (list, tuple)) else 0
+        _row("Contradicts:", f"{contra_n} atoms (advisory)")
+
+    proposer = _prov_field(rprov, "proposed-by")
+    if isinstance(proposer, dict):
+        lineage = proposer.get(":lineage") or proposer.get("lineage")
+        model = proposer.get(":model") or proposer.get("model")
+        provider = proposer.get(":provider") or proposer.get("provider")
+        _row("Proposed by:", f"{lineage}  model={model}  provider={provider}")
+    elif proposer is not None:
+        _row("Proposed by:", proposer)
+
+    validators = _prov_field(rprov, "validated-by") or []
+    if isinstance(validators, (list, tuple)) and validators:
+        first = True
+        for v in validators:
+            if not isinstance(v, dict):
+                continue
+            backend = v.get(":backend") or v.get("backend") or "?"
+            parts = []
+            if ":held-out-folds" in v or "held-out-folds" in v:
+                k = v.get(":held-out-folds") or v.get("held-out-folds")
+                parts.append(f"{k}-fold")
+            for key in (":sat-rate", "sat-rate"):
+                if key in v:
+                    parts.append(f"sat-rate {v[key]}")
+                    break
+            for key in (":tolerance-fit", "tolerance-fit"):
+                if key in v:
+                    parts.append(f"tolerance {v[key]}")
+                    break
+            for key in (":support-rate", "support-rate"):
+                if key in v:
+                    parts.append(f"support-rate {v[key]}")
+                    break
+            line = f"{backend} (" + ", ".join(parts) + ")" if parts else str(backend)
+            _row("Validated by:" if first else "             ", line)
+            first = False
+
+    repair = _prov_field(rprov, "llm-repair-calls")
+    if repair is not None:
+        _row("Repair calls:", repair)
+
+    cost = _prov_field(rprov, "cost-usd")
+    if isinstance(cost, (int, float)):
+        _row("Cost:", f"${float(cost):.4f}")
+
+    neighbours = _prov_field(rprov, "semantic-neighbours")
+    if isinstance(neighbours, (list, tuple)) and neighbours:
+        _row("See also:", ", ".join(str(n) for n in neighbours))
+
+    return "\n".join(out)
+
+
+@cli.command("theory")
+@click.argument("project_root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--rule", "rule_id", default=None,
+              help="Deep-dive into one rule's provenance.")
+@_handle
+def theory(project_root: Path, rule_id: str | None) -> None:
+    """Inspect induced-theory.edn + the PROV-O sidecar."""
+    project_root = Path(project_root).resolve()
+    theory_path, prov_path = _induced_paths(project_root)
+
+    if not theory_path.exists():
+        raise FileNotFoundError(
+            f"induced-theory.edn not found at {theory_path}"
+        )
+
+    theory_data = _load_induced_theory(theory_path)
+
+    # REQ-AUTHOR-053 graceful-degrade: if the sidecar is missing or malformed
+    # we still render the rule list from induced-theory.edn with empty
+    # provenance.  The structured error is printed to stderr.
+    prov_data: dict[str, Any] = {}
+    sidecar_error: ProvenanceSidecarError | None = None
+    try:
+        prov_data = _load_sidecar(prov_path)
+    except ProvenanceSidecarError as exc:
+        sidecar_error = exc
+
+    if sidecar_error is not None:
+        from scripts._cli_errors import interpret
+        click.echo(interpret(sidecar_error).render(), err=True)
+        click.echo("", err=True)
+        click.echo("Continuing with empty provenance — rule list only.", err=True)
+        click.echo("")
+
+    if rule_id is not None:
+        click.echo(_deep_dive_rule(rule_id, prov_data))
+        return
+
+    click.echo(_aggregate_theory_summary(theory_data, prov_data))
+
+    if sidecar_error is not None:
+        rule_ids = _rule_ids_from_theory(theory_data)
+        if rule_ids:
+            click.echo("")
+            click.echo("Rules (from induced-theory.edn; sidecar unavailable):")
+            for rid in rule_ids:
+                click.echo(f"  {rid}")
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 

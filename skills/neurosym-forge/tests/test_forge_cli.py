@@ -20,6 +20,7 @@ SUBCOMMANDS = (
     "render",
     "induce",
     "revise",
+    "theory",
 )
 
 
@@ -710,6 +711,64 @@ def test_revise_full_quarantine_warning_banner(
     assert result.exit_code == 0, result.output
     assert "WARNING" in result.output
     assert "full quarantine" in result.output.lower()
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — theory (REQ-AUTHOR-050, 053, 055)
+# ---------------------------------------------------------------------------
+
+
+def test_theory_subcommand_exposed(runner: CliRunner) -> None:
+    """REQ-AUTHOR-050: forge theory --help renders non-trivial help."""
+    result = runner.invoke(forge_cli.cli, ["theory", "--help"])
+    assert result.exit_code == 0
+    assert "Usage" in result.output
+    assert "--rule" in result.output
+
+
+def test_theory_aggregate_and_deep_dive(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """REQ-AUTHOR-053, 055: forge theory prints aggregate; --rule deep-dives."""
+    project = _seed_tier6_project(tmp_path)
+
+    agg = runner.invoke(forge_cli.cli, ["theory", str(project)])
+    assert agg.exit_code == 0, agg.output
+    assert "Theory summary:" in agg.output
+    assert "Rules:" in agg.output
+    assert ":active 1" in agg.output
+    assert ":tentative 1" in agg.output
+    assert ":quarantined 1" in agg.output
+    assert "Average entrenchment:" in agg.output
+    assert "Top-5 most-cited source documents:" in agg.output
+    assert "pmid:12345" in agg.output
+
+    deep = runner.invoke(
+        forge_cli.cli,
+        ["theory", str(project), "--rule", ":induced/herd-immunity-threshold"],
+    )
+    assert deep.exit_code == 0, deep.output
+    assert "Rule :induced/herd-immunity-threshold" in deep.output
+    assert "Entrenchment:" in deep.output
+    assert "0.830" in deep.output
+    assert "Proposed by:" in deep.output
+    assert "Validated by:" in deep.output
+    assert "Repair calls:" in deep.output
+    assert "c-203" in deep.output
+
+
+def test_theory_renders_rules_with_missing_sidecar(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """REQ-AUTHOR-053, 055: missing sidecar → ERROR block + rule list still rendered."""
+    project = _seed_tier6_project(tmp_path, with_sidecar=False)
+    result = runner.invoke(forge_cli.cli, ["theory", str(project)])
+    assert result.exit_code == 0, result.output
+    assert "ERROR:" in result.output
+    assert "sidecar" in result.output.lower() or "prov.edn" in result.output
+    assert ":induced/herd-immunity-threshold" in result.output
+    assert ":induced/vaccine-efficacy-r0" in result.output
+    assert ":induced/trial-cohort-size" in result.output
 
 
 def teardown_module(_module: object) -> None:  # pragma: no cover — env hygiene

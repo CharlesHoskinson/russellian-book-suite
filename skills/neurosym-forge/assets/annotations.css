@@ -1,0 +1,62 @@
+/* Default stylesheet for render_annotations.py output (Phase T).
+ *
+ * REQ-PUB-041: each <mark class="severity-X"> gets a distinct
+ * background colour so authors can scan for defects by colour.
+ * Authors override via render_annotations.py --stylesheet <path>.
+ */
+
+.manuscript {
+  white-space: pre-wrap;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  padding: 1.5rem;
+}
+
+mark {
+  padding: 0 0.15em;
+  border-radius: 2px;
+}
+
+mark.severity-hard,
+mark.severity-critical {
+  background-color: #fecaca;
+  color: #7f1d1d;
+  border-bottom: 2px solid #b91c1c;
+}
+
+mark.severity-soft,
+mark.severity-warning {
+  background-color: #fef3c7;
+  color: #78350f;
+  border-bottom: 2px solid #b45309;
+}
+
+mark.severity-advisory,
+mark.severity-info {
+  background-color: #e5e7eb;
+  color: #1f2937;
+  border-bottom: 2px solid #6b7280;
+}
+
+/* Defect-index page (REQ-PUB-042) */
+.defect-index {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 1.5rem;
+  max-width: 80ch;
+}
+
+.severity-group {
+  margin-block: 1.5rem;
+}
+
+.see-also {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-left: 1rem;
+}
+
+.verdict-confidence {
+  font-weight: 600;
+  color: #1f2937;
+}

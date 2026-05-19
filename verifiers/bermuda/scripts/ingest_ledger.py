@@ -47,6 +47,22 @@ _KW_SORT = Keyword("sort")
 _KW_NAME = Keyword("name")
 _KW_CONTEXT = Keyword("context")
 
+# REQ-LLMLIFT-040, 044, 046: per-spec backend dispatch.
+_KW_BACKEND = Keyword("backend")
+_KW_BACKEND_REGEX = Keyword("regex")
+_KW_BACKEND_LLM = Keyword("llm")
+_KW_LIFT_ID = Keyword("lift-id")
+_KW_LIFT_ID_U = Keyword("lift_id")
+_KW_EMIT_TEMPLATE = Keyword("emit-template")
+_KW_EMIT_TEMPLATE_U = Keyword("emit_template")
+
+# REQ-LLMLIFT-043: defect-discriminator atoms surfaced when an LLM
+# proposal fails schema validation. The Rust verifier ignores
+# :kind :defect atoms at SMT time; verdict_to_qa surfaces them.
+_KW_DEFECT = Keyword("defect")
+_KW_REASON = Keyword("reason")
+_KW_LLM_LIFT_REJECTED = Keyword("llm-lift-rejected")
+
 
 def read_ledger(path: Path) -> list[dict]:
     rows: list[dict] = []
@@ -102,6 +118,36 @@ class IngestRegexDialectError(ValueError):
     """
 
 
+class IngestConfidenceError(ValueError):
+    """REQ-CONFIDENCE-043: a claim's `:confidence` is non-numeric or out
+    of the closed interval `[0, 1]`. Missing fields default to 1.0
+    (backwards-compatible with pre-Tier-5 fixtures) and do *not* raise.
+    """
+
+
+def _validated_confidence(claim: dict) -> float:
+    """REQ-CONFIDENCE-043: parse + validate a claim's `:confidence`.
+
+    Missing field => 1.0 (backwards-compat). Non-numeric or out-of-range
+    raises ``IngestConfidenceError`` naming the claim id and value.
+    """
+    cid = claim.get("claim_id") or claim.get("id") or "<unknown>"
+    if "confidence" not in claim:
+        return 1.0
+    raw = claim["confidence"]
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise IngestConfidenceError(
+            f"claim {cid!r} has non-numeric :confidence {raw!r} "
+            f"(type {type(raw).__name__})"
+        )
+    val = float(raw)
+    if not (0.0 <= val <= 1.0):
+        raise IngestConfidenceError(
+            f"claim {cid!r} :confidence {val} out of range [0, 1]"
+        )
+    return val
+
+
 def _assert_python_regex_dialect(pat: str) -> None:
     """REQ-INGEST-050, 051: hard-fail on non-Python regex dialect.
 
@@ -116,9 +162,104 @@ def _assert_python_regex_dialect(pat: str) -> None:
         )
 
 
-def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | None:
-    """Match text against the predicate map. Returns (predicate, value, subject) or None."""
+def _backend_of(spec: dict) -> Keyword:
+    """REQ-LLMLIFT-040: return the lift's :backend (:regex by default)."""
+    b = spec.get(_KW_BACKEND)
+    if isinstance(b, Keyword):
+        return b
+    return _KW_BACKEND_REGEX
+
+
+def _apply_llm_lift(
+    spec: dict,
+    *,
+    claim_id: str,
+    canonical_text: str,
+    schema_path: Path | None,
+) -> tuple[str, Any] | None:
+    """REQ-LLMLIFT-040, 042, 044, 046: dispatch a `:backend :llm` lift.
+
+    Returns one of:
+      ("match", (pred, value, subj))        — schema-valid proposal
+      ("defect", (predicate-name, reason))  — schema-invalid proposal,
+                                              surfaced as :llm-lift-rejected
+      None                                  — provider returned no atom
+    """
+    from scripts._llm_lift import (  # type: ignore
+        LLMLiftRejected,
+        cached_extract,
+        get_provider,
+        validate_proposal,
+    )
+
+    provider = get_provider()
+    emit_template = (
+        _get_spec(spec, _KW_EMIT_TEMPLATE_U, _KW_EMIT_TEMPLATE, "") or ""
+    )
+    lift_id = _get_spec(spec, _KW_LIFT_ID_U, _KW_LIFT_ID, "") or ""
+    if isinstance(lift_id, Keyword):
+        lift_id = lift_id.name
+
+    proposal = cached_extract(
+        provider,
+        claim_id=claim_id,
+        canonical_text=canonical_text,
+        emit_template=str(emit_template),
+        lift_id=str(lift_id),
+    )
+    if proposal is None:
+        return None
+
+    pred_raw = proposal.get("predicate")
+    if schema_path is not None and schema_path.exists():
+        try:
+            validate_proposal(schema_path, proposal)
+        except LLMLiftRejected as e:
+            # REQ-LLMLIFT-043: schema-invalid proposals surface as a
+            # structured defect, not a silent OPAQUE.
+            return ("defect", (str(pred_raw), str(e)))
+    subj_raw = proposal.get("subject") or spec.get(_KW_SUBJECT)
+    pred = (
+        pred_raw if isinstance(pred_raw, Keyword)
+        else Keyword(str(pred_raw).lstrip(":"))
+    )
+    subj = (
+        subj_raw if isinstance(subj_raw, Keyword)
+        else Keyword(str(subj_raw).lstrip(":"))
+    )
+    value = proposal.get("value")
+    return ("match", (pred, value, subj))
+
+
+def _apply_predicates(
+    text: str,
+    predicates: dict,
+    *,
+    claim_id: str = "",
+    schema_path: Path | None = None,
+) -> tuple[str, Any] | None:
+    """Match text against the predicate map.
+
+    Returns:
+      ("match", (pred, value, subj))      — successful extraction
+      ("defect", (pred-name, reason))     — :backend :llm proposal failed
+                                            schema validation (REQ-LLMLIFT-043)
+      None                                — no lift matched
+    """
     for _name, spec in predicates.items():
+        backend = _backend_of(spec)
+        if backend == _KW_BACKEND_LLM:
+            # REQ-LLMLIFT-040: route through the LLM provider.
+            result = _apply_llm_lift(
+                spec,
+                claim_id=claim_id,
+                canonical_text=text,
+                schema_path=schema_path,
+            )
+            if result is None:
+                continue
+            return result
+        # Default: regex backend (current behaviour).
         for pat in spec.get(_KW_PATTERNS, []):
             _assert_python_regex_dialect(pat)
             m = re.search(pat, text, flags=re.IGNORECASE | re.DOTALL)
@@ -155,18 +296,24 @@ def _apply_predicates(text: str, predicates: dict) -> tuple[str, Any, str] | Non
             # REQ-EDN-049: emit Keyword objects, not string-with-colon-prefix.
             pred = pred_raw if isinstance(pred_raw, Keyword) else Keyword(str(pred_raw).lstrip(":"))
             subj = subj_raw if isinstance(subj_raw, Keyword) else Keyword(str(subj_raw).lstrip(":"))
-            return pred, value, subj
+            return ("match", (pred, value, subj))
     return None
 
 
-def _claim_to_atom(claim: dict, predicates: dict) -> dict:
+def _claim_to_atom(
+    claim: dict, predicates: dict, schema_path: Path | None = None,
+) -> dict:
     text = claim.get("canonical_text", "")
+    claim_id = claim.get("claim_id", "?")
+    # REQ-CONFIDENCE-043: validate :confidence at the boundary; missing
+    # field defaults to 1.0 (backwards-compat with pre-Tier-5 fixtures).
+    confidence = _validated_confidence(claim)
     base: dict = {
-        _KW_ID: claim.get("claim_id", "?"),
+        _KW_ID: claim_id,
         _KW_DOC: text[:200],
         _KW_SOURCE_SPANS: claim.get("source_spans", []),
         _KW_SUPPORTS_CHAPTERS: claim.get("supports_chapters", []),
-        _KW_CONFIDENCE: claim.get("confidence", 0.0),
+        _KW_CONFIDENCE: confidence,
     }
     if claim.get("claim_type") == "design_decision":
         base.update({
@@ -176,15 +323,32 @@ def _claim_to_atom(claim: dict, predicates: dict) -> dict:
             _KW_CONTEXT: True,
         })
         return base
-    match = _apply_predicates(text, predicates)
-    if match is None:
+    result = _apply_predicates(
+        text, predicates, claim_id=claim_id, schema_path=schema_path,
+    )
+    if result is None:
         base.update({
             _KW_KIND: Keyword("symbol"),
             _KW_SORT: Keyword("formula"),
             _KW_NAME: Keyword("OPAQUE"),
         })
         return base
-    predicate, value, subject = match
+    tag, payload = result
+    if tag == "defect":
+        # REQ-LLMLIFT-043: emit :kind :defect atom with a structured
+        # :llm-lift-rejected reason. The Rust verifier ignores
+        # :kind :defect atoms at SMT time; verdict_to_qa surfaces them.
+        pred_name, reason = payload
+        base.update({
+            _KW_KIND: _KW_DEFECT,
+            _KW_SORT: Keyword("formula"),
+            _KW_REASON: _KW_LLM_LIFT_REJECTED,
+            _KW_PREDICATE: pred_name,
+            _KW_DOC: reason[:500],
+        })
+        return base
+    # tag == "match"
+    predicate, value, subject = payload
     base.update({
         _KW_KIND: Keyword("expression"),
         _KW_SORT: Keyword("formula"),
@@ -231,6 +395,10 @@ def compute_atoms_iter(
     predicates_data = read_edn_file(predicates_path)
     predicates = predicates_data.get(_KW_PREDICATES, {})
     _validate_against_schema(predicates_path, predicates)
+    # REQ-LLMLIFT-042: hand the schema path to `_claim_to_atom` so any
+    # `:backend :llm` lift can schema-check its LLM proposals before
+    # admitting them to the atomspace.
+    schema_path = predicates_path.parent / "booklogic-schema.edn"
 
     rows = read_ledger(ledger_path)
     latest = latest_per_id(rows)
@@ -238,7 +406,7 @@ def compute_atoms_iter(
     for claim in latest.values():
         if not _is_verified(claim):
             continue
-        yield _claim_to_atom(claim, predicates)
+        yield _claim_to_atom(claim, predicates, schema_path=schema_path)
 
 
 def compute_atoms(ledger_path: Path, predicates_path: Path) -> list[dict]:

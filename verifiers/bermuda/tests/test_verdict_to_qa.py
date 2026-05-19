@@ -50,3 +50,65 @@ def test_unknown_verdict_is_logged_not_gated(tmp_path: Path) -> None:
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["verdict"] == "unknown"
     assert payload["core"] == []
+
+
+def test_semantic_neighbours_empty_when_no_npz(
+    fixtures_dir: Path, tmp_path: Path
+) -> None:
+    """REQ-RETRIEVAL-044: missing semantic-index.npz -> field is [],
+    NOT a hard error.
+    """
+    out = tmp_path / "verification-defects.json"
+    translate(fixtures_dir / "verdict_unsat.edn", out)
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["semantic_neighbours"] == []
+
+
+def test_semantic_neighbours_populated_from_npz(
+    fixtures_dir: Path, tmp_path: Path
+) -> None:
+    """REQ-RETRIEVAL-044: when .npz sits next to verdict.edn, each
+    defect (core claim) gets a top_k list of neighbours.
+    """
+    pytest.importorskip("sentence_transformers")
+    from scripts._semantic_index import SemanticIndex
+
+    # Place a verdict + .npz side-by-side under tmp_path.
+    work = tmp_path / "work"
+    work.mkdir()
+    verdict_src = (fixtures_dir / "verdict_unsat.edn").read_text(
+        encoding="utf-8"
+    )
+    (work / "verdict.edn").write_text(verdict_src, encoding="utf-8")
+    idx = SemanticIndex(cache_path=work / "semantic-index.npz")
+    # Embed the core claims plus a few others.
+    idx.embed_claim(
+        claim_id="clm-2026-000008",
+        text="ledger says 9 parishes in Bermuda",
+    )
+    idx.embed_claim(
+        claim_id="prose-ch-02-001",
+        text="chapter 2 prose claims 8 parishes",
+    )
+    idx.embed_claim(
+        claim_id="clm-2026-000009",
+        text="another parish-count claim from the ledger",
+    )
+    idx.embed_claim(
+        claim_id="clm-2026-000010",
+        text="unrelated population census from 1970",
+    )
+    idx.save()
+
+    out = tmp_path / "verification-defects.json"
+    translate(work / "verdict.edn", out)
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert len(payload["semantic_neighbours"]) == 2
+    by_id = {
+        n["defect_claim_id"]: n for n in payload["semantic_neighbours"]
+    }
+    # Each defect carries up to 3 OTHER claims (self excluded).
+    for entry in payload["semantic_neighbours"]:
+        ids = [t["claim"] for t in entry["top_k"]]
+        assert entry["defect_claim_id"] not in ids
+        assert len(ids) <= 3

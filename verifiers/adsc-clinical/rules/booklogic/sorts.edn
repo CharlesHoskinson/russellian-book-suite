@@ -1,0 +1,24 @@
+;; rules/booklogic/sorts.edn — declare custom sorts for this verifier.
+;;
+;; FORM SYNTAX:
+;;   (defsort :sort-name)
+;;
+;; A sort is a typed domain identifier. Predicates declared in predicates.edn
+;; reference these sort names in their :arg-sorts and :return positions. The
+;; primitive sort set {:int :real :bool :string :entity :formula} is always
+;; available — you only need defsort for domain-specific kinds.
+;;
+;; EXAMPLE (commented out — uncomment and edit for your domain):
+;; (defsort :solution)
+;; (defsort :document)
+;; (defsort :chapter)
+;;
+;; COMMON SILENT FAILURES:
+;;   - referencing an undeclared sort in predicates.edn → nbb expand throws
+;;     "defpredicate <name>: unknown sort <X>" at compile time (loud).
+;;   - typo in sort name (`:Solution` vs `:solution`) → unknown-sort throw.
+;;
+{:forms
+ [(defsort :trial)
+  (defsort :treatment)
+  (defsort :patient-population)]}

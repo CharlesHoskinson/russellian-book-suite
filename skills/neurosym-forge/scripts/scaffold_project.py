@@ -114,6 +114,8 @@ def scaffold_project(
         ("codegen_axioms.py","_codegen_axioms_lib.py"),
         ("codegen_kg.py",    "_codegen_kg_lib.py"),
         ("_extract_preview_lib.py", "_extract_preview_lib.py"),
+        ("_semantic_index.py",      "_semantic_index.py"),
+        ("build_semantic_index.py", "build_semantic_index.py"),
     ):
         _src = scripts_src / _dep_src
         if _src.exists():

@@ -63,6 +63,15 @@ pub struct Verdict {
     /// participated in the unsat core.
     #[serde(default)]
     pub corpus_defects: Vec<CorpusDefect>,
+    /// Top-k similar claims per defect (REQ-RETRIEVAL-044). Each
+    /// entry pairs a defect's claim id with the top-3 most-similar
+    /// OTHER claims as `(claim_id, cosine_score)` pairs. Populated by
+    /// the Python `verdict_to_qa` layer from the
+    /// `work/semantic-index.npz` produced by `make index-semantic`.
+    /// Empty when the .npz is missing — semantic retrieval is
+    /// advisory, not gating.
+    #[serde(default)]
+    pub semantic_neighbours: Vec<NeighbourEntry>,
 }
 
 /// REQ-CORPUS-053: per-defect record for `:scope :corpus` constraints
@@ -77,6 +86,15 @@ pub struct CorpusDefect {
     pub conflicting_subjects: Vec<String>,
     #[serde(default)]
     pub explanation: String,
+}
+
+/// Top-k semantic neighbours attached to a defect (REQ-RETRIEVAL-044).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NeighbourEntry {
+    pub defect_claim_id: String,
+    /// `(other_claim_id, cosine_score)` pairs sorted descending by
+    /// score; ties broken lexicographically by `other_claim_id`.
+    pub top_k: Vec<(String, f32)>,
 }
 
 /// Per-query summary recorded on the verdict. `sample` is `Some` for

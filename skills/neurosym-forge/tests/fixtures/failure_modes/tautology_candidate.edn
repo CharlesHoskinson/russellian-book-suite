@@ -1,0 +1,12 @@
+; Fixture: failure-mode REQ-TEST-041 (Outcome-Driven Constraint Violation).
+;
+; A trivial tautology. The `:assert` body is an `or` whose first disjunct is
+; the literal `true`, so the candidate covers every atom while saying
+; nothing. The validator's syntactic pre-check must reject this BEFORE
+; counting support, with reason `:trivial-tautology`.
+(defconstraint :induced/trivial-or-true
+  :scope :subject
+  :backend :z3
+  :assert (or true (= (:r0 ?d) (:r0 ?d)))
+  :on-unsat {:defect :D-induced-trivial-or-true
+             :severity :low})

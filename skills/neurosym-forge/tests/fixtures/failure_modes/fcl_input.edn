@@ -1,0 +1,8 @@
+; Alias for valid_candidate.edn (Phase BB plan body refers to this filename).
+; The proposer feeds this in both legs of the FCL idempotence test.
+(defconstraint :induced/valid-c1
+  :scope :subject
+  :backend :z3
+  :assert (>= (:r0 ?d) 0)
+  :on-unsat {:defect :D-induced-valid-c1
+             :severity :low})

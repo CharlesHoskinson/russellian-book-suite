@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import sys
@@ -302,6 +303,72 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
         json.dumps(result, indent=2, sort_keys=True),
+        encoding="utf-8", newline="\n",
+    )
+
+
+_MANUSCRIPT_ANNOTATIONS_SCHEMA_VERSION = 1
+
+
+def emit_manuscript_annotations(
+    verdict: dict,
+    source_path: str,
+    out_path: Path,
+    source_bytes: bytes | None = None,
+) -> None:
+    """REQ-PUB-040: emit `manuscript-annotations.json` mapping each
+    verdict defect's claim_id to a source span + severity + message.
+
+    `verdict` is a dict-shaped verdict (JSON-style; the EDN keyword
+    keys must already have been normalised to plain strings). The
+    expected keys are:
+
+      - `defects`: list of dicts each carrying at minimum
+        `claim_id`, `source_span` (`[start, end]`), `severity`,
+        `message`, `defect_confidence`. Optional keys
+        `declared_severity`, `defect_id`, `constraint_id`,
+        `see_also` (a list of similar claim ids — Phase Q's
+        `:semantic-neighbours`) are passed through when present.
+
+    `source_path` is recorded verbatim in the JSON and is what the
+    renderer uses to locate the markdown on disk. `source_bytes`, if
+    supplied, is hashed with sha256 and stored in `source_sha256`
+    so the renderer can detect stale spans (REQ-PUB-043).
+    """
+    defects = verdict.get("defects", []) or []
+    annotations: list[dict] = []
+    for d in defects:
+        if not isinstance(d, dict):
+            continue
+        span = d.get("source_span")
+        if not (isinstance(span, (list, tuple)) and len(span) == 2):
+            continue
+        entry: dict = {
+            "claim_id": str(d.get("claim_id", "")),
+            "source_span": [int(span[0]), int(span[1])],
+            "severity": str(d.get("severity", "advisory")),
+            "message": str(d.get("message", "")),
+            "defect_confidence": float(d.get("defect_confidence", 0.0)),
+        }
+        # Pass-through fields when present (declared severity, ids, see-also).
+        for opt_key in ("declared_severity", "defect_id", "constraint_id"):
+            if opt_key in d and d[opt_key] is not None:
+                entry[opt_key] = str(d[opt_key])
+        see_also = d.get("see_also")
+        if isinstance(see_also, (list, tuple)) and see_also:
+            entry["see_also"] = [str(x) for x in see_also]
+        annotations.append(entry)
+    payload: dict = {
+        "version": _MANUSCRIPT_ANNOTATIONS_SCHEMA_VERSION,
+        "source_path": str(source_path),
+        "annotations": annotations,
+    }
+    if source_bytes is not None:
+        payload["source_sha256"] = hashlib.sha256(source_bytes).hexdigest()
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
         encoding="utf-8", newline="\n",
     )
 

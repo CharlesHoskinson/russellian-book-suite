@@ -20,3 +20,14 @@ def test_ci_depends_on_extract():
             assert "extract" in deps, f"`ci:` does not depend on `extract`; deps={deps!r}"
             return
     raise AssertionError("no `ci:` target line found in Makefile")
+
+
+def test_index_semantic_target_exists():
+    """REQ-RETRIEVAL-043: Makefile defines an `index-semantic` target."""
+    text = MAKEFILE.read_text(encoding="utf-8")
+    assert "\nindex-semantic:" in text, (
+        "no `index-semantic:` target found in Makefile"
+    )
+    assert "build_semantic_index.py" in text, (
+        "index-semantic should invoke build_semantic_index.py"
+    )

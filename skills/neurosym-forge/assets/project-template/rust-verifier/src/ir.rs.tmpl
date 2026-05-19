@@ -46,6 +46,18 @@ pub struct Verdict {
     pub explanation: String,
     #[serde(default)]
     pub graph_summary: Option<GraphSummary>,
+    /// Top-k similar claims per defect (REQ-RETRIEVAL-044). Empty when
+    /// `work/semantic-index.npz` is missing — semantic retrieval is
+    /// advisory, not gating.
+    #[serde(default)]
+    pub semantic_neighbours: Vec<NeighbourEntry>,
+}
+
+/// Top-k semantic neighbours attached to a defect (REQ-RETRIEVAL-044).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NeighbourEntry {
+    pub defect_claim_id: String,
+    pub top_k: Vec<(String, f32)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -57,6 +57,24 @@ pub struct Verdict {
     /// witness row; `rows` is the violation count.
     #[serde(default)]
     pub cozo_defects: Vec<QueryResult>,
+    /// Top-k similar claims per defect (REQ-RETRIEVAL-044). Each
+    /// entry pairs a defect's claim id with the top-3 most-similar
+    /// OTHER claims as `(claim_id, cosine_score)` pairs. Populated by
+    /// the Python `verdict_to_qa` layer from the
+    /// `work/semantic-index.npz` produced by `make index-semantic`.
+    /// Empty when the .npz is missing — semantic retrieval is
+    /// advisory, not gating.
+    #[serde(default)]
+    pub semantic_neighbours: Vec<NeighbourEntry>,
+}
+
+/// Top-k semantic neighbours attached to a defect (REQ-RETRIEVAL-044).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NeighbourEntry {
+    pub defect_claim_id: String,
+    /// `(other_claim_id, cosine_score)` pairs sorted descending by
+    /// score; ties broken lexicographically by `other_claim_id`.
+    pub top_k: Vec<(String, f32)>,
 }
 
 /// Per-query summary recorded on the verdict. `sample` is `Some` for

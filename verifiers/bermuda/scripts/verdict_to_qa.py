@@ -117,6 +117,37 @@ def _bind_remedies(remedies_path: Path, query_rows: list[dict]) -> list[dict]:
     return out
 
 
+def _semantic_neighbours(
+    defect_claim_ids: list[str], npz_path: Path
+) -> list[dict]:
+    """REQ-RETRIEVAL-044: attach top-3 most-similar OTHER claims per
+    defect. Returns an empty list if the .npz is missing or the
+    encoder is unavailable — semantic retrieval is advisory.
+    """
+    if not npz_path.exists():
+        return []
+    try:
+        from scripts._semantic_index import SemanticIndex
+    except Exception:
+        return []
+    idx = SemanticIndex(cache_path=npz_path)
+    idx.load()
+    out: list[dict] = []
+    for cid in defect_claim_ids:
+        try:
+            top = idx.similar_other_claims(cid, k=3)
+        except KeyError:
+            top = []
+        out.append({
+            "defect_claim_id": cid,
+            "top_k": [
+                {"claim": other, "score": round(float(score), 6)}
+                for other, score in top
+            ],
+        })
+    return out
+
+
 def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = None) -> None:
     if not verdict_path.exists():
         raise FileNotFoundError(verdict_path)
@@ -133,6 +164,10 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
     if remedies_path is None:
         remedies_path = verdict_path.resolve().parent.parent / "rules" / "remedies.edn"
     remedies = _bind_remedies(remedies_path, queries)
+    core_ids = [str(c) for c in payload.get(_KW_CORE, [])]
+    # REQ-RETRIEVAL-044: attach top-3 neighbours per defect (core claim).
+    npz_path = verdict_path.resolve().parent / "semantic-index.npz"
+    semantic_neighbours = _semantic_neighbours(core_ids, npz_path)
     result = {
         "verdict": verdict_str,
         "core": list(payload.get(_KW_CORE, [])),
@@ -141,6 +176,7 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
         "queries": queries,
         "cozo_defects": cozo_defects,
         "remedies": remedies,
+        "semantic_neighbours": semantic_neighbours,
         "produced_at": dt.datetime.now(dt.UTC).isoformat(),
         "verifier_version": FORGE_BERMUDA_VERSION,
     }

@@ -6,7 +6,7 @@ fits those placeholders to concrete values by encoding the rule as a
 Z3 ``Optimize`` problem over the training atomspace and minimising the
 candidate's numeric parameters.
 
-REQ-INDUCE-060, 061, 065.
+REQ-INDUCE-060, 061, 063, 065.
 
 AST shape
 ---------
@@ -50,6 +50,10 @@ Return values
 ``None`` covers:
 
 * **unsat** — no finite assignment satisfies the rule on every atom;
+* **unknown / timeout** — Z3 returned ``unknown`` within the bound set
+  by ``VERIFIER_INDUCTION_FIT_TIMEOUT_MS`` (default 10000). On
+  timeout the candidate is DROPPED — the fitter does NOT retry with a
+  looser ε. See ``design.md`` and REQ-INDUCE-063.
 * **structural failure** — the AST referenced a predicate absent from
   some atom, or contained an unexpected node shape.
 
@@ -59,9 +63,13 @@ this to build the candidate's post-mortem record).
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Iterable, Mapping
 
 import z3
+
+DEFAULT_TIMEOUT_MS = 10_000
+TIMEOUT_ENV_VAR = "VERIFIER_INDUCTION_FIT_TIMEOUT_MS"
 
 # Comparators recognised at the AST root. Anything else is treated as an
 # unsupported rule shape and yields :smt-unsupported.
@@ -78,6 +86,23 @@ class FitReason(dict):
     """
 
     pass
+
+
+def _read_timeout_ms() -> int:
+    """Read ``VERIFIER_INDUCTION_FIT_TIMEOUT_MS`` with safe fallback.
+
+    Bogus / non-positive values revert to ``DEFAULT_TIMEOUT_MS``. The
+    fitter never runs unbounded; the env var is the budget knob, not
+    a switch.
+    """
+    raw = os.environ.get(TIMEOUT_ENV_VAR)
+    if raw is None or raw == "":
+        return DEFAULT_TIMEOUT_MS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_TIMEOUT_MS
+    return value if value > 0 else DEFAULT_TIMEOUT_MS
 
 
 def _is_fit_var(node: Any) -> bool:
@@ -305,9 +330,11 @@ def fit_tolerance(rule_ast: tuple,
 
     Returns
     -------
-    ``float`` minimum ε, or ``None`` on unsat / structural failure.
-    The structured rejection reason is stored on
-    ``fit_tolerance.last_reason``.
+    ``float`` minimum ε, or ``None`` on unsat / timeout / structural
+    failure. The structured rejection reason is stored on
+    ``fit_tolerance.last_reason``. On a Z3 ``unknown`` result the
+    reason is ``{:phase :smt-fit :reason :smt-timeout
+    :timeout-ms <int>}`` and the candidate is dropped, NOT retried.
     """
     fit_tolerance.last_reason = None  # type: ignore[attr-defined]
     comp, lhs, rhs, kwargs = _decompose_rule(rule_ast)
@@ -363,6 +390,8 @@ def fit_tolerance(rule_ast: tuple,
         opt.add(constraint)
 
     opt.minimize(z3_vars[tol_var])
+    timeout_ms = _read_timeout_ms()
+    opt.set("timeout", timeout_ms)
     result = opt.check()
     if result == z3.sat:
         eps = _model_value(opt.model(), z3_vars[tol_var])
@@ -372,6 +401,14 @@ def fit_tolerance(rule_ast: tuple,
             ":value": eps,
         })
         return eps
+    if result == z3.unknown:
+        # Per REQ-INDUCE-063: drop, do NOT retry with looser ε.
+        fit_tolerance.last_reason = FitReason({  # type: ignore[attr-defined]
+            ":phase": ":smt-fit",
+            ":reason": ":smt-timeout",
+            ":timeout-ms": timeout_ms,
+        })
+        return None
     fit_tolerance.last_reason = FitReason({  # type: ignore[attr-defined]
         ":phase": ":smt-fit",
         ":reason": ":smt-unsat",
@@ -384,5 +421,7 @@ fit_tolerance.last_reason = None  # type: ignore[attr-defined]
 
 __all__ = [
     "fit_tolerance",
+    "DEFAULT_TIMEOUT_MS",
+    "TIMEOUT_ENV_VAR",
     "FitReason",
 ]

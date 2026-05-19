@@ -1,16 +1,19 @@
 """Tests for skills/neurosym-forge/scripts/_smt_fit.py.
 
-Initial slice — REQ-INDUCE-060, 061, 065 (a, b):
+Covers REQ-INDUCE-060, 061, 063, 065 (a, b, c):
 
 * REQ-INDUCE-060: ``fit_tolerance`` exists with the documented signature.
 * REQ-INDUCE-061: Z3 ``Optimize`` finds the minimum ε across the
   training atomspace.
+* REQ-INDUCE-063: ``VERIFIER_INDUCTION_FIT_TIMEOUT_MS`` bounds the
+  optimisation; on ``unknown`` the fitter returns ``None`` with a
+  ``:smt-timeout`` reason; no retry with looser ε.
 * REQ-INDUCE-065(a): known-good fixture (herd-immunity formula across
   30 synthetic atoms with noise ≈ 0.04) returns ε within ±0.015 of 0.05.
 * REQ-INDUCE-065(b): impossible fixture returns ``None``.
+* REQ-INDUCE-065(c): timeout fixture returns ``None`` within bound.
 
-Timeout handling (REQ-INDUCE-063) and multi-param Pareto fitting
-(REQ-INDUCE-062) ship in subsequent commits and add their own cases.
+Multi-param Pareto fitting (REQ-INDUCE-062) ships in the next commit.
 """
 from __future__ import annotations
 
@@ -21,7 +24,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts._smt_fit import fit_tolerance  # noqa: E402
+from scripts._smt_fit import (  # noqa: E402
+    DEFAULT_TIMEOUT_MS,
+    TIMEOUT_ENV_VAR,
+    fit_tolerance,
+)
 
 
 def _herd_immunity_atoms(n: int = 30, noise: float = 0.04) -> list[dict]:
@@ -107,6 +114,93 @@ def test_unsat_with_missing_predicate_returns_none():
     eps = fit_tolerance(_herd_immunity_rule(), atoms)
     assert eps is None
     assert fit_tolerance.last_reason[":reason"] == ":smt-missing-predicate"
+
+
+# ---------------------------------------------------------------------------
+# REQ-INDUCE-063, 065(c) — timeout fixture
+# ---------------------------------------------------------------------------
+
+
+def _hard_nra_fixture():
+    """A deliberately hard nonlinear-real-arithmetic fit.
+
+    Encodes a high-degree polynomial relationship across many atoms
+    with several coupled unknowns. Z3's NRA solver spends >> 1 ms on
+    this, so a 1-ms timeout reliably triggers ``unknown``. Returns
+    ``(rule, atoms)``.
+    """
+    import math
+    atoms = []
+    for i in range(40):
+        x = 0.1 + 0.07 * i
+        y = math.sin(x * 7.3) + 0.5 * math.cos(x * 13.1)
+        z = ((x ** 5) - 3 * (x ** 4) * y + 2 * (x ** 3) * (y ** 2)
+             - (x ** 2) * (y ** 3) + 0.7)
+        atoms.append({"x": x, "y": y, "z": z})
+    rule = (
+        "approx=",
+        ("z", "?s"),
+        ("+",
+            ("*", "?a", ("*", ("x", "?s"), ("*", ("x", "?s"),
+                ("*", ("x", "?s"), ("*", ("x", "?s"), ("x", "?s")))))),
+            ("*", "?b", ("*", ("x", "?s"), ("*", ("x", "?s"),
+                ("*", ("x", "?s"), ("*", ("x", "?s"), ("y", "?s")))))),
+            ("*", "?c", ("*", ("x", "?s"), ("*", ("x", "?s"),
+                ("*", ("x", "?s"), ("*", ("y", "?s"), ("y", "?s")))))),
+            ("*", "?d", ("*", ("x", "?s"), ("*", ("x", "?s"),
+                ("*", ("y", "?s"), ("*", ("y", "?s"), ("y", "?s")))))),
+            "?e",
+         ),
+        ":tolerance",
+        "?eps",
+    )
+    return rule, atoms
+
+
+def test_z3_unknown_drops_candidate_without_retry(monkeypatch):
+    """REQ-INDUCE-063: a 1-ms timeout on a hard NRA fit returns None.
+
+    Uses a 5th-degree polynomial fit with coupled coefficients; Z3's
+    NRA solver cannot finish in 1 ms, so ``check()`` returns
+    ``unknown``. The fitter must propagate that as ``None`` with a
+    ``:smt-timeout`` reason, NOT retry with a looser ε.
+    """
+    monkeypatch.setenv(TIMEOUT_ENV_VAR, "1")
+    rule, atoms = _hard_nra_fixture()
+    eps = fit_tolerance(rule, atoms)
+    assert eps is None
+    reason = fit_tolerance.last_reason
+    assert reason is not None
+    assert reason[":reason"] == ":smt-timeout", (
+        f"expected :smt-timeout, got {reason!r}"
+    )
+    assert reason[":timeout-ms"] == 1
+
+
+def test_timeout_fixture_returns_none_within_bound(monkeypatch):
+    """REQ-INDUCE-065(c): timeout returns None within the wall-clock bound."""
+    monkeypatch.setenv(TIMEOUT_ENV_VAR, "1")
+    rule, atoms = _hard_nra_fixture()
+    start = time.monotonic()
+    eps = fit_tolerance(rule, atoms)
+    elapsed = time.monotonic() - start
+    assert eps is None
+    assert elapsed < 5.0, f"timeout fit took {elapsed:.2f}s; bound is 5s"
+
+
+def test_timeout_env_default_when_unset(monkeypatch):
+    """``VERIFIER_INDUCTION_FIT_TIMEOUT_MS`` unset → 10000 ms."""
+    monkeypatch.delenv(TIMEOUT_ENV_VAR, raising=False)
+    eps = fit_tolerance(_herd_immunity_rule(), _herd_immunity_atoms())
+    assert eps is not None
+    assert DEFAULT_TIMEOUT_MS == 10_000
+
+
+def test_timeout_env_bogus_falls_back_to_default(monkeypatch):
+    """Non-integer ``VERIFIER_INDUCTION_FIT_TIMEOUT_MS`` reverts to default."""
+    monkeypatch.setenv(TIMEOUT_ENV_VAR, "not-a-number")
+    eps = fit_tolerance(_herd_immunity_rule(), _herd_immunity_atoms())
+    assert eps is not None
 
 
 def test_post_fit_value_is_substitution_ready():

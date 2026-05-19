@@ -11,6 +11,7 @@
 | `defsort`                    | wired        | (validation only)   | n/a          | wired  |
 | `defpredicate`               | wired        | (validation only)   | n/a          | wired  |
 | `deflift`                    | wired        | `predicates.edn`    | n/a          | wired  |
+| `deflift :backend :llm`      | wired (alpha) | `scripts/_llm_lift.py` | LLM       | wired (alpha) |
 | `defrule`                    | wired        | `eqsat.rs::make_rewrites` | egg     | wired  |
 | `defconstraint :backend :z3` | wired        | `codegen_axioms.py` | Z3           | wired  |
 | `defconstraint :backend :egg`| wired        | `eqsat.rs::prove_equiv` | egg      | wired  |
@@ -49,6 +50,14 @@ references a `defquery` name receives the query's row count bound into
 its `:propose` action surface by `verdict_to_qa.py`. The remedy entry
 in `verification-defects.json` carries `query_bound=true` and the
 materialised row count.
+
+**wired (alpha)** — Full end-to-end path is implemented and CI-tested
+against the offline stub responder (`StubLift`). Real-provider behaviour
+(OpenAI, Anthropic, local Ollama) depends on the chosen model; users
+should expect proposal-quality variance and exercise the cache +
+schema validation as belt-and-braces. Promoted to `wired` once
+Phase Q's eval bench confirms detection rates within 5 percentage
+points of the regex baseline.
 
 ## Why this exists
 

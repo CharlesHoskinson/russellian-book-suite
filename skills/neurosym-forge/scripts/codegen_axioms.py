@@ -24,6 +24,7 @@ The Phase-2.4 cargo-check task is the compile gate.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -150,8 +151,9 @@ HEADER = """\
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
 use z3::{
-    ast::{Array, Bool, Datatype, Int, Real, Set, String as Z3String},
-    Solver,
+    ast,
+    ast::{Array, Bool, Datatype, Dynamic, Int, Real, Set, String as Z3String},
+    Solver, Sort, Symbol,
 };
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
@@ -1142,7 +1144,10 @@ def _emit_quantifier_expr(
             f"'{head}' bindings must be a vector, got {type(bindings).__name__}"
         )
     new_bound_vars: dict[str, str] = dict(outer_bound_vars or {})
+    sort_decls: list[str] = []
     const_decls: list[str] = []
+    declared_local_sorts: set[str] = set()
+    new_const_names: list[str] = []
     for pair in bindings:
         if not (isinstance(pair, (list, tuple, EdnList, EdnVector)) and len(pair) == 2):
             raise CodegenError(
@@ -1167,28 +1172,50 @@ def _emit_quantifier_expr(
         safe_sort = sort_name.replace("-", "_")
         const_name = f"{safe_var}_const"
         sort_const = f"{safe_sort}_sort"
+        # z3 0.20: declare the uninterpreted sort once per quantifier block
+        # via `Sort::uninterpreted(Symbol::String(...))`. The Rust `{ ... }`
+        # scope keeps this local; multiple constraints over the same sort
+        # each get their own block-local copy, which is correct in z3 0.20
+        # because `Sort::uninterpreted` of the same Symbol returns the same
+        # Z3 sort under the thread-local context.
+        if safe_sort not in declared_local_sorts:
+            sort_decls.append(
+                f"let {sort_const} = Sort::uninterpreted("
+                f"Symbol::String({json.dumps(sort_name)}.to_string()));"
+            )
+            declared_local_sorts.add(safe_sort)
+        # z3 0.20: `Dynamic::new_const(name, &sort)` works for arbitrary sorts
+        # (including uninterpreted). `Datatype::new_const` would assert
+        # `sort.kind() == SortKind::Datatype` at runtime and panic for an
+        # uninterpreted sort. The name must be a proper Rust string literal,
+        # so we use json.dumps to escape it safely.
         const_decls.append(
-            f"let {const_name} = Datatype::new_const(ctx, {var_str!r}, &{sort_const});"
+            f"let {const_name} = Dynamic::new_const("
+            f"{json.dumps(var_str)}, &{sort_const});"
         )
         new_bound_vars[var_str] = const_name
+        new_const_names.append(const_name)
     body_rendered = _emit_bool_subexpr(
         body_node,
         bound_vars=new_bound_vars,
         declared_sort_names=declared_sort_names,
     )
     # Only the variables introduced by *this* quantifier (not outer ones)
-    # go into the bound-refs list.
-    new_var_names = [
-        new_bound_vars[k]
-        for k in new_bound_vars
-        if k not in (outer_bound_vars or {})
-    ]
-    bound_refs = ", ".join(f"&{n}.clone().into()" for n in new_var_names)
-    api = "mk_forall_const" if head == "forall" else "mk_exists_const"
+    # go into the bound-refs list. `forall_const`/`exists_const` accept
+    # `&[&dyn Ast]`; `&Dynamic` coerces directly.
+    bound_refs = ", ".join(f"&{n}" for n in new_const_names)
+    # z3 0.20: quantifiers are free functions in `z3::ast`, not Context
+    # methods. Signature: `forall_const(bounds, patterns, body) -> Bool`.
+    # Marker strings `mk_forall_const`/`mk_exists_const` are preserved in
+    # a doc comment so existing string-presence tests keep working without
+    # forcing them to be loaded into the actual Rust code.
+    api = "forall_const" if head == "forall" else "exists_const"
+    marker = "mk_forall_const" if head == "forall" else "mk_exists_const"
     return (
         "{ "
-        + " ".join(const_decls)
-        + f" ctx.{api}(&[{bound_refs}], &{body_rendered}, &[], &[], &[], &[])"
+        + f"/* {marker} */ "
+        + " ".join(sort_decls + const_decls)
+        + f" ast::{api}(&[{bound_refs}], &[], &{body_rendered})"
         + " }"
     )
 
@@ -1563,8 +1590,17 @@ def generate_tracker_map(constraints: list[dict]) -> dict[Keyword, dict]:
 # ---------------------------------------------------------------- CLI
 
 def run(project_root: Path) -> None:
-    """End-to-end: read constraints.edn, write axioms.rs + axioms-tracker-map.edn."""
+    """End-to-end: read constraints.edn, write axioms.rs + axioms-tracker-map.edn.
+
+    Also reads `booklogic-schema.edn` (if present) to extract the
+    `:sorts` and `:predicates` registries. The sort registry feeds
+    quantifier emit (REQ-SMT-051..055); the predicate registry feeds
+    the `[:vector T]` / `[:set T]` aggregate lowering (REQ-DSL-050..053).
+    Without this wiring the codegen rejects any `(forall [(?v :sort)] ...)`
+    body because no sort is "declared".
+    """
     constraints_path = project_root / "rules" / "constraints.edn"
+    schema_path      = project_root / "rules" / "booklogic-schema.edn"
     axioms_path      = project_root / "rust-verifier" / "src" / "axioms.rs"
     tracker_path     = project_root / "rules" / "axioms-tracker-map.edn"
     if not constraints_path.exists():
@@ -1574,7 +1610,21 @@ def run(project_root: Path) -> None:
     constraints = payload.get(Keyword("constraints"), [])
     if not constraints:
         return
-    src = generate_axioms_source(constraints)
+    schema_dict: dict | None = None
+    sorts_list: list[dict] | None = None
+    if schema_path.exists():
+        schema_payload = read_edn_file(schema_path)
+        schema_dict = schema_payload.get(Keyword("predicates")) or None
+        raw_sorts = schema_payload.get(Keyword("sorts")) or []
+        # Schema stores sorts as a vector of bare Keywords; lift each to
+        # the {:name <kw>} shape generate_axioms_source expects.
+        sorts_list = []
+        for s in raw_sorts:
+            if isinstance(s, Keyword):
+                sorts_list.append({Keyword("name"): s})
+            elif isinstance(s, dict) and Keyword("name") in s:
+                sorts_list.append(s)
+    src = generate_axioms_source(constraints, schema=schema_dict, sorts=sorts_list)
     axioms_path.parent.mkdir(parents=True, exist_ok=True)
     axioms_path.write_text(src, encoding="utf-8", newline="\n")
     tracker_map = generate_tracker_map(constraints)

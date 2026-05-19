@@ -28,4 +28,43 @@
 ;;   - regex compiles but matches nothing → Phase A's extract gate
 ;;     surfaces this as a high OPAQUE fraction.
 ;;
-{:forms []}
+{:forms
+ [(deflift L001-trial-n
+    :from :claim/canonical-text
+    :when "(?i)\\bn\\s*=\\s*(?P<v>[0-9]+)"
+    :emit (fact ?claim-id :t :trial-n (parse-int ?v)))
+
+  (deflift L002-trial-p-value
+    :from :claim/canonical-text
+    :when "(?i)\\bp\\s*[<>=]\\s*(?P<v>0?\\.[0-9]+)"
+    :emit (fact ?claim-id :t :trial-p-value (parse-float ?v)))
+
+  (deflift L003-treatment-efficacy
+    :from :claim/canonical-text
+    :when "(?i)(?:efficacy|response\\s+rate|success\\s+rate|improvement)\\s*(?:was|of|=|at|reached)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%"
+    :emit (fact ?claim-id :tx :treatment-efficacy (parse-float ?v)))
+
+  (deflift L004-follow-up-months
+    :from :claim/canonical-text
+    :when "(?i)(?:follow[- ]?up|followed\\s+for|tracked\\s+for)\\s*(?:was|of|for|at)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*months?"
+    :emit (fact ?claim-id :t :follow-up-months (parse-float ?v)))
+
+  (deflift L005-primary-endpoint-met
+    :from :claim/canonical-text
+    :when "(?i)primary\\s+endpoint\\s+(?P<v>met|achieved|reached|not\\s+met|missed|failed)"
+    :emit (fact ?claim-id :t :primary-endpoint-met (parse-bool ?v)))
+
+  (deflift L006-adverse-event-rate
+    :from :claim/canonical-text
+    :when "(?i)(?:adverse\\s+events?|side\\s+effects?|complications?)\\s*(?:rate|occurred\\s+in|in)?\\s*(?:was|=|of|at)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%"
+    :emit (fact ?claim-id :tx :adverse-event-rate (parse-float ?v)))
+
+  (deflift L007-dose-mg
+    :from :claim/canonical-text
+    :when "(?i)\\bdose\\s*(?:of|=|was|at)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*mg\\b"
+    :emit (fact ?claim-id :tx :dose-mg (parse-float ?v)))
+
+  (deflift L008-patient-count
+    :from :claim/canonical-text
+    :when "(?i)(?P<v>[0-9]+)\\s+(?:patients|participants|subjects)\\b"
+    :emit (fact ?claim-id :pop :patient-count (parse-int ?v)))]}

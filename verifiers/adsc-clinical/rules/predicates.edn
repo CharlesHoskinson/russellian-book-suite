@@ -1,2 +1,69 @@
 {:version 1
- :predicates {}}
+ :predicates
+ {:trial-n
+  {:patterns ["(?i)\\bn\\s*=\\s*(?P<v>[0-9]+)"]
+   :predicate :trial-n
+   :subject :t
+   :value-kind :int
+   :word-to-int {}}
+
+  :trial-p-value
+  {:patterns ["(?i)\\bp\\s*[<>=]+\\s*(?P<v>0?\\.[0-9]+)"]
+   :predicate :trial-p-value
+   :subject :t
+   :value-kind :real
+   :word-to-int {}}
+
+  :primary-endpoint-met
+  {:patterns ["(?i)(?P<v>met|achieved|reached|hit)\\b[^.]{0,40}primary\\s+endpoint"
+              "(?i)primary\\s+endpoint\\b[^.]{0,40}(?P<v>met|achieved|reached|hit)"
+              "(?i)(?P<v>failed|missed)\\b[^.]{0,40}primary\\s+endpoint"
+              "(?i)primary\\s+endpoint\\b[^.]{0,40}(?P<v>failed|missed)"]
+   :predicate :primary-endpoint-met
+   :subject :t
+   :value-kind :bool
+   :value true
+   :word-to-int {}}
+
+  :follow-up-months
+  {:patterns ["(?i)(?:follow[- ]?up|followed\\s+for|tracked\\s+for)\\s+(?:was|of|for|at|to)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*months?\\b"
+              "(?i)\\bat\\s+(?P<v>[0-9]+)\\s+months?\\b"
+              "(?i)\\b(?P<v>[0-9]+)\\s+months?\\s+(?:follow|after|post)"]
+   :predicate :follow-up-months
+   :subject :t
+   :value-kind :real
+   :word-to-int {}}
+
+  :adverse-event-rate
+  {:patterns ["(?i)\\b(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%[^.]{0,40}(?:adverse|side[- ]effects?|complications?)"
+              "(?i)(?:adverse\\s+events?|side[- ]effects?|complications?)\\s+(?:rate\\s+)?(?:were|was|of|=|at|in)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%"]
+   :predicate :adverse-event-rate
+   :subject :tx
+   :value-kind :real
+   :word-to-int {}}
+
+  :treatment-efficacy
+  {:patterns ["(?i)(?:response\\s+rate|success\\s+rate|remission\\s+rate)\\s*(?:was|of|=|at|reached|in)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%"
+              "(?i)\\bimproved\\s+(?:by\\s+)?(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%"
+              "(?i)\\befficacy\\s+(?:of|was|=|at|reached)\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%"
+              "(?i)\\b(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*%\\s+(?:improvement|reduction|response|remission|success|efficacy)"]
+   :predicate :treatment-efficacy
+   :subject :tx
+   :value-kind :real
+   :word-to-int {}}
+
+  :dose-mg
+  {:patterns ["(?i)\\bdose\\s+(?:of|=|was|at)?\\s*(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*mg\\b"
+              "(?i)\\b(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*mg\\s+(?:dose|per|given|injected|administered)"
+              "(?i)\\bat\\s+(?P<v>[0-9]+(?:\\.[0-9]+)?)\\s*mg\\b"]
+   :predicate :dose-mg
+   :subject :tx
+   :value-kind :real
+   :word-to-int {}}
+
+  :patient-count
+  {:patterns ["(?i)(?P<v>[0-9]+)\\s+(?:patients|participants|subjects)\\b"]
+   :predicate :patient-count
+   :subject :pop
+   :value-kind :int
+   :word-to-int {}}}}

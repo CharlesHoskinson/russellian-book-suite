@@ -22,6 +22,31 @@
 ;;                       :prov/semantic-neighbours [...]
 ;;                       :prov/induced-from-corpus "..."}}}
 ;;
+;; EXAMPLE entry (commented — uncomment and edit when seeding by hand;
+;; normally `forge induce` populates this):
+;; (= :induced/example-rule
+;;    {:prov/derived-from-atoms ["a01" "a02"]
+;;     :prov/source-documents ["pmid:12345"]
+;;     :prov/contradiction-atoms []
+;;     :prov/proposed-by {:lineage :llm :model "claude-haiku-4-5" :provider :anthropic}
+;;     :prov/validated-by [{:backend :z3 :held-out-folds 5 :sat-rate 0.83}]
+;;     :prov/entrenchment 0.83
+;;     :prov/status :active
+;;     :prov/llm-repair-calls 0
+;;     :prov/cost-usd 0.012})
+;;
+;; COMMON SILENT FAILURES:
+;;   - emitting a rule into induced-theory.edn without a matching prov
+;;     entry here → AGM revise crashes on lookup, never silent.
+;;   - :prov/entrenchment outside [0.0, 1.0] → schema validator throws
+;;     at add_rule_provenance (loud, not silent).
+;;   - :prov/status promoted by entrenchment recompute (e.g. tentative
+;;     → active) → contract-down rule in REQ-REVISE-043 clamps it
+;;     back; the recompute is silent but the contract enforces the
+;;     direction.
+;;   - hand-editing this file while `forge revise` is running →
+;;     last-write-wins; the runner does not file-lock.
+;;
 ;; A freshly scaffolded project ships the empty shape so `forge induce`
 ;; has a well-formed target on its first invocation.
 {:version 1 :rules {}}

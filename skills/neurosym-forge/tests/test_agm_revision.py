@@ -26,6 +26,33 @@ from scripts._agm_revision import (
 
 
 # ---------------------------------------------------------------------------
+# Local helper — prov-dict builder with tier-6 schema defaults
+# ---------------------------------------------------------------------------
+
+
+def _prov(**overrides) -> dict:
+    """Build a prov dict satisfying the full tier-6 schema.
+
+    Callers pass only the fields the test cares about; the helper fills in
+    safe defaults for the other required keys. Schema is closed (see
+    `scripts/_provenance.py::_REQUIRED_KEYS`).
+    """
+    base = {
+        ":prov/derived-from-atoms": [],
+        ":prov/source-documents": [],
+        ":prov/contradiction-atoms": [],
+        ":prov/proposed-by": {":lineage": ":induced"},
+        ":prov/validated-by": [],
+        ":prov/entrenchment": 0.5,
+        ":prov/status": STATUS_ACTIVE,
+        ":prov/llm-repair-calls": 0,
+        ":prov/cost-usd": 0.0,
+    }
+    base.update(overrides)
+    return base
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -41,8 +68,7 @@ def _seed_sidecar(tmp_path: Path, rules: dict[str, dict]) -> Path:
 
 
 def _load_rule(path: Path, rule_id: str) -> dict:
-    sidecar = ProvenanceSidecar()
-    sidecar.load(path)
+    sidecar = ProvenanceSidecar.load(path)
     rule = sidecar.lookup(rule_id)
     assert rule is not None, f"rule {rule_id} not in sidecar at {path}"
     return rule
@@ -59,12 +85,12 @@ def test_retraction_contracts_rule(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/r1": {
+            ":induced/r1": _prov(**{
                 ":prov/derived-from-atoms": ["c-1", "c-2", "c-3"],
                 ":prov/source-documents": ["pmid:1", "pmid:2"],
                 ":prov/entrenchment": 0.85,
                 ":prov/status": STATUS_ACTIVE,
-            },
+            }),
         },
     )
 
@@ -88,12 +114,12 @@ def test_revise_theory_signature_and_in_place_sidecar_mutation(tmp_path: Path) -
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/r1": {
+            ":induced/r1": _prov(**{
                 ":prov/derived-from-atoms": ["c-1"],
                 ":prov/source-documents": ["pmid:1"],
                 ":prov/entrenchment": 0.6,
                 ":prov/status": STATUS_TENTATIVE,
-            },
+            }),
         },
     )
 
@@ -115,18 +141,18 @@ def test_unaffected_rule_left_untouched(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/r1": {
+            ":induced/r1": _prov(**{
                 ":prov/derived-from-atoms": ["c-1", "c-2"],
                 ":prov/source-documents": ["pmid:1"],
                 ":prov/entrenchment": 0.82,
                 ":prov/status": STATUS_ACTIVE,
-            },
-            ":induced/r2": {
+            }),
+            ":induced/r2": _prov(**{
                 ":prov/derived-from-atoms": ["c-3"],
                 ":prov/source-documents": ["pmid:99"],
                 ":prov/entrenchment": 0.75,
                 ":prov/status": STATUS_ACTIVE,
-            },
+            }),
         },
     )
 
@@ -146,24 +172,24 @@ def test_single_paper_one_rule_contracts(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/affected": {
+            ":induced/affected": _prov(**{
                 ":prov/derived-from-atoms": ["c-1", "c-2"],
                 ":prov/source-documents": ["pmid:target", "pmid:other"],
                 ":prov/entrenchment": 0.9,
                 ":prov/status": STATUS_ACTIVE,
-            },
-            ":induced/untouched-a": {
+            }),
+            ":induced/untouched-a": _prov(**{
                 ":prov/derived-from-atoms": ["c-3"],
                 ":prov/source-documents": ["pmid:a", "pmid:b"],
                 ":prov/entrenchment": 0.8,
                 ":prov/status": STATUS_ACTIVE,
-            },
-            ":induced/untouched-b": {
+            }),
+            ":induced/untouched-b": _prov(**{
                 ":prov/derived-from-atoms": ["c-4"],
                 ":prov/source-documents": ["pmid:c"],
                 ":prov/entrenchment": 0.5,
                 ":prov/status": STATUS_TENTATIVE,
-            },
+            }),
         },
     )
 
@@ -187,12 +213,12 @@ def test_single_paper_five_rules_contract(tmp_path: Path) -> None:
     """REQ-REVISE-046(b): retracted paper cited by 5 rules -> all 5 contract."""
     rules = {}
     for i in range(5):
-        rules[f":induced/r{i}"] = {
+        rules[f":induced/r{i}"] = _prov(**{
             ":prov/derived-from-atoms": [f"c-{i}-1", f"c-{i}-2"],
             ":prov/source-documents": ["pmid:shared", f"pmid:rule{i}"],
             ":prov/entrenchment": 0.85,
             ":prov/status": STATUS_ACTIVE,
-        }
+        })
     prov_path = _seed_sidecar(tmp_path, rules)
 
     revise_theory(
@@ -211,19 +237,19 @@ def test_single_paper_five_rules_contract(tmp_path: Path) -> None:
 def test_entrenchment_formula_clamps_to_unit_interval(tmp_path: Path) -> None:
     """REQ-REVISE-041(e): entrenchment SHALL be in [0.0, 1.0] after revision."""
     rules = {
-        ":induced/saturated": {
+        ":induced/saturated": _prov(**{
             # 15 docs -> doc factor is capped at 1.0
             ":prov/derived-from-atoms": [f"c-{i}" for i in range(20)],
             ":prov/source-documents": [f"pmid:{i}" for i in range(15)],
             ":prov/entrenchment": 0.95,
             ":prov/status": STATUS_ACTIVE,
-        },
-        ":induced/empty-after": {
+        }),
+        ":induced/empty-after": _prov(**{
             ":prov/derived-from-atoms": ["c-x"],
             ":prov/source-documents": ["pmid:gone"],
             ":prov/entrenchment": 0.7,
             ":prov/status": STATUS_ACTIVE,
-        },
+        }),
     }
     prov_path = _seed_sidecar(tmp_path, rules)
 
@@ -254,17 +280,17 @@ def test_status_thresholds_deterministic(tmp_path: Path) -> None:
         tmp_path,
         {
             # Will keep enough support to stay above 0.7
-            ":induced/stays-active": {
+            ":induced/stays-active": _prov(**{
                 ":prov/derived-from-atoms": [f"c-a-{i}" for i in range(10)],
                 ":prov/source-documents": [f"pmid:keep-{i}" for i in range(10)]
                 + ["pmid:drop-1"],
                 ":prov/entrenchment": 0.95,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.95}],
-            },
+            }),
             # 8 docs, lose 4 -> doc factor goes from 0.8 to 0.4, sat 0.9
             # new entrenchment ~ 0.36 -> quarantined
-            ":induced/falls-to-quarantine": {
+            ":induced/falls-to-quarantine": _prov(**{
                 ":prov/derived-from-atoms": ["c-q-1"],
                 ":prov/source-documents": [
                     "pmid:q-1",
@@ -279,9 +305,9 @@ def test_status_thresholds_deterministic(tmp_path: Path) -> None:
                 ":prov/entrenchment": 0.72,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.9}],
-            },
+            }),
             # 7 docs, lose 1 -> doc factor 0.6, sat 0.9 -> ~0.54 tentative
-            ":induced/falls-to-tentative": {
+            ":induced/falls-to-tentative": _prov(**{
                 ":prov/derived-from-atoms": ["c-t-1"],
                 ":prov/source-documents": [
                     "pmid:t-1",
@@ -295,7 +321,7 @@ def test_status_thresholds_deterministic(tmp_path: Path) -> None:
                 ":prov/entrenchment": 0.7,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.9}],
-            },
+            }),
         },
     )
 
@@ -337,13 +363,13 @@ def test_status_threshold_boundary_at_0_7_inclusive(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/boundary": {
+            ":induced/boundary": _prov(**{
                 ":prov/derived-from-atoms": [f"c-{i}" for i in range(10)],
                 ":prov/source-documents": [f"pmid:{i}" for i in range(10)],
                 ":prov/entrenchment": 1.0,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 1.0}],
-            },
+            }),
         },
     )
 
@@ -362,13 +388,13 @@ def test_no_promote_up_in_tier_six(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/tentative": {
+            ":induced/tentative": _prov(**{
                 ":prov/derived-from-atoms": ["c-1", "c-orphan"],
                 ":prov/source-documents": [f"pmid:{i}" for i in range(15)],
                 ":prov/entrenchment": 0.4,  # set artificially low
                 ":prov/status": STATUS_TENTATIVE,
                 ":prov/validated-by": [{":sat-rate": 1.0}],
-            },
+            }),
         },
     )
 
@@ -389,13 +415,13 @@ def test_quarantined_rule_persists_in_sidecar(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/r1": {
+            ":induced/r1": _prov(**{
                 ":prov/derived-from-atoms": ["c-1"],
                 ":prov/source-documents": ["pmid:1"],
                 ":prov/entrenchment": 0.5,
                 ":prov/status": STATUS_TENTATIVE,
                 ":prov/validated-by": [{":sat-rate": 0.5}],
-            },
+            }),
         },
     )
     revise_theory(
@@ -421,13 +447,13 @@ def test_contradicting_atom_downgrades_active_to_tentative(tmp_path: Path) -> No
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/boundary-active": {
+            ":induced/boundary-active": _prov(**{
                 ":prov/derived-from-atoms": ["c-1", "c-2", "c-3", "c-4"],
                 ":prov/source-documents": [f"pmid:{i}" for i in range(8)],
                 ":prov/entrenchment": 0.72,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.9}],
-            },
+            }),
         },
     )
 
@@ -452,13 +478,13 @@ def test_full_quarantine_warning_fires(tmp_path: Path, caplog) -> None:
     """REQ-REVISE-044: every rule quarantined in one revision -> warning fires."""
     # 3 rules, each with a single supporting doc that we retract.
     rules = {
-        f":induced/r{i}": {
+        f":induced/r{i}": _prov(**{
             ":prov/derived-from-atoms": [f"c-{i}"],
             ":prov/source-documents": [f"pmid:doc-{i}"],
             ":prov/entrenchment": 0.5,
             ":prov/status": STATUS_TENTATIVE,
             ":prov/validated-by": [{":sat-rate": 0.5}],
-        }
+        })
         for i in range(3)
     }
     prov_path = _seed_sidecar(tmp_path, rules)
@@ -487,20 +513,20 @@ def test_no_warning_when_some_rules_remain_active(tmp_path: Path, caplog) -> Non
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/survives": {
+            ":induced/survives": _prov(**{
                 ":prov/derived-from-atoms": ["c-1"],
                 ":prov/source-documents": [f"pmid:k{i}" for i in range(12)],
                 ":prov/entrenchment": 0.9,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.9}],
-            },
-            ":induced/dies": {
+            }),
+            ":induced/dies": _prov(**{
                 ":prov/derived-from-atoms": ["c-2"],
                 ":prov/source-documents": ["pmid:lonely"],
                 ":prov/entrenchment": 0.4,
                 ":prov/status": STATUS_TENTATIVE,
                 ":prov/validated-by": [{":sat-rate": 0.4}],
-            },
+            }),
         },
     )
 
@@ -526,26 +552,26 @@ def test_revision_report_shape_and_counts(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/a": {
+            ":induced/a": _prov(**{
                 ":prov/derived-from-atoms": ["c-a"],
                 ":prov/source-documents": [f"pmid:a{i}" for i in range(12)],
                 ":prov/entrenchment": 0.9,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.9}],
-            },
-            ":induced/b": {
+            }),
+            ":induced/b": _prov(**{
                 ":prov/derived-from-atoms": ["c-b"],
                 ":prov/source-documents": ["pmid:b-target", "pmid:b-keep"],
                 ":prov/entrenchment": 0.7,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.9}],
-            },
-            ":induced/c": {
+            }),
+            ":induced/c": _prov(**{
                 ":prov/derived-from-atoms": ["c-c"],
                 ":prov/source-documents": ["pmid:c"],
                 ":prov/entrenchment": 0.5,
                 ":prov/status": STATUS_TENTATIVE,
-            },
+            }),
         },
     )
 
@@ -580,13 +606,13 @@ def test_revision_report_kebab_case_indexing(tmp_path: Path) -> None:
     prov_path = _seed_sidecar(
         tmp_path,
         {
-            ":induced/r1": {
+            ":induced/r1": _prov(**{
                 ":prov/derived-from-atoms": ["c-1"],
                 ":prov/source-documents": ["pmid:1", "pmid:2"],
                 ":prov/entrenchment": 0.85,
                 ":prov/status": STATUS_ACTIVE,
                 ":prov/validated-by": [{":sat-rate": 0.85}],
-            },
+            }),
         },
     )
 

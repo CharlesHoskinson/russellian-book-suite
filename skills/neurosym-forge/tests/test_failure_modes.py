@@ -33,6 +33,7 @@ rather than at runtime in production.
 """
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import json
 from pathlib import Path
@@ -57,6 +58,21 @@ def _has_module(name: str) -> bool:
     the dependency phases.
     """
     return importlib.util.find_spec(name) is not None
+
+
+def _has_symbol(module_name: str, symbol: str) -> bool:
+    """Return True if `symbol` is importable from `module_name`.
+
+    Tighter than `_has_module`: a phase module may exist with a partial
+    surface (e.g. `_induction_proposer.propose_constraint` landed,
+    `propose_repair` did not). Symbol-level check keeps the stub path
+    live until the full phase surface is on the branch.
+    """
+    try:
+        mod = importlib.import_module(module_name)
+    except ImportError:
+        return False
+    return hasattr(mod, symbol)
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "failure_modes"
@@ -271,7 +287,7 @@ def test_false_correction_loop_rejected(monkeypatch):
     candidate = read_edn((FIXTURES / "valid_candidate.edn").read_text(encoding="utf-8"))
     spurious = (FIXTURES / "spurious_error.txt").read_text(encoding="utf-8")
 
-    if _has_module("scripts._induction_proposer"):
+    if _has_symbol("scripts._induction_proposer", "propose_repair"):
         from scripts._induction_proposer import propose_repair  # type: ignore
 
         out_clean = propose_repair(candidate, error=None)
@@ -370,7 +386,7 @@ def test_memorization_vs_induction_rejected():
     )
     folds = [_load_fold(HOLDOUT_FOLDS / f"fold_{i}.jsonl") for i in range(5)]
 
-    if _has_module("scripts._induction_orchestrator"):
+    if _has_symbol("scripts._induction_orchestrator", "validate_with_holdout"):
         from scripts._induction_orchestrator import validate_with_holdout  # type: ignore
 
         result = validate_with_holdout(candidate, folds)

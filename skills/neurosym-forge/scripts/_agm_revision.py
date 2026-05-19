@@ -274,8 +274,7 @@ def revise_theory(
     retracted_set = set(retracted_docs or [])
     contradicting_set = set(contradicting_atoms or [])
 
-    sidecar = ProvenanceSidecar()
-    sidecar.load(prov_path)
+    sidecar = ProvenanceSidecar.load(prov_path)
 
     diff_entries: list[tuple[str, str, str]] = []
     rules_affected_count = 0

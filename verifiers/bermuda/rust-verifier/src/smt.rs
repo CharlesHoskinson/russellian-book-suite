@@ -48,12 +48,12 @@ pub fn check_value_sort_compat(
         return Ok(());
     }
     let value_shape = match value {
-        Edn::Int(n)    => format!("scalar Int({n})"),
-        Edn::UInt(n)   => format!("scalar Int({n})"),
+        Edn::Int(n) => format!("scalar Int({n})"),
+        Edn::UInt(n) => format!("scalar Int({n})"),
         Edn::Double(_) => format!("scalar Real({})", value.to_float().unwrap_or(0.0)),
-        Edn::Str(s)    => format!("scalar String({s:?})"),
-        Edn::Bool(b)   => format!("scalar Bool({b})"),
-        other          => format!("{other:?}"),
+        Edn::Str(s) => format!("scalar String({s:?})"),
+        Edn::Bool(b) => format!("scalar Bool({b})"),
+        other => format!("{other:?}"),
     };
     Err(Error::Smt(format!(
         "sort mismatch: predicate {var_name:?} declared as \
@@ -67,9 +67,9 @@ const SHARED_BUCKET: &str = "_shared";
 
 #[cfg(feature = "smt")]
 struct PartitionVerdict {
-    subject:        String,
-    status:         &'static str,
-    core:           Vec<ClaimId>,
+    subject: String,
+    status: &'static str,
+    core: Vec<ClaimId>,
     reason_unknown: String,
 }
 
@@ -90,9 +90,12 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     for (id, atom) in formulas {
         let subject = match atom_subject(atom) {
             Some(s) => s,
-            None    => SHARED_BUCKET.to_string(),
+            None => SHARED_BUCKET.to_string(),
         };
-        per_subject.entry(subject).or_default().push((id.clone(), atom.clone()));
+        per_subject
+            .entry(subject)
+            .or_default()
+            .push((id.clone(), atom.clone()));
     }
 
     let mut partition_inputs: Vec<(String, Vec<(ClaimId, Atom)>)> = per_subject
@@ -121,9 +124,7 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
             use rayon::prelude::*;
             partition_inputs
                 .par_iter()
-                .map(|(subject, atoms)| {
-                    solve_partition(subject, atoms, timeout_ms)
-                })
+                .map(|(subject, atoms)| solve_partition(subject, atoms, timeout_ms))
                 .collect::<Result<Vec<_>, _>>()
         })?
     } else {
@@ -171,7 +172,7 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
 /// corpus-scope constraint(s) drove the failure.
 #[cfg(feature = "smt")]
 fn solve_corpus_partition(
-    atoms:      &[(ClaimId, Atom)],
+    atoms: &[(ClaimId, Atom)],
     timeout_ms: u32,
 ) -> Result<PartitionVerdict, Error> {
     let solver = Solver::new();
@@ -190,7 +191,7 @@ fn solve_corpus_partition(
 #[cfg(feature = "smt")]
 fn corpus_defects_from(
     partition_verdict: &PartitionVerdict,
-    atoms:             &[(ClaimId, Atom)],
+    atoms: &[(ClaimId, Atom)],
 ) -> Vec<CorpusDefect> {
     use edn_rs::Edn;
     if partition_verdict.status != "unsat" {
@@ -209,8 +210,7 @@ fn corpus_defects_from(
 
     let corpus_ids: std::collections::BTreeSet<&'static str> =
         crate::axioms::axioms_corpus_ids().iter().copied().collect();
-    let mut subjects: std::collections::BTreeSet<String> =
-        std::collections::BTreeSet::new();
+    let mut subjects: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut firing_ids: Vec<String> = Vec::new();
     for core_id in &partition_verdict.core {
         if corpus_ids.contains(core_id.as_str()) {
@@ -248,8 +248,8 @@ fn corpus_defects_from(
 
 #[cfg(feature = "smt")]
 fn solve_partition(
-    subject:    &str,
-    atoms:      &[(ClaimId, Atom)],
+    subject: &str,
+    atoms: &[(ClaimId, Atom)],
     timeout_ms: u32,
 ) -> Result<PartitionVerdict, Error> {
     let solver = Solver::new();
@@ -265,7 +265,7 @@ fn solve_partition(
 
 #[cfg(feature = "smt")]
 fn solve_shared_partition(
-    atoms:      &[(ClaimId, Atom)],
+    atoms: &[(ClaimId, Atom)],
     timeout_ms: u32,
 ) -> Result<PartitionVerdict, Error> {
     let solver = Solver::new();
@@ -276,20 +276,24 @@ fn solve_shared_partition(
     crate::axioms::axioms_shared(&solver);
     let tracker_ids = bind_atoms(&solver, atoms)?;
 
-    Ok(collect_partition_verdict(&solver, SHARED_BUCKET, &tracker_ids))
+    Ok(collect_partition_verdict(
+        &solver,
+        SHARED_BUCKET,
+        &tracker_ids,
+    ))
 }
 
 #[cfg(feature = "smt")]
 fn collect_partition_verdict(
-    solver:      &Solver,
-    subject:     &str,
+    solver: &Solver,
+    subject: &str,
     tracker_ids: &[ClaimId],
 ) -> PartitionVerdict {
     match solver.check() {
         SatResult::Sat => PartitionVerdict {
-            subject:        subject.to_string(),
-            status:         "sat",
-            core:           Vec::new(),
+            subject: subject.to_string(),
+            status: "sat",
+            core: Vec::new(),
             reason_unknown: String::new(),
         },
         SatResult::Unsat => {
@@ -301,26 +305,23 @@ fn collect_partition_verdict(
                 .filter(|s| tracker_ids.iter().any(|tid| tid == s))
                 .collect();
             PartitionVerdict {
-                subject:        subject.to_string(),
-                status:         "unsat",
-                core:           core_ids,
+                subject: subject.to_string(),
+                status: "unsat",
+                core: core_ids,
                 reason_unknown: String::new(),
             }
         }
         SatResult::Unknown => PartitionVerdict {
-            subject:        subject.to_string(),
-            status:         "unknown",
-            core:           Vec::new(),
+            subject: subject.to_string(),
+            status: "unknown",
+            core: Vec::new(),
             reason_unknown: solver.get_reason_unknown().unwrap_or_default(),
         },
     }
 }
 
 #[cfg(feature = "smt")]
-fn bind_atoms(
-    solver: &Solver,
-    atoms:  &[(ClaimId, Atom)],
-) -> Result<Vec<ClaimId>, Error> {
+fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>, Error> {
     use edn_rs::Edn;
     let mut tracker_ids: Vec<ClaimId> = Vec::with_capacity(atoms.len());
 
@@ -368,9 +369,9 @@ fn bind_atoms(
             // integration tests that encode integer values as plain ints
             // (e.g. `:trial-n 15`) bind the atom value the same way.
             Edn::UInt(n) => {
-                let n_i64: i64 = (*n).try_into().map_err(|_| {
-                    Error::Smt(format!("value too large to bind as Int: {n}"))
-                })?;
+                let n_i64: i64 = (*n)
+                    .try_into()
+                    .map_err(|_| Error::Smt(format!("value too large to bind as Int: {n}")))?;
                 let z3_var = Int::new_const(var_name.as_str());
                 z3_var.eq(&Int::from_i64(n_i64))
             }
@@ -409,10 +410,7 @@ fn atom_subject(atom: &Atom) -> Option<String> {
 }
 
 #[cfg(feature = "smt")]
-fn merge_verdicts(
-    per_subject: &[PartitionVerdict],
-    shared:      &PartitionVerdict,
-) -> Verdict {
+fn merge_verdicts(per_subject: &[PartitionVerdict], shared: &PartitionVerdict) -> Verdict {
     let all: Vec<&PartitionVerdict> = per_subject.iter().chain(std::iter::once(shared)).collect();
 
     let unsat_subjects: Vec<&str> = all
@@ -446,7 +444,13 @@ fn merge_verdicts(
     if !unknown_subjects.is_empty() {
         let detail = unknown_subjects
             .iter()
-            .map(|(s, r)| if r.is_empty() { s.clone() } else { format!("{s} ({r})") })
+            .map(|(s, r)| {
+                if r.is_empty() {
+                    s.clone()
+                } else {
+                    format!("{s} ({r})")
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ");
         return Verdict {

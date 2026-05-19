@@ -8,5 +8,12 @@
                                 :severity :critical
                                 :message "van 't Hoff equation violated"
                                }
+               :C050-trial-n-agrees {
+                                     :constraint-id "C050-trial-n-agrees"
+                                     :track :claim/id
+                                     :defect :D050
+                                     :severity :critical
+                                     :message "trial-n disagrees across chapters"
+                                    }
               }
 }

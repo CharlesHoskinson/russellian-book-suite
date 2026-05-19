@@ -7,4 +7,19 @@
     :track :claim/id
     :on-unsat {:defect :D13
                :severity :critical
-               :message "van 't Hoff equation violated"})]}
+               :message "van 't Hoff equation violated"})
+
+  (defconstraint C050-trial-n-agrees
+    ;; REQ-CORPUS-050..056: corpus-scope constraint exercised by the
+    ;; cross-chapter integration test. Asserts that the same logical
+    ;; trial reported across two chapters records the same `:trial-n`
+    ;; value. The production verifier carries no `:trial-n` atoms, so
+    ;; this constraint passes vacuously on production data; only the
+    ;; cross_chapter cargo test surfaces it.
+    :backend :z3
+    :scope   :corpus
+    :assert (= (:trial-n :mizuno-2008-chap-a) (:trial-n :mizuno-2008-chap-b))
+    :track :claim/id
+    :on-unsat {:defect :D050
+               :severity :critical
+               :message "trial-n disagrees across chapters"})]}

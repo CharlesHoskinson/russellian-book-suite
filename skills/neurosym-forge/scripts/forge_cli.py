@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -412,16 +413,76 @@ def explain_defect(defect_id: str, project_root: Path) -> None:
     click.echo(textwrap.fill(interpretation, width=78))
 
 
+# ---------------------------------------------------------------------------
+# similar (REQ-AUTHOR-044) — Phase Q optional integration
+# ---------------------------------------------------------------------------
+
+
+_PHASE_Q_MSG = (
+    "similar requires Phase Q (tier5-semantic-retrieval) merged first.\n"
+    "Until then, the scripts._semantic_index module is unavailable in this "
+    "checkout."
+)
+
+
 @cli.command("similar")
-def similar() -> None:
+@click.argument("claim_id")
+@click.option("--k", type=int, default=5, help="Number of neighbours to return.")
+@click.option("--project-root", "project_root", default=".", type=click.Path(path_type=Path),
+              help="Project root (defaults to cwd).")
+def similar(claim_id: str, k: int, project_root: Path) -> None:
     """Print the top-k semantically-similar claims to <claim_id>."""
-    click.echo("similar not yet wired")
+    try:
+        from scripts import _semantic_index  # type: ignore[import-not-found]
+    except ImportError:
+        click.echo(_PHASE_Q_MSG, err=True)
+        raise click.exceptions.Exit(2)
+
+    project_root = Path(project_root).resolve()
+    index = _semantic_index.SemanticIndex.load(project_root)
+    hits = index.similar_claims(claim_id, k=k)
+
+    click.echo(f"Top {len(hits)} similar claims to {claim_id}:")
+    click.echo(f"{'claim_id':<22}  {'score':>6}  {'subject':<18}  snippet")
+    click.echo("-" * 78)
+    for hit in hits:
+        cid = hit.get("claim_id", "")
+        score = hit.get("score", 0.0)
+        subject = (hit.get("subject") or "")[:18]
+        snippet = (hit.get("snippet") or "").replace("\n", " ")[:32]
+        click.echo(f"{cid:<22}  {score:>6.3f}  {subject:<18}  {snippet}")
+
+
+# ---------------------------------------------------------------------------
+# render (Phase T integration)
+# ---------------------------------------------------------------------------
+
+
+_PHASE_T_MSG = (
+    "render requires Phase T (tier5-publication-bridge) merged first.\n"
+    "Until then, scripts/render_annotations.py is unavailable in this "
+    "checkout."
+)
 
 
 @cli.command("render")
-def render() -> None:
+@click.option("--project-root", "project_root", default=".", type=click.Path(path_type=Path),
+              help="Project root (defaults to cwd).")
+@click.option("--manuscript", "manuscript", default=None, type=click.Path(path_type=Path),
+              help="Optional path to the manuscript .md file.")
+def render(project_root: Path, manuscript: Path | None) -> None:
     """Shell out to Phase T's render_annotations.py."""
-    click.echo("render not yet wired")
+    project_root = Path(project_root).resolve()
+    script = Path(__file__).resolve().parent / "render_annotations.py"
+    if not script.exists():
+        click.echo(_PHASE_T_MSG, err=True)
+        raise click.exceptions.Exit(2)
+    cmd = [sys.executable, str(script), "--project-root", str(project_root)]
+    if manuscript is not None:
+        cmd += ["--manuscript", str(manuscript)]
+    proc = subprocess.run(cmd, check=False)
+    if proc.returncode != 0:
+        raise click.exceptions.Exit(proc.returncode)
 
 
 # ---------------------------------------------------------------------------

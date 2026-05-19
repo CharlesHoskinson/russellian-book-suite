@@ -289,3 +289,67 @@ def test_explain_defect_missing_verdict(runner: CliRunner, fake_project: Path) -
     # to the runner's `exception` capture.
     surfaced = "verdict.edn" in result.output or "ERROR" in result.output
     assert surfaced or isinstance(result.exception, FileNotFoundError)
+
+
+# ---------------------------------------------------------------------------
+# REQ-AUTHOR-044 — similar (Phase Q optional) + render (Phase T optional)
+# ---------------------------------------------------------------------------
+
+
+def test_similar_without_phase_q(runner: CliRunner, fake_project: Path) -> None:
+    try:
+        import scripts._semantic_index  # type: ignore[import-not-found]  # noqa: F401
+        pytest.skip("Phase Q module is present — exercise the integration test instead.")
+    except ImportError:
+        pass
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["similar", "C001", "--project-root", str(fake_project)],
+    )
+    assert result.exit_code == 2
+    assert "Phase Q" in result.output
+
+
+def test_similar_prints_top_k_table(
+    runner: CliRunner, fake_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import types
+
+    fake_module = types.ModuleType("scripts._semantic_index")
+
+    class _FakeIndex:
+        @classmethod
+        def load(cls, _root: Path) -> "_FakeIndex":
+            return cls()
+
+        def similar_claims(self, _claim_id: str, k: int = 5) -> list[dict[str, object]]:
+            return [
+                {"claim_id": f"C{i:03d}", "score": 0.99 - 0.1 * i,
+                 "subject": "trial", "snippet": "snippet text"} for i in range(k)
+            ]
+
+    fake_module.SemanticIndex = _FakeIndex  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "scripts._semantic_index", fake_module)
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["similar", "C001", "--project-root", str(fake_project), "--k", "3"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "claim_id" in result.output
+    assert "score" in result.output
+    rows = [line for line in result.output.splitlines() if line.startswith("C0")]
+    assert len(rows) == 3
+
+
+def test_render_without_phase_t(runner: CliRunner, fake_project: Path) -> None:
+    script_path = Path(forge_cli.__file__).resolve().parent / "render_annotations.py"
+    if script_path.exists():
+        pytest.skip("Phase T script is present — exercise the integration test instead.")
+    result = runner.invoke(
+        forge_cli.cli,
+        ["render", "--project-root", str(fake_project)],
+    )
+    assert result.exit_code == 2
+    assert "Phase T" in result.output

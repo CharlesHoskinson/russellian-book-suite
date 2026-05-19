@@ -1,0 +1,17 @@
+; Auxiliary fixture for REQ-TEST-041 (Outcome-Driven Constraint Violation).
+;
+; A vector of additional canonical tautology shapes the validator must also
+; reject. Future tests can iterate this list; the base test asserts the
+; first shape (`(or true ...)`) and these stay here as a catalogue.
+[(defconstraint :induced/trivial-and-false
+   :scope :subject
+   :backend :z3
+   :assert (and false (>= (:r0 ?d) 0))
+   :on-unsat {:defect :D-induced-trivial-and-false
+              :severity :low})
+ (defconstraint :induced/trivial-self-eq
+   :scope :subject
+   :backend :z3
+   :assert (= (:r0 ?d) (:r0 ?d))
+   :on-unsat {:defect :D-induced-trivial-self-eq
+              :severity :low})]

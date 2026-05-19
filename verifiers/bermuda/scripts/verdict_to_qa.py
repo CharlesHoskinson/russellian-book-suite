@@ -276,9 +276,11 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
     if remedies_path is None:
         remedies_path = verdict_path.resolve().parent.parent / "rules" / "remedies.edn"
     remedies = _bind_remedies(remedies_path, queries)
-    # REQ-CONFIDENCE-042: surface verdict-level confidence (geometric
-    # mean of per-defect confidences; 1.0 if there are no defects).
+    # REQ-CONFIDENCE-042, 044: surface verdict-level confidence and split
+    # defects into critical vs advisory (post-downgrade severity).
     all_defects = _build_defects(payload)
+    critical_defects = [d for d in all_defects if d["severity"] != "advisory"]
+    advisory_defects = [d for d in all_defects if d["severity"] == "advisory"]
     verdict_confidence = compute_verdict_confidence(all_defects)
     result = {
         "verdict": verdict_str,
@@ -287,6 +289,8 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
         "verified_count": payload.get(_KW_VERIFIED_COUNT, 0),
         "queries": queries,
         "cozo_defects": cozo_defects,
+        "critical_defects": critical_defects,
+        "advisory_defects": advisory_defects,
         "verdict_confidence": verdict_confidence,
         "remedies": remedies,
         "produced_at": dt.datetime.now(dt.UTC).isoformat(),

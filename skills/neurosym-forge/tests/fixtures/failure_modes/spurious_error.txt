@@ -1,0 +1,1 @@
+<error>generic noise: the candidate failed the cosmic ray check at line 42; please reconsider your priors and re-derive the predicate from first principles. Authority: imaginary-validator-v0.0.</error>

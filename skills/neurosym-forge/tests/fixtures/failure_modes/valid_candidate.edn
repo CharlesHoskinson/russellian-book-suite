@@ -1,0 +1,13 @@
+; Fixture: failure-mode REQ-TEST-040 (False-Correction Loop).
+;
+; A syntactically-valid `defconstraint` candidate. The test
+; `test_false_correction_loop_rejected` feeds this candidate to the proposer
+; twice — once with a spurious free-form error string, once with no error —
+; and asserts the proposer returns this same candidate verbatim in both
+; cases. The mitigation is that the proposer ignores out-of-band noise.
+(defconstraint :induced/valid-c1
+  :scope :subject
+  :backend :z3
+  :assert (>= (:r0 ?d) 0)
+  :on-unsat {:defect :D-induced-valid-c1
+             :severity :low})

@@ -1,8 +1,9 @@
-"""REQ-LLMLIFT-040, 041, 048: LLM-backed lift extractors.
+"""REQ-LLMLIFT-040..043, 048: LLM-backed lift extractors.
 
-Tests the provider interface and offline-stub responder. The
-openai/anthropic SDK tests are guarded by `pytest.importorskip` so CI
-runs deterministically without the optional extras.
+Tests the provider interface, schema validation, and offline-stub
+responder. The openai/anthropic SDK tests are guarded by
+`pytest.importorskip` so CI runs deterministically without the optional
+extras.
 """
 from __future__ import annotations
 
@@ -18,10 +19,12 @@ from scripts._llm_lift import (  # noqa: E402
     AnthropicLift,
     LLMLiftError,
     LLMLiftProvider,
+    LLMLiftRejected,
     LocalLift,
     OpenAILift,
     StubLift,
     get_provider,
+    validate_proposal,
 )
 
 
@@ -124,3 +127,85 @@ def test_local_provider_uses_ollama_url(monkeypatch):
     monkeypatch.setenv("OLLAMA_URL", "http://example.invalid:11434")
     p = LocalLift()
     assert p.base_url == "http://example.invalid:11434"
+
+
+# ---------------------------------------------------------------------------
+# REQ-LLMLIFT-042, 043: schema validation
+# ---------------------------------------------------------------------------
+
+
+def _write_schema(tmp_path: Path) -> Path:
+    schema = tmp_path / "booklogic-schema.edn"
+    schema.write_text(
+        '{:version 1 :sorts [:trial] '
+        ':predicates {:trial-n {:arg-sorts [:trial] :return :int}'
+        '             :trial-p {:arg-sorts [:trial] :return :real}'
+        '             :trial-name {:arg-sorts [:trial] :return :string}'
+        '             :trial-pass {:arg-sorts [:trial] :return :bool}}}',
+        encoding="utf-8",
+    )
+    return schema
+
+
+def test_validate_proposal_accepts_valid_int(tmp_path):
+    schema = _write_schema(tmp_path)
+    atom = validate_proposal(
+        schema, {"predicate": ":trial-n", "subject": ":t1", "value": 42}
+    )
+    assert atom["predicate"] == ":trial-n"
+    assert atom["value"] == 42
+
+
+def test_validate_proposal_accepts_valid_real(tmp_path):
+    schema = _write_schema(tmp_path)
+    atom = validate_proposal(
+        schema, {"predicate": ":trial-p", "subject": ":t1", "value": 0.04}
+    )
+    assert atom["value"] == 0.04
+
+
+def test_validate_proposal_rejects_unknown_predicate(tmp_path):
+    schema = _write_schema(tmp_path)
+    with pytest.raises(LLMLiftRejected, match="unknown predicate"):
+        validate_proposal(
+            schema, {"predicate": ":bogus", "subject": ":t1", "value": 42}
+        )
+
+
+def test_validate_proposal_rejects_wrong_int_sort(tmp_path):
+    """An :int predicate that receives a float must reject — the
+    framework refuses to corrupt the downstream constraint surface
+    with mis-typed atoms (REQ-LLMLIFT-042)."""
+    schema = _write_schema(tmp_path)
+    with pytest.raises(LLMLiftRejected, match="expects :int"):
+        validate_proposal(
+            schema, {"predicate": ":trial-n", "subject": ":t1", "value": 42.5}
+        )
+
+
+def test_validate_proposal_rejects_wrong_real_sort(tmp_path):
+    schema = _write_schema(tmp_path)
+    with pytest.raises(LLMLiftRejected, match="expects :real"):
+        validate_proposal(
+            schema, {"predicate": ":trial-p", "subject": ":t1", "value": "0.04"}
+        )
+
+
+def test_validate_proposal_rejects_wrong_bool_sort(tmp_path):
+    schema = _write_schema(tmp_path)
+    with pytest.raises(LLMLiftRejected, match="expects :bool"):
+        validate_proposal(
+            schema, {"predicate": ":trial-pass", "subject": ":t1", "value": 1}
+        )
+
+
+def test_validate_proposal_rejects_missing_predicate(tmp_path):
+    schema = _write_schema(tmp_path)
+    with pytest.raises(LLMLiftRejected, match="missing :predicate"):
+        validate_proposal(schema, {"subject": ":t1", "value": 42})
+
+
+def test_validate_proposal_missing_schema_file_raises(tmp_path):
+    missing = tmp_path / "no-such-schema.edn"
+    with pytest.raises(LLMLiftRejected, match="booklogic-schema.edn not found"):
+        validate_proposal(missing, {"predicate": ":x", "value": 1})

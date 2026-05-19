@@ -1,4 +1,4 @@
-"""REQ-LLMLIFT-040, 041, 048: LLM-backed lift providers.
+"""REQ-LLMLIFT-040..043, 048: LLM-backed lift providers + schema validation.
 
 Four concrete implementations:
   OpenAILift    — uses openai SDK; needs OPENAI_API_KEY
@@ -9,18 +9,31 @@ Four concrete implementations:
 
 The provider class is selected by NEUROSYM_LLM_PROVIDER env var. Default
 in test mode: 'stub'. Default in production: 'openai'.
+
+Schema validation: every proposed atom MUST pass `validate_proposal`
+before insertion into the claims registry. The predicate name and
+return sort are checked against `rules/booklogic-schema.edn`.
+Failures raise `LLMLiftRejected` which the ingest layer catches and
+surfaces as a structured `:llm-lift-rejected` defect.
 """
 from __future__ import annotations
 
 import json
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 
 class LLMLiftError(RuntimeError):
     """Raised when an LLM lift attempt fails for an infrastructural
     reason (missing SDK, unreachable endpoint, missing API key)."""
+
+
+class LLMLiftRejected(ValueError):
+    """REQ-LLMLIFT-043: raised when an LLM proposal fails schema
+    validation. The ingest layer catches this and emits a structured
+    `:llm-lift-rejected` defect rather than a silent OPAQUE atom."""
 
 
 # ---------------------------------------------------------------------------
@@ -210,3 +223,103 @@ def get_provider(name: str | None = None) -> LLMLiftProvider:
         f"unknown NEUROSYM_LLM_PROVIDER {name!r}; "
         "valid: stub | openai | anthropic | local"
     )
+
+
+# ---------------------------------------------------------------------------
+# Schema validation (REQ-LLMLIFT-042, 043)
+# ---------------------------------------------------------------------------
+
+
+def _kw_name(v: Any) -> str | None:
+    """Best-effort name-of-keyword: accepts Keyword, str ':foo', or str 'foo'."""
+    if v is None:
+        return None
+    if hasattr(v, "name"):
+        return v.name
+    if isinstance(v, str):
+        return v.lstrip(":")
+    return str(v)
+
+
+def validate_proposal(schema_path: Path | str, proposal: dict) -> dict:
+    """REQ-LLMLIFT-042: validate an LLM proposal against
+    `booklogic-schema.edn` (the standard Tier 1 REQ-EDN-052 shape).
+
+    Checks:
+      1. The `predicate` name exists in the schema's `:predicates` map.
+      2. The `value` matches the predicate's declared `:return` sort
+         (`:int`, `:real`, `:bool`, `:string`, `:keyword`).
+
+    Raises `LLMLiftRejected` on failure (REQ-LLMLIFT-043). Returns the
+    validated proposal dict unchanged on success.
+    """
+    schema_path = Path(schema_path)
+    # Late import: keeps top-level imports light + matches existing pattern
+    # in ingest_ledger.py which imports lazily through scripts._io.
+    from scripts._edn_reader import Keyword
+    from scripts._io import read_edn_file
+
+    if not schema_path.exists():
+        raise LLMLiftRejected(
+            f"booklogic-schema.edn not found at {schema_path}; "
+            "every :backend :llm lift requires a schema"
+        )
+    schema = read_edn_file(schema_path)
+    predicates = schema.get(Keyword("predicates"), {}) or {}
+
+    pred_raw = proposal.get("predicate")
+    pred_name = _kw_name(pred_raw)
+    if pred_name is None:
+        raise LLMLiftRejected(
+            f"proposal missing :predicate field; got {proposal!r}"
+        )
+
+    # Schema keys are Keyword objects — match by .name.
+    matched_spec = None
+    for key, spec in predicates.items():
+        if _kw_name(key) == pred_name:
+            matched_spec = spec
+            break
+    if matched_spec is None:
+        known = sorted(_kw_name(k) or "" for k in predicates)
+        raise LLMLiftRejected(
+            f"unknown predicate {pred_name!r}; not in booklogic-schema.edn "
+            f"(known: {known})"
+        )
+
+    expected_return = _kw_name(matched_spec.get(Keyword("return")))
+    value = proposal.get("value")
+
+    if expected_return == "int":
+        # bool is a subclass of int — reject so :int doesn't accept True.
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise LLMLiftRejected(
+                f"predicate {pred_name!r} expects :int, "
+                f"got {type(value).__name__} ({value!r})"
+            )
+    elif expected_return == "real":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise LLMLiftRejected(
+                f"predicate {pred_name!r} expects :real, "
+                f"got {type(value).__name__} ({value!r})"
+            )
+    elif expected_return == "bool":
+        if not isinstance(value, bool):
+            raise LLMLiftRejected(
+                f"predicate {pred_name!r} expects :bool, "
+                f"got {type(value).__name__} ({value!r})"
+            )
+    elif expected_return == "string":
+        if not isinstance(value, str):
+            raise LLMLiftRejected(
+                f"predicate {pred_name!r} expects :string, "
+                f"got {type(value).__name__} ({value!r})"
+            )
+    elif expected_return == "keyword":
+        if not (isinstance(value, str) or hasattr(value, "name")):
+            raise LLMLiftRejected(
+                f"predicate {pred_name!r} expects :keyword, "
+                f"got {type(value).__name__} ({value!r})"
+            )
+    # Unknown return sort: pass-through (schema may extend later).
+    return proposal

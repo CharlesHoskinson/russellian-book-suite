@@ -1,6 +1,7 @@
 """Tests for ``scripts.forge_cli`` (REQ-AUTHOR-040..046)."""
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +24,18 @@ SUBCOMMANDS = (
 @pytest.fixture()
 def runner() -> CliRunner:
     return CliRunner()
+
+
+@pytest.fixture()
+def fake_project(tmp_path: Path) -> Path:
+    """A minimal project tree the CLI can operate on."""
+    root = tmp_path / "project"
+    (root / "rules" / "booklogic").mkdir(parents=True)
+    (root / "work").mkdir(parents=True)
+    (root / "rules" / "booklogic" / "constraints.edn").write_text(
+        ";; constraints.edn\n{:forms []}\n", encoding="utf-8"
+    )
+    return root
 
 
 # ---------------------------------------------------------------------------
@@ -72,3 +85,79 @@ def test_pyproject_declares_forge_entry_point() -> None:
     assert "[project.scripts]" in pyproject
     assert 'forge = "scripts.forge_cli:main"' in pyproject
     assert "click" in pyproject
+
+
+# ---------------------------------------------------------------------------
+# REQ-AUTHOR-041 — add-constraint non-interactive
+# ---------------------------------------------------------------------------
+
+
+def test_add_constraint_appends_and_skips_ci(runner: CliRunner, fake_project: Path) -> None:
+    """Non-interactive add with --skip-ci writes the constraint and returns 0."""
+    result = runner.invoke(
+        forge_cli.cli,
+        [
+            "add-constraint",
+            str(fake_project),
+            "--non-interactive",
+            "--id", ":C001-test",
+            "--backend", ":z3",
+            "--scope", ":subject",
+            "--assert", "(>= (:trial-n ?s) 10)",
+            "--on-unsat-defect", ":D001-low-n",
+            "--on-unsat-severity", ":advisory",
+            "--skip-ci",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    body = (fake_project / "rules" / "booklogic" / "constraints.edn").read_text(encoding="utf-8")
+    assert "(defconstraint :C001-test" in body
+    assert ":backend :z3" in body
+    assert "(:trial-n ?s)" in body
+    assert ":defect :D001-low-n" in body
+    assert ":severity :advisory" in body
+
+
+def test_add_constraint_non_interactive_missing_required(
+    runner: CliRunner, fake_project: Path
+) -> None:
+    """--non-interactive without --id raises a UsageError (no prompt fallback)."""
+    result = runner.invoke(
+        forge_cli.cli,
+        ["add-constraint", str(fake_project), "--non-interactive", "--skip-ci"],
+    )
+    assert result.exit_code != 0
+    assert "--id" in result.output or "id" in result.output
+
+
+def test_add_constraint_make_ci_failure_rolls_back(
+    runner: CliRunner, fake_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """make-ci non-zero rolls back the appended constraint."""
+    original_body = (fake_project / "rules" / "booklogic" / "constraints.edn").read_text(
+        encoding="utf-8"
+    )
+
+    def fake_run(project_root: Path) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=["make", "ci"], returncode=1, stdout="", stderr="boom: predicate unknown",
+        )
+
+    monkeypatch.setattr(forge_cli, "_run_make_ci", fake_run)
+    result = runner.invoke(
+        forge_cli.cli,
+        [
+            "add-constraint",
+            str(fake_project),
+            "--non-interactive",
+            "--id", ":C999-bad",
+            "--backend", ":z3",
+            "--scope", ":subject",
+            "--assert", "(:nonexistent ?s)",
+            "--on-unsat-defect", ":D999",
+            "--on-unsat-severity", ":critical",
+        ],
+    )
+    assert result.exit_code != 0
+    after = (fake_project / "rules" / "booklogic" / "constraints.edn").read_text(encoding="utf-8")
+    assert after == original_body

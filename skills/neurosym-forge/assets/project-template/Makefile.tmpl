@@ -1,4 +1,4 @@
-.PHONY: ci build extract smoke clean
+.PHONY: ci build extract index-semantic smoke clean
 
 ci: build extract smoke
 
@@ -13,6 +13,13 @@ extract:
 	    --predicates rules/predicates.edn; \
 	else \
 	  echo "[extract] missing fixtures/claims_clean.jsonl or rules/predicates.edn; skipping"; \
+	fi
+
+index-semantic:
+	@if [ -f work/claims.edn ]; then \
+	  python scripts/build_semantic_index.py; \
+	else \
+	  echo "[index-semantic] no work/claims.edn; run make extract first"; \
 	fi
 
 smoke:

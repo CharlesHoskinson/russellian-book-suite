@@ -355,13 +355,17 @@ def _load_verdict(project_root: Path) -> dict[str, Any]:
 
 
 def _coerce_edn(value: Any) -> Any:
-    """Best-effort EDN→python coercion for verdict pretty-printing."""
+    """Best-effort EDN→python coercion for verdict / sidecar pretty-printing.
+
+    Keywords carry their namespace (``:induced/foo`` survives the round-trip);
+    legacy callers passing already-stringified keys are left untouched.
+    """
     try:
         from scripts._edn_reader import Keyword  # type: ignore[attr-defined]
     except ImportError:
         return value
     if isinstance(value, Keyword):
-        return f":{value.name}"
+        return str(value)
     if isinstance(value, dict):
         return {(_coerce_edn(k) if not isinstance(k, str) else k): _coerce_edn(v)
                 for k, v in value.items()}
@@ -540,6 +544,643 @@ def render(project_root: Path, manuscript: Path | None) -> None:
     proc = subprocess.run(cmd, check=False)
     if proc.returncode != 0:
         raise click.exceptions.Exit(proc.returncode)
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — induce / revise / theory (REQ-AUTHOR-050..056)
+# ---------------------------------------------------------------------------
+#
+# Each subcommand depends on phases V/W/X/Y/Z that may not be merged on this
+# checkout. Per the Phase U pattern, conditional imports degrade gracefully:
+# the subcommand surfaces a hand-readable pointer to the missing phase rather
+# than a Python ImportError stack trace.
+
+
+class InductionPipelineError(RuntimeError):
+    """Raised when the nbb induction orchestrator exits non-zero.
+
+    Surfaced via ``_cli_errors.interpret`` so the user sees a four-line
+    interpretive message rather than the raw subprocess return code.
+    """
+
+
+class RevisionInputError(click.UsageError):
+    """Raised when ``forge revise`` is invoked with no inputs.
+
+    Inherits ``click.UsageError`` so click's own help-formatter kicks in
+    naturally; the interpret-table entry matches on the class name and adds
+    the four-line ERROR block on top.
+    """
+
+
+class ProvenanceSidecarError(RuntimeError):
+    """Raised when the PROV-O sidecar is missing or malformed."""
+
+
+_PHASE_AA_INDUCE_MSG = (
+    "forge induce requires the nbb orchestrator at "
+    "scripts/induce_theory.cljs (Phase W) to be present, and Phase V/X/Y "
+    "modules merged first.\n"
+    "Run with --debug for the underlying error."
+)
+
+_PHASE_AA_REVISE_MSG = (
+    "forge revise requires Phase Z (tier6-agm-revision) merged first.\n"
+    "Until then, the scripts._agm_revision module is unavailable in this "
+    "checkout."
+)
+
+_PHASE_AA_THEORY_MSG = (
+    "forge theory requires Phase Y (tier6-provenance-sidecar) merged "
+    "first.\n"
+    "Until then, the scripts._provenance module is unavailable in this "
+    "checkout."
+)
+
+
+# Filenames the three subcommands operate on. Centralised so tests and the
+# implementation agree on the layout.
+_INDUCED_THEORY_FILE = "induced-theory.edn"
+_INDUCED_PROV_FILE = "induced-theory.prov.edn"
+_SEMANTIC_INDEX_FILE = "_semantic_index.bin"
+
+
+def _booklogic_dir(project_root: Path) -> Path:
+    return project_root / "rules" / "booklogic"
+
+
+def _induced_paths(project_root: Path) -> tuple[Path, Path]:
+    booklogic = _booklogic_dir(project_root)
+    return booklogic / _INDUCED_THEORY_FILE, booklogic / _INDUCED_PROV_FILE
+
+
+def _semantic_index_path(project_root: Path) -> Path:
+    return project_root / "work" / _SEMANTIC_INDEX_FILE
+
+
+def _check_semantic_index(project_root: Path) -> None:
+    """Warn (don't fail) when Phase Q's semantic index is absent.
+
+    REQ-AUTHOR-054: emits the prescribed warning string and proceeds.
+    """
+    idx = _semantic_index_path(project_root)
+    if not idx.exists():
+        click.echo(
+            f"warning: semantic index not found at {idx}; running pure-"
+            "symbolic induction (no atom clustering, no semantic neighbours).",
+            err=True,
+        )
+
+
+def _load_sidecar(prov_path: Path) -> dict[str, Any]:
+    """Best-effort load of induced-theory.prov.edn.
+
+    REQ-AUTHOR-053: when the sidecar is missing or malformed, we surface the
+    structured error and return an empty provenance dict so the rule list
+    still renders.
+    """
+    if not prov_path.exists():
+        raise ProvenanceSidecarError(
+            f"sidecar missing at {prov_path}"
+        )
+    try:
+        from scripts._edn_reader import read_edn  # type: ignore[attr-defined]
+    except ImportError:  # pragma: no cover — EDN reader is in-tree
+        raise ProvenanceSidecarError("EDN reader unavailable")
+    try:
+        return _coerce_edn(read_edn(prov_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # noqa: BLE001 — wrap all parse errors uniformly
+        raise ProvenanceSidecarError(
+            f"sidecar at {prov_path} is malformed: {exc}"
+        ) from exc
+
+
+def _sidecar_rules(prov: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Return the :rules dict from a loaded sidecar, normalised to plain dict."""
+    rules = prov.get("rules") or prov.get(":rules") or {}
+    if not isinstance(rules, dict):
+        return {}
+    return {str(k): v for k, v in rules.items() if isinstance(v, dict)}
+
+
+def _prov_field(rule_prov: dict[str, Any], *names: str) -> Any:
+    """Look up the first matching key from rule_prov.
+
+    Accepts both ``:prov/foo`` and ``prov/foo`` and bare ``foo`` because the
+    EDN coercion may flatten keywords to either form.
+    """
+    for name in names:
+        for candidate in (name, f":{name}", f":prov/{name}", f"prov/{name}"):
+            if candidate in rule_prov:
+                return rule_prov[candidate]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# forge induce — REQ-AUTHOR-050, 051, 054
+# ---------------------------------------------------------------------------
+
+
+def _run_nbb_induce(
+    project_root: Path,
+    folds: int,
+    budget_usd: float | None,
+) -> subprocess.CompletedProcess[str]:
+    """Shell out to the nbb orchestrator.
+
+    Separated so tests can monkeypatch the subprocess call without faking
+    a real nbb runtime.
+    """
+    script = Path(__file__).resolve().parent / "induce_theory.cljs"
+    cmd = [
+        "nbb",
+        "-m", "induce-theory",
+        str(project_root),
+        "--folds", str(folds),
+    ]
+    if budget_usd is not None:
+        cmd += ["--budget-usd", str(budget_usd)]
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=str(script.parent),
+    )
+
+
+def _format_induce_summary(prov: dict[str, Any]) -> str:
+    """Render the one-screen summary printed after a successful induce run."""
+    rules = _sidecar_rules(prov)
+    total = len(rules)
+
+    total_cost = 0.0
+    ranked: list[tuple[str, float, int]] = []
+    for rid, rprov in rules.items():
+        cost = _prov_field(rprov, "cost-usd") or 0.0
+        if isinstance(cost, (int, float)):
+            total_cost += float(cost)
+        entrench = _prov_field(rprov, "entrenchment") or 0.0
+        docs = _prov_field(rprov, "source-documents") or []
+        doc_count = len(docs) if isinstance(docs, (list, tuple)) else 0
+        try:
+            entrench_f = float(entrench)
+        except (TypeError, ValueError):
+            entrench_f = 0.0
+        ranked.append((rid, entrench_f, doc_count))
+
+    ranked.sort(key=lambda row: row[1], reverse=True)
+    top3 = ranked[:3]
+
+    lines = [
+        f"Induction complete: {total} rule(s) induced.",
+        f"Total cost: ${total_cost:.4f}",
+        "",
+        "Top-3 highest-entrenchment rules:",
+    ]
+    if not top3:
+        lines.append("  (none)")
+    else:
+        for rid, entrench, doc_count in top3:
+            lines.append(
+                f"  {rid:<48}  entrench={entrench:.3f}  docs={doc_count}"
+            )
+    return "\n".join(lines)
+
+
+@cli.command("induce")
+@click.argument("project_root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--folds", type=int, default=5,
+              help="Document-held-out validation folds (default 5).")
+@click.option("--budget-usd", "budget_usd", type=float, default=None,
+              help="Opt-in dollar ceiling across the induction run.")
+@click.option("--dry-run", "dry_run", is_flag=True, default=False,
+              help="Run the pipeline in memory; write no files.")
+@_handle
+def induce(
+    project_root: Path,
+    folds: int,
+    budget_usd: float | None,
+    dry_run: bool,
+) -> None:
+    """Induce a BookLogic theory from <project_root>'s atomspace.
+
+    Shells out to the nbb orchestrator at scripts/induce_theory.cljs.  On
+    success, emits rules/booklogic/induced-theory.edn and the PROV-O sidecar,
+    then prints a one-screen summary.
+    """
+    project_root = Path(project_root).resolve()
+    booklogic = _booklogic_dir(project_root)
+    if not booklogic.exists():
+        raise FileNotFoundError(
+            f"rules/booklogic/ not found under {project_root}"
+        )
+
+    # REQ-AUTHOR-054: warn when Phase Q's semantic index is absent.
+    _check_semantic_index(project_root)
+
+    click.echo(
+        f"forge induce: project={project_root} folds={folds} "
+        f"budget={'unset' if budget_usd is None else f'${budget_usd:.2f}'}"
+        f"{' (dry-run)' if dry_run else ''}"
+    )
+
+    if dry_run:
+        # REQ-AUTHOR-056: print what we would do but do not invoke nbb or
+        # mutate any file.  The induction pipeline itself is side-effect-
+        # bearing (it writes the sidecar from nbb); short-circuiting before
+        # the subprocess call is the only way to guarantee no writes.
+        click.echo(
+            "dry-run: would invoke nbb induction orchestrator and emit "
+            f"{booklogic / _INDUCED_THEORY_FILE} + sidecar."
+        )
+        click.echo(
+            "dry-run: no files written; re-run without --dry-run to commit."
+        )
+        return
+
+    proc = _run_nbb_induce(project_root, folds, budget_usd)
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip()
+        if len(tail) > 2000:
+            tail = tail[-2000:]
+        click.echo("---- nbb orchestrator stderr (tail) ----", err=True)
+        click.echo(tail, err=True)
+        raise InductionPipelineError(
+            f"nbb induce-theory exited {proc.returncode}"
+        )
+
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+
+    theory_path, prov_path = _induced_paths(project_root)
+    if not prov_path.exists():
+        raise ProvenanceSidecarError(
+            f"orchestrator exited 0 but sidecar missing at {prov_path}"
+        )
+
+    prov = _load_sidecar(prov_path)
+    click.echo("")
+    click.echo(_format_induce_summary(prov))
+    click.echo("")
+    click.echo(f"Wrote: {theory_path}")
+    click.echo(f"Wrote: {prov_path}")
+
+
+# ---------------------------------------------------------------------------
+# forge revise — REQ-AUTHOR-050, 052
+# ---------------------------------------------------------------------------
+
+
+def _format_revision_report(report: Any) -> str:
+    """Render a RevisionReport (from Phase Z) in human form.
+
+    The shape we expect (per design.md):
+
+        report.rules_affected: int
+        report.status_counts: {":active": int, ":tentative": int, ":quarantined": int}
+        report.transitions: [(rule_id, from_status, to_status), ...]
+        report.full_quarantine_warning: bool
+    """
+    out: list[str] = []
+    if getattr(report, "full_quarantine_warning", False):
+        out.append("=" * 72)
+        out.append("WARNING: full quarantine triggered — every rule in the "
+                   "induced theory is now :quarantined.")
+        out.append("=" * 72)
+        out.append("")
+
+    counts = getattr(report, "status_counts", None) or {}
+    affected = getattr(report, "rules_affected", 0)
+
+    def _count(*keys: str) -> int:
+        for k in keys:
+            if k in counts:
+                return int(counts[k])
+        return 0
+
+    out.append("Revision summary:")
+    out.append(f"  Rules affected:    {affected:>4}")
+    out.append(f"  Rules active:      {_count(':active', 'active'):>4}")
+    out.append(f"  Rules tentative:   {_count(':tentative', 'tentative'):>4}")
+    out.append(f"  Rules quarantined: {_count(':quarantined', 'quarantined'):>4}")
+    out.append("")
+
+    transitions = getattr(report, "transitions", None) or []
+    if transitions:
+        out.append("Status transitions:")
+        rows = list(transitions)
+        for row in rows[:3]:
+            if isinstance(row, dict):
+                rid = row.get("rule_id") or row.get(":rule-id")
+                frm = row.get("from") or row.get(":from")
+                to = row.get("to") or row.get(":to")
+            else:
+                rid, frm, to = row
+            out.append(f"  {rid}  {frm} -> {to}")
+        if len(rows) > 3:
+            out.append(f"  ... and {len(rows) - 3} more (see sidecar)")
+    else:
+        out.append("Status transitions: (none)")
+
+    return "\n".join(out)
+
+
+@cli.command("revise")
+@click.argument("project_root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--retracted-paper", "retracted_papers", multiple=True,
+              help="Document id retracted from the corpus (repeatable).")
+@click.option("--contradicting-atom", "contradicting_atoms", multiple=True,
+              help="Atom id that contradicts an existing rule (repeatable).")
+@click.option("--dry-run", "dry_run", is_flag=True, default=False,
+              help="Compute the revision in memory; do not mutate the sidecar.")
+@_handle
+def revise(
+    project_root: Path,
+    retracted_papers: tuple[str, ...],
+    contradicting_atoms: tuple[str, ...],
+    dry_run: bool,
+) -> None:
+    """Re-rank entrenchment and contract/quarantine rules on new evidence."""
+    project_root = Path(project_root).resolve()
+
+    if not retracted_papers and not contradicting_atoms:
+        raise RevisionInputError(
+            "forge revise requires at least one --retracted-paper or "
+            "--contradicting-atom"
+        )
+
+    try:
+        from scripts import _agm_revision  # type: ignore[import-not-found]
+    except ImportError:
+        click.echo(_PHASE_AA_REVISE_MSG, err=True)
+        raise click.exceptions.Exit(2)
+
+    theory_path, prov_path = _induced_paths(project_root)
+    if not prov_path.exists():
+        raise ProvenanceSidecarError(
+            f"sidecar missing at {prov_path}"
+        )
+
+    click.echo(
+        f"forge revise: project={project_root} "
+        f"retracted={len(retracted_papers)} "
+        f"contradicting={len(contradicting_atoms)}"
+        f"{' (dry-run)' if dry_run else ''}"
+    )
+
+    report = _agm_revision.revise_theory(
+        induced_path=theory_path,
+        prov_path=prov_path,
+        retracted_docs=list(retracted_papers),
+        contradicting_atoms=list(contradicting_atoms),
+        dry_run=dry_run,
+    )
+
+    click.echo("")
+    click.echo(_format_revision_report(report))
+    if dry_run:
+        click.echo("")
+        click.echo("dry-run: sidecar not written.")
+
+
+# ---------------------------------------------------------------------------
+# forge theory — REQ-AUTHOR-050, 053
+# ---------------------------------------------------------------------------
+
+
+def _load_induced_theory(theory_path: Path) -> dict[str, Any]:
+    """Load induced-theory.edn (rule forms only; raises on absent file)."""
+    if not theory_path.exists():
+        raise FileNotFoundError(
+            f"induced-theory.edn not found at {theory_path}"
+        )
+    try:
+        from scripts._edn_reader import read_edn  # type: ignore[attr-defined]
+    except ImportError:  # pragma: no cover
+        return {}
+    return _coerce_edn(read_edn(theory_path.read_text(encoding="utf-8")))
+
+
+def _rule_ids_from_theory(theory: dict[str, Any]) -> list[str]:
+    """Walk the :forms vector and pull each defconstraint's id.
+
+    The schema (per design doc) is::
+
+        {:version 1 :forms [(defconstraint :induced/foo ...) ...]}
+
+    We tolerate the rule-id appearing either as the second element of a
+    sexp-shaped form or as an explicit ``:id`` key on a map-shaped form.
+    """
+    forms = theory.get("forms") or theory.get(":forms") or []
+    out: list[str] = []
+    for form in forms:
+        if isinstance(form, (list, tuple)) and len(form) >= 2:
+            head = form[0]
+            head_name = getattr(head, "name", None) or str(head)
+            if head_name in ("defconstraint", "defrule") and isinstance(form[1], str):
+                out.append(form[1])
+            elif head_name in ("defconstraint", "defrule"):
+                rid = str(form[1])
+                if rid.startswith(":"):
+                    out.append(rid)
+                else:
+                    out.append(f":{rid}")
+        elif isinstance(form, dict):
+            rid = form.get(":id") or form.get("id")
+            if rid:
+                out.append(str(rid))
+    return out
+
+
+def _aggregate_theory_summary(
+    theory: dict[str, Any], prov: dict[str, Any]
+) -> str:
+    rules_in_theory = _rule_ids_from_theory(theory)
+    rules_prov = _sidecar_rules(prov)
+
+    total_rules = len(rules_in_theory) if rules_in_theory else len(rules_prov)
+
+    status_counts = {":active": 0, ":tentative": 0, ":quarantined": 0}
+    entrenchments: list[float] = []
+    total_cost = 0.0
+    doc_counter: dict[str, int] = {}
+
+    for rprov in rules_prov.values():
+        status = _prov_field(rprov, "status")
+        status_key = str(status) if status else None
+        if status_key in status_counts:
+            status_counts[status_key] += 1
+        elif status_key and status_key.lstrip(":") in (
+            "active", "tentative", "quarantined"
+        ):
+            status_counts[f":{status_key.lstrip(':')}"] += 1
+
+        e = _prov_field(rprov, "entrenchment")
+        if isinstance(e, (int, float)):
+            entrenchments.append(float(e))
+
+        cost = _prov_field(rprov, "cost-usd")
+        if isinstance(cost, (int, float)):
+            total_cost += float(cost)
+
+        docs = _prov_field(rprov, "source-documents") or []
+        if isinstance(docs, (list, tuple)):
+            for d in docs:
+                doc_counter[str(d)] = doc_counter.get(str(d), 0) + 1
+
+    avg_e = sum(entrenchments) / len(entrenchments) if entrenchments else 0.0
+
+    out = [
+        f"Theory summary:",
+        f"  Rules:                {total_rules}",
+        (
+            f"  Status:               :active {status_counts[':active']}  "
+            f":tentative {status_counts[':tentative']}  "
+            f":quarantined {status_counts[':quarantined']}"
+        ),
+        f"  Average entrenchment: {avg_e:.3f}",
+        f"  Total induction cost: ${total_cost:.4f}",
+        "",
+        "Top-5 most-cited source documents:",
+    ]
+    top_docs = sorted(doc_counter.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    if not top_docs:
+        out.append("  (no provenance source documents recorded)")
+    else:
+        for doc_id, n in top_docs:
+            label = "rule" if n == 1 else "rules"
+            out.append(f"  {doc_id:<32}  {n} {label}")
+    return "\n".join(out)
+
+
+def _deep_dive_rule(rule_id: str, prov: dict[str, Any]) -> str:
+    rules = _sidecar_rules(prov)
+    rprov = rules.get(rule_id) or rules.get(f":{rule_id.lstrip(':')}")
+    if rprov is None:
+        return f"Rule {rule_id} not found in sidecar."
+
+    out = [f"Rule {rule_id}"]
+
+    def _row(label: str, value: Any) -> None:
+        if value is None:
+            return
+        out.append(f"  {label:<14} {value}")
+
+    _row("Status:", _prov_field(rprov, "status"))
+    e = _prov_field(rprov, "entrenchment")
+    if isinstance(e, (int, float)):
+        _row("Entrenchment:", f"{float(e):.3f}")
+
+    atoms = _prov_field(rprov, "derived-from-atoms") or []
+    docs = _prov_field(rprov, "source-documents") or []
+    contras = _prov_field(rprov, "contradiction-atoms") or []
+    if atoms or docs:
+        atom_n = len(atoms) if isinstance(atoms, (list, tuple)) else 0
+        doc_n = len(docs) if isinstance(docs, (list, tuple)) else 0
+        _row("Support:", f"{atom_n} atoms across {doc_n} documents")
+    if contras:
+        contra_n = len(contras) if isinstance(contras, (list, tuple)) else 0
+        _row("Contradicts:", f"{contra_n} atoms (advisory)")
+
+    proposer = _prov_field(rprov, "proposed-by")
+    if isinstance(proposer, dict):
+        lineage = proposer.get(":lineage") or proposer.get("lineage")
+        model = proposer.get(":model") or proposer.get("model")
+        provider = proposer.get(":provider") or proposer.get("provider")
+        _row("Proposed by:", f"{lineage}  model={model}  provider={provider}")
+    elif proposer is not None:
+        _row("Proposed by:", proposer)
+
+    validators = _prov_field(rprov, "validated-by") or []
+    if isinstance(validators, (list, tuple)) and validators:
+        first = True
+        for v in validators:
+            if not isinstance(v, dict):
+                continue
+            backend = v.get(":backend") or v.get("backend") or "?"
+            parts = []
+            if ":held-out-folds" in v or "held-out-folds" in v:
+                k = v.get(":held-out-folds") or v.get("held-out-folds")
+                parts.append(f"{k}-fold")
+            for key in (":sat-rate", "sat-rate"):
+                if key in v:
+                    parts.append(f"sat-rate {v[key]}")
+                    break
+            for key in (":tolerance-fit", "tolerance-fit"):
+                if key in v:
+                    parts.append(f"tolerance {v[key]}")
+                    break
+            for key in (":support-rate", "support-rate"):
+                if key in v:
+                    parts.append(f"support-rate {v[key]}")
+                    break
+            line = f"{backend} (" + ", ".join(parts) + ")" if parts else str(backend)
+            _row("Validated by:" if first else "             ", line)
+            first = False
+
+    repair = _prov_field(rprov, "llm-repair-calls")
+    if repair is not None:
+        _row("Repair calls:", repair)
+
+    cost = _prov_field(rprov, "cost-usd")
+    if isinstance(cost, (int, float)):
+        _row("Cost:", f"${float(cost):.4f}")
+
+    neighbours = _prov_field(rprov, "semantic-neighbours")
+    if isinstance(neighbours, (list, tuple)) and neighbours:
+        _row("See also:", ", ".join(str(n) for n in neighbours))
+
+    return "\n".join(out)
+
+
+@cli.command("theory")
+@click.argument("project_root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--rule", "rule_id", default=None,
+              help="Deep-dive into one rule's provenance.")
+@_handle
+def theory(project_root: Path, rule_id: str | None) -> None:
+    """Inspect induced-theory.edn + the PROV-O sidecar."""
+    project_root = Path(project_root).resolve()
+    theory_path, prov_path = _induced_paths(project_root)
+
+    if not theory_path.exists():
+        raise FileNotFoundError(
+            f"induced-theory.edn not found at {theory_path}"
+        )
+
+    theory_data = _load_induced_theory(theory_path)
+
+    # REQ-AUTHOR-053 graceful-degrade: if the sidecar is missing or malformed
+    # we still render the rule list from induced-theory.edn with empty
+    # provenance.  The structured error is printed to stderr.
+    prov_data: dict[str, Any] = {}
+    sidecar_error: ProvenanceSidecarError | None = None
+    try:
+        prov_data = _load_sidecar(prov_path)
+    except ProvenanceSidecarError as exc:
+        sidecar_error = exc
+
+    if sidecar_error is not None:
+        from scripts._cli_errors import interpret
+        click.echo(interpret(sidecar_error).render(), err=True)
+        click.echo("", err=True)
+        click.echo("Continuing with empty provenance — rule list only.", err=True)
+        click.echo("")
+
+    if rule_id is not None:
+        click.echo(_deep_dive_rule(rule_id, prov_data))
+        return
+
+    click.echo(_aggregate_theory_summary(theory_data, prov_data))
+
+    if sidecar_error is not None:
+        rule_ids = _rule_ids_from_theory(theory_data)
+        if rule_ids:
+            click.echo("")
+            click.echo("Rules (from induced-theory.edn; sidecar unavailable):")
+            for rid in rule_ids:
+                click.echo(f"  {rid}")
 
 
 # ---------------------------------------------------------------------------

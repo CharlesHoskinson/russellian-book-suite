@@ -18,7 +18,13 @@ SUBCOMMANDS = (
     "explain-defect",
     "similar",
     "render",
+    "induce",
+    "revise",
+    "theory",
 )
+
+
+TIER6_FIXTURES = Path(__file__).parent / "fixtures" / "tier6"
 
 
 @pytest.fixture()
@@ -447,6 +453,386 @@ def test_debug_flag_re_enables_traceback(runner: CliRunner, tmp_path: Path) -> N
     )
     assert result.exit_code != 0
     assert "Traceback" in result.output or result.exc_info is not None
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — induce (REQ-AUTHOR-050, 051, 054, 055)
+# ---------------------------------------------------------------------------
+
+
+def _seed_inducible_project(tmp_path: Path) -> Path:
+    """Seed a project that doesn't yet have an induced theory (pre-induce)."""
+    root = tmp_path / "inducible"
+    (root / "rules" / "booklogic").mkdir(parents=True)
+    (root / "work").mkdir(parents=True)
+    return root
+
+
+def _fake_nbb_success(monkeypatch: pytest.MonkeyPatch, project: Path) -> None:
+    """Patch _run_nbb_induce to write the fixture sidecar and return 0."""
+
+    def _fake(_root: Path, _folds: int, _budget: float | None) -> subprocess.CompletedProcess[str]:
+        booklogic = project / "rules" / "booklogic"
+        booklogic.mkdir(parents=True, exist_ok=True)
+        (booklogic / "induced-theory.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        (booklogic / "induced-theory.prov.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.prov.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            args=["nbb"], returncode=0, stdout="orchestrator ok\n", stderr="",
+        )
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _fake)
+
+
+def test_induce_subcommand_exposed(runner: CliRunner) -> None:
+    """REQ-AUTHOR-050: forge --help lists the induce subcommand."""
+    result = runner.invoke(forge_cli.cli, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "induce" in result.output
+
+    sub_help = runner.invoke(forge_cli.cli, ["induce", "--help"])
+    assert sub_help.exit_code == 0
+    assert "Usage" in sub_help.output
+
+
+def test_induce_happy_path(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-051, 055: forge induce writes both artifacts + prints summary."""
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+    _fake_nbb_success(monkeypatch, project)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code == 0, result.output
+
+    assert (project / "rules" / "booklogic" / "induced-theory.edn").exists()
+    assert (project / "rules" / "booklogic" / "induced-theory.prov.edn").exists()
+
+    assert "Induction complete:" in result.output
+    assert "3 rule(s)" in result.output
+    assert "Top-3 highest-entrenchment rules:" in result.output
+    assert "herd-immunity-threshold" in result.output
+    assert "Total cost:" in result.output
+
+
+def test_induce_default_folds_is_five(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-051: --folds defaults to 5; --help confirms it."""
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+
+    seen_folds: list[int] = []
+
+    def _capture(_root: Path, folds: int, _budget: float | None) -> subprocess.CompletedProcess[str]:
+        seen_folds.append(folds)
+        (project / "rules" / "booklogic" / "induced-theory.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        (project / "rules" / "booklogic" / "induced-theory.prov.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.prov.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=["nbb"], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _capture)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code == 0, result.output
+    assert seen_folds == [5]
+
+    sub_help = runner.invoke(forge_cli.cli, ["induce", "--help"])
+    assert "default 5" in sub_help.output or "default: 5" in sub_help.output.lower()
+
+
+def test_induce_warns_when_semantic_index_absent(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-054: missing _semantic_index emits a warning but still runs."""
+    project = _seed_inducible_project(tmp_path)
+    _fake_nbb_success(monkeypatch, project)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code == 0, result.output
+    assert "warning: semantic index not found" in result.output
+    assert "pure-symbolic induction" in result.output
+
+
+def test_induce_pipeline_error_renders_user_message(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-055: nbb non-zero exit → InductionPipelineError → ERROR block."""
+    monkeypatch.delenv("FORGE_DEBUG", raising=False)
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+
+    def _fail(_root: Path, _folds: int, _budget: float | None) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=["nbb"], returncode=2, stdout="", stderr="grammar enforcer rejected 0/0\n",
+        )
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _fail)
+    result = runner.invoke(forge_cli.cli, ["induce", str(project)])
+    assert result.exit_code != 0
+    assert "ERROR:" in result.output
+    assert "induction" in result.output.lower() or "nbb" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — revise (REQ-AUTHOR-050, 052, 055)
+# ---------------------------------------------------------------------------
+
+
+def _seed_tier6_project(tmp_path: Path, with_sidecar: bool = True) -> Path:
+    """Seed a tier6-shaped project tree from fixtures/tier6/."""
+    root = tmp_path / "tier6-project"
+    booklogic = root / "rules" / "booklogic"
+    booklogic.mkdir(parents=True)
+    (root / "work").mkdir(parents=True)
+    (booklogic / "induced-theory.edn").write_text(
+        (TIER6_FIXTURES / "induced-theory.edn").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    if with_sidecar:
+        (booklogic / "induced-theory.prov.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.prov.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+    return root
+
+
+class _FakeRevisionReport:
+    """Stand-in for Phase Z's RevisionReport dataclass."""
+
+    def __init__(
+        self,
+        rules_affected: int = 2,
+        status_counts: dict[str, int] | None = None,
+        transitions: list[tuple[str, str, str]] | None = None,
+        full_quarantine_warning: bool = False,
+    ) -> None:
+        self.rules_affected = rules_affected
+        self.status_counts = status_counts or {
+            ":active": 1, ":tentative": 1, ":quarantined": 1,
+        }
+        self.transitions = transitions or [
+            (":induced/herd-immunity-threshold", ":active", ":tentative"),
+            (":induced/vaccine-efficacy-r0", ":tentative", ":quarantined"),
+        ]
+        self.full_quarantine_warning = full_quarantine_warning
+
+
+def _stub_agm_module(
+    monkeypatch: pytest.MonkeyPatch,
+    report_factory,
+    write_called_box: list[bool] | None = None,
+) -> None:
+    """Install a stub scripts._agm_revision module returning report_factory()."""
+    import types
+
+    fake = types.ModuleType("scripts._agm_revision")
+
+    def revise_theory(
+        induced_path: Path,
+        prov_path: Path,
+        retracted_docs: list[str],
+        contradicting_atoms: list[str],
+        dry_run: bool = False,
+    ) -> _FakeRevisionReport:
+        if write_called_box is not None and not dry_run:
+            write_called_box.append(True)
+        return report_factory(retracted_docs, contradicting_atoms)
+
+    fake.revise_theory = revise_theory  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "scripts._agm_revision", fake)
+    import scripts as _scripts_pkg
+    monkeypatch.setattr(_scripts_pkg, "_agm_revision", fake, raising=False)
+
+
+def test_revise_subcommand_exposed(runner: CliRunner) -> None:
+    """REQ-AUTHOR-050: forge revise --help renders non-trivial help."""
+    result = runner.invoke(forge_cli.cli, ["revise", "--help"])
+    assert result.exit_code == 0
+    assert "Usage" in result.output
+    assert "retracted-paper" in result.output
+    assert "contradicting-atom" in result.output
+
+
+def test_revise_happy_path(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-052, 055: forge revise prints the RevisionReport."""
+    project = _seed_tier6_project(tmp_path)
+    _stub_agm_module(monkeypatch, lambda r, c: _FakeRevisionReport())
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["revise", str(project), "--retracted-paper", "pmid:12345"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Revision summary:" in result.output
+    assert "Rules affected:" in result.output
+    assert "Status transitions:" in result.output
+    assert "herd-immunity-threshold" in result.output
+
+
+def test_revise_requires_at_least_one_input(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """REQ-AUTHOR-052, 055: neither flag → RevisionInputError rendered."""
+    project = _seed_tier6_project(tmp_path)
+    result = runner.invoke(forge_cli.cli, ["revise", str(project)])
+    assert result.exit_code != 0
+    surfaced = (
+        "ERROR:" in result.output
+        or "retracted-paper" in result.output
+        or "contradicting-atom" in result.output
+    )
+    assert surfaced, result.output
+
+
+def test_revise_full_quarantine_warning_banner(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-052: RevisionReport.full_quarantine_warning surfaces as a banner."""
+    project = _seed_tier6_project(tmp_path)
+    _stub_agm_module(
+        monkeypatch,
+        lambda r, c: _FakeRevisionReport(full_quarantine_warning=True),
+    )
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["revise", str(project), "--retracted-paper", "pmid:12345"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "WARNING" in result.output
+    assert "full quarantine" in result.output.lower()
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — theory (REQ-AUTHOR-050, 053, 055)
+# ---------------------------------------------------------------------------
+
+
+def test_theory_subcommand_exposed(runner: CliRunner) -> None:
+    """REQ-AUTHOR-050: forge theory --help renders non-trivial help."""
+    result = runner.invoke(forge_cli.cli, ["theory", "--help"])
+    assert result.exit_code == 0
+    assert "Usage" in result.output
+    assert "--rule" in result.output
+
+
+def test_theory_aggregate_and_deep_dive(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """REQ-AUTHOR-053, 055: forge theory prints aggregate; --rule deep-dives."""
+    project = _seed_tier6_project(tmp_path)
+
+    agg = runner.invoke(forge_cli.cli, ["theory", str(project)])
+    assert agg.exit_code == 0, agg.output
+    assert "Theory summary:" in agg.output
+    assert "Rules:" in agg.output
+    assert ":active 1" in agg.output
+    assert ":tentative 1" in agg.output
+    assert ":quarantined 1" in agg.output
+    assert "Average entrenchment:" in agg.output
+    assert "Top-5 most-cited source documents:" in agg.output
+    assert "pmid:12345" in agg.output
+
+    deep = runner.invoke(
+        forge_cli.cli,
+        ["theory", str(project), "--rule", ":induced/herd-immunity-threshold"],
+    )
+    assert deep.exit_code == 0, deep.output
+    assert "Rule :induced/herd-immunity-threshold" in deep.output
+    assert "Entrenchment:" in deep.output
+    assert "0.830" in deep.output
+    assert "Proposed by:" in deep.output
+    assert "Validated by:" in deep.output
+    assert "Repair calls:" in deep.output
+    assert "c-203" in deep.output
+
+
+def test_theory_renders_rules_with_missing_sidecar(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """REQ-AUTHOR-053, 055: missing sidecar → ERROR block + rule list still rendered."""
+    project = _seed_tier6_project(tmp_path, with_sidecar=False)
+    result = runner.invoke(forge_cli.cli, ["theory", str(project)])
+    assert result.exit_code == 0, result.output
+    assert "ERROR:" in result.output
+    assert "sidecar" in result.output.lower() or "prov.edn" in result.output
+    assert ":induced/herd-immunity-threshold" in result.output
+    assert ":induced/vaccine-efficacy-r0" in result.output
+    assert ":induced/trial-cohort-size" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — --dry-run (REQ-AUTHOR-056) on induce + revise
+# ---------------------------------------------------------------------------
+
+
+def test_induce_dry_run_writes_no_files(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-056: --dry-run prints summary output but writes nothing."""
+    project = _seed_inducible_project(tmp_path)
+    (project / "work" / "_semantic_index.bin").write_bytes(b"\x00")
+
+    def _fail_if_invoked(*_args, **_kwargs) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("_run_nbb_induce must not be invoked under --dry-run")
+
+    monkeypatch.setattr(forge_cli, "_run_nbb_induce", _fail_if_invoked)
+
+    result = runner.invoke(forge_cli.cli, ["induce", str(project), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "dry-run" in result.output
+    assert not (project / "rules" / "booklogic" / "induced-theory.edn").exists()
+    assert not (project / "rules" / "booklogic" / "induced-theory.prov.edn").exists()
+
+
+def test_revise_dry_run_does_not_mutate_sidecar(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-056: --dry-run flows the report but does not mutate the sidecar."""
+    project = _seed_tier6_project(tmp_path)
+    write_called: list[bool] = []
+    _stub_agm_module(
+        monkeypatch,
+        lambda r, c: _FakeRevisionReport(),
+        write_called_box=write_called,
+    )
+
+    pre = (project / "rules" / "booklogic" / "induced-theory.prov.edn").read_text(
+        encoding="utf-8"
+    )
+    result = runner.invoke(
+        forge_cli.cli,
+        ["revise", str(project), "--retracted-paper", "pmid:12345", "--dry-run"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "dry-run" in result.output
+    # The stub records non-dry-run writes; the box must remain empty.
+    assert write_called == []
+    post = (project / "rules" / "booklogic" / "induced-theory.prov.edn").read_text(
+        encoding="utf-8"
+    )
+    assert pre == post
+
+
+def test_theory_has_no_dry_run_flag(runner: CliRunner) -> None:
+    """REQ-AUTHOR-056: forge theory is read-only; --dry-run is intentionally absent."""
+    result = runner.invoke(forge_cli.cli, ["theory", "--help"])
+    assert result.exit_code == 0
+    assert "--dry-run" not in result.output
 
 
 def teardown_module(_module: object) -> None:  # pragma: no cover — env hygiene

@@ -108,6 +108,59 @@ ERROR_TABLE: tuple[tuple[Iterable[str], CliError], ...] = (
             reference="docs/booklogic-dsl-reference.md §5 (Lifts)",
         ),
     ),
+    # ------------------------------------------------------------------
+    # Tier 6 — induce / revise / theory (REQ-AUTHOR-050..056)
+    # ------------------------------------------------------------------
+    (
+        ("ProvenanceSidecarError",),
+        CliError(
+            summary="induced-theory.prov.edn missing or malformed",
+            what_likely_happened=(
+                "forge theory / forge revise tried to read the PROV-O sidecar "
+                "that pairs with induced-theory.edn; it is either absent or "
+                "fails schema validation."
+            ),
+            likely_fix=(
+                "Re-run `forge induce <project>` to regenerate the sidecar, "
+                "or inspect rules/booklogic/induced-theory.prov.edn for hand-"
+                "edits that broke the schema."
+            ),
+            reference="docs/booklogic-dsl-reference.md §6 (Provenance sidecar)",
+        ),
+    ),
+    (
+        ("RevisionInputError",),
+        CliError(
+            summary="forge revise requires --retracted-paper or --contradicting-atom",
+            what_likely_happened=(
+                "forge revise was invoked with neither --retracted-paper nor "
+                "--contradicting-atom; with no input, the AGM revision is a "
+                "no-op and the call is rejected to prevent an accidental run."
+            ),
+            likely_fix=(
+                "Pass at least one --retracted-paper <id> or "
+                "--contradicting-atom <id> (both flags are repeatable)."
+            ),
+            reference="docs/booklogic-dsl-reference.md §7 (Theory revision)",
+        ),
+    ),
+    (
+        ("InductionPipelineError",),
+        CliError(
+            summary="nbb induction orchestrator exited non-zero",
+            what_likely_happened=(
+                "scripts/induce_theory.cljs returned a non-zero exit code; "
+                "the candidate generator, grammar enforcer, or SMT fitter "
+                "rejected every proposal or hit a hard error."
+            ),
+            likely_fix=(
+                "Inspect the orchestrator's stderr tail above; re-run with "
+                "--debug for the full subprocess trace, or lower --folds / "
+                "--budget-usd to relax the validation gate."
+            ),
+            reference="docs/booklogic-dsl-reference.md §6 (Theory induction)",
+        ),
+    ),
 )
 
 

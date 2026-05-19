@@ -125,6 +125,23 @@ def apply_confidence_downgrade(
         defect["severity"] = "advisory"
 
 
+def compute_verdict_confidence(defects: Sequence[dict] | Iterable[dict]) -> float:
+    """REQ-CONFIDENCE-042: verdict confidence = geometric mean of defect
+    confidences. Empty defect set => 1.0.
+    """
+    confidences = [
+        float(d.get("defect_confidence", 1.0))
+        for d in defects
+        if isinstance(d, dict)
+    ]
+    if not confidences:
+        return 1.0
+    product = 1.0
+    for c in confidences:
+        product *= c
+    return product ** (1.0 / len(confidences))
+
+
 def _chain_from_verdict_defect(raw: dict) -> list[dict]:
     """Pull the unsat-core chain off a verdict-shaped defect entry."""
     chain = raw.get(_KW_CHAIN) or raw.get("chain") or []
@@ -259,6 +276,10 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
     if remedies_path is None:
         remedies_path = verdict_path.resolve().parent.parent / "rules" / "remedies.edn"
     remedies = _bind_remedies(remedies_path, queries)
+    # REQ-CONFIDENCE-042: surface verdict-level confidence (geometric
+    # mean of per-defect confidences; 1.0 if there are no defects).
+    all_defects = _build_defects(payload)
+    verdict_confidence = compute_verdict_confidence(all_defects)
     result = {
         "verdict": verdict_str,
         "core": list(payload.get(_KW_CORE, [])),
@@ -266,6 +287,7 @@ def translate(verdict_path: Path, out_path: Path, remedies_path: Path | None = N
         "verified_count": payload.get(_KW_VERIFIED_COUNT, 0),
         "queries": queries,
         "cozo_defects": cozo_defects,
+        "verdict_confidence": verdict_confidence,
         "remedies": remedies,
         "produced_at": dt.datetime.now(dt.UTC).isoformat(),
         "verifier_version": FORGE_BERMUDA_VERSION,

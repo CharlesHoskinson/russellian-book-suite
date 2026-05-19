@@ -51,3 +51,37 @@ def test_baked_project_has_extract_preview_shim(tmp_path: Path) -> None:
         "baked project missing scripts/extract_preview.py"
     assert (project / "scripts" / "_extract_preview_lib.py").exists(), \
         "baked project missing scripts/_extract_preview_lib.py (vendored)"
+
+
+def test_baked_project_vendors_provenance(tmp_path: Path) -> None:
+    """REQ-PROV-047: baked project ships scripts/_provenance.py (vendored)
+    so `forge induce` can use ProvenanceSidecar without PYTHONPATH tricks.
+    """
+    project = _scaffold(tmp_path, "provenance_bake")
+    assert (project / "scripts" / "_provenance.py").exists(), \
+        "baked project missing scripts/_provenance.py (vendored)"
+
+
+def test_baked_project_ships_starter_sidecar(tmp_path: Path) -> None:
+    """REQ-PROV-047: baked project ships an empty starter
+    rules/booklogic/induced-theory.prov.edn so the inducer has a
+    well-formed target on its first invocation.
+    """
+    project = _scaffold(tmp_path, "provenance_bake_starter")
+    sidecar = project / "rules" / "booklogic" / "induced-theory.prov.edn"
+    assert sidecar.exists(), f"baked project missing {sidecar}"
+    text = sidecar.read_text(encoding="utf-8")
+    assert ":version 1" in text
+    assert ":rules {}" in text
+
+
+def test_baked_starter_sidecar_loads_via_provenance_sidecar(tmp_path: Path) -> None:
+    """REQ-PROV-047 + REQ-PROV-040: the starter sidecar must be a valid
+    EDN file that `ProvenanceSidecar.load` can parse without error.
+    """
+    project = _scaffold(tmp_path, "provenance_bake_load")
+    sidecar_path = project / "rules" / "booklogic" / "induced-theory.prov.edn"
+    sys.path.insert(0, str(SKILL_ROOT))
+    from scripts._provenance import ProvenanceSidecar  # type: ignore
+    sidecar = ProvenanceSidecar.load(sidecar_path)
+    assert list(sidecar.iter_rules()) == []

@@ -1,0 +1,27 @@
+;; rules/booklogic/induced-theory.prov.edn — PROV-O provenance sidecar
+;; for the inducer's output (`induced-theory.edn`).
+;;
+;; Emitted and updated by `forge induce` / `forge revise`. Each rule in
+;; `induced-theory.edn` has a corresponding entry here citing the atoms,
+;; source documents, LLM lineage, solver runs, entrenchment, status,
+;; repair-call count, and cost. The sidecar is the AGM-revision target
+;; on paper retraction.
+;;
+;; SCHEMA (REQ-PROV-040..047):
+;;   {:version 1
+;;    :rules {<rule-id> {:prov/derived-from-atoms [...]
+;;                       :prov/source-documents [...]
+;;                       :prov/contradiction-atoms [...]
+;;                       :prov/proposed-by {...}
+;;                       :prov/validated-by [...]
+;;                       :prov/entrenchment <float>
+;;                       :prov/status :active|:tentative|:quarantined
+;;                       :prov/llm-repair-calls <int>
+;;                       :prov/cost-usd <float>
+;;                       ;; optional:
+;;                       :prov/semantic-neighbours [...]
+;;                       :prov/induced-from-corpus "..."}}}
+;;
+;; A freshly scaffolded project ships the empty shape so `forge induce`
+;; has a well-formed target on its first invocation.
+{:version 1 :rules {}}

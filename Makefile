@@ -17,6 +17,7 @@ lint:
 	cargo fmt --check --manifest-path verifiers/osmotic_pressure/rust-verifier/Cargo.toml
 	nixpkgs-fmt --check $$(git ls-files '*.nix')
 	pytest skills/neurosym-forge/tests/test_support_matrix.py -q
+	pytest skills/neurosym-forge/tests/test_induction_grammar_drift.py -q
 
 scaffold-bake:
 	pytest skills/neurosym-forge/tests/test_scaffold_bake.py -x

@@ -19,6 +19,7 @@ SUBCOMMANDS = (
     "similar",
     "render",
     "induce",
+    "revise",
 )
 
 
@@ -581,6 +582,134 @@ def test_induce_pipeline_error_renders_user_message(
     assert result.exit_code != 0
     assert "ERROR:" in result.output
     assert "induction" in result.output.lower() or "nbb" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Tier 6 — revise (REQ-AUTHOR-050, 052, 055)
+# ---------------------------------------------------------------------------
+
+
+def _seed_tier6_project(tmp_path: Path, with_sidecar: bool = True) -> Path:
+    """Seed a tier6-shaped project tree from fixtures/tier6/."""
+    root = tmp_path / "tier6-project"
+    booklogic = root / "rules" / "booklogic"
+    booklogic.mkdir(parents=True)
+    (root / "work").mkdir(parents=True)
+    (booklogic / "induced-theory.edn").write_text(
+        (TIER6_FIXTURES / "induced-theory.edn").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    if with_sidecar:
+        (booklogic / "induced-theory.prov.edn").write_text(
+            (TIER6_FIXTURES / "induced-theory.prov.edn").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+    return root
+
+
+class _FakeRevisionReport:
+    """Stand-in for Phase Z's RevisionReport dataclass."""
+
+    def __init__(
+        self,
+        rules_affected: int = 2,
+        status_counts: dict[str, int] | None = None,
+        transitions: list[tuple[str, str, str]] | None = None,
+        full_quarantine_warning: bool = False,
+    ) -> None:
+        self.rules_affected = rules_affected
+        self.status_counts = status_counts or {
+            ":active": 1, ":tentative": 1, ":quarantined": 1,
+        }
+        self.transitions = transitions or [
+            (":induced/herd-immunity-threshold", ":active", ":tentative"),
+            (":induced/vaccine-efficacy-r0", ":tentative", ":quarantined"),
+        ]
+        self.full_quarantine_warning = full_quarantine_warning
+
+
+def _stub_agm_module(
+    monkeypatch: pytest.MonkeyPatch,
+    report_factory,
+) -> None:
+    """Install a stub scripts._agm_revision module returning report_factory()."""
+    import types
+
+    fake = types.ModuleType("scripts._agm_revision")
+
+    def revise_theory(
+        induced_path: Path,
+        prov_path: Path,
+        retracted_docs: list[str],
+        contradicting_atoms: list[str],
+    ) -> _FakeRevisionReport:
+        return report_factory(retracted_docs, contradicting_atoms)
+
+    fake.revise_theory = revise_theory  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "scripts._agm_revision", fake)
+    import scripts as _scripts_pkg
+    monkeypatch.setattr(_scripts_pkg, "_agm_revision", fake, raising=False)
+
+
+def test_revise_subcommand_exposed(runner: CliRunner) -> None:
+    """REQ-AUTHOR-050: forge revise --help renders non-trivial help."""
+    result = runner.invoke(forge_cli.cli, ["revise", "--help"])
+    assert result.exit_code == 0
+    assert "Usage" in result.output
+    assert "retracted-paper" in result.output
+    assert "contradicting-atom" in result.output
+
+
+def test_revise_happy_path(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-052, 055: forge revise prints the RevisionReport."""
+    project = _seed_tier6_project(tmp_path)
+    _stub_agm_module(monkeypatch, lambda r, c: _FakeRevisionReport())
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["revise", str(project), "--retracted-paper", "pmid:12345"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Revision summary:" in result.output
+    assert "Rules affected:" in result.output
+    assert "Status transitions:" in result.output
+    assert "herd-immunity-threshold" in result.output
+
+
+def test_revise_requires_at_least_one_input(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """REQ-AUTHOR-052, 055: neither flag → RevisionInputError rendered."""
+    project = _seed_tier6_project(tmp_path)
+    result = runner.invoke(forge_cli.cli, ["revise", str(project)])
+    assert result.exit_code != 0
+    surfaced = (
+        "ERROR:" in result.output
+        or "retracted-paper" in result.output
+        or "contradicting-atom" in result.output
+    )
+    assert surfaced, result.output
+
+
+def test_revise_full_quarantine_warning_banner(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REQ-AUTHOR-052: RevisionReport.full_quarantine_warning surfaces as a banner."""
+    project = _seed_tier6_project(tmp_path)
+    _stub_agm_module(
+        monkeypatch,
+        lambda r, c: _FakeRevisionReport(full_quarantine_warning=True),
+    )
+
+    result = runner.invoke(
+        forge_cli.cli,
+        ["revise", str(project), "--retracted-paper", "pmid:12345"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "WARNING" in result.output
+    assert "full quarantine" in result.output.lower()
 
 
 def teardown_module(_module: object) -> None:  # pragma: no cover — env hygiene

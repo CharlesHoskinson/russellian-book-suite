@@ -810,6 +810,115 @@ def induce(
 
 
 # ---------------------------------------------------------------------------
+# forge revise — REQ-AUTHOR-050, 052
+# ---------------------------------------------------------------------------
+
+
+def _format_revision_report(report: Any) -> str:
+    """Render a RevisionReport (from Phase Z) in human form.
+
+    The shape we expect (per design.md):
+
+        report.rules_affected: int
+        report.status_counts: {":active": int, ":tentative": int, ":quarantined": int}
+        report.transitions: [(rule_id, from_status, to_status), ...]
+        report.full_quarantine_warning: bool
+    """
+    out: list[str] = []
+    if getattr(report, "full_quarantine_warning", False):
+        out.append("=" * 72)
+        out.append("WARNING: full quarantine triggered — every rule in the "
+                   "induced theory is now :quarantined.")
+        out.append("=" * 72)
+        out.append("")
+
+    counts = getattr(report, "status_counts", None) or {}
+    affected = getattr(report, "rules_affected", 0)
+
+    def _count(*keys: str) -> int:
+        for k in keys:
+            if k in counts:
+                return int(counts[k])
+        return 0
+
+    out.append("Revision summary:")
+    out.append(f"  Rules affected:    {affected:>4}")
+    out.append(f"  Rules active:      {_count(':active', 'active'):>4}")
+    out.append(f"  Rules tentative:   {_count(':tentative', 'tentative'):>4}")
+    out.append(f"  Rules quarantined: {_count(':quarantined', 'quarantined'):>4}")
+    out.append("")
+
+    transitions = getattr(report, "transitions", None) or []
+    if transitions:
+        out.append("Status transitions:")
+        rows = list(transitions)
+        for row in rows[:3]:
+            if isinstance(row, dict):
+                rid = row.get("rule_id") or row.get(":rule-id")
+                frm = row.get("from") or row.get(":from")
+                to = row.get("to") or row.get(":to")
+            else:
+                rid, frm, to = row
+            out.append(f"  {rid}  {frm} -> {to}")
+        if len(rows) > 3:
+            out.append(f"  ... and {len(rows) - 3} more (see sidecar)")
+    else:
+        out.append("Status transitions: (none)")
+
+    return "\n".join(out)
+
+
+@cli.command("revise")
+@click.argument("project_root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--retracted-paper", "retracted_papers", multiple=True,
+              help="Document id retracted from the corpus (repeatable).")
+@click.option("--contradicting-atom", "contradicting_atoms", multiple=True,
+              help="Atom id that contradicts an existing rule (repeatable).")
+@_handle
+def revise(
+    project_root: Path,
+    retracted_papers: tuple[str, ...],
+    contradicting_atoms: tuple[str, ...],
+) -> None:
+    """Re-rank entrenchment and contract/quarantine rules on new evidence."""
+    project_root = Path(project_root).resolve()
+
+    if not retracted_papers and not contradicting_atoms:
+        raise RevisionInputError(
+            "forge revise requires at least one --retracted-paper or "
+            "--contradicting-atom"
+        )
+
+    try:
+        from scripts import _agm_revision  # type: ignore[import-not-found]
+    except ImportError:
+        click.echo(_PHASE_AA_REVISE_MSG, err=True)
+        raise click.exceptions.Exit(2)
+
+    theory_path, prov_path = _induced_paths(project_root)
+    if not prov_path.exists():
+        raise ProvenanceSidecarError(
+            f"sidecar missing at {prov_path}"
+        )
+
+    click.echo(
+        f"forge revise: project={project_root} "
+        f"retracted={len(retracted_papers)} "
+        f"contradicting={len(contradicting_atoms)}"
+    )
+
+    report = _agm_revision.revise_theory(
+        induced_path=theory_path,
+        prov_path=prov_path,
+        retracted_docs=list(retracted_papers),
+        contradicting_atoms=list(contradicting_atoms),
+    )
+
+    click.echo("")
+    click.echo(_format_revision_report(report))
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 

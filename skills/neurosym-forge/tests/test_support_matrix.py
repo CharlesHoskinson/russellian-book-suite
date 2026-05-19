@@ -111,6 +111,45 @@ def test_matrix_defremedy_is_query_bound():
     )
 
 
+def test_matrix_deflift_llm_is_wired_alpha_post_tier5():
+    """REQ-LLMLIFT-047: post-Phase-P (Tier 5), the matrix lists
+    `deflift :backend :llm` as `wired (alpha)`. The `(alpha)` qualifier
+    is required — it signals to authors that real-provider behaviour
+    depends on the model and that the eval bench (Phase Q) has not yet
+    confirmed parity with the regex baseline.
+    """
+    status = _matrix_row_status("deflift", "llm")
+    assert status is not None, "matrix missing deflift :backend :llm row"
+    s = status.lower()
+    assert "wired" in s and "alpha" in s, (
+        f"matrix should report deflift :backend :llm as 'wired (alpha)' "
+        f"post-Phase-P; got {status!r}"
+    )
+
+
+def test_matrix_legend_has_wired_alpha_entry():
+    """REQ-LLMLIFT-047: the legend SHALL introduce a `wired (alpha)`
+    entry next to the LLM-lift row so authors know the qualifier's
+    semantics."""
+    text = MATRIX.read_text(encoding="utf-8")
+    assert "**wired (alpha)**" in text, (
+        "SUPPORT_MATRIX.md legend missing **wired (alpha)** entry; "
+        "REQ-LLMLIFT-047 requires it alongside the deflift :backend :llm row"
+    )
+
+
+def test_llm_lift_module_exists():
+    """REQ-LLMLIFT-041: the codegen-path cell points at
+    `scripts/_llm_lift.py`. If the matrix says it's wired but the
+    module is gone, fail loudly — this is the lint that catches drift
+    between the doc and the code."""
+    llm_lift = ROOT / "scripts" / "_llm_lift.py"
+    assert llm_lift.exists(), (
+        f"matrix promises `scripts/_llm_lift.py` is the deflift :backend "
+        f":llm codegen path, but the file is missing at {llm_lift}"
+    )
+
+
 def test_codegen_dispatches_egg_and_cozo_post_tier3():
     """REQ-EQSAT-041 + REQ-DATALOG-041: codegen dispatches `:egg` to
     `_emit_egg_block` and `:cozo` to `_emit_cozo_block`. No silent drop."""

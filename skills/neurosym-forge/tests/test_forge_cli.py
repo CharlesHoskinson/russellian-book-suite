@@ -206,6 +206,13 @@ def test_suggest_lifts_emits_candidates_no_auto_merge(
 
     fake_module.get_provider = lambda: _Stub()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "scripts._llm_lift", fake_module)
+    # Also override the attribute on the `scripts` package: when
+    # `from scripts import _llm_lift` is evaluated and the real
+    # submodule was already imported (e.g. by an earlier "without_phase_p"
+    # detection test), Python returns the package attribute rather than
+    # consulting sys.modules. Patching the attribute makes the stub win.
+    import scripts as _scripts_pkg
+    monkeypatch.setattr(_scripts_pkg, "_llm_lift", fake_module, raising=False)
 
     result = runner.invoke(
         forge_cli.cli,
@@ -331,6 +338,12 @@ def test_similar_prints_top_k_table(
 
     fake_module.SemanticIndex = _FakeIndex  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "scripts._semantic_index", fake_module)
+    # Mirror the sys.modules stub onto the `scripts` package attribute so
+    # `from scripts import _semantic_index` in forge_cli picks up the fake
+    # even when the real submodule was imported earlier by the
+    # "without_phase_q" detection test.
+    import scripts as _scripts_pkg
+    monkeypatch.setattr(_scripts_pkg, "_semantic_index", fake_module, raising=False)
 
     result = runner.invoke(
         forge_cli.cli,

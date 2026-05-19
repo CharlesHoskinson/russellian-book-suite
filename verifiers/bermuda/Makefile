@@ -1,4 +1,4 @@
-.PHONY: ci build extract smoke render clean
+.PHONY: ci build extract index-semantic smoke render clean
 
 # REQ-PUB-044: default manuscript for `make render`. Override via
 # `make render MANUSCRIPT=path/to/your.md` from the CLI.
@@ -14,6 +14,13 @@ extract:
 	python scripts/extract_preview.py \
 	  --claims tests/fixtures/ledger_clean.jsonl \
 	  --predicates rules/predicates.edn
+
+index-semantic:
+	@if [ -f work/claims.edn ]; then \
+	  python scripts/build_semantic_index.py; \
+	else \
+	  echo "[index-semantic] no work/claims.edn; run make extract first"; \
+	fi
 
 smoke:
 	pytest tests/ -v \

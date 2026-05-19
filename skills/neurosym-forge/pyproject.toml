@@ -22,6 +22,10 @@ dev = [
     "pytest-cov>=4.1,<8.0",
     "psutil>=5.9,<8.0",
 ]
+semantic = [
+    "sentence-transformers>=2.7,<6.0",
+    "numpy>=1.26,<3.0",
+]
 # REQ-LLMLIFT-040, 041: optional LLM provider SDKs. The framework
 # operates fully offline with the StubLift provider; install these
 # extras only when wiring `:backend :llm` lifts to real providers.

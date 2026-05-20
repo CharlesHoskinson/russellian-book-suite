@@ -502,8 +502,8 @@
    the Rust verifier, and the Z3 codegen all see the same shape."
   [{:keys [predicate-registry sort-registry]}]
   (let [preds (into {} (for [p predicate-registry]
-                         [(:name p) {:arg-sorts (:args p)
-                                     :return    (:ret p)}]))]
+                         [(:name p) {:arg-sorts (:arg-sorts p)
+                                     :return    (:return p)}]))]
     (pr-str {:version 1
              :sorts (mapv :name sort-registry)
              :predicates preds})))

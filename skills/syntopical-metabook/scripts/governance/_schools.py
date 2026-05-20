@@ -93,6 +93,10 @@ def _read_value(s: str) -> tuple[object, int]:
                         k += c
                     return items, j + 1
         raise SchoolError("unterminated vector")
+    if s.startswith("true"):
+        return True, 4
+    if s.startswith("false"):
+        return False, 5
     m = re.match(r"-?\d+", s)
     if m:
         return int(m.group(0)), m.end()

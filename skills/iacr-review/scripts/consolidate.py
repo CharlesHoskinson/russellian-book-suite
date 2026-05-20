@@ -253,7 +253,10 @@ def main(argv: list[str] | None = None) -> int:
 
     review_files = sorted(args.reviews_dir.glob("persona-*.md"))
     if not review_files:
-        print(f"no persona-*.md files found in {args.reviews_dir}", file=sys.stderr)
+        # Accept version-prefixed filenames too (e.g. v0.3-persona-01-foo.md).
+        review_files = sorted(args.reviews_dir.glob("*persona-*.md"))
+    if not review_files:
+        print(f"no *persona-*.md files found in {args.reviews_dir}", file=sys.stderr)
         return 1
 
     reviews = [parse_review(p) for p in review_files]

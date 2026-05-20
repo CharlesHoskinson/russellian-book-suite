@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from ._schools import load_schools_dir
 from ._config import load_or_create_config
-from ._stance import derive_stance, Stance, RuleEvidence
+from ._stance import derive_stance, RuleEvidence
 from ._positions_io import Position, write_positions
 
 

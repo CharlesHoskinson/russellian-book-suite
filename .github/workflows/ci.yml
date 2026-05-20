@@ -49,7 +49,9 @@ jobs:
           - skill: book-compose
             siblings: book-knowledge russellian-style book-review review-conductor
             pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
-          # neurosym-forge only ships a [dev] extras section, not [ci]
+          # neurosym-forge needs both [dev] (pytest + z3-solver + numpy) and
+          # [semantic] (sentence-transformers) to cover the full test surface
+          # including the semantic-index tests.
           - skill: neurosym-forge
             extra: dev,semantic
     steps:

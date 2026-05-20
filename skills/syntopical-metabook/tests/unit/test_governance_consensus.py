@@ -25,7 +25,7 @@ def test_emits_tex_and_svg(tmp_path):
     ], generated_at="2026-05-20T18:00:00Z")
 
     out_dir = tmp_path / "figures"
-    paths = render_consensus_map(pos, out_dir)
+    render_consensus_map(pos, out_dir)
     assert (out_dir / "consensus-map.tex").exists()
     assert (out_dir / "consensus-map.svg").exists()
 

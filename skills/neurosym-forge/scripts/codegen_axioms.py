@@ -69,7 +69,7 @@ _REAL_BINOP_TO_Z3 = {
 _SUPPORTED_ASSERT_HEADS = frozenset({
     "=", "~=", "approx=",
     "<", "<=", ">", ">=",
-    "+", "-", "*", "/",
+    "+", "-", "*", "/", "mod",
     "and", "or", "not", "=>", "ite",
     "sum", "count", "in", "select",
     "forall", "exists",
@@ -630,14 +630,24 @@ def _emit_z3_block(c: dict, declared_sort_names: set[str] | None = None) -> str:
     lhs_raw = assert_[1] if len(assert_) >= 2 else None
     rhs_raw = assert_[2] if len(assert_) >= 3 else None
     if head in ("~=", "approx="):
-        # Approx-equality is numeric. If anything in either subtree is a
-        # float literal, the whole expression must be Real-typed so that
-        # `.sub()` matches across operands.
-        # `approx=` is the EDN-safe spelling; `~=` is accepted from
-        # intermediate forms or string-encoded assert forms.
-        z3_type = "Real" if (_subtree_has_float(lhs_raw) or _subtree_has_float(rhs_raw)) else "Int"
-        lhs = _emit_expr_typed(lhs_raw, z3_type)
-        rhs = _emit_expr_typed(rhs_raw, z3_type)
+        # Approx-equality is numeric. `approx=` is the EDN-safe spelling;
+        # `~=` is accepted from intermediate forms or string-encoded asserts.
+        #
+        # Tolerance may be specified inline as trailing key-value pairs
+        # within the assert form: (approx= LHS RHS :tolerance 0.01). In
+        # that case len(assert_) >= 5 and assert_[3] is :tolerance. The
+        # CLJS layer historically only recognised `~=` here, so `approx=`
+        # constraints arrived with `:tolerance nil` in the intermediate.
+        if tolerance is None and len(assert_) >= 5:
+            tol_kw = assert_[3]
+            if isinstance(tol_kw, Keyword) and tol_kw.name == "tolerance":
+                tol_val = assert_[4]
+                if isinstance(tol_val, (int, float)):
+                    tolerance = float(tol_val)
+        # approx= always uses Real because _emit_approx_block multiplies
+        # lhs/rhs by Real::from_rational eps — Int * Real is a type error.
+        lhs = _emit_expr_typed(lhs_raw, "Real")
+        rhs = _emit_expr_typed(rhs_raw, "Real")
         return _emit_approx_block(cid, lhs, rhs, tolerance)
     if head == "=":
         # Infer Z3 type from the RHS literal to emit correct variable declarations.
@@ -1042,6 +1052,11 @@ def _emit_expr_typed(node: Any, z3_type: str, bound_vars: dict[str, str] | None 
             children = [_emit_expr_typed(n, z3_type, bound_vars=bound_vars) for n in list(node)[1:]]
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             return _left_fold(method, children)
+        if head_str == "mod" and len(node) == 3:
+            # (mod dividend divisor) → Z3 Int remainder via Int::rem.
+            lhs = _emit_expr_typed(node[1], "Int", bound_vars=bound_vars)
+            rhs = _emit_expr_typed(node[2], "Int", bound_vars=bound_vars)
+            return f"{lhs}.rem(&{rhs})"
         if head_str in _REAL_BINOP_TO_Z3:
             return _emit_real_binop(head_str, node, z3_type, bound_vars=bound_vars)
         if head_str == "ite":
@@ -1372,6 +1387,11 @@ def _emit_expr(node: Any, bound_vars: dict[str, str] | None = None) -> str:
             method = {"*": "mul", "+": "add", "-": "sub"}[head_str]
             # Z3 Rust API uses pairwise; nest left-fold.
             return _left_fold(method, children)
+        if head_str == "mod" and len(node) == 3:
+            # (mod dividend divisor) → Z3 Int remainder via Int::rem.
+            lhs = _emit_expr(node[1], bound_vars=bound_vars)
+            rhs = _emit_expr(node[2], bound_vars=bound_vars)
+            return f"{lhs}.rem(&{rhs})"
     raise CodegenError(f"unsupported expression node: {node!r}")
 
 

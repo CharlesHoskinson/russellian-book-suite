@@ -763,12 +763,15 @@ def _format_induce_summary(prov: dict[str, Any]) -> str:
               help="Opt-in dollar ceiling across the induction run.")
 @click.option("--dry-run", "dry_run", is_flag=True, default=False,
               help="Run the pipeline in memory; write no files.")
+@click.option("--governance-gate", "governance_gate", is_flag=True, default=False,
+              help="Drop induced rules failing the syntopical-metabook governance policy.")
 @_handle
 def induce(
     project_root: Path,
     folds: int,
     budget_usd: float | None,
     dry_run: bool,
+    governance_gate: bool,
 ) -> None:
     """Induce a BookLogic theory from <project_root>'s atomspace.
 
@@ -832,6 +835,53 @@ def induce(
     click.echo("")
     click.echo(f"Wrote: {theory_path}")
     click.echo(f"Wrote: {prov_path}")
+
+    if governance_gate and not dry_run:
+        try:
+            from scripts.governance.induction_gate import (
+                governance_filter, GateDecision,
+            )
+            from scripts.governance._positions_io import read_positions
+            from scripts.governance.build_positions import _load_prov_sidecar
+        except ImportError as e:
+            click.echo(
+                f"warning: --governance-gate set but syntopical-metabook not "
+                f"importable ({e}); skipping gate.", err=True,
+            )
+            return
+
+        positions_path = project_root / "syntopical" / "positions.edn"
+        if not positions_path.exists():
+            click.echo(
+                f"warning: --governance-gate set but no positions.edn at "
+                f"{positions_path}; run `forge govern build` first to populate it.",
+                err=True,
+            )
+            return
+
+        sidecar = _load_prov_sidecar(prov_path)
+        rule_ids = list(sidecar.keys())
+        if not rule_ids:
+            click.echo("governance-gate: no induced rules to filter.")
+            return
+
+        positions = read_positions(positions_path)
+        decisions = governance_filter(rule_ids, positions)
+        quarantined = {rid: d for rid, d in decisions.items() if d != GateDecision.PASS}
+
+        if quarantined:
+            quarantine_path = project_root / "syntopical" / "induction-quarantine.md"
+            quarantine_path.parent.mkdir(parents=True, exist_ok=True)
+            with quarantine_path.open("w", encoding="utf-8", newline="\n") as fh:
+                fh.write("# Induction quarantine (governance gate)\n\n")
+                for rid in sorted(quarantined):
+                    fh.write(f"- `{rid}` — {quarantined[rid].value}\n")
+            click.echo(
+                f"quarantined {len(quarantined)} rule(s) by governance gate; "
+                f"see {quarantine_path}"
+            )
+        else:
+            click.echo("governance-gate: all rules passed.")
 
 
 # ---------------------------------------------------------------------------
@@ -1273,6 +1323,18 @@ def govern_review(workspace: Path) -> None:
         cfg,
     )
     click.echo(f"wrote {out}")
+
+
+@govern.command("quarantine")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_quarantine(workspace: Path) -> None:
+    """Show rules that failed the governance gate."""
+    quarantine_path = workspace / "syntopical" / "induction-quarantine.md"
+    if not quarantine_path.exists():
+        click.echo("No quarantine file. Run `forge induce --governance-gate` first.")
+        return
+    click.echo(quarantine_path.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------

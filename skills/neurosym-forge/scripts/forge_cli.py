@@ -1254,6 +1254,27 @@ def govern_map(workspace: Path) -> None:
     click.echo(f"wrote {paths['tex']} + {paths['svg']}")
 
 
+@govern.command("review")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_review(workspace: Path) -> None:
+    """Render adversarial review under syntopical/adversarial-review.md."""
+    from scripts.governance.render_adversarial import render_adversarial
+    from scripts.governance._config import load_or_create_config
+    positions_path = workspace / "syntopical" / "positions.edn"
+    if not positions_path.exists():
+        raise click.ClickException(
+            f"{positions_path} does not exist. Run `forge govern build` first."
+        )
+    cfg = load_or_create_config(workspace / "syntopical" / "governance-config.edn")
+    out = render_adversarial(
+        positions_path,
+        workspace / "syntopical" / "adversarial-review.md",
+        cfg,
+    )
+    click.echo(f"wrote {out}")
+
+
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------

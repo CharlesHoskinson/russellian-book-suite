@@ -20,6 +20,31 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Detect whether the PR diff touches anything that could affect the Rust
+  # verifiers or the Nix preflight. Pure-Python PRs skip those jobs (they
+  # always pass on pure-Python changes). Pushes to main always run them.
+  changes:
+    name: detect rust/nix changes
+    runs-on: ubuntu-24.04
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'verifiers/**'
+              - '**/*.rs'
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
+              - 'flake.nix'
+              - 'flake.lock'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/setup-book-python/**'
+
   # Python-only skills don't need Nix — they run under standard setup-python.
   # The setup-book-python composite action handles pip + venv per skill; the
   # matrix.include lines override `extra` and add sibling-skill symlinks /
@@ -101,6 +126,8 @@ jobs:
   # Make's preflight target chains the sub-steps in dependency order.
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
+    needs: [changes]
+    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -121,6 +148,8 @@ jobs:
   # Windows contributors who need cargo signal locally.
   cargo-test:
     name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
+    needs: [changes]
+    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

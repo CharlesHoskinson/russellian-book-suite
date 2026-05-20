@@ -1,7 +1,8 @@
 """forge induce --governance-gate filters via positions.edn."""
 from __future__ import annotations
 from pathlib import Path
-import subprocess, sys
+import subprocess
+import sys
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]

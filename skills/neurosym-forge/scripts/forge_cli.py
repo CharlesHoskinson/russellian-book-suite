@@ -25,6 +25,13 @@ with a hand-readable pointer to the missing phase.
 """
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_SYNTOPICAL_DIR = _Path(__file__).resolve().parents[2] / "syntopical-metabook"
+if _SYNTOPICAL_DIR.is_dir() and str(_SYNTOPICAL_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SYNTOPICAL_DIR))
+
 import functools
 import json
 import os
@@ -756,12 +763,15 @@ def _format_induce_summary(prov: dict[str, Any]) -> str:
               help="Opt-in dollar ceiling across the induction run.")
 @click.option("--dry-run", "dry_run", is_flag=True, default=False,
               help="Run the pipeline in memory; write no files.")
+@click.option("--governance-gate", "governance_gate", is_flag=True, default=False,
+              help="Drop induced rules failing the syntopical-metabook governance policy.")
 @_handle
 def induce(
     project_root: Path,
     folds: int,
     budget_usd: float | None,
     dry_run: bool,
+    governance_gate: bool,
 ) -> None:
     """Induce a BookLogic theory from <project_root>'s atomspace.
 
@@ -825,6 +835,53 @@ def induce(
     click.echo("")
     click.echo(f"Wrote: {theory_path}")
     click.echo(f"Wrote: {prov_path}")
+
+    if governance_gate and not dry_run:
+        try:
+            from scripts.governance.induction_gate import (
+                governance_filter, GateDecision,
+            )
+            from scripts.governance._positions_io import read_positions
+            from scripts.governance.build_positions import _load_prov_sidecar
+        except ImportError as e:
+            click.echo(
+                f"warning: --governance-gate set but syntopical-metabook not "
+                f"importable ({e}); skipping gate.", err=True,
+            )
+            return
+
+        positions_path = project_root / "syntopical" / "positions.edn"
+        if not positions_path.exists():
+            click.echo(
+                f"warning: --governance-gate set but no positions.edn at "
+                f"{positions_path}; run `forge govern build` first to populate it.",
+                err=True,
+            )
+            return
+
+        sidecar = _load_prov_sidecar(prov_path)
+        rule_ids = list(sidecar.keys())
+        if not rule_ids:
+            click.echo("governance-gate: no induced rules to filter.")
+            return
+
+        positions = read_positions(positions_path)
+        decisions = governance_filter(rule_ids, positions)
+        quarantined = {rid: d for rid, d in decisions.items() if d != GateDecision.PASS}
+
+        if quarantined:
+            quarantine_path = project_root / "syntopical" / "induction-quarantine.md"
+            quarantine_path.parent.mkdir(parents=True, exist_ok=True)
+            with quarantine_path.open("w", encoding="utf-8", newline="\n") as fh:
+                fh.write("# Induction quarantine (governance gate)\n\n")
+                for rid in sorted(quarantined):
+                    fh.write(f"- `{rid}` — {quarantined[rid].value}\n")
+            click.echo(
+                f"quarantined {len(quarantined)} rule(s) by governance gate; "
+                f"see {quarantine_path}"
+            )
+        else:
+            click.echo("governance-gate: all rules passed.")
 
 
 # ---------------------------------------------------------------------------
@@ -1181,6 +1238,103 @@ def theory(project_root: Path, rule_id: str | None) -> None:
             click.echo("Rules (from induced-theory.edn; sidecar unavailable):")
             for rid in rule_ids:
                 click.echo(f"  {rid}")
+
+
+# ---------------------------------------------------------------------------
+# `forge govern` group — wraps syntopical-metabook governance subcommands
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def govern() -> None:
+    """syntopical-metabook governance: schools, positions, reports."""
+
+
+def _import_syntopical_governance():
+    """Lazy-import the sibling skill so a missing install doesn't kill the CLI."""
+    try:
+        from scripts.governance.build_positions import build_positions
+        from scripts.governance.render_per_rule import render_per_rule
+        return build_positions, render_per_rule
+    except ImportError as e:
+        raise click.ClickException(
+            "syntopical-metabook skill not on sys.path. Make sure both skills "
+            "are installed in the same venv, or that the sibling-skill bootstrap "
+            "at the top of forge_cli.py resolved correctly."
+        ) from e
+
+
+@govern.command("build")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_build(workspace: Path) -> None:
+    """Rebuild syntopical/positions.edn from schools + ledger + prov sidecar."""
+    build_positions, _ = _import_syntopical_governance()
+    out = build_positions(workspace.resolve())
+    click.echo(f"wrote {out}")
+
+
+@govern.command("report")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_report(workspace: Path) -> None:
+    """Render per-rule reports under syntopical/rules/."""
+    _, render_per_rule = _import_syntopical_governance()
+    positions_path = workspace / "syntopical" / "positions.edn"
+    if not positions_path.exists():
+        raise click.ClickException(
+            f"{positions_path} does not exist. Run `forge govern build` first."
+        )
+    n = render_per_rule(positions_path, workspace / "syntopical" / "rules")
+    click.echo(f"rendered {n} per-rule report(s)")
+
+
+@govern.command("map")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_map(workspace: Path) -> None:
+    """Render the bipartite consensus map under syntopical/figures/."""
+    from scripts.governance.render_consensus_map import render_consensus_map
+    positions_path = workspace / "syntopical" / "positions.edn"
+    if not positions_path.exists():
+        raise click.ClickException(
+            f"{positions_path} does not exist. Run `forge govern build` first."
+        )
+    paths = render_consensus_map(positions_path, workspace / "syntopical" / "figures")
+    click.echo(f"wrote {paths['tex']} + {paths['svg']}")
+
+
+@govern.command("review")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_review(workspace: Path) -> None:
+    """Render adversarial review under syntopical/adversarial-review.md."""
+    from scripts.governance.render_adversarial import render_adversarial
+    from scripts.governance._config import load_or_create_config
+    positions_path = workspace / "syntopical" / "positions.edn"
+    if not positions_path.exists():
+        raise click.ClickException(
+            f"{positions_path} does not exist. Run `forge govern build` first."
+        )
+    cfg = load_or_create_config(workspace / "syntopical" / "governance-config.edn")
+    out = render_adversarial(
+        positions_path,
+        workspace / "syntopical" / "adversarial-review.md",
+        cfg,
+    )
+    click.echo(f"wrote {out}")
+
+
+@govern.command("quarantine")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_quarantine(workspace: Path) -> None:
+    """Show rules that failed the governance gate."""
+    quarantine_path = workspace / "syntopical" / "induction-quarantine.md"
+    if not quarantine_path.exists():
+        click.echo("No quarantine file. Run `forge induce --governance-gate` first.")
+        return
+    click.echo(quarantine_path.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------

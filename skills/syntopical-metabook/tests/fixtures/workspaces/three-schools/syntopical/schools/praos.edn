@@ -1,0 +1,7 @@
+{:version 1
+ :school :praos
+ :name "Praos school"
+ :charter "Adaptively-secure Ouroboros family."
+ :members ["praos2017" "genesis2018"]
+ :canonical-rejects []
+ :canonical-asserts [":tau-leq-one"]}

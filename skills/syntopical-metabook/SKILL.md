@@ -22,4 +22,19 @@ You are the world model above the book. Four sub-workflows: Acquire, Synthesize,
 
 ## Public surface
 
-See `skill_api.py` once Phases 6-9 are complete.
+v0.2 ships the **governance** sub-workflow. `skill_api.py` exports:
+
+- `build_positions(workspace, generated_at=None) -> Path`
+  Reads `syntopical/schools/*.edn`, the claim ledger, and `induced-theory.prov.edn`;
+  writes `syntopical/positions.edn`.
+- `render_per_rule(positions_path, out_dir) -> int`
+  Reads `positions.edn`; writes one Markdown report per rule under `out_dir`.
+
+CLI entry points (via `forge govern`):
+
+- `forge govern build <workspace>` — rebuild positions ledger.
+- `forge govern report <workspace>` — render per-rule reports.
+
+The four-sub-workflow v0.1 scaffolds (`acquire/`, `synthesize/`, `lens/`, `gap/`)
+remain in place but are not active in v0.2. They are scheduled for a v0.3
+revisit.

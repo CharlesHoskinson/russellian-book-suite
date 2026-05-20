@@ -49,11 +49,13 @@ jobs:
           - skill: book-compose
             siblings: book-knowledge russellian-style book-review review-conductor
             pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
-          # neurosym-forge needs both [dev] (pytest + z3-solver + numpy) and
+          # neurosym-forge needs both [dev] (pytest + z3-solver + numpy + xdist) and
           # [semantic] (sentence-transformers) to cover the full test surface
-          # including the semantic-index tests.
+          # including the semantic-index tests. xdist parallelisation cuts the
+          # Windows wall-time roughly in half.
           - skill: neurosym-forge
             extra: dev,semantic
+            pytest-workers: auto
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-book-python
@@ -84,7 +86,12 @@ jobs:
       - name: pytest
         working-directory: skills/${{ matrix.skill }}
         shell: bash
-        run: python -m pytest tests/ -v ${{ matrix.pytest-deselect }}
+        run: |
+          if [ -n "${{ matrix.pytest-workers }}" ]; then
+            python -m pytest tests/ -v -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
+          else
+            python -m pytest tests/ -v ${{ matrix.pytest-deselect }}
+          fi
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally
   # split into 5 jobs (lint, scaffold-bake, regression, verifier-bermuda,

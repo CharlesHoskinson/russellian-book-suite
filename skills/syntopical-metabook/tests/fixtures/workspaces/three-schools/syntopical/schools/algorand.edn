@@ -1,0 +1,7 @@
+{:version 1
+ :school :algorand
+ :name "Algorand school"
+ :charter "BA-based committee selection without VRF leader sortition."
+ :members ["algorand2017"]
+ :canonical-rejects [":tau-leq-one"]
+ :canonical-asserts []}

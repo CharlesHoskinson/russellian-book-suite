@@ -1,0 +1,10 @@
+{:version 1
+ :rules {":induced/r-001" {:prov/derived-from-atoms ["clm-2026-000001" "clm-2026-000002" "clm-2026-000003"]
+                           :prov/source-documents ["praos2017" "genesis2018" "my-v2-spec"]
+                           :prov/contradiction-atoms ["clm-2026-000004"]
+                           :prov/proposed-by {:lineage :llm}
+                           :prov/validated-by []
+                           :prov/entrenchment 0.85
+                           :prov/status :active
+                           :prov/llm-repair-calls 0
+                           :prov/cost-usd 0.0}}}

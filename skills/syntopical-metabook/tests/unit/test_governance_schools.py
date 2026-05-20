@@ -61,3 +61,31 @@ def test_load_schools_dir_returns_all(tmp_path):
 def test_load_schools_dir_missing_directory_returns_empty(tmp_path):
     out = load_schools_dir(tmp_path / "nonexistent")
     assert out == []
+
+
+from scripts.governance._config import (
+    GovernanceConfig, load_or_create_config, DEFAULTS,
+)
+
+
+def test_load_or_create_config_creates_defaults(tmp_path):
+    cfg_path = tmp_path / "governance-config.edn"
+    cfg = load_or_create_config(cfg_path)
+    assert isinstance(cfg, GovernanceConfig)
+    assert cfg.self_school == DEFAULTS["self_school"]
+    assert cfg.supports_min_docs == DEFAULTS["supports_min_docs"]
+    assert cfg.contradicts_min_docs == DEFAULTS["contradicts_min_docs"]
+    assert cfg_path.exists()
+
+
+def test_load_or_create_config_reuses_existing(tmp_path):
+    cfg_path = tmp_path / "governance-config.edn"
+    cfg_path.write_text(
+        '{:version 1 :self-school :alt :supports-min-docs 3 '
+        ':contradicts-min-docs 2}',
+        encoding="utf-8",
+    )
+    cfg = load_or_create_config(cfg_path)
+    assert cfg.self_school == "alt"
+    assert cfg.supports_min_docs == 3
+    assert cfg.contradicts_min_docs == 2

@@ -43,6 +43,17 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 
 When prose is compliant but lifeless, read `references/russell-corpus-map.md` and compare against the 50-paragraph Russell corpus indexed in `assets/russell-corpus/index.json`.
 
+## References index
+
+- `references/russellian-style-guide.md` — authoritative style catalog.
+- `references/russellian-vitality-guide.md` — vitality and rhythm rules for compliant-but-lifeless prose.
+- `references/russell-corpus-map.md` — guide to the 50-paragraph Russell corpus.
+- `references/how-i-write-maxims.md` — Russell's seven sentence-craft maxims.
+- `references/logical-atomism-for-writers.md` — IF/AND IF/THEN decomposition for tangled conditionals.
+- `references/before-after-examples.md` — worked rewrites paired with the rule each one applies.
+- `references/section-headers.md` — taxonomy of section/subsection titles (four use / three ban categories) with the EpochPoET case study.
+- `references/negative-triggers.md` — genres in which the skill refuses to activate.
+
 ## Composes with
 
 - `book-knowledge` — ingests sources whose claims this skill later polishes.

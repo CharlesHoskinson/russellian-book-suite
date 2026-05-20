@@ -1239,6 +1239,21 @@ def govern_report(workspace: Path) -> None:
     click.echo(f"rendered {n} per-rule report(s)")
 
 
+@govern.command("map")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_map(workspace: Path) -> None:
+    """Render the bipartite consensus map under syntopical/figures/."""
+    from scripts.governance.render_consensus_map import render_consensus_map
+    positions_path = workspace / "syntopical" / "positions.edn"
+    if not positions_path.exists():
+        raise click.ClickException(
+            f"{positions_path} does not exist. Run `forge govern build` first."
+        )
+    paths = render_consensus_map(positions_path, workspace / "syntopical" / "figures")
+    click.echo(f"wrote {paths['tex']} + {paths['svg']}")
+
+
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------

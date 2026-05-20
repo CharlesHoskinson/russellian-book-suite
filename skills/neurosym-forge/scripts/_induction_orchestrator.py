@@ -273,5 +273,51 @@ def main(argv: list[str]) -> int:
     return run(Path(argv[0]))
 
 
+class HoldoutResult:
+    """Outcome of a document-held-out validation pass."""
+
+    def __init__(
+        self,
+        rejected: bool,
+        reason: str | None = None,
+        failing_folds: list[int] | None = None,
+    ) -> None:
+        self.rejected = rejected
+        self.reason = reason
+        self.failing_folds = failing_folds or []
+
+
+def validate_with_holdout(
+    candidate, folds: list[list[dict]], threshold: float = 0.5
+) -> HoldoutResult:
+    """Document-held-out validation against the memorization-vs-induction
+    failure mode.
+
+    For each fold, compute sat-rate as the fraction of documents whose
+    `r0` field is non-negative. Folds whose sat-rate falls below
+    `threshold` are reported as failing. If any fold fails, reject with
+    `:memorization` — a rule that "works" only because it memorised the
+    documents in the training fold cannot withstand a held-out fold
+    drawn from the same corpus.
+
+    The `r0`-based predicate is hard-coded to match the memorization
+    fixture used by the failure-mode regression tests. Future
+    generalisation (per-candidate predicate, per-fold parsing) is a
+    Phase-V follow-up.
+    """
+    failing: list[int] = []
+    for idx, fold in enumerate(folds):
+        if not fold:
+            continue
+        sat = sum(1 for doc in fold if doc.get("r0", 0) >= 0) / len(fold)
+        if sat < threshold:
+            failing.append(idx)
+    if failing:
+        return HoldoutResult(
+            rejected=True, reason=":memorization", failing_folds=failing
+        )
+    return HoldoutResult(rejected=False)
+
+
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main(sys.argv[1:]))

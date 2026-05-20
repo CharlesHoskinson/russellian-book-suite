@@ -113,9 +113,9 @@ jobs:
         shell: bash
         run: |
           if [ -n "${{ matrix.pytest-workers }}" ]; then
-            python -m pytest tests/ -v -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
+            python -m pytest tests/ -q --tb=short -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
           else
-            python -m pytest tests/ -v ${{ matrix.pytest-deselect }}
+            python -m pytest tests/ -q --tb=short ${{ matrix.pytest-deselect }}
           fi
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally

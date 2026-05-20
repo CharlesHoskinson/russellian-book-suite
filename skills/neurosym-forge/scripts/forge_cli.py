@@ -25,6 +25,13 @@ with a hand-readable pointer to the missing phase.
 """
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_SYNTOPICAL_DIR = _Path(__file__).resolve().parents[2] / "syntopical-metabook"
+if _SYNTOPICAL_DIR.is_dir() and str(_SYNTOPICAL_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SYNTOPICAL_DIR))
+
 import functools
 import json
 import os
@@ -1181,6 +1188,55 @@ def theory(project_root: Path, rule_id: str | None) -> None:
             click.echo("Rules (from induced-theory.edn; sidecar unavailable):")
             for rid in rule_ids:
                 click.echo(f"  {rid}")
+
+
+# ---------------------------------------------------------------------------
+# `forge govern` group — wraps syntopical-metabook governance subcommands
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def govern() -> None:
+    """syntopical-metabook governance: schools, positions, reports."""
+
+
+def _import_syntopical_governance():
+    """Lazy-import the sibling skill so a missing install doesn't kill the CLI."""
+    try:
+        from scripts.governance.build_positions import build_positions
+        from scripts.governance.render_per_rule import render_per_rule
+        return build_positions, render_per_rule
+    except ImportError as e:
+        raise click.ClickException(
+            "syntopical-metabook skill not on sys.path. Make sure both skills "
+            "are installed in the same venv, or that the sibling-skill bootstrap "
+            "at the top of forge_cli.py resolved correctly."
+        ) from e
+
+
+@govern.command("build")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_build(workspace: Path) -> None:
+    """Rebuild syntopical/positions.edn from schools + ledger + prov sidecar."""
+    build_positions, _ = _import_syntopical_governance()
+    out = build_positions(workspace.resolve())
+    click.echo(f"wrote {out}")
+
+
+@govern.command("report")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@_handle
+def govern_report(workspace: Path) -> None:
+    """Render per-rule reports under syntopical/rules/."""
+    _, render_per_rule = _import_syntopical_governance()
+    positions_path = workspace / "syntopical" / "positions.edn"
+    if not positions_path.exists():
+        raise click.ClickException(
+            f"{positions_path} does not exist. Run `forge govern build` first."
+        )
+    n = render_per_rule(positions_path, workspace / "syntopical" / "rules")
+    click.echo(f"rendered {n} per-rule report(s)")
 
 
 # ---------------------------------------------------------------------------

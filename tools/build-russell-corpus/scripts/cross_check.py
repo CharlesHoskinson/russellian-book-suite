@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from scripts.corpus_io import append_jsonl
+
 
 _CROSS_CHECK_PROMPT = """You are reviewing one paragraph from a Bertrand Russell text.
 
@@ -78,3 +80,29 @@ def run_cross_check(
         return CrossCheckOutcome("reject", "lesson-generic-cross-check", {"evidence": response.get("lesson_specificity_evidence")})
 
     return CrossCheckOutcome("pass", None, None)
+
+
+def run_cross_check_batch(
+    *,
+    passed_sentinel_path: Path,
+    rejected_path: Path,
+    verified_path: Path,
+    vocabulary_path: Path,
+    llm_call: Callable[[str], str],
+) -> None:
+    """Iterate passed-sentinel.jsonl, route each cross-check outcome to verified/rejected."""
+    with passed_sentinel_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            cand = json.loads(line)
+            outcome = run_cross_check(candidate=cand, vocabulary_path=vocabulary_path, llm_call=llm_call)
+            if outcome.status == "pass":
+                append_jsonl(verified_path, cand)
+            else:
+                append_jsonl(rejected_path, {
+                    "candidate_id": cand["candidate_id"],
+                    "reason": outcome.reason,
+                    "evidence": outcome.evidence,
+                })

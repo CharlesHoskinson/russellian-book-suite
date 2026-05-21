@@ -28,3 +28,25 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
                 continue
             rows.append(json.loads(line))
     return rows
+
+
+def read_index(path: Path) -> dict[str, Any]:
+    """Read the russellian-style corpus index.json."""
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def append_index_entries(path: Path, new_entries: list[dict[str, Any]]) -> None:
+    """Append new paragraph entries to index.json and update paragraph_count.
+
+    Existing entries are preserved verbatim. Writes atomically via tempfile rename.
+    """
+    idx = read_index(path)
+    existing_ids = {e["id"] for e in idx["paragraphs"]}
+    for entry in new_entries:
+        if entry["id"] in existing_ids:
+            raise ValueError(f"entry id {entry['id']!r} already exists in {path}")
+    idx["paragraphs"].extend(new_entries)
+    idx["paragraph_count"] = len(idx["paragraphs"])
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)

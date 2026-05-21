@@ -84,44 +84,86 @@ def _file_should_be_tagged(path: Path) -> tuple[bool, str]:
 
 
 def _insert_pytestmark(text: str) -> str:
-    """Insert pytestmark line and a `import pytest` if absent.
+    """Insert pytestmark line immediately before the regular import block.
 
-    Placement: after the module docstring (if any) and any `from __future__`
-    imports. Before all other imports and code.
+    Placement: after the module preamble, defined as any leading combination
+    of: shebang, blank lines, comment-only lines (`# ...`), the module
+    docstring, and `from __future__` imports — in any order that is valid
+    Python.  The pytestmark block is inserted at the first line that is none
+    of the above.
+
+    Always emits `import pytest` immediately before the pytestmark line.
+    Python's import cache makes a duplicate `import pytest` later in the file
+    a no-op, so this is safe even when the file already imports pytest.
     """
     lines = text.splitlines(keepends=True)
-    insert_idx = 0
+    i = 0
+    n = len(lines)
 
-    # Skip leading shebang
-    if lines and lines[0].startswith("#!"):
-        insert_idx = 1
+    def skip_blanks() -> None:
+        nonlocal i
+        while i < n and lines[i].strip() == "":
+            i += 1
 
-    # Skip module docstring
-    i = insert_idx
-    while i < len(lines) and lines[i].strip() == "":
+    def try_skip_shebang() -> None:
+        nonlocal i
+        if i < n and lines[i].startswith("#!"):
+            i += 1
+
+    def try_skip_comments() -> None:
+        """Advance past any run of comment-only lines."""
+        nonlocal i
+        while i < n and lines[i].startswith("#"):
+            i += 1
+
+    def try_skip_docstring() -> None:
+        """Advance past a triple-quoted module docstring if present."""
+        nonlocal i
+        if i >= n:
+            return
+        stripped = lines[i].lstrip()
+        if not stripped.startswith(('"""', "'''")):
+            return
+        quote = stripped[:3]
+        # Single-line docstring: opening and closing quotes on same line
+        rest = stripped[3:]
+        if quote in rest:
+            i += 1
+            return
+        # Multi-line docstring: scan for the closing delimiter
         i += 1
-    if i < len(lines) and lines[i].lstrip().startswith(('"""', "'''")):
-        quote = lines[i].lstrip()[:3]
-        if lines[i].count(quote) >= 2:
-            insert_idx = i + 1
-        else:
-            j = i + 1
-            while j < len(lines) and quote not in lines[j]:
-                j += 1
-            insert_idx = j + 1 if j < len(lines) else i + 1
+        while i < n and quote not in lines[i]:
+            i += 1
+        if i < n:
+            i += 1  # consume the closing line
 
-    # Skip `from __future__` block
-    while insert_idx < len(lines) and lines[insert_idx].startswith("from __future__"):
-        insert_idx += 1
+    def try_skip_future() -> None:
+        """Advance past any `from __future__ import ...` lines."""
+        nonlocal i
+        while i < n and lines[i].startswith("from __future__"):
+            i += 1
 
-    # Skip a single blank line after __future__
-    if insert_idx < len(lines) and lines[insert_idx].strip() == "":
-        insert_idx += 1
+    # Walk through the preamble.  We loop because valid files can have
+    # multiple alternating segments (e.g. shebang → blank → comment →
+    # docstring → blank → __future__).
+    try_skip_shebang()
+    # Repeatedly consume blanks/comments/docstrings/__future__ until none
+    # of those patterns apply at position i.
+    changed = True
+    while changed:
+        before = i
+        skip_blanks()
+        try_skip_comments()
+        skip_blanks()
+        try_skip_docstring()
+        skip_blanks()
+        try_skip_future()
+        changed = i != before
 
-    needs_pytest_import = not _PYTEST_IMPORT_RE.search(text)
+    insert_idx = i
+
     new_lines = lines[:insert_idx]
-    if needs_pytest_import:
-        new_lines.append("import pytest\n")
+    new_lines.append("import pytest\n")
     new_lines.append("\n")
     new_lines.append(_PYTESTMARK_LINE)
     new_lines.append("\n")

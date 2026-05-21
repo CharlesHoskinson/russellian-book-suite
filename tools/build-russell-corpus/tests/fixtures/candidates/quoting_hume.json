@@ -1,0 +1,10 @@
+{
+  "candidate_id": "external-099",
+  "source_id": "external-world",
+  "source_url": "https://www.gutenberg.org/cache/epub/37090/pg37090-images.html",
+  "line_hint": 200,
+  "content_locator": "Hume, in his Treatise, observed",
+  "paragraph_text": "Hume, in his Treatise, observed that 'all our distinct perceptions are distinct existences, and the mind never perceives any real connexion among distinct existences.'",
+  "rhetorical_move_tag": "concession",
+  "calibration_lesson": "Hume's atomism is acknowledged before being qualified."
+}

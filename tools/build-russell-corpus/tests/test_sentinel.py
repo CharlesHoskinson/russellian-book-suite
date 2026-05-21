@@ -54,3 +54,69 @@ def test_sentinel_rejects_hallucinated_paragraph(tmp_path: Path) -> None:
     )
     assert outcome.status == "reject"
     assert outcome.reason == "source-mismatch"
+
+
+def test_sentinel_rejects_source_off_allowlist(tmp_path: Path) -> None:
+    candidate = json.loads((CANDIDATES / "not_pd.json").read_text())
+    outcome = run_sentinel(
+        candidate=candidate,
+        source_path=SOURCE_CACHE / "problems_subset.html",
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=GENERIC_PHRASES,
+        existing_index_path=EXISTING_INDEX,
+        batch_seen_locators=set(),
+    )
+    assert outcome.status == "reject"
+    assert outcome.reason == "not-pd-allowed"
+
+
+def test_sentinel_rejects_duplicate_in_batch(tmp_path: Path) -> None:
+    candidate = json.loads((CANDIDATES / "duplicate.json").read_text())
+    locator = "Philosophy, throughout its history, has consisted of two parts inharmoniously blended: on the one hand a theory as to th"
+    outcome = run_sentinel(
+        candidate=candidate,
+        source_path=SOURCE_CACHE / "problems_subset.html",
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=GENERIC_PHRASES,
+        existing_index_path=EXISTING_INDEX,
+        batch_seen_locators={locator},
+    )
+    assert outcome.status == "reject"
+    assert outcome.reason == "duplicate"
+
+
+def test_sentinel_defers_novel_tag(tmp_path: Path) -> None:
+    candidate = json.loads((CANDIDATES / "novel_tag.json").read_text())
+    outcome = run_sentinel(
+        candidate=candidate,
+        source_path=SOURCE_CACHE / "problems_subset.html",
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=GENERIC_PHRASES,
+        existing_index_path=EXISTING_INDEX,
+        batch_seen_locators=set(),
+    )
+    assert outcome.status == "defer"
+    assert outcome.reason == "novel-tag"
+    assert outcome.evidence["proposed_tag"] == "metaphor_destabilisation"
+
+
+def test_sentinel_rejects_generic_lesson_via_surface_filter(tmp_path: Path) -> None:
+    candidate = json.loads((CANDIDATES / "generic_lesson_surface.json").read_text())
+    # Patch generic-phrases for this test only — empty seed in committed file.
+    gp = tmp_path / "generic-phrases.yaml"
+    gp.write_text("phrases:\n  - \"varies sentence length\"\n", encoding="utf-8")
+    outcome = run_sentinel(
+        candidate=candidate,
+        source_path=SOURCE_CACHE / "problems_subset.html",
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=gp,
+        existing_index_path=EXISTING_INDEX,
+        batch_seen_locators=set(),
+    )
+    assert outcome.status == "reject"
+    assert outcome.reason == "generic-lesson-filter"
+    assert outcome.evidence["matched_phrase"] == "varies sentence length"

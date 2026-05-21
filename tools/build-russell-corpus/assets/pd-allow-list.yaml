@@ -1,0 +1,22 @@
+# Public-domain Russell sources approved for corpus expansion.
+# URLs match skills/russellian-style/assets/russell-corpus/index.json.
+# Adding to this list requires manual operator review.
+allowed:
+  - source_id: problems
+    title: "The Problems of Philosophy"
+    url: "https://www.gutenberg.org/cache/epub/5827/pg5827-images.html"
+  - source_id: mysticism
+    title: "Mysticism and Logic and Other Essays"
+    url: "https://www.gutenberg.org/cache/epub/25447/pg25447-images.html"
+  - source_id: external-world
+    title: "Our Knowledge of the External World as a Field for Scientific Method in Philosophy"
+    url: "https://www.gutenberg.org/cache/epub/37090/pg37090-images.html"
+  - source_id: analysis-mind
+    title: "The Analysis of Mind"
+    url: "https://www.gutenberg.org/cache/epub/2529/pg2529-images.html"
+  - source_id: free-thought
+    title: "Free Thought and Official Propaganda"
+    url: "https://www.gutenberg.org/cache/epub/44932/pg44932-images.html"
+  - source_id: political-ideals
+    title: "Political Ideals"
+    url: "https://www.gutenberg.org/cache/epub/4776/pg4776-images.html"

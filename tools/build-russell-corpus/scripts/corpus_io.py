@@ -55,3 +55,42 @@ def append_index_entries(path: Path, new_entries: list[dict[str, Any]]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(path)
+
+
+def content_locator(paragraph_text: str) -> str:
+    """First 120 stripped characters of a paragraph — authoritative position locator.
+
+    Used to find a paragraph in source even when line numbers drift across editions.
+    """
+    return paragraph_text.strip()[:120]
+
+
+def paragraph_in_source(paragraph_text: str, source_path: Path) -> bool:
+    """True iff the paragraph appears verbatim in the cached source file.
+
+    The check is conservative: it requires the locator (first 120 chars stripped) to appear
+    as a contiguous substring in the source, AND the full paragraph to appear when whitespace
+    is collapsed.
+    """
+    locator = content_locator(paragraph_text)
+    source = source_path.read_text(encoding="utf-8")
+    if locator not in source:
+        return False
+    # Normalise whitespace for full-paragraph match — Gutenberg HTML wraps differ across editions.
+    normalised_para = " ".join(paragraph_text.split())
+    normalised_source = " ".join(source.split())
+    return normalised_para in normalised_source
+
+
+def find_paragraph_line(locator: str, source_path: Path) -> int | None:
+    """Return the 1-indexed line number where the locator first appears, or None."""
+    with source_path.open("r", encoding="utf-8") as fh:
+        for i, line in enumerate(fh, start=1):
+            if locator in line:
+                return i
+    return None
+
+
+def sha256_hex(text: str) -> str:
+    """Hex SHA-256 of UTF-8 text — used for dedup keys."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()

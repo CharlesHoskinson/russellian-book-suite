@@ -84,3 +84,32 @@ def test_append_index_entries_rejects_intra_batch_duplicate_ids(tmp_path: Path) 
     idx = json.loads(idx_path.read_text())
     assert idx["paragraph_count"] == 1
     assert len(idx["paragraphs"]) == 1
+
+
+from scripts.corpus_io import content_locator, paragraph_in_source, find_paragraph_line
+
+
+FIXTURE_SOURCE = Path(__file__).parent / "fixtures" / "source_cache" / "problems_subset.html"
+
+
+def test_content_locator_returns_first_120_chars_stripped() -> None:
+    text = "  Philosophy, throughout its history, has consisted of two parts inharmoniously blended: on the one hand a theory as to the nature of the world, on the other an ethical or political doctrine.  "
+    assert content_locator(text) == "Philosophy, throughout its history, has consisted of two parts inharmoniously blended: on the one hand a theory as to th"
+    assert len(content_locator(text)) == 120
+
+
+def test_paragraph_in_source_matches_verbatim() -> None:
+    para = "The failure to separate these two with sufficient clarity has been a source of much confused thinking."
+    assert paragraph_in_source(para, FIXTURE_SOURCE) is True
+
+
+def test_paragraph_in_source_rejects_hallucinated() -> None:
+    para = "Philosophy proves that all dogs are mortal and that Socrates is a dog."
+    assert paragraph_in_source(para, FIXTURE_SOURCE) is False
+
+
+def test_find_paragraph_line_returns_locator_line_number() -> None:
+    locator = "The failure to separate"
+    line = find_paragraph_line(locator, FIXTURE_SOURCE)
+    assert isinstance(line, int)
+    assert line >= 1

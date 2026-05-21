@@ -39,3 +39,18 @@ def test_sentinel_good_candidate_passes(tmp_path: Path) -> None:
     )
     assert outcome.status == "pass"
     assert outcome.reason is None
+
+
+def test_sentinel_rejects_hallucinated_paragraph(tmp_path: Path) -> None:
+    candidate = json.loads((CANDIDATES / "hallucinated.json").read_text())
+    outcome = run_sentinel(
+        candidate=candidate,
+        source_path=SOURCE_CACHE / "problems_subset.html",
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=GENERIC_PHRASES,
+        existing_index_path=EXISTING_INDEX,
+        batch_seen_locators=set(),
+    )
+    assert outcome.status == "reject"
+    assert outcome.reason == "source-mismatch"

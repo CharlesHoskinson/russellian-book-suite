@@ -1,0 +1,24 @@
+{
+  "version": "0.1.0",
+  "paragraph_count": 5,
+  "sources": {
+    "problems": {"title": "The Problems of Philosophy", "url": "u", "copyright_status": "public_domain_us", "mode": ["m"]}
+  },
+  "paragraphs": [
+    {"id": "problems-001", "source": "problems", "line_hint": 433,
+     "rhetorical_move": "relation made concrete through a room example",
+     "tags": ["concrete_example", "abstraction_grounding"]},
+    {"id": "problems-002", "source": "problems", "line_hint": 436,
+     "rhetorical_move": "objection to mental production of relations",
+     "tags": ["counterexample", "argument_turn"]},
+    {"id": "problems-007", "source": "problems", "line_hint": 711,
+     "rhetorical_move": "practical prejudice personified",
+     "tags": ["human_figure", "antithesis"]},
+    {"id": "problems-008", "source": "problems", "line_hint": 713,
+     "rhetorical_move": "philosophy compared against other studies",
+     "tags": ["concession", "domain_contrast"]},
+    {"id": "problems-010", "source": "problems", "line_hint": 723,
+     "rhetorical_move": "uncertainty turned into value",
+     "tags": ["reversal", "paragraph_turn"]}
+  ]
+}

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from scripts.sentinel import run_sentinel, SentinelOutcome
+from scripts.sentinel import run_sentinel, run_sentinel_batch, SentinelOutcome
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -120,3 +120,34 @@ def test_sentinel_rejects_generic_lesson_via_surface_filter(tmp_path: Path) -> N
     assert outcome.status == "reject"
     assert outcome.reason == "generic-lesson-filter"
     assert outcome.evidence["matched_phrase"] == "varies sentence length"
+
+
+def test_run_sentinel_batch_routes_outcomes_to_three_ledgers(tmp_path: Path) -> None:
+    # Build a candidates.jsonl with one good, one hallucinated, one novel-tag.
+    cands = tmp_path / "candidates.jsonl"
+    rows = [
+        json.loads((CANDIDATES / "good.json").read_text()),
+        json.loads((CANDIDATES / "hallucinated.json").read_text()),
+        json.loads((CANDIDATES / "novel_tag.json").read_text()),
+    ]
+    cands.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+
+    run_dir = tmp_path / "run"
+    run_sentinel_batch(
+        candidates_path=cands,
+        source_cache_dir=SOURCE_CACHE,
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=GENERIC_PHRASES,
+        existing_index_path=EXISTING_INDEX,
+        run_dir=run_dir,
+    )
+    passed = [json.loads(l) for l in (run_dir / "passed-sentinel.jsonl").read_text().splitlines() if l.strip()]
+    rejected = [json.loads(l) for l in (run_dir / "rejected.jsonl").read_text().splitlines() if l.strip()]
+    pending = [json.loads(l) for l in (run_dir / "pending-tag.jsonl").read_text().splitlines() if l.strip()]
+    proposed_tags = [json.loads(l) for l in (run_dir / "proposed-tags.jsonl").read_text().splitlines() if l.strip()]
+
+    assert len(passed) == 1 and passed[0]["candidate_id"] == "problems-051"
+    assert len(rejected) == 1 and rejected[0]["reason"] == "source-mismatch"
+    assert len(pending) == 1 and pending[0]["candidate_id"] == "problems-053"
+    assert len(proposed_tags) == 1 and proposed_tags[0]["tag"] == "metaphor_destabilisation"

@@ -15,6 +15,7 @@ from typing import Any
 import yaml
 
 from scripts.corpus_io import (
+    append_jsonl,
     content_locator,
     paragraph_in_source,
     find_paragraph_line,
@@ -93,3 +94,65 @@ def run_sentinel(
             return SentinelOutcome("reject", "generic-lesson-filter", {"matched_phrase": phrase})
 
     return SentinelOutcome("pass", None, None, corrected_line_hint=corrected)
+
+
+def run_sentinel_batch(
+    *,
+    candidates_path: Path,
+    source_cache_dir: Path,
+    allow_list_path: Path,
+    vocabulary_path: Path,
+    generic_phrases_path: Path,
+    existing_index_path: Path,
+    run_dir: Path,
+) -> None:
+    """Iterate candidates.jsonl, route each outcome to the matching ledger."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    passed = run_dir / "passed-sentinel.jsonl"
+    rejected = run_dir / "rejected.jsonl"
+    pending = run_dir / "pending-tag.jsonl"
+    proposed_tags = run_dir / "proposed-tags.jsonl"
+
+    batch_locators: set[str] = set()
+    proposed_seen: set[str] = set()
+    allow_list = _load_allow_list(allow_list_path)
+
+    with candidates_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            cand = json.loads(line)
+            src_id = cand["source_id"]
+            if src_id not in allow_list:
+                append_jsonl(rejected, {"candidate_id": cand["candidate_id"], "reason": "not-pd-allowed", "evidence": {"source_id": src_id}})
+                continue
+            # Resolve the cached source file for this source_id. Convention: <cache>/<source_id>_subset.html for tests;
+            # in production the cache layout matches scrapling-fetch's directory shape.
+            source_path = source_cache_dir / f"{src_id}_subset.html"
+            outcome = run_sentinel(
+                candidate=cand,
+                source_path=source_path,
+                allow_list_path=allow_list_path,
+                vocabulary_path=vocabulary_path,
+                generic_phrases_path=generic_phrases_path,
+                existing_index_path=existing_index_path,
+                batch_seen_locators=batch_locators,
+            )
+            if outcome.status == "pass":
+                if outcome.corrected_line_hint is not None:
+                    cand["line_hint"] = outcome.corrected_line_hint
+                append_jsonl(passed, cand)
+                batch_locators.add(content_locator(cand["paragraph_text"]))
+            elif outcome.status == "defer":
+                append_jsonl(pending, cand)
+                tag = cand["rhetorical_move_tag"]
+                if tag not in proposed_seen:
+                    append_jsonl(proposed_tags, {"tag": tag, "first_candidate_id": cand["candidate_id"]})
+                    proposed_seen.add(tag)
+            else:
+                append_jsonl(rejected, {
+                    "candidate_id": cand["candidate_id"],
+                    "reason": outcome.reason,
+                    "evidence": outcome.evidence,
+                })

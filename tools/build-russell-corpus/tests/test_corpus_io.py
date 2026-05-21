@@ -113,3 +113,18 @@ def test_find_paragraph_line_returns_locator_line_number() -> None:
     line = find_paragraph_line(locator, FIXTURE_SOURCE)
     assert isinstance(line, int)
     assert line >= 1
+
+
+def test_paragraph_in_source_matches_line_wrapped_html(tmp_path: Path) -> None:
+    """Paragraph present in source but wrapped across multiple lines must still match."""
+    wrapped = tmp_path / "wrapped.html"
+    wrapped.write_text(
+        "<html><body>\n"
+        "<p>The failure to separate these two\n"
+        "with sufficient clarity has been a source\n"
+        "of much confused thinking.</p>\n"
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    paragraph = "The failure to separate these two with sufficient clarity has been a source of much confused thinking."
+    assert paragraph_in_source(paragraph, wrapped) is True

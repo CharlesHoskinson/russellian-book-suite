@@ -68,17 +68,17 @@ def content_locator(paragraph_text: str) -> str:
 def paragraph_in_source(paragraph_text: str, source_path: Path) -> bool:
     """True iff the paragraph appears verbatim in the cached source file.
 
-    The check is conservative: it requires the locator (first 120 chars stripped) to appear
-    as a contiguous substring in the source, AND the full paragraph to appear when whitespace
-    is collapsed.
+    The check is conservative: the locator (first 120 chars stripped, whitespace-normalised)
+    must appear in the whitespace-normalised source, AND the full paragraph (whitespace-
+    normalised) must also appear. Both checks operate against the whitespace-normalised
+    source so that line-wrapped HTML paragraphs are matched correctly.
     """
-    locator = content_locator(paragraph_text)
     source = source_path.read_text(encoding="utf-8")
-    if locator not in source:
-        return False
-    # Normalise whitespace for full-paragraph match — Gutenberg HTML wraps differ across editions.
-    normalised_para = " ".join(paragraph_text.split())
     normalised_source = " ".join(source.split())
+    normalised_locator = " ".join(content_locator(paragraph_text).split())
+    if normalised_locator not in normalised_source:
+        return False
+    normalised_para = " ".join(paragraph_text.split())
     return normalised_para in normalised_source
 
 

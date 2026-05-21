@@ -39,12 +39,17 @@ def append_index_entries(path: Path, new_entries: list[dict[str, Any]]) -> None:
     """Append new paragraph entries to index.json and update paragraph_count.
 
     Existing entries are preserved verbatim. Writes atomically via tempfile rename.
+    Raises ValueError if any new entry's id already exists in the index OR collides
+    with another id in new_entries itself. Validation happens before any write,
+    so a partial failure leaves the index untouched.
     """
     idx = read_index(path)
     existing_ids = {e["id"] for e in idx["paragraphs"]}
+    seen_in_batch: set[str] = set()
     for entry in new_entries:
-        if entry["id"] in existing_ids:
+        if entry["id"] in existing_ids or entry["id"] in seen_in_batch:
             raise ValueError(f"entry id {entry['id']!r} already exists in {path}")
+        seen_in_batch.add(entry["id"])
     idx["paragraphs"].extend(new_entries)
     idx["paragraph_count"] = len(idx["paragraphs"])
     tmp = path.with_suffix(path.suffix + ".tmp")

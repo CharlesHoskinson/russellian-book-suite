@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from pathlib import Path
 

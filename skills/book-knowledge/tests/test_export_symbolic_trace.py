@@ -1,6 +1,10 @@
 # skills/book-knowledge/tests/test_export_symbolic_trace.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import datetime as dt
 import json
 from pathlib import Path

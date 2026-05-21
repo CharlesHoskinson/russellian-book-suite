@@ -1,4 +1,8 @@
 """lint_paragraph_motion: per-paragraph shape rubric + flat-axiom-stack detection."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

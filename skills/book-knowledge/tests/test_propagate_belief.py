@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import math
 from scripts.belief_graph import BeliefGraph, BeliefNode
 from scripts.propagate_belief import propagate, COUNTER_OPEN_DAMP, COUNTER_ADDRESSED_DAMP

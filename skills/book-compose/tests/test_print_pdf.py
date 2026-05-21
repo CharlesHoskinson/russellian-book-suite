@@ -1,4 +1,8 @@
 import pytest
+
+pytestmark = pytest.mark.windows_canary
+
+import pytest
 from scripts.print_pdf import print_pdf
 from scripts._playwright_check import is_playwright_ready
 

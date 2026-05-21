@@ -1,5 +1,9 @@
 """forge govern subcommand group routing."""
 from __future__ import annotations
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import subprocess
 import sys
 from pathlib import Path

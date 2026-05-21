@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 from scripts.lint_hedges import lint_hedges
 

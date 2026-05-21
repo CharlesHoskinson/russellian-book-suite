@@ -1,4 +1,8 @@
 """lint_concrete_instance_density: NER count per paragraph; flag 3+ consecutive paragraphs with zero."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

@@ -1,5 +1,9 @@
 """Integration test: book-compose.read_lens must successfully parse a lens
 file produced by syntopical-metabook.project_lens."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import sys
 from pathlib import Path
 import pytest

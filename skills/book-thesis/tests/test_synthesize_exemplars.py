@@ -1,6 +1,10 @@
 """Tests for synthesize_exemplars.py."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 import shutil
 import sys

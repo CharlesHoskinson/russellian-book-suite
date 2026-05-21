@@ -17,6 +17,10 @@ CI on Linux always has it.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 import os
 import shutil

@@ -2,6 +2,10 @@
 """REQ-DSL-040 + REQ-QA-PIPE-010 + REQ-QA-PIPE-012: booklogic_remedies adapter."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 import pytest

@@ -1,4 +1,8 @@
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from scripts.humanizer_pass import assess_draft
 
 

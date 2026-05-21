@@ -2,6 +2,10 @@
 don't require the nix shell (so they run on Windows / dev laptops too)."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import sys
 from pathlib import Path
 

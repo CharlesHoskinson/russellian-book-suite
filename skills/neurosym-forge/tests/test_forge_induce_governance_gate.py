@@ -1,5 +1,9 @@
 """forge induce --governance-gate filters via positions.edn."""
 from __future__ import annotations
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 import subprocess
 import sys

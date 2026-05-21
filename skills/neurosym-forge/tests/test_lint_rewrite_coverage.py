@@ -1,6 +1,10 @@
 # skills/neurosym-forge/tests/test_lint_rewrite_coverage.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

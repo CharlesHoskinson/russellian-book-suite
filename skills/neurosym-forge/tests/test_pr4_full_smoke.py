@@ -16,6 +16,10 @@ suite registers as `slow` via a marker; CI runs them in a separate job.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import shutil
 import subprocess
 from pathlib import Path

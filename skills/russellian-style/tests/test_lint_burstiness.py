@@ -1,4 +1,8 @@
 """lint_burstiness: Fano factor + AI-band proportion on sentence-length distribution."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

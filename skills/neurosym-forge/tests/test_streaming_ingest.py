@@ -11,6 +11,10 @@ Covers:
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import gc
 import importlib.util
 import json

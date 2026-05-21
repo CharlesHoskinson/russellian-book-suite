@@ -14,6 +14,10 @@ Horn-body + Popper sources still run.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 import platform
 import sys

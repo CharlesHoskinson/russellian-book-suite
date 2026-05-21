@@ -26,6 +26,7 @@ dev = [
     # `pip install -e .[dev]` makes the full test suite runnable
     # without needing the [semantic] sentence-transformers stack too.
     "numpy>=1.26,<3.0",
+    "pytest-xdist>=3.5,<4.0",
 ]
 semantic = [
     "sentence-transformers>=2.7,<6.0",

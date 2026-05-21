@@ -51,3 +51,6 @@ scripts = ["../assets/**/*", "../references/**/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "windows_canary: test exercises platform-sensitive behaviour and must run on Windows",
+]

@@ -26,4 +26,7 @@ packages = ["scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "windows_canary: test exercises platform-sensitive behaviour and must run on Windows",
+]
 addopts = "-v"

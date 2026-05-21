@@ -19,7 +19,7 @@ jobs:
     name: lint workflow yaml
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: install actionlint (pinned tarball + SHA verification)
         env:
           ACTIONLINT_VERSION: "1.7.12"
@@ -44,7 +44,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -62,7 +62,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -80,7 +80,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -98,7 +98,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -126,7 +126,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -144,7 +144,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -164,7 +164,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -182,7 +182,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-book-qa, test-book-thesis]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
@@ -228,7 +228,7 @@ jobs:
     needs: [smoke-bermuda-pipeline]
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -263,7 +263,7 @@ jobs:
     name: cljs-bermuda-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -289,7 +289,7 @@ jobs:
     name: bermuda verifier z3 build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: install build deps
         run: |
           sudo apt-get update
@@ -309,7 +309,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [bermuda-z3-build]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: install build deps
         run: |
           sudo apt-get update
@@ -397,7 +397,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-book-qa]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"

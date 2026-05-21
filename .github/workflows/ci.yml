@@ -29,7 +29,7 @@ jobs:
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -82,7 +82,7 @@ jobs:
             extra: dev,semantic
             pytest-workers: auto
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
@@ -134,7 +134,7 @@ jobs:
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: DeterminateSystems/nix-installer-action@v22
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - uses: Swatinem/rust-cache@v2
@@ -161,7 +161,7 @@ jobs:
         os: [ubuntu-24.04, macos-latest]
         verifier: [bermuda, osmotic_pressure]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: install libz3 (linux)
         if: matrix.os == 'ubuntu-24.04'
         run: sudo apt-get update && sudo apt-get install -y libz3-dev
@@ -188,7 +188,7 @@ jobs:
     runs-on: ubuntu-24.04
     if: always()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: emit per-OS divergence table
         env:
           PYTHON_SKILL_RESULT: ${{ needs.python-skill-matrix.result }}

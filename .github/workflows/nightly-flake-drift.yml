@@ -11,7 +11,7 @@ jobs:
   drift-check:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: DeterminateSystems/nix-installer-action@v22
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - name: flake check
@@ -47,7 +47,7 @@ jobs:
           - skill: neurosym-forge
             extra: dev,semantic
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"

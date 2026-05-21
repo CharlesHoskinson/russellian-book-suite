@@ -1,0 +1,21 @@
+# LLM configuration for the corpus build pipeline.
+# Production runs use claude-opus-4-7 by default. Extract and cross-check should use
+# distinct system prompts and ideally distinct models to reduce shared-bias collusion.
+# The runtime caller wires these into the llm_call: Callable[[str], str] parameter.
+
+extract:
+  model_id: "claude-opus-4-7"
+  max_tokens: 8192
+  temperature: 0.3
+  notes: "Lower temperature reduces invented paragraphs; not zero so the LLM can choose among candidates."
+
+cross_check:
+  model_id: "claude-sonnet-4-6"
+  max_tokens: 1024
+  temperature: 0.0
+  notes: "Different model from extract. Temperature zero — classification, not generation."
+
+batch:
+  candidates_per_source: 100
+  audit_sample_rate: 0.05
+  audit_halt_threshold: 0.10

@@ -1,6 +1,10 @@
 """Tests for ``scripts.forge_cli`` (REQ-AUTHOR-040..046)."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 import subprocess
 import sys

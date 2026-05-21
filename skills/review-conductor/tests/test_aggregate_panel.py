@@ -1,4 +1,8 @@
 """aggregate_panel emits verdict.json + panel-review.md and applies per-persona severity gates."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from pathlib import Path
 from shutil import copytree

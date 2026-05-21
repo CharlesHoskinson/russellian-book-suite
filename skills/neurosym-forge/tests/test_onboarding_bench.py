@@ -1,6 +1,10 @@
 """REQ-EVAL-050..055: onboarding-bench harness sanity tests."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import csv
 import subprocess
 import sys

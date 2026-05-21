@@ -11,6 +11,10 @@ asserts on the resulting ``qa/datalog-defects.json``.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 import shutil
 import sys

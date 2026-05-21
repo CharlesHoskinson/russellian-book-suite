@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 import pytest
 from scripts.persona_loader import load_persona, list_personas, load_all, Persona

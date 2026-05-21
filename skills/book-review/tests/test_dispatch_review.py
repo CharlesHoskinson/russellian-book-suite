@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from scripts.dispatch_review import render_prompt, parse_review_report, ReviewResult
 from scripts.persona_loader import Persona
 

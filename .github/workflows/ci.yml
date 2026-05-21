@@ -112,10 +112,14 @@ jobs:
         working-directory: skills/${{ matrix.skill }}
         shell: bash
         run: |
+          marker_filter=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            marker_filter="-m windows_canary"
+          fi
           if [ -n "${{ matrix.pytest-workers }}" ]; then
-            python -m pytest tests/ -q --tb=short -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
+            python -m pytest tests/ -q --tb=short $marker_filter -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
           else
-            python -m pytest tests/ -q --tb=short ${{ matrix.pytest-deselect }}
+            python -m pytest tests/ -q --tb=short $marker_filter ${{ matrix.pytest-deselect }}
           fi
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally

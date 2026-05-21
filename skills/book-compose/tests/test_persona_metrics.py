@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 from scripts.chapter_contract_check import check_draft, _compute_metrics

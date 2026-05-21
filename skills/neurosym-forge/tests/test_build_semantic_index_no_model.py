@@ -7,6 +7,10 @@ a clear warning instead of crashing.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import builtins
 from pathlib import Path
 

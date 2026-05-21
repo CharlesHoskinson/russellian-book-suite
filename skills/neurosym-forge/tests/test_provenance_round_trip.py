@@ -7,6 +7,10 @@ keys, stable list ordering, no scientific-notation floats).
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 import pytest

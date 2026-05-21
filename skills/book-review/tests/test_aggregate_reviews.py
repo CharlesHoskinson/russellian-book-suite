@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 import shutil
 from scripts.aggregate_reviews import aggregate_reviews, AggregatedReview

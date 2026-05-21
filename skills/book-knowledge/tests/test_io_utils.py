@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from scripts.io_utils import read_jsonl, latest_per
 

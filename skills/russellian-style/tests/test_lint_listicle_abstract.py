@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from scripts.lint_listicle_abstract import lint_listicle_abstract
 
 

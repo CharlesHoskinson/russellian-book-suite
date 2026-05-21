@@ -1,6 +1,10 @@
 """Tests for lint_supports.py."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import shutil
 import sys
 from pathlib import Path

@@ -1,6 +1,10 @@
 """Unit tests for the book-knowledge public skill_api surface (IF-BK-1..4)."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from datetime import datetime, timezone
 from pathlib import Path
 

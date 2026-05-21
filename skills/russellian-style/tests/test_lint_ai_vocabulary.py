@@ -1,4 +1,8 @@
 """lint_ai_vocabulary: humanizer-delegated catalog + Russell-specific overlay."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

@@ -1,4 +1,8 @@
 """End-to-end: plant a bad claim, propose+apply writeback, verify progression."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 import math
 from pathlib import Path

@@ -16,6 +16,10 @@ and drop a small fixture JSON into `<workspace>/qa/` to verify each pickup.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from pathlib import Path
 

@@ -86,17 +86,41 @@ The suite is the implementation of the fix. It separates the five jobs into five
 
 ## The three tiers
 
+<!-- voice: technical-exposition -->
+
+```mermaid
+graph LR
+    subgraph T1["Tier 1 — Acquisition + world model"]
+        A1[scrapling-fetch] --> A2[syntopical-metabook]
+        A2 --> A3[(lenses)]
+    end
+    subgraph T2["Tier 2 — Drafting pipeline"]
+        B1[book-knowledge] --> B2[book-thesis]
+        B2 --> B3[book-compose]
+        B3 --> B4[russellian-style + humanizer]
+        B4 --> B5[book-review + review-conductor]
+        B5 --> B6[book-qa]
+    end
+    subgraph T3["Tier 3 — Optional verification"]
+        C1[neurosym-forge]
+    end
+    A3 --> B1
+    B6 -. D13 .-> C1
+```
+
 ### Tier 1 — Acquisition + world model
 
-Acquisition determines what the pipeline can claim. The two skills in this tier, `scrapling-fetch` and `syntopical-metabook`, work in sequence: `scrapling-fetch` traverses citation graphs from a seed set of papers and returns structured records; `syntopical-metabook` synthesises those records into a world model above the canonical claim ledger, reconciling disputed questions, mapping concepts across sources, and projecting per-chapter lenses that the drafting pipeline reads. Both share the `sibling_skills` package for version-safe API calls. The external parallel project `booklogic` handles EDN-to-JSON projection for sources that emit Clojure data; the tier communicates with it through a four-subcommand CLI, not through Python import.
+Acquisition determines what the pipeline can later claim. Two skills share the tier and run in sequence. `scrapling-fetch` is the suite's only outbound network surface — every other skill reads from the cache it produces — and it returns structured records from arXiv abstracts, OpenAlex queries, and PDF downloads with a content-type guard against bytes that pretend to be papers. `syntopical-metabook` reads those records and synthesises a world model: a topic map keyed to thesis-tree nodes, disputed-question tables produced by the external booklogic CLI's symbolic rewrites, and per-chapter lenses that the drafting tier reads as ground truth. The boundary the tier produces is a single artefact — `syntopical/lenses/<chapter-id>.md` — and Tier 2 starts when that file exists.
 
 ### Tier 2 — Drafting pipeline
 
-A chapter contract in, a gated release out: that is the tier's scope. Seven skills carry a chapter from raw claim ledger to published manuscript. Claim extraction and verification belong to `book-knowledge`, which writes PROV-O provenance for every assertion. The argument spine is `book-thesis` territory: it runs an entailment loop that confirms each paragraph advances a sub-argument. Drafting and final assembly run through `book-compose`, which calls `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review belongs to `book-review` (seven personas dispatched in parallel) and `review-conductor` (severity aggregation and panel gate); `book-qa` closes the tier with the D1-D8 deterministic linter, D9-D12 thesis-derived defects, and the C1-C15 per-chapter agent swarm.
+A chapter contract enters; a gated release leaves. Seven skills carry a chapter from the claim ledger that Tier 1 produced to a manuscript ready for publication. `book-knowledge` owns the first step: it extracts and verifies every assertion, writing PROV-O provenance records so that each claim traces to a fetched source by URI and page. `book-thesis` runs next, confirming through an entailment loop that each drafted paragraph advances a named sub-argument — paragraphs that drift are rejected before assembly; `book-compose` then drafts and assembles the text, calling `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review — seven reader personas dispatched in parallel by `book-review`, severity aggregated by `review-conductor` — precedes the tier's closing gate: `book-qa`, whose D1-D12 deterministic and thesis-derived checks, plus the C1-C15 per-chapter agent swarm, produce the defect report that decides whether the chapter ships. Tier 2 exists as a distinct layer because every skill in it presupposes the world model; none can run correctly against raw sources.
 
 ### Tier 3 — Optional verification
 
-Logical verification sits outside the default pipeline, enabled by a single flag. The skill `neurosym-forge` scaffolds a ClojureScript-plus-Rust verifier project alongside the workspace: it emits an EDN-as-atomspace intermediate representation, an `axioms.rs` hook for Z3 hard constraints, and a per-atom walk that traces each claim to an operator-supplied assertion. When the workspace `qa-config.yaml` carries `enable_verification: true`, `book-qa` reads the verifier's output as defect class D13 (claim-set-unsatisfiable). The tier is off by default because the scaffold requires a manual domain-axiom pass before verification produces useful verdicts.
+Formal verification lives outside the default path, activated by setting `enable_verification: true` in `qa-config.yaml`. `neurosym-forge` owns the tier alone: it scaffolds a ClojureScript-plus-Rust verifier project alongside the workspace, emitting an EDN-as-atomspace intermediate representation, an `axioms.rs` hook for Z3 hard constraints, and a per-atom walk that traces each claim to an operator-supplied assertion. Setting `enable_verification: true` causes `book-qa` to ingest the verifier's output as defect class D13 (claim-set-unsatisfiable) and surface violations alongside the standard D1-D12 report. The tier sits outside Tier 2 because its correctness depends entirely on axioms the operator must supply — fold it into the default pipeline and it silently passes every chapter that ships without them.
+
+Tier 3 ships disabled in every default configuration. The verifier scaffold requires a manual domain-axiom pass before it produces verdicts worth acting on, so enabling it without that pass yields false confidence — the linter reports clean while the axiom set remains empty.
 
 ## The pipeline
 

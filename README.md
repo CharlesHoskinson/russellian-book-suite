@@ -1404,6 +1404,8 @@ One exception sits outside this constraint by design. The `live_llm.py` wrapper 
 
 ## Repository layout
 
+<!-- voice: technical-exposition -->
+
 One skill per directory under `skills/`; each is self-contained with its own `SKILL.md`, `scripts/`, `tests/`, `.venv/` (gitignored), and `pyproject.toml`. Cross-cutting infrastructure — shared Python loader, CI contracts, documentation tooling — lives at the repo root or in top-level sibling directories, not inside any individual skill.
 
 ```
@@ -1415,6 +1417,9 @@ russellian-book-suite/
 │   ├── lint_no_shadow_writes.py
 │   └── test_*.py
 ├── docs/
+│   ├── audits/                   # audit-bundle archive (see §13)
+│   │   ├── 2026-05-21-russellian-style/
+│   │   └── 2026-05-21-suite-wide-linter-review.md
 │   ├── concepts/
 │   ├── operations/
 │   └── qa/                       # NEW (Stage 5 of README refactor)
@@ -1435,8 +1440,10 @@ russellian-book-suite/
 │   ├── russellian-style/
 │   ├── scrapling-fetch/          # NEW — Tier 1
 │   └── syntopical-metabook/      # NEW — Tier 1
-├── tools/
-│   └── lint_readme.py            # NEW — README lint helper
+├── tools/                        # one-shot operator runs (see §8 Tools)
+│   ├── build-russell-corpus/     # 50→500 corpus growth pipeline
+│   ├── russellian-style-audit/   # end-to-end audit
+│   └── readme-lint/              # per-section README lint gate
 └── verifiers/
     └── bermuda/
 ```

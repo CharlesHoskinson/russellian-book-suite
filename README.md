@@ -10,6 +10,8 @@ The suite enforces a weaker version of the same standard: every sentence atomic,
 
 ## Setting up your environment
 
+<!-- voice: technical-exposition -->
+
 This repo runs CI on Ubuntu Linux. To avoid "works on my machine" drift, see [`docs/dev-environment.md`](docs/dev-environment.md) for the WSL2 + Nix bootstrap. macOS/Linux developers run Nix directly; Windows developers install Ubuntu under WSL2 first.
 
 ### First-time setup
@@ -23,6 +25,19 @@ make install-hooks
 This installs lefthook's pre-commit hook, which runs `cargo fmt --check`, `ruff check`, `clj-kondo`, and other linters before each commit. Without it, formatting drift won't be caught locally and will surface as a CI failure on your PR instead.
 
 If `lefthook` is not on your PATH, enter the Nix dev shell first (`nix develop` — lefthook is included) or install it directly with `go install github.com/evilmartians/lefthook@latest`.
+
+### Skill venvs and spaCy
+
+Several skills depend on spaCy and its `en_core_web_sm` English model. The `russellian-style` skill in particular needs both to run its passive-voice and signal-density linters; without them, `lint_fragment` silently degrades — the runner's catch-all swallows any linter that fails to import. To install:
+
+```bash
+cd skills/russellian-style
+python -m venv .venv
+.venv/bin/pip install -e ".[ci]"           # includes spaCy
+.venv/bin/python -m spacy download en_core_web_sm
+```
+
+The other consumer skills (`book-compose`, `book-review`, `book-qa`, `humanizer`) share a junction-linked-venv pattern that `AGENTS.md` documents in full: each cloned skill venv symlinks to a single installed copy at `~/.claude/skills/<name>/.venv`, avoiding several gigabytes of duplicated dependency installs. A fresh clone without those venvs surfaces as `WARN(venv missing)` rows in the audit's `composes_with` health check — operational, not blocking.
 
 ## For readers in a hurry
 

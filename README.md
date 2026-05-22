@@ -1497,15 +1497,22 @@ The previous README's audit trail described how Russell discipline shaped prose.
 
 ## Documentation
 
-The repo's prose documentation lives in three places. Conceptual docs at `docs/concepts/` cover each skill's design reasoning in one file per topic. Operational runbooks at `docs/operations/` cover deploying, running, and recovering pipeline components. QA reports from the README pass live at `docs/qa/`. Find each skill's `SKILL.md` and its `references/` linked from that skill's mini-tutorial in [The skills](#the-skills).
+<!-- voice: technical-exposition -->
+
+The repo's prose documentation lives in three places. Conceptual docs at `docs/concepts/` cover each skill's design reasoning in one file per topic. Operational runbooks at `docs/operations/` cover deploying, running, and recovering pipeline components. QA reports from the README pass live at `docs/qa/`. Find each skill's `SKILL.md` and its `references/` linked from that skill's mini-tutorial in [The skills](#the-skills). The audit-bundle archive at `docs/audits/` is the newest addition to the doc tree.
 
 - `docs/concepts/neurosym-forge.md` — neurosymbolic verifier scaffolder: scope, layers, and integration boundary
 - `docs/operations/2026-05-12-bundle-c-runbook.md` — Phase-4 operator runbook for Bundle C end-to-end
 - `docs/operations/codex-review-protocol.md` — autonomous whole-repo review protocol for Codex-style agents
 - `docs/operations/neurosym-forge-runbook.md` — operator workflow for the verifier side-channel
 - `docs/qa/` — README QA reports (generated at Stage 5 of the README refactor)
+- `docs/specs/2026-05-22-readme-rewrite-design.md` — the spec for this README rewrite
+- `docs/plans/2026-05-22-readme-rewrite.md` — the 19-task implementation plan
+- `docs/audits/<date>-<topic>/` — audit bundles (see §13)
 
 ## Contributing
+
+<!-- voice: technical-exposition -->
 
 PR reviews use three severity buckets: **P0** (blocker — broken invariant, build failure, security issue), **P1** (must fix before merge — broken doc refs, contract-runtime mismatches, tautological test gates), **P2** (post-merge polish — comment clarity, test strengthening with no current bug). Every finding cites `file:line`. The reviewer writes the verdict to `openspec/changes/<change>/PR-<N>-REVIEW.md`; PR-33-REVIEW.md under `changes/codex-phase-1/` and PR-47-REVIEW.md under `changes/add-syntopical-metabook/` are the standing examples. The verdict line is one of: `approve`, `approve with follow-ups`, `request changes`, `block`.
 
@@ -1517,9 +1524,13 @@ Six checks gate every PR: `cljs-bermuda-test` and `cljs-integration` compile and
 
 Project conventions accumulate in per-session memory files at `~/.claude/projects/.../memory/feedback_*.md`; `feedback_pr_review_style.md` is the primary source this section abstracts. Each skill owns its version in `pyproject.toml`; the suite as a whole declares none. The `API_VERSION` field in each `skill_api.py` governs compatibility; `sibling_skills.load_skill_api(name, expected_major)` raises `IncompatibleSkillApiVersion` on a major mismatch before any skill code executes.
 
+Two workflows are new. First: `make readme-lint` runs the per-section README lint gate. When you edit `README.md`, the lefthook pre-commit hook fires the runner and refuses commits whose sections exceed the gating threshold. Use `<!-- lint-disable: <rule> reason=<short> -->` for legitimate exemptions; every exemption appears in the section it covers, not at the top of the file. Second: the audit pattern under `docs/audits/<date>-<topic>/`. When a contributor makes a substantive change to the suite's discipline — a new linter, a new persona, a renamed function — they run a per-skill audit through `tools/russellian-style-audit/` and commit the bundle alongside the PR. Reviewers read the audit's health-check, the sample-text lint reports, and the bundle's README before approving.
+
 ## License and acknowledgements
 
-MIT. See `LICENSE`.
+<!-- voice: technical-exposition -->
+
+MIT. Copyright (c) 2026 Charles Hoskinson. See `LICENSE`.
 
 Acknowledgements:
 
@@ -1532,3 +1543,4 @@ Acknowledgements:
 - **OpenStreetMap contributors (ODbL)** — base data for the parish and ferry-route maps
 - **The pyShacl, rdflib, spaCy, and pyDatalog maintainers** — the validation and parsing stack
 - **The Wikipedia editors of "Signs of AI writing"** — the AI-fingerprint catalog the `humanizer` skill encodes and the AI-Slop Detector persona delegates to
+- **Charles Hoskinson** — the operator who pushed every PR in the suite's evolution and named the audit pattern

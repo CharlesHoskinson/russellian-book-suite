@@ -41,9 +41,13 @@ The other consumer skills (`book-compose`, `book-review`, `book-qa`, `humanizer`
 
 ## For readers in a hurry
 
+<!-- voice: technical-exposition -->
+
 Authors want a working book, not an architecture tour. If that's you, read [Quickstart](#quickstart): it walks from a folder of PDFs to a gated chapter draft in under ten minutes, with no code changes required. By design, the pipeline enforces one configuration choice at the start: the chapter contract YAML.
 
 Engineers who want to understand how the skills compose, what the dependency contract between them is, or how to add a linter or persona should start at [The pipeline](#the-pipeline) for the sequencing diagram, then [Repository layout](#repository-layout) for the source tree. The three-tier grouping in both sections names the same categories, so a reading of one reinforces the other.
+
+Operators running the tools or auditing the suite should start at [Tools](#tools) for the one-shot CLI entry points (`build-russell-corpus`, `russellian-style-audit`, `readme-lint`), [The QA grammar](#the-qa-grammar) for the 80+ check taxonomy across five skills plus the humanizer sibling, and [Auditing the suite](#auditing-the-suite) for the audit-bundle pattern and the eight ranked architectural follow-ups. The most recent audit bundle at `docs/audits/2026-05-21-russellian-style/` is the canonical example of what an audit produces.
 
 ## Reader questions
 

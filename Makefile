@@ -2,7 +2,7 @@
 # step list. Every shell line is the unit of comparison against
 # scripts/ci-steps.txt — keep them aligned (the flake-drift check enforces).
 
-.PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean install-hooks
+.PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean install-hooks readme-lint
 
 preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
 
@@ -50,3 +50,6 @@ install-hooks:
 	}
 	lefthook install
 	@echo "Pre-commit hooks installed. They will run on every git commit."
+
+readme-lint:
+	nix develop -c bash -c 'cd tools/readme-lint && .venv/bin/python -m scripts.lint_readme'

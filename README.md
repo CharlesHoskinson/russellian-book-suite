@@ -987,6 +987,161 @@ Three Bundle C invariants make the loop safe. `propagate_belief.run` deduplicate
 
 The Bundle C runbook (`docs/operations/2026-05-12-bundle-c-runbook.md`) walks the four phases on the Bermuda workspace.
 
+## The QA grammar
+
+<!-- voice: technical-exposition -->
+
+Roughly eighty distinct checks enforce the suite's quality contract, distributed across five skills plus a sibling. The distribution is not arbitrary: each skill owns the defect family it knows best. `russellian-style` owns sentence- and paragraph-level prose discipline; `book-qa` owns release-gate structural defects; `book-thesis` owns argument-spine consistency; `book-knowledge` owns claim-shape and provenance integrity; `humanizer` (loaded as a sibling, not embedded here) owns the AI-prose-fingerprint catalog. Ai-vocabulary detection recurs across three of those five layers — the suite-wide audit (§13) flags that overlap as drift worth consolidating.
+
+The master inventory lives at `docs/audits/2026-05-21-suite-wide-linter-review.md`. This section surfaces the shape of each linter surface — counts, severity tiers, and the most diagnostic examples — so that a reader who understands the pipeline can locate where any given defect class fires and how serious a hit is.
+
+### russellian-style — 17 prose rules
+
+A single `_LINTER_REGISTRY` in `skills/russellian-style/scripts/` holds all seventeen rules. Ten are gating: `skill_api.lint_fragment(text)` runs them by default. The other seven are advisory, invisible to that entry point unless the caller names them via `linters=`. The fuller chapter-level pass — `style_pass_report.generate_report_dict(path)` — runs all 17 and returns `negative_metrics`, `vitality_metrics` (Fano factor, `russell_vitality_score`), and `positive_checks` (concession-turn count, concrete-instance count).
+
+Advisory rules hide behind paragraph scope; chapter context reveals their signal. `staccato-paragraph-run` targets AI-style alternating short/long paragraphs; `paragraph-motion` catches chapters that never shift rhetorical gear; `concrete-instance-density` flags abstract argument spines with no named specifics. Operators rarely know to request them by name, which is why §13 recommendation 2 proposes a `lint_fragment(text, all=True)` shorthand.
+
+**10 gating rules:**
+
+| Rule | Catches | Needs |
+| --- | --- | --- |
+| `no-hedging` | Qualificative hedge words detected by regex | pure regex |
+| `active-voice` | Passive constructions via dep-parse | spaCy |
+| `signal-density` | Low information-per-word ratio | spaCy |
+| `parallel-structure` | Broken list parallelism | spaCy |
+| `listicle-abstract` | Opening paragraph formed as a bullet list | — |
+| `listicle-anaphora` | Every list item opening with the same word | — |
+| `rhythm-uniform-length` | All sentences within ±10 % of mean length | — |
+| `rhythm-repeated-opening` | Three or more sentences opening identically | — |
+| `burstiness` | Flat sentence-length variance (low Fano factor) | — |
+| `ai-vocabulary` | Word list of suite-prohibited AI terms; humanizer sibling can extend it at runtime | optional humanizer |
+
+**7 advisory rules:**
+
+| Rule | Catches | Needs |
+| --- | --- | --- |
+| `staccato-paragraph-run` | AI-pattern of alternating short and long paragraphs | — |
+| `negation-affirmation-template` | "Not X, but Y" template overuse | — |
+| `this-is-conclusion-overuse` | "this shows / this demonstrates" overuse | — |
+| `abstract-subject-run` | Run of sentences with abstract noun subjects | spaCy |
+| `concrete-instance-density` | Low ratio of named entities to abstract claims | spaCy |
+| `epistemic-precision` | Vague epistemic phrases lacking quantification | — |
+| `paragraph-motion` | Chapter never shifts rhetorical mode | — |
+
+### book-qa — 28 release-gate checks
+
+`skills/book-qa/scripts/lint_artifact.py` runs eight deterministic D-class checks. Four more (D9–D12) consume defect files that `book-thesis` writes. One optional check (D13) calls `neurosym-forge`. `dispatch_chapter_qa.py` fans out fifteen C-class dimensions across ten parallel chapter agents. All 28 feed `qa/sentinel.json`. Hard-fail policy: any critical D1–D8 hit, any C2 (cross-reference) or C13 (citation-completeness) hit, or any critical C-class finding blocks release. `healer.py` runs up to three repair iterations per ticket before escalating to the operator. `qa-waivers.yaml` in the workspace stores accepted exceptions.
+
+`book-qa` ships no `skill_api.py` — CLI-only, workspace-presupposing. §13 recommendation 4 proposes a thin wrapper.
+
+**D1–D8 deterministic:**
+
+| ID | Catches | Severity |
+| --- | --- | --- |
+| D1 | Orphan `clm-` citation tokens with no ledger entry | critical |
+| D2 | Raw markdown bleed inside HTML blocks | critical |
+| D3 | Broken cross-references (figures, footnotes, ToC entries) | critical / minor |
+| D4 | Heading level errors: missing h1 or skipped level | critical / minor |
+| D5 | Count-contract failures (word, footnote, figure targets) | minor |
+| D6 | Paragraph-length variance outside CV [0.4, 1.2] | minor |
+| D7 | CSS-reset clobber (Tailwind preflight without h1 override) | critical |
+| D8 | Broken image paths (asset 404s) | critical |
+
+**D9–D12 thesis-derived** (sourced from `qa/supports-defects.json`, `qa/datalog-defects.json`, `qa/entailment-results.json`):
+
+| ID | Catches | Severity |
+| --- | --- | --- |
+| D9 | Paragraph orphan — no `supports:` chain reaches `:Thesis` | critical |
+| D10 | Transitive contradiction via Datalog | critical |
+| D11 | LLM-critic entailment verdict of `contradicts` or `unrelated` | critical |
+| D12 | Unadvanced sub-argument (thesis node with no supporting paragraph) | important |
+
+**D13 (optional):** `neurosym-forge` verification-unsatisfiability. Fires only when `qa-config.yaml` sets `enable_verification: true`. Critical on hit.
+
+**C1–C15 chapter swarm:** one fresh-context agent per chapter, ten dispatch slots, checking: heading-hierarchy, cross-references, footnote-quality, citation-noise, HTML-block-hygiene, terminology-consistency, scene-anchoring, sidebar-quality, table-quality, paragraph-length-variance, Russell-style-discipline, citation-completeness, closing-strength, image-alt-text, print-ready-format.
+
+### book-thesis — 5 check classes
+
+`book-thesis` instruments the argument spine. Its linters write the defect files that D9–D12 consume; the two skills share defect-class vocabulary by design. `lint_supports.py` covers orphan paragraphs, broken and unreachable supports pointers, and unadvanced sub-arguments — all feeding D9 and D12. `dispatch_entailment.py` assembles per-paragraph payloads for the LLM critic that populates D11. `datalog_consistency.py` runs seven Datalog rules feeding D9, D10, D11, and D12.
+
+| Check | Script | Defect class |
+| --- | --- | --- |
+| Orphan paragraph (no `supports:`) | `lint_supports.py` | D9 |
+| Broken supports pointer | `lint_supports.py` | D9 |
+| Unreachable supports node | `lint_supports.py` | D9 |
+| Unadvanced sub-argument | `lint_supports.py` | D12 |
+| Per-paragraph entailment payload | `dispatch_entailment.py` | feeds D11 |
+| Datalog: direct contradiction | `datalog_consistency.py` | D10 |
+| Datalog: transitive contradiction | `datalog_consistency.py` | D10 |
+| Datalog: declared conflict | `datalog_consistency.py` | D11 |
+| Datalog: orphan paragraph | `datalog_consistency.py` | D9 |
+| Datalog: unreachable supports | `datalog_consistency.py` | D11 |
+| Datalog: unadvanced sub-arg | `datalog_consistency.py` | D12 |
+| Datalog: missing evidence | `datalog_consistency.py` | D12 |
+
+All `book-thesis` linters are CLI-only; no `skill_api` entry point exists. §13 recommendation 5 notes this gap.
+
+### book-knowledge — SHACL + SPARQL + Bayesian
+
+Three layers enforce claim-shape integrity. SHACL validates graph structure first: `tbf:ClaimShape` requires one `schema:text`, a status drawn from a five-state enum, a confidence value in [0, 1], and at least one source span; verified claims must also carry `prov:wasDerivedFrom`. `tbf:ChapterSectionShape` constrains sections to cite only verified claims. Either shape violation blocks the stage-2 preflight gate in `book-compose`.
+
+Eight SPARQL competency queries exercise the claim graph after SHACL passes. Four coverage queries confirm at least one verified claim per topic area. One consistency query checks for simultaneous `verified` and `refuted` status on the same claim. Three defeasible queries carry severity metadata; under `BLOCKING_DEFEASIBLE = True` (the default), the first two are hard-failures.
+
+Bayesian belief propagation (`propagate_belief.py`) damps claim posteriors by ×0.95, ×0.85, or 1.0 based on counter-claim status, running up to 20 rounds. Advisory, not blocking. Antonym-pair contradiction detection (`detect_conflicts.py`) scans twelve antonym pairs over verified claims, flips matches to `disputed`, and appends findings to `claims/conflicts.jsonl`. Locator verification (`verify_claim.py`) cross-checks proposed claim text against its declared source span before promoting the claim to `verified`.
+
+### humanizer sibling — 24 patterns
+
+`sibling_skills.py` loads `humanizer` from `~/.claude/skills/humanizer/SKILL.md` at runtime; the skill sits outside this repository by design. Keeping patterns external means catalog updates reach every consumer without modifying any in-repo code.
+
+The 24 named patterns cover: undue significance, notability/coverage, superficial -ing analyses, promotional language, vague attributions, challenges/future-prospects templates, AI vocabulary (`delve`, `tapestry`, `underscore`, `pivotal`, `showcase`), copula avoidance, negative parallelisms, rule-of-three overuse, elegant variation, false ranges, em-dash overuse, boldface overuse, inline-header lists, Title Case in headings, emojis, curly quotes, collaborative artifacts, knowledge-cutoff disclaimers, sycophantic tone, filler phrases, excessive hedging, and generic positive conclusions.
+
+`russellian-style.lint_ai_vocabulary` reads and augments its own word list from that same SKILL.md at runtime — the augmentation path that §13 recommendation 3 proposes consolidating into a single canonical source.
+
+### Cross-skill coverage map
+
+```mermaid
+graph LR
+    subgraph rs[russellian-style — 17 rules]
+        rsg[10 gating]
+        rsa[7 advisory]
+    end
+    subgraph qa[book-qa — 28 checks]
+        qad[D1-D8 deterministic]
+        qadt[D9-D12 thesis-derived]
+        qac[C1-C15 chapter swarm]
+        qadv[D13 optional verification]
+    end
+    subgraph bt[book-thesis — 5 classes]
+        bts[lint_supports]
+        btd[7 datalog rules]
+    end
+    subgraph bk[book-knowledge — SHACL + SPARQL]
+        bks[2 SHACL shapes]
+        bkq[8 competency queries]
+        bkb[Bayesian belief]
+        bkc[antonym detection]
+    end
+    subgraph hm[humanizer sibling — 24 patterns]
+        hmp[ai-vocabulary catalog]
+    end
+    bt --> qadt
+    bkb -.-> bkq
+    rs <-.-> hm
+```
+
+### Known fragmentation
+
+<!-- lint-disable: listicle-abstract, parallel-structure reason=fragmentation enumeration is intentional and items name distinct components -->
+<!-- lint-disable: signal-density reason=table rows parsed as prose trigger false-positive modifier-ratio scores -->
+
+The suite-wide audit (§13) surfaces five structural gaps in linter coverage and invocability. Each links to the ranked recommendation that addresses it:
+
+- `ai-vocabulary` is detected in three places — `russellian-style.lint_ai_vocabulary`, `book-compose/scripts/humanizer_pass.py`, and the humanizer sibling itself — with three pattern lists that drift independently (recommendation 3).
+- Seven advisory `russellian-style` rules are hidden from the `lint_fragment` default entry point; operators do not know to name them explicitly (recommendation 2).
+- No automatic post-generation lint trigger exists: Claude has no standing instruction to run `lint_fragment` after generating prose, which is the gap the audit's session exposed (recommendation 1).
+- `book-qa` is CLI-only with no `skill_api.py`; Claude cannot invoke the post-build gate on raw prose from a chat session (recommendation 4).
+- The cross-tool `scripts.*` namespace collision causes `lint_fragment` to silently return `[]` when called from inside another skill's venv; the workaround in `lint_samples.py` is not a structural fix (recommendation 7).
+
 ## Quickstart
 
 Two audiences use this suite differently. Authors care about workspace initialisation, source ingestion, and the chapter pipeline. Engineers care about venv setup, test invocation, and the architectural sections that explain why the pieces fit as they do.

@@ -1143,6 +1143,7 @@ The suite-wide audit (§13) surfaces five structural gaps in linter coverage and
 - The cross-tool `scripts.*` namespace collision causes `lint_fragment` to silently return `[]` when called from inside another skill's venv; the workaround in `lint_samples.py` is not a structural fix (recommendation 7).
 
 ## Quickstart
+<!-- voice: technical-exposition -->
 
 Two audiences use this suite differently. Authors care about workspace initialisation, source ingestion, and the chapter pipeline. Engineers care about venv setup, test invocation, and the architectural sections that explain why the pieces fit as they do.
 
@@ -1254,6 +1255,46 @@ python -m venv .venv
 4. **Read [The pipeline](#the-pipeline) and [The three tiers](#the-three-tiers) for architecture.** Those two sections explain the ownership boundaries and data-flow contracts that the tests enforce.
 
 5. **Read [Contributing](#contributing) before opening a PR.** The lint gate is mandatory; a PR that introduces gating violations will not be merged regardless of test status.
+
+### Linting prose on demand
+
+The russellian-style skill exposes `lint_fragment(text, linters=None)` as its public API. Without a chapter pipeline or a workspace, an operator can lint any markdown string. The default call runs 10 gating rules; passing `linters=ALL_17_RULES` runs the full registry (see §10 The QA grammar).
+
+The standard invocation pattern works when nothing else has registered a `scripts` package in `sys.modules`. Callers that invoke `lint_fragment` from inside another tool (build-russell-corpus, russellian-style-audit, readme-lint) must apply the audit's sys.modules namespace-eviction workaround — see those tools for the pattern, or wait for recommendation #7 in §13 to make the workaround unnecessary.
+
+```python
+import sys
+sys.path.insert(0, "/path/to/russellian-book-suite/skills/russellian-style")
+from skill_api import lint_fragment
+
+text = "The script provisions the server in four seconds."
+issues = lint_fragment(text)
+for issue in issues:
+    print(f"[{issue.linter}] L{issue.line}: {issue.message}")
+```
+
+The 10 gating rules are the discipline a chapter draft must clear before the persona panel will read it; the 7 advisory rules are calibration hints that the panel and the writer take as guidance, not as gates.
+
+### Wiring a live LLM caller
+
+The corpus-expansion tool (`tools/build-russell-corpus/`) and the audit tool (`tools/russellian-style-audit/`) both call an Anthropic API for their LLM stages. The caller lives at `tools/build-russell-corpus/scripts/live_llm.py` and exposes three functions: `extract_llm(prompt)` for corpus extraction, `cross_check_llm(prompt)` for tag verification, and `generate(prompt, model, max_tokens, temperature)` for general-purpose generation (used by the audit's sample-text stage).
+
+Both tools read `ANTHROPIC_API_KEY` from the environment. Without it, every call raises `RuntimeError` with a clear message; no network round-trip is attempted. Model selection comes from `tools/build-russell-corpus/assets/llm-config.yaml` — extract uses `claude-opus-4-7`, cross-check uses `claude-sonnet-4-6`, and the audit's sample-text generation uses `claude-opus-4-7` at temperature 0.7.
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+cd tools/build-russell-corpus
+.venv/bin/python -m scripts.cli extract \
+    --source /path/to/cached-source.html \
+    --source-id problems \
+    --source-url https://example.com/source \
+    --vocabulary assets/vocabulary.json \
+    --prompt assets/extractor-prompt.md \
+    --out runs/<batch-id>/candidates.jsonl \
+    --n 50
+```
+
+The Python-side API call is the current architectural boundary. The proposed MCP-server refactor flagged in §13 (recommendation about the live_llm boundary) would let Claude-in-session proxy the call through the harness, eliminating the separate API key requirement for chat-driven runs. Both shapes are open; the right choice depends on whether the primary invocation surface is operator-driven CLI or Claude-driven chat.
 
 ## End-to-end: the Bermuda manual
 

@@ -19,6 +19,9 @@ pre-commit:
     nix-fmt:
       glob: "*.nix"
       run: nix develop -c nixpkgs-fmt --check {staged_files}
+    readme-lint:
+      glob: "README.md"
+      run: nix develop -c bash -c 'cd tools/readme-lint && .venv/bin/python -m scripts.lint_readme'
 
 pre-push:
   parallel: false   # tasks below contend for cargo target dir

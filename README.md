@@ -1317,6 +1317,72 @@ The workspace tree carries the rest of the story. `chapters/contracts/` holds th
 
 What the Bermuda manual proves is bounded and exact. It proves the SHACL shapes work; it proves the competency queries work; it proves the chapter contracts admit a real drafting workload; it proves the bibliography projection stays faithful to the manuscript; it proves the suite refuses to ship a release whose gates have not fired clean. What the manual does not yet prove is that the same gates fire correctly on a workspace built from PDF primary sources instead of a synthesized ledger. That validation belongs to the next example — the one that runs Tier 1 at Bermuda scale against ABIR data and government statistics the suite has never previously touched.
 
+## Auditing the suite
+
+<!-- voice: mixed -->
+
+This suite lints other people's prose. The section below records what it found when it linted itself. Two bugs surfaced in the first audit pass — a `sys.modules` namespace collision that silently returned zero issues to any cross-tool caller, and an operator-gate contract mismatch that would have crashed the audit after spending live API credits. Eight recommendations followed; the table below carries each one with its current status. None are closed by this rewrite.
+
+The temptation, after finding bugs in a linter, is to conclude that the linter does not work. That conclusion earns nothing. A self-audit earns a ranked list, a status column, and no remaining illusions about which of the listed items are finished.
+
+### The audit-bundle pattern
+
+Audit results live in `docs/audits/`. Each bundle occupies its own subdirectory named `<date>-<topic>/` — for example, `docs/audits/2026-05-21-russellian-style/`. A bundle contains a `README.md` that states the audit scope and outcome verdict, per-stage report files for each check that ran, sample texts that the linters processed during the audit, and a run ledger recording which commands executed and in what order. Flat single-file audits that do not require sample texts ship as a single `.md` file directly under `docs/audits/`, not in a subdirectory.
+
+CI does not enforce the bundle structure — the convention holds by agreement, not by gate. Anyone cloning the repository can navigate to a bundle, read the run ledger, and reproduce the audit commands exactly as they ran.
+
+### The two most recent audits
+
+`docs/audits/2026-05-21-russellian-style/` is a per-skill audit of the `russellian-style` linter. It ran five health checks — import, API surface, unit-test coverage, sample-text round-trip, and venv portability — against three sample texts drawn from the suite's own README. The outcome verdict is WARN: consumer virtualenvs created by a fresh clone were missing the spaCy model download step, which caused the sample-text round-trip to fail on a clean machine. Two of the three samples passed end-to-end. The venv portability gap is recommendation 7's prerequisite.
+
+`docs/audits/2026-05-21-suite-wide-linter-review.md` is the suite-wide review. It ran more than 80 checks across five skills and one sibling tool, examining rule coverage, API surface consistency, cross-tool calling contracts, and namespace hygiene. The review produced 8 ranked recommendations; the namespace collision and the operator-gate mismatch surfaced here. The table below carries them.
+
+### The 8 ranked recommendations
+
+<!-- lint-disable: signal-density reason=table rows trigger false-positive modifier ratios -->
+
+| # | Recommendation | Status | Source |
+| --- | --- | --- | --- |
+| 1 | Automatic post-generation lint trigger in `russellian-style` SKILL.md | Open | `docs/audits/2026-05-21-suite-wide-linter-review.md` |
+| 2 | Promote 7 advisory rules to `lint_fragment` default (or add `all=True` keyword) | Open | same |
+| 3 | Unify the 3 `ai-vocabulary` detectors | Open | same |
+| 4 | Give `book-qa` a `skill_api.py` | Open | same |
+| 5 | Prose linting in lefthook pre-commit | Partial — `readme-lint` hook ships in this rewrite | same |
+| 6 | `make audit` master target | Open | same |
+| 7 | Rename each skill's `scripts/` package to fix the namespace collision | Open | same |
+| 8 | `docs/skill-triggers.md` master index | Open | same |
+
+<!-- lint-enable: signal-density -->
+
+### The live_llm architectural boundary
+
+```mermaid
+graph LR
+    subgraph current[Current — Python-side API call]
+        A1[audit subprocess<br/>python -m scripts.run] --> A2[live_llm.extract_llm<br/>live_llm.cross_check_llm<br/>live_llm.generate]
+        A2 --> A3{ANTHROPIC_API_KEY<br/>in env?}
+        A3 -->|yes| A4[anthropic.Anthropic<br/>.messages.create]
+        A3 -->|no| A5[RuntimeError]
+        A4 --> A6[Anthropic API]
+    end
+    subgraph proposed[Proposed — MCP server proxy]
+        B1[audit subprocess] --> B2[mcp_anthropic.call<br/>via local MCP server]
+        B2 --> B3[Claude Code harness]
+        B3 --> B4[active session<br/>same Claude as chat]
+        B4 --> B5[Anthropic API]
+    end
+```
+
+`live_llm.py` makes its calls from inside a Python subprocess that requires `ANTHROPIC_API_KEY` in its own environment. This is what an operator runs from the CLI: `python -m scripts.run`. The audit subprocess receives credentials, calls `anthropic.Anthropic().messages.create`, gets a response, continues. It runs independent of any Claude Code session in the foreground; if Claude is the operator, the subprocess does NOT inherit the harness's credentials.
+
+Under the MCP-server alternative, Claude in the active session proxies the API call through the harness. The audit subprocess calls into a local MCP server that exposes `messages.create` as a tool; the MCP server routes the call through the running Claude Code harness, which makes the actual Anthropic call with its own session credentials. The audit gets the response without needing a separate API key.
+
+Which shape fits depends on whether the suite's primary invocation surface is operator-driven (CLI; current path is correct) or Claude-driven (chat; MCP-server is correct). Both shapes will prove necessary; the architectural follow-up is to ship both and let the operator choose at invocation time. Both are open.
+
+### Updating this section
+
+Future suite-wide audits update the status column of the recommendations table above in place. Each new audit bundle goes into `docs/audits/` following the bundle pattern; whoever runs it updates the two-audit summary above to point at the new most-recent pair. This section accumulates status changes, not descriptions of past states.
+
 ## Local-only constraint
 
 No paid APIs. No telemetry. The suite routes every outbound HTTP call through `scrapling-fetch`: it is the single network boundary. Only `scrapling-fetch` imports `requests`, `httpx`, `urllib3`, `aiohttp`, or `playwright`; no other skill does. The `ci/.import-linter` contract enforces the rule; a PR that imports any of those libraries from a skill other than `scrapling-fetch` fails CI before tests run. Everything else in the pipeline runs local.

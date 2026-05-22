@@ -1452,11 +1452,20 @@ Read-only boundaries between skills are strict. The metabook accesses scrapling-
 
 ## Deep QA: how this README was made
 
-Russellian-style's `technical-exposition` system prompt governed every word in this README. Every prose-writing subagent in the refactor loaded the prompt via `system_prompt_loader.load("technical-exposition")` and embedded it as the writer's voice contract before drafting a single sentence. The lint pass confirmed the result; the QA report at `docs/qa/README-QA-2026-05-17.md` carries the per-linter counts.
+<!-- voice: narrative-editorial -->
+<!-- lint-disable: staccato-paragraph-run reason=narrative pacing -->
 
-Twelve linter modules emit seventeen rule names. Six modules gate (eight rule names): `no-hedging`, `active-voice`, `signal-density`, `parallel-structure`, `listicle-abstract`, `listicle-anaphora`, `rhythm-uniform-length`, `rhythm-repeated-opening`. Six modules advise (nine rule names): AI staccato, AI vocabulary, burstiness, concrete-instance-density, epistemic-precision, paragraph-motion. Final gating violations on the assembled README: zero. Advisory findings: 72, each documented in the QA report with the author's disposition. The dominant source of advisory noise was `epistemic-precision` — 70 of the 72 findings — firing on technically-precise sentences that name file paths, version numbers, and numeric thresholds.
+The previous README had drifted. Function names had moved since the last rewrite. Two tools — shipped in PR #121 and PR #122 — appeared nowhere in the documentation. The audit-bundle pattern under `docs/audits/` existed on disk but not on the page. A fresh-cloned operator reading that README would have grasped the suite's intent and lost the thread the moment they touched actual files.
 
-This section is the proof. The suite that drafted every other section drafted this one too. The Russell discipline sat in the generation contract, not bolted on after the fact. A reader who doubts the suite's voice can run `python tools/lint_readme.py README.md` locally; the result is reproducible.
+The fix started with a spec. `docs/specs/2026-05-22-readme-rewrite-design.md` fixed the voice contracts, the section order, and the gating rule: no section passes with more than two gating violations. `docs/plans/2026-05-22-readme-rewrite.md` broke the work into nineteen commits on `feat/readme-rewrite`, one commit per section, each commit message naming the section explicitly. The lint runner at `tools/readme-lint/` shipped as Task 1, before a single prose section was touched — every subsequent section wrote itself against a gate that already existed.
+
+The gate earned its keep. The first draft of §13 Auditing the suite landed with ten gating violations: six passive-voice constructions, four hedge words. Active voice and stripped hedges fixed it. The first draft of §11 Quickstart triggered `rhythm-repeated-opening` when three consecutive paragraphs opened with "The." The fix was to vary the openers. No section passed by exemption. Every section passed by revision.
+
+But the audit caught two bugs that had nothing to do with prose. The `sys.modules` namespace collision: the lint runner from another tool's venv was silently returning zero issues on every input, making the gate meaningless. Fixed in commit `af72f17` before this rewrite started. The audit-sample contract mismatch: operator-gate vocabulary and `audit-sample.md` token vocabulary had diverged, so sections that passed the gate still used terms the auditor would reject. Fixed in commit `9a680c0`. Both surfaced because the suite was made to lint itself, not to generate and walk away.
+
+The previous README's audit trail described how Russell discipline shaped prose. This README's audit trail describes how the suite's own gates shaped its own documentation. Run `make readme-lint`. Watch every section pass through the same registry the manuscripts pass through.
+
+
 
 ## Documentation
 

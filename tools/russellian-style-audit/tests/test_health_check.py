@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.health_check import HealthCheckResult, check_api_smoke, check_pytest_suite
+from scripts.health_check import HealthCheckResult, check_api_smoke, check_pytest_suite, check_composes_with
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -37,3 +37,21 @@ def test_check_pytest_suite_runs_pytest_and_returns_status(tmp_path: Path):
     assert result.name == "pytest_suite"
     assert result.status in {"PASS", "FAIL"}
     assert "exit" in result.evidence.lower() or "passed" in result.evidence.lower() or "failed" in result.evidence.lower()
+
+
+def test_check_composes_with_returns_pass_or_warn_per_consumer(tmp_path: Path):
+    """composes_with reports per-consumer status; missing venvs WARN, present venvs run import smoke."""
+    result = check_composes_with(consumers=["book-compose", "book-review", "book-qa", "humanizer"])
+    assert isinstance(result, HealthCheckResult)
+    assert result.name == "composes_with"
+    assert result.status in {"PASS", "WARN", "FAIL"}
+    for consumer in ["book-compose", "book-review", "book-qa", "humanizer"]:
+        assert consumer in result.evidence
+
+
+def test_check_composes_with_warns_when_consumer_venv_missing(tmp_path: Path):
+    """A non-existent consumer name produces WARN evidence including the missing-venv reason."""
+    result = check_composes_with(consumers=["nonexistent-skill-xyz"])
+    assert result.status == "WARN"
+    assert "nonexistent-skill-xyz" in result.evidence
+    assert "venv" in result.evidence.lower() or "missing" in result.evidence.lower()

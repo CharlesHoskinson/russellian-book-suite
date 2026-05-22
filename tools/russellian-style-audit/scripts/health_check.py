@@ -117,3 +117,42 @@ def check_api_smoke(
             f"listicle hit listicle-abstract={listicle_hit}"
         ),
     )
+
+
+def check_composes_with(*, consumers: list[str]) -> HealthCheckResult:
+    """For each consumer skill, run `python -c "from russellian_style.skill_api import lint_fragment, API_VERSION"`
+    in that consumer's venv. Report per-consumer status and aggregate.
+    """
+    per_consumer: list[str] = []
+    all_pass = True
+    any_warn = False
+    any_fail = False
+    for consumer in consumers:
+        consumer_root = _REPO_ROOT / "skills" / consumer
+        venv_python = consumer_root / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python")
+        if not venv_python.exists():
+            per_consumer.append(f"{consumer}=WARN(venv missing)")
+            any_warn = True
+            all_pass = False
+            continue
+        completed = subprocess.run(
+            [str(venv_python), "-c", "from russellian_style.skill_api import lint_fragment, API_VERSION; print(API_VERSION)"],
+            capture_output=True, text=True,
+        )
+        if completed.returncode == 0:
+            per_consumer.append(f"{consumer}=PASS({completed.stdout.strip()})")
+        else:
+            per_consumer.append(f"{consumer}=FAIL({completed.stderr.strip()[:80]})")
+            all_pass = False
+            any_fail = True
+    if all_pass:
+        status = "PASS"
+    elif any_fail:
+        status = "FAIL"
+    else:
+        status = "WARN"
+    return HealthCheckResult(
+        name="composes_with",
+        status=status,
+        evidence="; ".join(per_consumer),
+    )

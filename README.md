@@ -573,6 +573,68 @@ cd verifiers/bermuda && npm run build && node dist/verify.js
 
 </details>
 
+## Tools
+
+<!-- voice: technical-exposition -->
+
+`tools/` exists because some workflows are one-shot operator runs, not runtime pipeline stages. The operator expands the corpus quarterly when the russellian-style anchor base needs more coverage; the operator runs the audit per release to validate the suite's discipline; the commit hook invokes the readme-lint runner on every push. None of these belong inside `skills/`, where every directory is a Claude Code skill the chat session can dispatch. The three tools share a convention: a self-contained `pyproject.toml`, a venv at `tools/<name>/.venv/`, and a CLI entry at `scripts/cli.py` or `scripts/run.py`.
+
+### `tools/build-russell-corpus/`
+
+`build-russell-corpus` expands the russellian-style index — the corpus of tagged Russell passages that anchors every style rule in the suite. PR #121 introduced it, growing the anchor base from 50 to 500 entries; the design rationale lives at `docs/specs/2026-05-21-russell-corpus-expansion-design.md` and the implementation plan at `docs/plans/2026-05-21-russell-corpus-expansion.md`. Each candidate passage travels through five hallucination defences before reaching the index: (1) a public-domain allow-list check that rejects any source not cleared for unrestricted reuse, (2) a source SHA-match that verifies the extracted text against the cached fetch byte-for-byte, (3) a blind cross-check in which a second LLM verifies tag agreement without seeing the extractor's tag, (4) a two-layer lesson-specificity gate that rejects generic-lesson candidates, and (5) a 5% audit sample with a halt threshold that stops the run when the human reject rate exceeds 10%.
+
+The pipeline begins with a cached fetch of PD Russell source text via `scrapling-fetch`, then routes each candidate through `sentinel.py` (six deterministic checks) before handing verified passages to `cross_check.py`. Candidates that pass the blind verifier enter an audit sample; only then does the operator gate fire.
+
+```mermaid
+graph TD
+    src[PD Russell source<br/>cached via scrapling-fetch] --> extract[extract_candidates.py<br/>LLM extractor]
+    extract --> candidates[(candidates.jsonl)]
+    candidates --> sentinel[sentinel.py<br/>6 deterministic checks:<br/>PD allow-list, source-match,<br/>locator alignment, dedup,<br/>vocabulary, generic-lesson]
+    sentinel --> passed[(passed-sentinel.jsonl)]
+    sentinel --> rejected1[(rejected.jsonl)]
+    sentinel --> pending[(pending-tag.jsonl)]
+    passed --> crosscheck[cross_check.py<br/>blind LLM tag verifier<br/>extractor's tag NOT in prompt]
+    crosscheck --> verified[(verified.jsonl)]
+    crosscheck --> rejected2[(rejected.jsonl)]
+    verified --> audit[audit_sample.py<br/>5% sample<br/>halt at 10% reject rate]
+    audit --> gate{operator gate<br/>accept/reject/halt}
+    gate -->|accept| append[append_to_index.py]
+    gate -->|halt| stop[stop; index unchanged]
+    append --> index[(russellian-style<br/>index.json)]
+```
+
+At the operator gate, a blocking stdin prompt presents the audit sample and waits for `accept`, `reject`, or `halt`. CI and scripted runs have two bypass flags: `--auto-accept` skips the prompt and accepts the batch unconditionally; `--skip-expansion` bypasses the extraction and cross-check stages entirely, jumping straight to audit from a pre-existing `verified.jsonl`. The CLI surface is six subcommands chained by `scripts/cli.py`: `derive-vocabulary`, `extract`, `sentinel`, `cross-check`, `audit`, `append`. Operators invoke each subcommand in isolation for inspection or replay.
+
+The `extract` and `cross-check` subcommands need a live LLM connection; the current wiring is Python-side in `scripts/live_llm.py`. A forward-looking architectural item — migrating that wiring to an MCP-server boundary — appears in §13 Auditing the suite.
+
+Spec: `docs/specs/2026-05-21-russell-corpus-expansion-design.md`. Plan: `docs/plans/2026-05-21-russell-corpus-expansion.md`.
+
+### `tools/russellian-style-audit/`
+
+`russellian-style-audit` validates the suite end-to-end: health checks, an optional corpus expansion batch, three generated sample texts, and a lint-scoring pass over those samples. It serves as the authoritative validation gate before any release. Output lands in a dated bundle at `docs/audits/<date>-russellian-style/`, with `README.md`, `health-check.md`, `expansion.md`, and a `samples/` subdirectory; `docs/audits/2026-05-21-russellian-style/README.md` is the canonical reference example.
+
+`health_check.py` runs first, executing five deterministic checks against the index, the rule registry, and the corpus vocabulary. Any `FAIL` result halts immediately and marks the bundle `FAIL` without proceeding. The run logs `WARN` results and continues. When all checks clear, `expansion.py` wraps `build-russell-corpus` for an optional batch addition; `--skip-expansion` bypasses that stage. `generate_samples.py` then produces three mode prompts via `live_llm.generate`. Finally, `lint_samples.py` runs the full 17-rule registry against each sample and `report.py` renders the bundle.
+
+```mermaid
+graph TD
+    start([python -m scripts.run --batch-id X]) --> health[health_check.py<br/>5 deterministic checks]
+    health -->|any FAIL| haltH[halt; bundle.README = FAIL]
+    health -->|all PASS/WARN| expansion[expansion.py<br/>wraps build-russell-corpus]
+    expansion -->|live_llm or skip| sample[generate_samples.py<br/>3 mode prompts via live_llm.generate]
+    expansion -.->|halt| sample
+    sample --> lint[lint_samples.py<br/>17-rule registry per sample]
+    lint --> report[report.py<br/>render bundle]
+    report --> bundle[(docs/audits/<date>-russellian-style/)]
+```
+
+The operator gate mirrors the corpus tool: a blocking stdin prompt fires after the expansion batch, bypassed by `--auto-accept` or skipped with `--skip-expansion`. `lint_fragment` calls inside `lint_samples.py` use a namespace-eviction workaround to prevent collision between the audit tool's registry instance and the readme-lint runner's registry instance when both load in the same process. Recommendation #7 in §13 Auditing the suite describes the architectural fix that will eliminate this workaround.
+
+### `tools/readme-lint/` (new in this rewrite)
+
+`readme-lint` parses `README.md` at H2 boundaries, reads each section's `<!-- voice: <name> -->` declaration, and runs the russellian-style 17-rule registry against the section text. A nonzero gating score above 2 causes the runner to exit with code 1. Invoke via `make readme-lint`; for incremental work, target individual sections with `python -m scripts.lint_readme --section "<heading>"`, where the argument matches by case-insensitive substring against the H2 text.
+
+Inline `<!-- lint-disable: <rule>[, <rule>] reason=<short> -->` comments mark legitimate exemptions. The Bermuda narrative section, for example, uses concession-marker constructions that would trigger `staccato-paragraph-run` under `technical-exposition` rules; the disable comment marks that usage as intentional, not drift.
+
 ## Core concepts
 
 ### The book workspace

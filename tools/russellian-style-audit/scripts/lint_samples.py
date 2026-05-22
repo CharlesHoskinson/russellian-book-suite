@@ -6,6 +6,7 @@ The audit calls lint_fragment with the FULL 17-rule registry — not just the de
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -14,20 +15,52 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 _RUSSELLIAN_STYLE_ROOT = _REPO_ROOT / "skills" / "russellian-style"
 
 
-def _load_module_by_path(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+@contextlib.contextmanager
+def _evict_audit_scripts_namespace():
+    """Temporarily remove the audit's `scripts.*` entries from sys.modules.
+
+    Why: skill_api.lint_fragment internally calls importlib.import_module("scripts.lint_X").
+    With the audit's own `scripts` package registered in sys.modules, that resolves to the
+    AUDIT's empty scripts package, fails silently (lint_fragment swallows exceptions), and
+    returns 0 issues for every text. Evicting the audit's `scripts` namespace lets
+    russellian-style's sys.path insertion in skill_api find its own scripts/* modules.
+    """
+    saved = {k: v for k, v in sys.modules.items() if k == "scripts" or k.startswith("scripts.")}
+    for k in list(saved):
+        del sys.modules[k]
+    try:
+        yield
+    finally:
+        for k, v in saved.items():
+            sys.modules[k] = v
 
 
-# Load russellian-style skill_api
-_skill_api = _load_module_by_path(
-    "russellian_style_skill_api",
-    _RUSSELLIAN_STYLE_ROOT / "skill_api.py",
-)
-lint_fragment = _skill_api.lint_fragment
+def _load_russellian_skill_api():
+    """Load russellian-style's skill_api in a clean sys.modules state so its internal
+    importlib calls resolve to russellian-style's scripts/* and not the audit's."""
+    with _evict_audit_scripts_namespace():
+        if str(_RUSSELLIAN_STYLE_ROOT) not in sys.path:
+            sys.path.insert(0, str(_RUSSELLIAN_STYLE_ROOT))
+        spec = importlib.util.spec_from_file_location(
+            "russellian_style_skill_api",
+            _RUSSELLIAN_STYLE_ROOT / "skill_api.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["russellian_style_skill_api"] = module
+        spec.loader.exec_module(module)
+        return module
+
+
+_skill_api = _load_russellian_skill_api()
+_lint_fragment_raw = _skill_api.lint_fragment
+
+
+def lint_fragment(text, linters=None):
+    """Wrapper around skill_api.lint_fragment that evicts the audit's scripts namespace
+    for the duration of the call. This is the namespace fix that makes the russellian-style
+    linters actually find their own modules."""
+    with _evict_audit_scripts_namespace():
+        return _lint_fragment_raw(text, linters=linters)
 
 
 # Mirror skill_api._LINTER_REGISTRY keys

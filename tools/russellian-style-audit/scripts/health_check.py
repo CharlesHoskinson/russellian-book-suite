@@ -70,18 +70,24 @@ def check_api_smoke(
     hedged_path: Path,
     listicle_path: Path,
 ) -> HealthCheckResult:
-    """Smoke-test skill_api.lint_fragment against three fixture texts."""
+    """Smoke-test skill_api.lint_fragment against three fixture texts.
+
+    Routes through scripts.lint_samples.lint_fragment which wraps skill_api with the
+    sys.modules namespace-eviction needed to make russellian-style's internal
+    importlib.import_module("scripts.lint_X") calls resolve to russellian-style's
+    scripts/* instead of the audit's empty scripts package.
+    """
     try:
-        sys.path.insert(0, str(_RUSSELLIAN_STYLE_ROOT))
-        try:
-            from skill_api import lint_fragment, LintIssue  # type: ignore
-        finally:
-            sys.path.pop(0)
+        from scripts.lint_samples import lint_fragment  # type: ignore
+        # LintIssue still needs a direct reference for isinstance checks below;
+        # load it via the same path-eviction context so we get russellian-style's class.
+        from scripts.lint_samples import _skill_api  # type: ignore
+        LintIssue = _skill_api.LintIssue
     except Exception as exc:
         return HealthCheckResult(
             name="api_smoke",
             status="FAIL",
-            evidence=f"cannot import skill_api: {exc}",
+            evidence=f"cannot import skill_api via lint_samples: {exc}",
         )
 
     clean_text = clean_path.read_text(encoding="utf-8")

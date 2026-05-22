@@ -189,7 +189,7 @@ graph TD
 
 **Inputs / outputs.**
 
-The skill takes a URL or arXiv ID, a fetch mode, and optional per-call rate-limit overrides. It returns either a `PaperRecord` dataclass, a PDF written to a caller-specified path, or a typed exception from the hierarchy `FetchFailed | RateLimitExceeded | BlockedRequest | NotAPdf | OfflineMiss | ArxivIdNotFound`. Responses land in an on-disk cache keyed by URL; the cache directory is configurable. Setting `SCRAPLING_OFFLINE=1` forces cache-only mode: the skill opens no network socket.
+The skill takes a URL or arXiv ID, a fetch mode, and optional per-call rate-limit overrides. It returns either an `ArxivPaper` dataclass, a PDF written to a caller-specified path, or a typed exception from the hierarchy `FetchFailed | RateLimitExceeded | BlockedRequest | NotAPdf | OfflineMiss | ArxivIdNotFound`. Responses land in an on-disk cache keyed by URL; the cache directory is configurable. Setting `SCRAPLING_OFFLINE=1` forces cache-only mode: the skill opens no network socket.
 
 **When to invoke.** Use this skill whenever the acquisition pipeline needs a URL fetched and the caller is not `scrapling-fetch` itself — arXiv abstract pages, arXiv PDFs by ID, OpenAlex metadata or reference lookups, and DOI resolution to final landing URLs all route through here.
 
@@ -234,20 +234,12 @@ The metabook reads `raw/`, `wiki/`, `claims/`, `graph/`, and `chapters/<id>/cont
 
 **Example walkthrough.**
 
-```bash
-# User intent: "set up the world model for chapter 3 and project a lens"
-# Assumes contract.yaml exists at chapters/ch-03/contract.yaml
-# The four sub-workflows (Acquire, Synthesize, Project Lens, Gap Report) run as scripts:
+The four sub-workflows (Acquire, Synthesize, Project Lens, Gap Report) are currently script-level and not exposed through a CLI entrypoint in v0.2; see `skill_api.py` for the governance-layer surface that v0.2 does export.
 
-python -m scripts.acquire.download_and_ingest /path/to/my-book ch-03
-# → syntopical/acquisition/manifest.jsonl updated; PDFs in syntopical/acquisition/incoming/
-
-python -m scripts.synthesize.topic_map /path/to/my-book
-# → syntopical/topic-map.md, disputed-questions/*.md, concepts/*.md
-
-python -m scripts.lens.project_lens /path/to/my-book ch-03
-# → syntopical/lenses/ch-03.md
-```
+- **Acquire** traverses the citation graph from a seed set, downloads candidates that pass the embedding-similarity threshold and the booklogic reachability veto, and appends outcomes to `syntopical/acquisition/manifest.jsonl`.
+- **Synthesize** builds the topic map keyed to thesis-tree nodes, disputed-question tables (via booklogic's symbolic rewrite rules), and canonical-concept reconciliation files.
+- **Project Lens** slices the world model to exactly what the drafter needs for one chapter and writes `syntopical/lenses/<chapter-id>.md`.
+- **Gap Report** scores per-thesis-node coverage and appends under-covered nodes to `syntopical/acquisition/pending-seeds.txt`, seeding the next Acquire run automatically.
 
 `book-compose` reads `syntopical/lenses/ch-03.md` before drafting. The lens is a tag-filtered slice of the topic map carrying a YAML frontmatter block with the coverage score. If the score is below the contract threshold, Gap Report will have already written the uncovered nodes to `pending-seeds.txt`; the next Acquire run picks them up automatically.
 
@@ -509,7 +501,7 @@ The first draft triggers `active-voice` on the passive construction; the rewrite
 
 ```bash
 python -c "
-from review_conductor.conductor import run_panel
+from scripts.conductor import run_panel
 from pathlib import Path
 verdict = run_panel(
     workspace=Path('workspaces/bermuda'),
@@ -545,12 +537,13 @@ Expected output: `redraft True`. Gottlieb found one `critical` AI-sloppy pattern
 
 ```bash
 python scripts/lint_artifact.py workspaces/bermuda v0.4
-python scripts/dispatch_chapter_qa.py workspaces/bermuda v0.4
+python scripts/dispatch_chapter_qa.py workspaces/bermuda ch-01 ch-02
 python scripts/sentinel.py workspaces/bermuda
-python scripts/healer.py workspaces/bermuda --max-iterations 3
+python scripts/healer.py workspaces/bermuda --prepare
+python scripts/healer.py workspaces/bermuda --apply qa/healer-payloads/D6-ch-03.json
 ```
 
-Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.2] band in chapter 3) and C7 (scene anchoring absent in chapter 5's opening section). For each, the healer opens a fresh-context agent: D6 splits the overlong paragraph at a natural clause boundary; C7 inserts a two-sentence locating phrase. Sentinel re-runs both checks, confirms zero violations, and writes the patched artefact. Release exits clean.
+`dispatch_chapter_qa.py` takes `[ch-NN ...]` chapter-ID filters, not a release version; the release version is an argument to `lint_artifact.py` only. `MAX_ITERATIONS = 3` is an internal constant in `healer.py`, not a CLI flag; the healer's two-phase CLI is `--prepare` (emit per-ticket payloads) followed by `--apply <patch-result.json>` (record a patch result and increment the iteration counter). Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.2] band in chapter 3) and C7 (scene anchoring absent in chapter 5's opening section). For each, the healer opens a fresh-context agent: D6 splits the overlong paragraph at a natural clause boundary; C7 inserts a two-sentence locating phrase. Sentinel re-runs both checks, confirms zero violations, and writes the patched artefact. Release exits clean.
 
 **Where to dive deeper.**
 - `skills/book-qa/SKILL.md`
@@ -577,12 +570,14 @@ Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.
 **Example walkthrough.** Scaffold a verifier for the Bermuda workspace, add a `Date` sort and a date-ordering rule, then run.
 
 ```bash
-python -m scripts.scaffold_project --workspace workspaces/bermuda --out verifiers/bermuda
-python -m scripts.add_sort --project verifiers/bermuda --sort Date --doc "calendar date"
+python -m scripts.scaffold_project --name bermuda --slug bermuda --out verifiers/bermuda
+python -m scripts.add_sort --project verifiers/bermuda --sort Date
 python -m scripts.add_rewrite_rule \
   --project verifiers/bermuda \
-  --rule "(= (date-before? (Date ?d1) (Date ?d2)) (< ?d1 ?d2))"
+  --rule-file rules/date-before.json
 ```
+
+where `rules/date-before.json` contains the rule definition in JSON or EDN form.
 
 Override `verifiers/bermuda/src/axioms.rs` with the Z3 date-arithmetic constraints, then run the scaffolded project:
 
@@ -609,7 +604,7 @@ cd verifiers/bermuda && npm run build && node dist/verify.js
 
 ### `tools/build-russell-corpus/`
 
-`build-russell-corpus` expands the russellian-style index — the corpus of tagged Russell passages that anchors every style rule in the suite. PR #121 introduced it, growing the anchor base from 50 to 500 entries; the design rationale lives at `docs/specs/2026-05-21-russell-corpus-expansion-design.md` and the implementation plan at `docs/plans/2026-05-21-russell-corpus-expansion.md`. Each candidate passage travels through five hallucination defences before reaching the index: (1) a public-domain allow-list check that rejects any source not cleared for unrestricted reuse, (2) a source SHA-match that verifies the extracted text against the cached fetch byte-for-byte, (3) a blind cross-check in which a second LLM verifies tag agreement without seeing the extractor's tag, (4) a two-layer lesson-specificity gate that rejects generic-lesson candidates, and (5) a 5% audit sample with a halt threshold that stops the run when the human reject rate exceeds 10%.
+`build-russell-corpus` expands the russellian-style index — the corpus of tagged Russell passages that anchors every style rule in the suite. PR #121 introduced it, growing the anchor base from 50 to 500 entries; the design rationale lives at `docs/specs/2026-05-21-russell-corpus-expansion-design.md` and the implementation plan at `docs/plans/2026-05-21-russell-corpus-expansion.md`. Each candidate passage travels through five hallucination defences before reaching the index: (1) a public-domain allow-list check that rejects any source not cleared for unrestricted reuse, (2) a source-substring verification that confirms the extracted paragraph appears verbatim in the cached source, (3) a blind cross-check in which a second LLM verifies tag agreement without seeing the extractor's tag, (4) a two-layer lesson-specificity gate that rejects generic-lesson candidates, and (5) a 5% audit sample with a halt threshold that stops the run when the human reject rate exceeds 10%.
 
 The pipeline begins with a cached fetch of PD Russell source text via `scrapling-fetch`, then routes each candidate through `sentinel.py` (six deterministic checks) before handing verified passages to `cross_check.py`. Candidates that pass the blind verifier enter an audit sample; only then does the operator gate fire.
 
@@ -668,7 +663,7 @@ Inline `<!-- lint-disable: <rule>[, <rule>] reason=<short> -->` comments mark le
 
 ### The book workspace
 
-A workspace is a directory. Eight subtrees, four append-only ledgers, one RDF graph: cloning the directory clones the book.
+A workspace is a directory. Ten subtrees, four append-only ledgers, one RDF graph: cloning the directory clones the book.
 
 ```mermaid
 graph TD

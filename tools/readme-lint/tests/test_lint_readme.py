@@ -4,6 +4,7 @@ from scripts.lint_readme import (
     SectionLintResult,
     lint_section,
     parse_readme,
+    parse_single_section,
     run_full_lint,
 )
 
@@ -75,3 +76,41 @@ def test_run_full_lint_returns_per_section_results(tmp_path: Path):
     results, exit_code = run_full_lint(readme)
     assert len(results) == 1
     assert exit_code == 0
+
+
+from scripts.lint_readme import parse_single_section
+
+
+def test_parse_single_section_finds_by_substring():
+    sample = (
+        "## Setting up\n\n"
+        "no voice here\n\n"
+        "## The fingerprint problem\n\n"
+        "<!-- voice: polemic -->\n\n"
+        "This is the fingerprint body.\n"
+    )
+    section = parse_single_section(sample, "fingerprint")
+    assert section.heading == "The fingerprint problem"
+    assert section.voice == "polemic"
+    assert "This is the fingerprint body." in section.body
+
+
+def test_parse_single_section_no_match_raises_lookup_error():
+    import pytest
+    sample = "## Setting up\n\nbody\n"
+    with pytest.raises(LookupError, match="no_such_section"):
+        parse_single_section(sample, "no_such_section")
+
+
+def test_parse_single_section_ignores_other_sections_missing_voice():
+    sample = (
+        "## Setting up\n\n"
+        "no voice here, would crash parse_readme\n\n"
+        "## Tools\n\n"
+        "<!-- voice: technical-exposition -->\n\n"
+        "body\n\n"
+        "## License\n\n"
+        "also no voice\n"
+    )
+    section = parse_single_section(sample, "tools")
+    assert section.heading == "Tools"

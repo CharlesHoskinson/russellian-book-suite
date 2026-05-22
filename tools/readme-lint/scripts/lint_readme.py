@@ -153,6 +153,40 @@ def parse_readme(text: str) -> list[Section]:
     return sections
 
 
+def parse_single_section(text: str, section_substring: str) -> Section:
+    """Parse just one section by H2-heading substring match. Returns the matched section.
+
+    Used by the CLI's --section flag so an incremental rewrite can lint a single section
+    without requiring every other section to have a voice declaration yet.
+
+    Raises:
+        LookupError: no H2 heading contained the substring (case-insensitive).
+        ValueError: the matched section is missing a voice declaration.
+    """
+    needle = section_substring.lower()
+    lines = text.splitlines()
+    target_start = None
+    target_heading = None
+    for i, line in enumerate(lines):
+        if line.startswith("## ") and needle in line[3:].lower():
+            target_start = i
+            target_heading = line[3:].strip()
+            break
+    if target_start is None:
+        raise LookupError(f"No H2 heading matched substring {section_substring!r}")
+    # Find the next H2 (or EOF)
+    target_end = len(lines)
+    for j in range(target_start + 1, len(lines)):
+        if lines[j].startswith("## "):
+            target_end = j
+            break
+    single_section_text = "\n".join(lines[target_start:target_end]) + "\n"
+    sections = parse_readme(single_section_text)
+    if not sections:
+        raise ValueError(f"Section {target_heading!r} parsed but produced no body")
+    return sections[0]
+
+
 def lint_section(section: Section) -> SectionLintResult:
     """Run lint_fragment with all 17 rules; filter out ignored rules; classify."""
     issues = _lint_fragment(section.body, linters=ALL_17_RULES)
@@ -191,13 +225,22 @@ def main() -> int:
     parser.add_argument("--readme", type=Path, default=_REPO_ROOT / "README.md",
                         help="Path to README.md (default: repo root)")
     parser.add_argument("--section", type=str, default=None,
-                        help="Limit to a single section by heading (case-insensitive substring)")
+                        help="Limit to a single section by heading (case-insensitive substring). When supplied, only that section is parsed; missing voice declarations in other sections are ignored.")
     args = parser.parse_args()
-    results, exit_code = run_full_lint(args.readme)
     if args.section:
-        needle = args.section.lower()
-        results = [r for r in results if needle in r.section.heading.lower()]
-        exit_code = 0 if all(r.passes for r in results) else 1
+        text = args.readme.read_text(encoding="utf-8")
+        try:
+            section = parse_single_section(text, args.section)
+        except LookupError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+        except ValueError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+        result = lint_section(section)
+        _print_results([result])
+        return 0 if result.passes else 1
+    results, exit_code = run_full_lint(args.readme)
     _print_results(results)
     return exit_code
 

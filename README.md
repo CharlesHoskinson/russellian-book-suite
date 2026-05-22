@@ -74,9 +74,15 @@ Engineers who want to understand how the skills compose, what the dependency con
 
 ## The fingerprint problem
 
+<!-- voice: polemic -->
+
 Hosted AI prose tools leave a recognisable signature that any trained reader identifies within the first paragraph. Sentences average eighteen words [Hugging Face Prose Survey, 2024]. Paragraphs cluster in threes. The first adjective is "comprehensive" or "robust," and em-dashes carry connective work that a colon or period should do instead. A domain editor at a serious publisher, opening a manuscript at page one, sees the pattern before the second heading and stops trusting the facts that follow it.
 
-Separate stages defeat the pattern. Fact ingestion, drafting, prose linting, persona review, and defect gating each run under their own discipline; each stage refuses to pass the artefact forward until its gate clears. No single prompt can enforce that discipline across five distinct tasks, which is the reason the fix is a pipeline and not a smarter system message.
+The fingerprint is not a stylistic accident; it is the compression artefact of asking one writer to perform five separate jobs in one pass. A hosted assistant retrieves facts, verifies the claims those facts support, composes the prose that frames them, exercises the editorial judgement that decides what to cut, and runs the defect sweep that catches the residue — all inside a single attention budget paying out a single token stream. A competent publishing house would never ask one reader to do all five. It would assign five. The fingerprint is what the one reader leaves behind when forced to do the work of five.
+
+Name the jobs and the conflations name themselves. Fact retrieval pulled into composition produces prose that bends the source to fit the cadence. Claim verification folded into drafting produces sentences that gesture at evidence the writer has not actually checked. Prose composition supervising its own editorial judgement produces the writer who is also their own copy-editor, and that writer catches roughly half of what a separate copy-editor catches — the half whose detection does not require killing a sentence the writer is fond of. Defect detection bolted onto the same pass produces the model that signs off on its own output, which is the model that signs off on anything. The fingerprint is what readers see when one voice tries to be five separate voices and fails at four of them.
+
+The suite is the implementation of the fix. It separates the five jobs into five pipeline stages, each owned by a distinct skill, each guarded by a distinct refusal-criterion that the artefact must satisfy before the next stage will accept it. The pipeline is not a smarter system message; it is the recognition that the problem is structural, not parametric — that you cannot prompt your way past an attention budget you do not have. Where hosted tools leave a fingerprint a domain editor identifies in the first paragraph, the suite produces prose an editor reads to the end without that recognition firing, because the fingerprint had five separate gates between the source and the page, and any one of them would have rejected the artefact that hosted tools ship.
 
 ## The three tiers
 

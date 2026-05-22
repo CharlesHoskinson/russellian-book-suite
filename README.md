@@ -636,75 +636,42 @@ The operator gate mirrors the corpus tool: a blocking stdin prompt fires after t
 Inline `<!-- lint-disable: <rule>[, <rule>] reason=<short> -->` comments mark legitimate exemptions. The Bermuda narrative section, for example, uses concession-marker constructions that would trigger `staccato-paragraph-run` under `technical-exposition` rules; the disable comment marks that usage as intentional, not drift.
 
 ## Core concepts
+<!-- voice: technical-exposition -->
 
 ### The book workspace
 
 A workspace is a directory. Eight subtrees, four append-only ledgers, one RDF graph: cloning the directory clones the book.
 
-```
-<workspace>/
-├── CLAUDE.md                # workspace marker; book-id and style profile
-├── raw/                     # book-knowledge owns; immutable source corpus
-│   ├── pdf/
-│   ├── markdown/
-│   └── manifests/           # one source-manifest.json per source
-├── wiki/                    # book-knowledge owns; append-only synthesis pages
-│   ├── index.md
-│   ├── log.md
-│   ├── current-status.md
-│   ├── sources/  concepts/  entities/  chapters/
-├── claims/                  # book-knowledge owns; append-only claim ledger
-│   ├── ledger.jsonl                     # claim records + state-transition records
-│   │                                    # (n.b. transitions live here in v6;
-│   │                                    #  events.jsonl below is reserved for a
-│   │                                    #  future split-out — not yet in use)
-│   ├── counter-claims.jsonl
-│   ├── conflicts.jsonl                  # (created on first conflict)
-│   ├── events.jsonl                     # (reserved; transition log split planned)
-│   ├── proposed-transitions.jsonl
-│   ├── snapshots/
-│   └── address-checks/                  # (created on first counter-claim
-│                                        #  address check; absent in bermuda v6)
-├── graph/                   # book-knowledge owns; projected RDF dataset
-│   ├── dataset.trig                     # the projected graph
-│   └── reports/                         # SHACL reports, competency-query results
-│                                        # (SHACL shapes ship with the skill at
-│                                        #  skills/book-knowledge/assets/shapes.ttl
-│                                        #  and are referenced at validate-time)
-├── chapters/                # book-compose owns
-│   ├── contracts/           # chapter-NN.yaml
-│   ├── drafts/              # chapter-NN/{outline.md, draft.md, panel-review.md, verdict.json}
-│   └── releases/            # chapter-NN-vX.Y/{draft.md, manifest.yaml, ...}
-├── book/                    # book-compose owns; book-level release bundles
-│   ├── preflight/
-│   └── releases/<version>/
-│       ├── manuscript.md
-│       ├── manuscript.html
-│       ├── manuscript.pdf
-│       ├── book-manifest.yaml
-│       └── chapter-bundles/
-├── qa/                      # book-qa owns
-│   ├── lint-findings.json
-│   ├── swarm-findings.json
-│   ├── chapter-tickets/
-│   ├── ledger-writeback-<version>.md
-│   └── panels/                          # optional per-workspace panel overrides
-│                                        # (resolved by book-compose's wrapper at
-│                                        #  scripts/persona_review_pass.py:_resolve_panel_path;
-│                                        #  absent in bermuda v6, which uses the
-│                                        #  shipped chapter-default.yaml)
-├── thesis/                  # book-thesis owns
-│   ├── <book-id>.yaml
-│   └── schema.yaml
-├── syntopical/              # syntopical-metabook owns; world-model layer
-│   ├── config.yaml
-│   ├── topic-map.md
-│   ├── disputed-questions/
-│   ├── concepts/
-│   ├── lenses/
-│   ├── reports/
-│   └── acquisition/
-└── reports/                 # cross-skill release reports
+```mermaid
+graph TD
+    ws[(workspace/)]
+    ws --> claude[CLAUDE.md<br/>workspace marker]
+    ws --> raw["raw/<br/>book-knowledge owns"]
+    ws --> wiki["wiki/<br/>book-knowledge owns"]
+    ws --> claims["claims/<br/>book-knowledge owns"]
+    ws --> graph["graph/<br/>book-knowledge owns"]
+    ws --> chapters["chapters/<br/>book-compose owns"]
+    ws --> book["book/<br/>book-compose owns"]
+    ws --> qa["qa/<br/>book-qa owns"]
+    ws --> thesis["thesis/<br/>book-thesis owns"]
+    ws --> syntopical["syntopical/<br/>syntopical-metabook owns"]
+    ws --> reports["reports/<br/>cross-skill release reports"]
+    
+    raw --> raw_pdf[pdf/]
+    raw --> raw_md[markdown/]
+    raw --> raw_man[manifests/]
+    
+    claims --> claims_ledger[ledger.jsonl<br/>append-only]
+    claims --> claims_cc[counter-claims.jsonl]
+    claims --> claims_ev[events.jsonl]
+    claims --> claims_pt[proposed-transitions.jsonl]
+    
+    chapters --> ch_con[contracts/]
+    chapters --> ch_dr[drafts/]
+    chapters --> ch_rel[releases/]
+    
+    book --> book_pre[preflight/]
+    book --> book_rel[releases/<version>/]
 ```
 
 Five ownership invariants hold by skill contract and by test. `book-knowledge` is the only writer of `raw/`, `wiki/`, `claims/`, `graph/`. `book-compose` is the only writer of `chapters/` and `book/`. `book-qa` is the only writer of `qa/`. `book-thesis` is the only writer of `thesis/`. `syntopical-metabook` is the only writer of `syntopical/`, and its CI plugin enforces this by failing any test that opens a write handle on the other four subtrees. The SHACL shapes file (`shapes.ttl`) and the JSON Schema for the source manifest stay in lockstep: an off-by-one in the status enum would break both gates silently, so the test suite checks that the SHACL `sh:in` list and the JSON Schema enum match exactly.
@@ -717,36 +684,39 @@ The ledger is an append-only JSONL log. Each line is either a new claim or a sta
 
 The status field follows a five-state machine. New claims arrive `proposed`. `verify_claim.py` promotes a proposed claim to `verified` once it cross-checks the locator text against the source span. `detect_conflicts.py` flips a verified claim to `disputed` when it finds an antonym-pair contradiction; if a later ingest resolves the contradiction, the claim returns to `verified`. A newer source can supersede an older claim about the same triple, sending the older one to `superseded`. When post-build QA finds a verified claim that a later source contradicts, the write-back proposes a transition to `refuted`. Both `superseded` and `refuted` are terminal.
 
-```
-                   ┌─────────────┐
-                   │  proposed   │
-                   └──────┬──────┘
-                          │ verify_claim.py
-                          ▼
-                   ┌─────────────┐
-            ┌─────▶│  verified   │◀──── resolution restores verified
-            │      └──────┬──────┘     │
-            │             │ detect_conflicts.py
-            │             ▼            │
-            │      ┌─────────────┐     │
-            │      │  disputed   │─────┘
-            │      └──────┬──────┘
-            │             │
-            │      ┌──────┴───────┐
-            │      ▼              ▼
-            │ newer claim      refuting source
-            │ arrives          arrives
-            │      │              │
-            │      ▼              ▼
-            │ ┌─────────────┐  ┌─────────────┐
-            └─│ superseded  │  │   refuted   │
-              │ (terminal)  │  │ (terminal)  │
-              └─────────────┘  └─────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> proposed: ingest_pdf
+    proposed --> verified: verify_claim.py<br/>(locator match)
+    verified --> disputed: detect_conflicts.py<br/>(antonym pair)
+    disputed --> verified: resolution
+    verified --> superseded: newer source<br/>same triple
+    verified --> refuted: book-qa post-build<br/>writeback
+    superseded --> [*]
+    refuted --> [*]
 ```
 
 Every claim carries PROV-O provenance: which source, which extractor, which version, when. A SHACL violation surfaces as a warning at ingest time and as a hard fail at the release gate.
 
-Bayesian belief propagation, added in Bundle C, reads the ledger plus the conflict log and writes a posterior probability to each claim, conditioned on its supporting and refuting evidence. Claims dropping below a configurable floor receive a `pin_low_confidence` axiom and surface in the `posterior-floor` competency query — a SPARQL query that asks which claims the ledger accepted with insufficient evidence. Bundle C also introduced abductive counter-claim generation: given a load-bearing claim, the system synthesises a plausible rival hypothesis and writes it to `counter-claims.jsonl`. Any chapter whose contract references the original claim must address the rival before its release gate passes.
+### Bayesian belief propagation
+
+Belief propagation runs a Bayesian damping pass over the provenance DAG so a single source cannot double-count by appearing twice in the witness chain. `propagate_belief.py` iterates up to 20 rounds, converging at delta less than 10⁻⁴. Open counter-claims damp the posterior by ×0.95 per round; addressed counter-claims by ×0.85; dismissed counter-claims do not damp. Posteriors clamp to [0.05, 0.95] so no claim becomes either an unfalsifiable axiom or an unredeemable falsehood. The propagation writes timestamped snapshots to `claims/snapshots/` and appends `p_posterior` records to the ledger; it is advisory, not blocking, and feeds the defeasible competency queries that the preflight does block on.
+
+### Closed-loop ledger writeback
+
+The Bundle C closed-loop ledger lets a defect surfaced at the release stage correct the underlying facts for the next run. The data flow:
+
+```mermaid
+graph LR
+    qa[book-qa<br/>release gate] --> proposed[(proposed-transitions.jsonl)]
+    proposed --> apply[book-knowledge.apply_writeback]
+    apply --> ledger[(claims/ledger.jsonl)]
+    apply --> events[(claims/events.jsonl)]
+    ledger --> preflight[next chapter preflight<br/>SHACL + competency queries]
+    preflight --> qa
+```
+
+`apply_writeback` is the only mutator of `claims/` outside book-knowledge's own ingest path; it lives in book-knowledge to preserve the ledger-ownership invariant. The writeback transitions a verified claim to `refuted` (post-QA evidence against it) or `superseded` (a newer source addressing the same triple). The next chapter's preflight runs against the corrected state, and the SHACL gate rejects any chapter that still cites the refuted claim.
 
 ### Russellian prose discipline
 

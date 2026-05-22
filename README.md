@@ -124,39 +124,29 @@ Tier 3 ships disabled in every default configuration. The verifier scaffold requ
 
 ## The pipeline
 
-The pipeline is sequential within each tier: stage N reads stage N-1's outputs and writes its own, and no stage reaches backwards. Tier 1 produces the acquisition manifest and the world-model slice; Tier 2 consumes both and drives a chapter contract through claim extraction, thesis validation, drafting, persona review, and release gating; Tier 3 sits outside the default path, activated by setting `enable_verification: true` in `qa-config.yaml`.
+<!-- voice: technical-exposition -->
 
-Two side-arrows and a feed-back path close the loop. Persona findings can return a chapter to drafting before a release clears its gate. Post-build QA can write back to the claim ledger, so a defect surfaced at the release stage corrects the underlying facts for the next run. The syntopical layer has its own cycle: Gap Report appends uncovered thesis-node statements to `acquisition/pending-seeds.txt`, seeding the next Acquire run and tightening coverage before the following draft begins.
+The pipeline is sequential within each tier: stage N reads stage N-1's outputs and writes its own, and no stage reaches backwards. Tier 1 produces the acquisition manifest and the world-model slice. Tier 2 consumes both and drives a chapter contract through claim extraction, thesis validation, drafting, persona review, and release gating. Tier 3 sits outside the default path, activated by setting `enable_verification: true` in the workspace `qa-config.yaml`.
 
-```
-   sources, papers (PDFs · papers · URLs)
-        │
-        ▼
-┌────────────────────────────────────────────┐
-│   Tier 1                                   │  scrapling-fetch · syntopical-metabook
-│   acquisition + world model                │  (sibling_skills loader · booklogic veto)
-└────────┬───────────────────────────────────┘
-         │ syntopical/lenses/*.md
-         ▼
-┌────────────────────────────────────────────┐
-│   Tier 2                                   │  book-knowledge → book-thesis → book-compose
-│   drafting pipeline                        │  ↕ russellian-style · book-review · review-conductor
-│                                            │  ↓ book-qa (D1-D12 · C1-C15)
-└────────┬───────────────────────────────────┘
-         │ manuscript.md · manuscript.html · manuscript.pdf
-         ▼
-   release bundle
+```mermaid
+graph TD
+    sources[sources, papers<br/>PDFs · papers · URLs]
+    sources --> tier1[Tier 1<br/>acquisition + world model]
+    tier1 -->|syntopical/lenses/*.md| tier2[Tier 2<br/>drafting pipeline]
+    tier2 -->|manuscript.md · .html · .pdf| release[release bundle]
+    tier2 -. enable_verification=true .-> tier3[Tier 3<br/>optional verification]
+    tier3 -. D13 defects .-> tier2
 
-   ┌─ optional ─┐
-   │  Tier 3    │  neurosym-forge → verifier project → D13 defects (claim-set-unsatisfiable)
-   └────────────┘
+    bookqa[book-qa] -. proposed-transitions.jsonl .-> tier1
+    review[review-conductor] -. verdict.json .-> tier2
+    syntopical[syntopical-metabook] -. pending-seeds.txt .-> tier1
 ```
 
-```
-book-qa  ─→  proposed-transitions.jsonl  ─→  book-knowledge.apply_writeback
-review-conductor  ─→  verdict.json  ─→  book-compose (redraft if soft-gate-fail)
-syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  next Acquire run
-```
+`review-conductor` aggregates the seven-persona panel's findings into `verdict.json`. When any gating persona issues a critical finding, the verdict is `soft-gate-fail` and the chapter returns to `book-compose` for a redraft before the release stage can run. Soft-gate-fail is the suite's name for "the section linted clean but a reader who matters would not have trusted it."
+
+`book-qa` runs after `book-compose.build_book` writes the release bundle. Defects whose root cause is a claim-state error — a verified claim that a later source refutes, a counter-claim that the chapter failed to address — become rows in `claims/proposed-transitions.jsonl`. `book-knowledge.apply_writeback` is the only consumer of that file; it transitions the ledger and the next chapter's preflight runs against the corrected state. A defect surfaced at the release stage corrects the underlying facts for the next run.
+
+`syntopical-metabook` writes a Gap Report after each Synthesize pass: every thesis-tree node whose coverage falls below the contract threshold gets a row in `syntopical/acquisition/pending-seeds.txt`. The next Acquire run reads that file as its seed set, traverses the citation graph from there, and tightens coverage on the under-covered nodes before the following draft begins.
 
 ## The skills
 

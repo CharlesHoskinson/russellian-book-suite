@@ -150,6 +150,8 @@ graph TD
 
 ## The skills
 
+<!-- voice: technical-exposition -->
+
 ### Tier 1 — Acquisition + world model
 
 <details>
@@ -173,12 +175,12 @@ The skill takes a URL or arXiv ID, a fetch mode, and optional per-call rate-limi
 # From a skill that has sibling_skills installed in its venv:
 from sibling_skills import load_skill_api
 sf = load_skill_api("scrapling-fetch", expected_major=0)
-record = sf.fetch_arxiv("2310.04673")
+record = sf.arxiv.get("2310.04673")
 print(record.title)
 # → "Lossless LLM Compression via Quantization-Aware Pruning"
 ```
 
-`fetch_arxiv` dispatches to the `arxiv` adapter, which parses the abstract page at `arxiv.org/abs/2310.04673`, returns a `PaperRecord` with `title`, `authors`, `abstract`, and `year` populated, and writes the raw HTML to the on-disk cache. The skill downloads no PDF unless the caller also calls `download_pdf`. Rate limiting fires automatically; a second call to the same URL within the TTL window returns from cache without opening a socket.
+`arxiv.get` dispatches to the `arxiv` adapter, which parses the abstract page at `arxiv.org/abs/2310.04673`, returns an `ArxivPaper` with `title`, `authors`, `abstract`, and `year` populated, and writes the raw HTML to the on-disk cache. The skill downloads no PDF unless the caller also calls `download_pdf`. Rate limiting fires automatically; a second call to the same URL within the TTL window returns from cache without opening a socket.
 
 **Where to dive deeper.**
 - `skills/scrapling-fetch/SKILL.md`
@@ -207,22 +209,21 @@ The metabook reads `raw/`, `wiki/`, `claims/`, `graph/`, and `chapters/<id>/cont
 ```bash
 # User intent: "set up the world model for chapter 3 and project a lens"
 # Assumes contract.yaml exists at chapters/ch-03/contract.yaml
+# The four sub-workflows (Acquire, Synthesize, Project Lens, Gap Report) run as scripts:
 
-from sibling_skills import load_skill_api
-sm = load_skill_api("syntopical-metabook", expected_major=0)
-workspace = "/path/to/my-book"
-
-sm.acquire(workspace, chapter_id="ch-03")
+python -m scripts.acquire.download_and_ingest /path/to/my-book ch-03
 # → syntopical/acquisition/manifest.jsonl updated; PDFs in syntopical/acquisition/incoming/
 
-sm.synthesize(workspace)
+python -m scripts.synthesize.topic_map /path/to/my-book
 # → syntopical/topic-map.md, disputed-questions/*.md, concepts/*.md
 
-sm.project_lens(workspace, chapter_id="ch-03")
+python -m scripts.lens.project_lens /path/to/my-book ch-03
 # → syntopical/lenses/ch-03.md
 ```
 
 `book-compose` reads `syntopical/lenses/ch-03.md` before drafting. The lens is a tag-filtered slice of the topic map carrying a YAML frontmatter block with the coverage score. If the score is below the contract threshold, Gap Report will have already written the uncovered nodes to `pending-seeds.txt`; the next Acquire run picks them up automatically.
+
+`skill_api.py` (v0.2) exports the governance layer: `build_positions`, `render_per_rule`, `render_consensus_map`, `render_adversarial`, `governance_filter`, `GateDecision`. The four-sub-workflow Python API is scheduled for v0.3.
 
 **Where to dive deeper.**
 - `skills/syntopical-metabook/SKILL.md`
@@ -409,7 +410,7 @@ python scripts/lint_supports.py my-workspace v0.1
 <details>
 <summary><strong>russellian-style</strong> — generation contract first, checker second</summary>
 
-**What it does.** The skill is a generation contract first, a checker second. The contract runs before prose exists: three mode-keyed system prompts live at `assets/system-prompts/technical-exposition.md`, `assets/system-prompts/narrative-editorial.md`, and `assets/system-prompts/polemic.md`. `system_prompt_loader.load(mode)` reads the matching file and returns it as the LLM system message, conditioning the writer to the Russellian structural mandates before drafting begins. Those mandates hold four requirements: vary sentence length deliberately, with at least one sentence under ten words and at least one exceeding twenty-five per screen; favour compound-complex sentences with short declarative beats; open paragraphs with the conclusion the paragraph will earn; end paragraphs by changing argumentative pressure, not by restating what the paragraph just said. The checker side — twelve linter modules emitting seventeen rule names — audits prose already in existence. Six modules emit gating rules: `lint_hedges.py` covering `no-hedging`, `lint_passive_voice.py` covering `active-voice`, `lint_signal_density.py` covering `signal-density`, `lint_parallel_structure.py` covering `parallel-structure`, `lint_listicle_abstract.py` covering `listicle-abstract` and `listicle-anaphora`, and `lint_sentence_rhythm.py` covering `rhythm-uniform-length` and `rhythm-repeated-opening`. Six modules emit advisory rules: `lint_ai_staccato.py` covering `staccato-paragraph-run` and three variant patterns, `lint_ai_vocabulary.py` covering `ai-vocabulary`, `lint_burstiness.py` covering `burstiness`, `lint_concrete_instance_density.py` covering `concrete-instance-density`, `lint_epistemic_precision.py` covering `epistemic-precision`, and `lint_paragraph_motion.py` covering `paragraph-motion`. The `humanizer` sibling skill extends the checker with a 24-pattern Wikipedia catalog of AI writing tells when installed.
+**What it does.** The skill is a generation contract first, a checker second. The contract runs before prose exists: three mode-keyed system prompts live at `assets/system-prompts/technical-exposition.md`, `assets/system-prompts/narrative-editorial.md`, and `assets/system-prompts/polemic.md`. `system_prompt_loader.load(mode)` reads the matching file and returns it as the LLM system message, conditioning the writer to the Russellian structural mandates before drafting begins. Those mandates hold four requirements: vary sentence length deliberately, with at least one sentence under ten words and at least one exceeding twenty-five per screen; favour compound-complex sentences with short declarative beats; open paragraphs with the conclusion the paragraph will earn; end paragraphs by changing argumentative pressure, not by restating what the paragraph just said. The checker side — twelve linter modules emitting seventeen rule names — audits prose already in existence. Eight modules emit the ten default (gating) rules: `lint_hedges.py` covering `no-hedging`, `lint_passive_voice.py` covering `active-voice`, `lint_signal_density.py` covering `signal-density`, `lint_parallel_structure.py` covering `parallel-structure`, `lint_listicle_abstract.py` covering `listicle-abstract` and `listicle-anaphora`, `lint_sentence_rhythm.py` covering `rhythm-uniform-length` and `rhythm-repeated-opening`, `lint_burstiness.py` covering `burstiness`, and `lint_ai_vocabulary.py` covering `ai-vocabulary`. Four modules emit the seven advisory rules: `lint_ai_staccato.py` covering `staccato-paragraph-run` and three variant patterns (`negation-affirmation-template`, `this-is-conclusion-overuse`, `abstract-subject-run`), `lint_concrete_instance_density.py` covering `concrete-instance-density`, `lint_epistemic_precision.py` covering `epistemic-precision`, and `lint_paragraph_motion.py` covering `paragraph-motion`. The default `lint_fragment(text)` call runs the 10 gating rules; the other 7 advisory rules require explicit naming via `linters=[...]`. See §10 The QA grammar for the full registry. The `humanizer` sibling skill extends the checker with a 24-pattern Wikipedia catalog of AI writing tells when installed.
 
 **Inputs / outputs.** On the generation side, the skill loads one of three system-prompt Markdown files from `assets/system-prompts/` and returns its text as a string for the caller to pass to the LLM. On the linting side, it accepts a text fragment and a list of rule names, writes the text to a temporary Markdown file, runs the requested linters, and returns a list of `LintIssue` dataclasses — one per violation — carrying linter name, line, column, and a human-readable message. The output artefact for a full chapter pass is `style-pass-report.md`, which records per-rule findings, a `vitality_metrics` block, and corpus anchors when vitality linters fire.
 
@@ -433,7 +434,7 @@ fixed = "Hedges and passive constructions both erode signal density."
 assert lint_fragment(fixed, linters=["no-hedging", "active-voice"]) == []
 ```
 
-The first draft triggers `active-voice` on the passive construction; the rewrite commits to a direct claim and clears both rules. The same cycle — run, read, rewrite, re-run — applies to all six gating rules until zero violations remain.
+The first draft triggers `active-voice` on the passive construction; the rewrite commits to a direct claim and clears both rules. The same cycle — run, read, rewrite, re-run — applies to all ten gating rules until zero violations remain.
 
 **Where to dive deeper.**
 - `skills/russellian-style/SKILL.md`
@@ -504,7 +505,7 @@ Expected output: `redraft True`. Gottlieb found one `critical` AI-sloppy pattern
 
 **What it does.** Every artefact that `book-compose.build_book` produces enters this gate before it ships. The gate runs four stages. `lint_artifact.py` applies deterministic mechanical rules: eight D-class rules covering orphan citation tokens, raw Markdown bleed inside HTML, broken cross-references, heading hierarchy violations, count-contract failures, paragraph-length variance, CSS reset clobber, and asset 404s. `dispatch_chapter_qa.py` fires a swarm of fresh-context agents — ten per chapter — each checking one chapter against all fifteen C-class editorial dimensions, returning JSON tickets only. The sentinel script aggregates D and C tickets into a single defect ledger, classifying each as critical, important, or minor. `healer.py` opens an isolated-context agent per defect class, proposes a minimal patch, and hands it back to the sentinel for verification; the sentinel confirms the original failing check now passes before writing the change. Three iterations is the maximum.
 
-**Inputs / outputs.** The skill reads a built artefact (the release directory that `build_book` writes), `checklists/house-style.yaml`, and an optional `qa-waivers.yaml` at the workspace root. Book-thesis contributes D9-D12 inputs: `qa/supports-defects.json` (D9, D12), `qa/datalog-defects.json` (D10), and `qa/entailment-results.json` (D11). With `enable_verification: true` set in `qa-config.yaml`, the gate reads `qa/verification-defects.json` for D13. Outputs are `qa/lint-findings.json` (D-class), `qa/swarm-findings.json` (C-class), `claims/proposed-transitions.jsonl`, and a `qa/ledger-writeback-<version>.md` summary for `book-knowledge`.
+**Inputs / outputs.** Public API: CLI only — `book-qa` has no `skill_api.py`. All entry points are scripts invoked directly. The skill reads a built artefact (the release directory that `build_book` writes), `checklists/house-style.yaml`, and an optional `qa-waivers.yaml` at the workspace root. Book-thesis contributes D9-D12 inputs: `qa/supports-defects.json` (D9, D12), `qa/datalog-defects.json` (D10), and `qa/entailment-results.json` (D11). With `enable_verification: true` set in `qa-config.yaml`, the gate reads `qa/verification-defects.json` for D13. Outputs are `qa/lint-findings.json` (D-class), `qa/swarm-findings.json` (C-class), `claims/proposed-transitions.jsonl`, and a `qa/ledger-writeback-<version>.md` summary for `book-knowledge`.
 
 **When to invoke.** Use after `book-compose.build_book` completes and before the release bundle ships. The `--qa` flag on `book-compose` skips this gate during iteration; remove the flag for release builds.
 

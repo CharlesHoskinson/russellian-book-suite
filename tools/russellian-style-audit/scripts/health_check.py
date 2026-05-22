@@ -230,3 +230,31 @@ def check_composes_with(*, consumers: list[str]) -> HealthCheckResult:
         status=status,
         evidence="; ".join(per_consumer),
     )
+
+
+def run_all_health_checks(
+    *,
+    fixtures_dir: Path,
+    consumers: list[str] | None = None,
+    tags: list[str] | None = None,
+    modes: list[str] | None = None,
+) -> list[HealthCheckResult]:
+    """Run all five health checks in order. Returns the result list.
+
+    The orchestrator does not raise on FAIL — the caller (run.py) inspects the list
+    and decides whether to halt before stage 4 of the audit pipeline.
+    """
+    consumers = consumers or ["book-compose", "book-review", "book-qa", "humanizer"]
+    tags = tags or ["antithesis", "concrete_example", "concession", "domain_contrast", "paragraph_turn"]
+    modes = modes or ["technical-exposition", "narrative-editorial", "polemic"]
+    return [
+        check_pytest_suite(),
+        check_api_smoke(
+            clean_path=fixtures_dir / "clean.md",
+            hedged_path=fixtures_dir / "hedged.md",
+            listicle_path=fixtures_dir / "listicle.md",
+        ),
+        check_composes_with(consumers=consumers),
+        check_corpus_retrieval(tags=tags),
+        check_system_prompts(modes=modes),
+    ]

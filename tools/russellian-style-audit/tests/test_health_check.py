@@ -73,3 +73,30 @@ def test_check_system_prompts_loads_all_three_modes():
     assert result.status in {"PASS", "FAIL"}
     for mode in ["technical-exposition", "narrative-editorial", "polemic"]:
         assert mode in result.evidence
+
+
+from scripts.health_check import run_all_health_checks
+
+
+def test_run_all_health_checks_returns_five_results():
+    results = run_all_health_checks(
+        fixtures_dir=FIXTURES,
+        consumers=["nonexistent-skill-xyz"],  # forces WARN row
+        tags=["antithesis"],
+        modes=["technical-exposition"],
+    )
+    assert len(results) == 5
+    names = {r.name for r in results}
+    assert names == {"pytest_suite", "api_smoke", "composes_with", "corpus_retrieval", "system_prompts"}
+
+
+def test_run_all_health_checks_observable_fail():
+    """A non-existent tag should produce a FAIL row for corpus_retrieval."""
+    results = run_all_health_checks(
+        fixtures_dir=FIXTURES,
+        consumers=["nonexistent-skill-xyz"],
+        tags=["nonexistent_tag_xyz_123"],
+        modes=["technical-exposition"],
+    )
+    cr = next(r for r in results if r.name == "corpus_retrieval")
+    assert cr.status == "FAIL"

@@ -1298,56 +1298,24 @@ The Python-side API call is the current architectural boundary. The proposed MCP
 
 ## End-to-end: the Bermuda manual
 
-The Bermuda workspace predates Tier 1. The metabook tier (Tier 1) adds an upstream acquisition stage — `scrapling-fetch` harvesting sources, `syntopical-metabook` building the world-model layer — which the Bermuda workspace did not exercise. What follows is a Tier 2 + Tier 3 end-to-end: ledger synthesis, chapter drafting, QA gate, and release. A separate follow-up example will demonstrate the acquisition stage once a workspace exists that runs `scrapling-fetch` and `syntopical-metabook` from a clean start.
+<!-- voice: narrative-editorial -->
+<!-- lint-disable: staccato-paragraph-run reason=scene-anchored short sentences are deliberate -->
 
-This pipeline produced a ten-chapter, ~28,000-word non-fiction book on contemporary Bermuda. The workspace at `examples/bermuda-manual/` is the proof.
+Charles opens `examples/bermuda-manual/` and finds a workspace whose work is already done. The release sits in `book/releases/6.0.0/manuscript.md`: ten chapters, twenty-eight thousand words on contemporary Bermuda, committed in May 2026. He did not write it. He is reading what his suite wrote.
 
-What "proof" means here requires a qualification. `tools/synthesize_bermuda_ledger.py` built the Bermuda ledger from a thesis YAML, not from an ingested PDF corpus. The thesis describes the argument structure; the tool produced a matching claim ledger, which the rest of the pipeline then drafted, reviewed, and shipped end-to-end. This validates the drafting → review → release chain on a real-shaped workload. `book-knowledge`'s own test suite exercises the PDF-ingest path, but no full Bermuda-scale build has yet run from PDF sources. A future release will rebuild the workspace from primary sources — Bermuda Government statistics, Department of Tourism reports, Association of Bermuda Insurers and Reinsurers (ABIR) data.
+He opens `book-manifest.yaml`. Two booleans declare the gates the manuscript cleared on its way out: `shacl_conforms: true`, `competency_clean: true`. The first says the projected RDF graph satisfies every shape in `shapes.ttl` — every claim carries a status from the five-state enum, every chapter section cites only verified claims, every required field holds a value. Eight competency queries returned zero rows for the second: no orphan wiki pages, no unsupported claims, no transitive contradictions, no posterior-floor violations, no open rebuttals against load-bearing claims. Both gates fired clean and the release-builder let the manuscript ship.
 
-What the v6.0.0 release contains:
+One further line in the manifest deserves the operator's careful attention. `sources_bibliography: [thesis]`. Not a corpus of PDFs. Not Bermuda Government statistics, not Department of Tourism reports, not the ABIR data tables. A single source named `thesis`, which points back to a YAML file in `thesis/` that lays out the argument structure of the book. From that YAML, `tools/synthesize_bermuda_ledger.py` produced the Bermuda claim ledger. Everything downstream — drafting, persona review, QA swarm, release — ran end-to-end against the synthesized ledger. Tier 1's acquisition chain (`scrapling-fetch` harvesting sources, `syntopical-metabook` building a world-model from primary documents) sat out this build.
 
-```
-examples/bermuda-manual/
-├── CLAUDE.md                          # workspace marker
-├── raw/manifests/thesis.json          # the synthesized source
-├── claims/                            # ledger (10 claims, 1 thesis source)
-├── graph/dataset.trig                 # projected RDF graph
-├── graph/reports/competency-*.md      # competency-query results (all clean)
-├── chapters/contracts/ch-01..10.yaml  # 10 chapter contracts
-├── book/releases/
-│   ├── 3.0.0/                         # earlier release for comparison
-│   └── 6.0.0/                         # current release
-│       ├── manuscript.md              # 10 chapters, ~28,000 words
-│       ├── manuscript.html            # React/Tailwind browser
-│       ├── manuscript.pdf             # Playwright render (cover/TOC only in v6.0.0; full-body PDF render is a known limitation)
-│       ├── claims-bibliography.jsonl  # one record per claim cited in the release
-│       ├── book-manifest.yaml
-│       ├── summary.json
-│       └── chapter-bundles/ch-01..10-v6/
-├── qa/                                # swarm findings, chapter tickets
-├── reports/                           # cross-version release reports
-└── thesis/                            # bermuda thesis YAML
-```
+The qualification matters. Charles is looking at proof that the gates fire — not proof that the gates fire on a workspace whose ingest the suite has never seen before. His ledger carries the shape of a real ledger: ten claims, posterior probabilities, counter-claim arrays, status enums, source spans. His chapter contracts carry the shape of real contracts: section headings, abstract seeds, word-count targets, supports_chapters arrays. Downstream of the ledger, nothing in the pipeline can tell that the source was synthetic; every stage processes the data as if a Tier 1 acquisition produced it. So what Charles sees here is the Tier 2 plus Tier 3 chain under genuine load — the gates exercised end-to-end against a ledger that obeys every contract a real ingest would have to obey.
 
-The v6.0.0 manifest declares the gate results:
+Open `manuscript.md` and read Chapter 1. The first paragraph puts the reader on Nonsuch Island at dusk in late October — fifteen acres of limestone, salt and dry-grass smell off Castle Harbour, a Bermuda petrel returning from sixty days at sea, dropping into a concrete burrow as no light shows. This prose is the suite's output. A drafting agent wrote it against the chapter contract; the persona panel reviewed it; the linters fired against the prose during drafting and again at release; the QA swarm read every paragraph for claim-coverage, rebuttal-coverage, counter-claim treatment. Earlier versions failed the gates. Version six cleared them.
 
-```yaml
-book_id: bermuda-manual
-built_at: '2026-05-13T01:22:49+00:00'
-title: Life in Bermuda
-version: 6.0.0
-chapters_included: [ch-01, …, ch-10]
-chapter_versions: {ch-01: v6, …, ch-10: v6}
-total_word_count: 36762                # counted on the assembled HTML;
-                                       # `wc -w` on the .md returns 28,018
-sources_bibliography:
-  - thesis
-shacl_conforms: true                   # graph validates against shapes.ttl
-competency_clean: true                 # all 8 competency queries return zero rows
-outputs: [manuscript.md, manuscript.html, manuscript.pdf]
-```
+Open `claims-bibliography.jsonl`. Each line carries one claim cited in the manuscript, with its canonical text, its posterior probability, its source spans, its counter-claim ids, and its supports_chapters array. The bibliography projects the ledger down to exactly the claims the release cites. Every footnote in the manuscript that points to a claim id resolves here; every claim here turns up at least once in the manuscript. By construction the mapping is bijective, and the release-builder refuses to ship if it isn't.
 
-`shacl_conforms: true` confirms the projected RDF graph validates against `shapes.ttl`. `competency_clean: true` means all eight competency queries return zero rows — no orphan wiki pages, no unsupported claims, no transitive contradictions, no posterior-floor violations, no open rebuttals against load-bearing claims. The distinction matters: a graph that passes structure checks can still fail a competency query if the manuscript cites a claim without provenance support. Both gates must pass.
+The workspace tree carries the rest of the story. `chapters/contracts/` holds the ten chapter contracts. `graph/dataset.trig` holds the projected RDF graph that the SHACL validator chewed through. `graph/reports/competency-*.md` holds the eight competency-query result tables, each with a zero-row body. `qa/` holds the swarm findings and the per-chapter tickets the earlier release iterations closed. `book/releases/` holds 3.0.0 alongside 6.0.0 — three release attempts the gates rejected, and the one they accepted. The history sits on disk; Charles can scroll through every version that did not ship.
+
+What the Bermuda manual proves is bounded and exact. It proves the SHACL shapes work; it proves the competency queries work; it proves the chapter contracts admit a real drafting workload; it proves the bibliography projection stays faithful to the manuscript; it proves the suite refuses to ship a release whose gates have not fired clean. What the manual does not yet prove is that the same gates fire correctly on a workspace built from PDF primary sources instead of a synthesized ledger. That validation belongs to the next example — the one that runs Tier 1 at Bermuda scale against ABIR data and government statistics the suite has never previously touched.
 
 ## Local-only constraint
 

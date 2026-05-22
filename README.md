@@ -51,6 +51,8 @@ Operators running the tools or auditing the suite should start at [Tools](#tools
 
 ## Reader questions
 
+<!-- voice: technical-exposition -->
+
 ### For authors
 
 <!-- lint-disable: listicle-abstract, listicle-anaphora reason=reader-questions index by design -->
@@ -66,6 +68,8 @@ Operators running the tools or auditing the suite should start at [Tools](#tools
 - **Q9.** What does Russell voice actually mean? Is this just no AI fluff? → [Russellian prose discipline](#russellian-prose-discipline)
 - **Q10.** Can I customise the linters or style rules? → [The skills](#the-skills)
 - **Q11.** The Bermuda example — where is it? How do I read it? → [End-to-end: the Bermuda manual](#end-to-end-the-bermuda-manual)
+- **Q26.** Where do I find the audit bundles when I want to see what the suite did to itself? → [Auditing the suite](#auditing-the-suite)
+- **Q27.** How do I lint a draft on demand without going through the full chapter pipeline? → [Quickstart](#quickstart)
 
 ### For engineers
 
@@ -82,6 +86,10 @@ Operators running the tools or auditing the suite should start at [Tools](#tools
 - **Q20.** How does the closed-loop ledger work, concretely? → [Bundle C: the closed-loop ledger](#bundle-c-the-closed-loop-ledger)
 - **Q21.** Releases — semantic versioning? → [Contributing](#contributing)
 - **Q22.** PR review style? Memory feedback files? OpenSpec change folders? → [Contributing](#contributing)
+- **Q28.** How do I run the corpus-expansion tool against a real LLM? → [Tools](#tools)
+- **Q29.** What does `make readme-lint` do, and when does it fire? → [Tools](#tools)
+- **Q30.** Where is the suite-wide review that found the 80+ checks? → [The QA grammar](#the-qa-grammar) · `docs/audits/2026-05-21-suite-wide-linter-review.md`
+- **Q31.** What changed since PR #121 added the corpus-expansion tool? → [Tools](#tools) · [Auditing the suite](#auditing-the-suite)
 
 ### For both
 
@@ -90,6 +98,7 @@ Operators running the tools or auditing the suite should start at [Tools](#tools
 - **Q23.** What's the relationship between this suite and Anthropic's Claude Code? → [For readers in a hurry](#for-readers-in-a-hurry)
 - **Q24.** What other tools are like this? How is this different? → [The fingerprint problem](#the-fingerprint-problem)
 - **Q25.** License — MIT? Are persona texts also MIT? → [License and acknowledgements](#license-and-acknowledgements)
+- **Q32.** What is the MCP-server refactor flagged in §13? Why is it open? → [Auditing the suite](#auditing-the-suite)
 
 ## The fingerprint problem
 

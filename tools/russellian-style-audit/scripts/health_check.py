@@ -119,6 +119,80 @@ def check_api_smoke(
     )
 
 
+def check_corpus_retrieval(*, tags: list[str]) -> HealthCheckResult:
+    """For each tag, verify the corpus index is loadable and the tag appears in at least one anchor."""
+    _scripts_dir = str(_RUSSELLIAN_STYLE_ROOT / "scripts")
+    try:
+        sys.path.insert(0, _scripts_dir)
+        try:
+            from retrieve_corpus_anchor import retrieve_anchor as _retrieve  # type: ignore  # noqa: F401
+        finally:
+            sys.path.pop(0)
+    except Exception as exc:
+        return HealthCheckResult(
+            name="corpus_retrieval",
+            status="FAIL",
+            evidence=f"cannot import retrieve_corpus_anchor: {exc}",
+        )
+    # Load the corpus index directly to check tag membership.
+    import json
+    corpus_index_path = _RUSSELLIAN_STYLE_ROOT / "assets" / "russell-corpus" / "index.json"
+    try:
+        index = json.loads(corpus_index_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return HealthCheckResult(
+            name="corpus_retrieval",
+            status="FAIL",
+            evidence=f"cannot load corpus index: {exc}",
+        )
+    per_tag: list[str] = []
+    all_ok = True
+    for tag in tags:
+        count = sum(1 for p in index.get("paragraphs", []) if tag in p.get("tags", []))
+        per_tag.append(f"{tag}={count}")
+        if count == 0:
+            all_ok = False
+    return HealthCheckResult(
+        name="corpus_retrieval",
+        status="PASS" if all_ok else "FAIL",
+        evidence="; ".join(per_tag),
+    )
+
+
+def check_system_prompts(*, modes: list[str]) -> HealthCheckResult:
+    """For each mode, call system_prompt_loader.load(mode) and confirm a non-empty string with the mandate header."""
+    _scripts_dir = str(_RUSSELLIAN_STYLE_ROOT / "scripts")
+    try:
+        sys.path.insert(0, _scripts_dir)
+        try:
+            from system_prompt_loader import load  # type: ignore
+        finally:
+            sys.path.pop(0)
+    except Exception as exc:
+        return HealthCheckResult(
+            name="system_prompts",
+            status="FAIL",
+            evidence=f"cannot import system_prompt_loader: {exc}",
+        )
+    per_mode: list[str] = []
+    all_ok = True
+    for mode in modes:
+        try:
+            text = load(mode)
+            has_mandate = "Structural mandates" in text
+            per_mode.append(f"{mode}={'PASS' if has_mandate else 'FAIL(no mandate header)'}")
+            if not has_mandate:
+                all_ok = False
+        except Exception as exc:
+            per_mode.append(f"{mode}=ERROR({exc.__class__.__name__})")
+            all_ok = False
+    return HealthCheckResult(
+        name="system_prompts",
+        status="PASS" if all_ok else "FAIL",
+        evidence="; ".join(per_mode),
+    )
+
+
 def check_composes_with(*, consumers: list[str]) -> HealthCheckResult:
     """For each consumer skill, run `python -c "from russellian_style.skill_api import lint_fragment, API_VERSION"`
     in that consumer's venv. Report per-consumer status and aggregate.

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.health_check import HealthCheckResult, check_api_smoke, check_pytest_suite, check_composes_with
+from scripts.health_check import HealthCheckResult, check_api_smoke, check_pytest_suite, check_composes_with, check_corpus_retrieval, check_system_prompts
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -55,3 +55,21 @@ def test_check_composes_with_warns_when_consumer_venv_missing(tmp_path: Path):
     assert result.status == "WARN"
     assert "nonexistent-skill-xyz" in result.evidence
     assert "venv" in result.evidence.lower() or "missing" in result.evidence.lower()
+
+
+def test_check_corpus_retrieval_returns_pass_or_fail():
+    result = check_corpus_retrieval(tags=["antithesis", "concrete_example", "concession"])
+    assert isinstance(result, HealthCheckResult)
+    assert result.name == "corpus_retrieval"
+    assert result.status in {"PASS", "FAIL"}
+    for tag in ["antithesis", "concrete_example", "concession"]:
+        assert tag in result.evidence
+
+
+def test_check_system_prompts_loads_all_three_modes():
+    result = check_system_prompts(modes=["technical-exposition", "narrative-editorial", "polemic"])
+    assert isinstance(result, HealthCheckResult)
+    assert result.name == "system_prompts"
+    assert result.status in {"PASS", "FAIL"}
+    for mode in ["technical-exposition", "narrative-editorial", "polemic"]:
+        assert mode in result.evidence

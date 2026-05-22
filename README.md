@@ -1384,6 +1384,7 @@ Which shape fits depends on whether the suite's primary invocation surface is op
 Future suite-wide audits update the status column of the recommendations table above in place. Each new audit bundle goes into `docs/audits/` following the bundle pattern; whoever runs it updates the two-audit summary above to point at the new most-recent pair. This section accumulates status changes, not descriptions of past states.
 
 ## Local-only constraint
+<!-- voice: technical-exposition -->
 
 No paid APIs. No telemetry. The suite routes every outbound HTTP call through `scrapling-fetch`: it is the single network boundary. Only `scrapling-fetch` imports `requests`, `httpx`, `urllib3`, `aiohttp`, or `playwright`; no other skill does. The `ci/.import-linter` contract enforces the rule; a PR that imports any of those libraries from a skill other than `scrapling-fetch` fails CI before tests run. Everything else in the pipeline runs local.
 
@@ -1398,6 +1399,8 @@ The full dependency stack:
 Image sources for visuals come from OpenStreetMap (under the Open Database Licence), Wikimedia Commons (Creative Commons licences), and programmatic charts generated from the claim ledger. No image fetch happens at runtime; assets ship with the workspace.
 
 LLM calls happen at three points in the pipeline: section drafting (`book-compose` calls a sibling skill or external agent for the first-pass prose), per-paragraph entailment (`book-thesis` Layer 3), and the per-chapter editorial swarm (`book-qa` Stage 2). Every call uses a callable parameter (`llm_call=`); tests pass fake LLM functions. No live network call runs in any test.
+
+One exception sits outside this constraint by design. The `live_llm.py` wrapper in `tools/build-russell-corpus/scripts/` calls the Anthropic API on the operator's authority. It runs only when an operator wires `ANTHROPIC_API_KEY` and invokes the corpus-expansion tool or the audit; the chapter pipeline never calls it. The exception is contained in `tools/`, not `skills/`, and the architectural follow-up flagged in §13 — the MCP-server refactor — would close the tension by routing the call through the active Claude Code session rather than a separate API credential.
 
 ## Repository layout
 

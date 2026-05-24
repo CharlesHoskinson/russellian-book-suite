@@ -1,5 +1,11 @@
 # Design: Custom Gemma 4 31B Fine-Tuning for Cardano Governance Book Skills
 
+> **Audit corrections (2026-05-24):** A 4-agent panel audit (see `panel-audit-2026-05-24.md`) found defects in this spec that are now corrected in the implementation plan (`docs/plans/2026-05-24-gemma4-fine-tuning.md`) and partially here:
+> - The pinned HF revision `8d2f7a93…` was a **phantom SHA** (HTTP 404, absent from commit history). Replaced inline with the verified `main` HEAD `fcf2302760ae9c6e528a8dbba9dd636e56848237`; reconcile against the Ollama GGUF provenance before training.
+> - Modelfile stop token corrected from the ChatML `<|im_end|>` to Gemma's `<end_of_turn>`.
+> - **REQ-007 / §2.3 ADAPTER directive is superseded by the plan:** Ollama's safetensors `ADAPTER` path does not support `gemma4`, and an NF4-trained adapter cannot be overlaid on the Q4_K_M GGUF. The plan uses `merge_and_unload()` → fp16 → GGUF convert → re-quantize instead.
+> - **§2.2 target modules:** the base is multimodal (`Gemma4ForConditionalGeneration`); the plan loads the language model only (`Gemma4ForCausalLM`) or scopes LoRA to `language_model.*` so adapters do not attach to the vision tower.
+
 This document describes the technical implementation plan for Curating the dataset, Fine-Tuning the model, Integrating it into Ollama, and Verifying output compliance.
 
 ## 1. Requirements (EARS Format)
@@ -17,7 +23,7 @@ The curation system shall use the 12 programmatic style linters in `russellian-s
 The curation system shall construct a DPO preference dataset of `(prompt, chosen, rejected)` triplets using lexicographical ranking where candidates are first gated by schema validity, completeness, and lack of training leakage before applying style-based ranking.
 
 ### REQ-LLM-TUNE-005 — Ubiquitous
-The training system shall run fine-tuning on the base model `google/gemma-4-31B-it` (pinned HF revision `8d2f7a9341498b3f27de10b50b503d289196b014`) using 4-bit NF4 double quantization, gradient checkpointing, batch size of 1, and LoRA targeting backbone layers to fit within 32GB VRAM.
+The training system shall run fine-tuning on the base model `google/gemma-4-31B-it` (pinned HF revision `fcf2302760ae9c6e528a8dbba9dd636e56848237`) using 4-bit NF4 double quantization, gradient checkpointing, batch size of 1, and LoRA targeting backbone layers to fit within 32GB VRAM.
 
 ### REQ-LLM-TUNE-006 — Ubiquitous
 The training system shall execute a two-stage pipeline: (1) SFT Warmup on a verified allow-list of Bertrand Russell Project Gutenberg texts, and (2) DPO preference alignment using the correctness-gated dataset.
@@ -33,7 +39,7 @@ The verification system shall run compliance tests validating reasoning block pa
 ## 2. Technical Details
 
 ### 2.1 Two-Stage Training Details
-1.  **Stage 1: SFT Warmup:** Fine-tune `google/gemma-4-31B-it` (pinned Hugging Face revision: `8d2f7a9341498b3f27de10b50b503d289196b014`) via Causal LM (1 epoch, LR $1 \times 10^{-5}$) on a compiled corpus of Bertrand Russell's public-domain works. The curation script must verify downloaded files against this checked allow-list:
+1.  **Stage 1: SFT Warmup:** Fine-tune `google/gemma-4-31B-it` (pinned Hugging Face revision: `fcf2302760ae9c6e528a8dbba9dd636e56848237`) via Causal LM (1 epoch, LR $1 \times 10^{-5}$) on a compiled corpus of Bertrand Russell's public-domain works. The curation script must verify downloaded files against this checked allow-list:
     *   *The Problems of Philosophy* (ID: 5827)
     *   *The Analysis of Mind* (ID: 2529)
     *   *Mysticism and Logic and Other Essays* (ID: 25447)
@@ -45,7 +51,7 @@ The verification system shall run compliance tests validating reasoning block pa
 2.  **Stage 2: DPO Alignment:** Train SFT-warmed weights using `trl.DPOTrainer` on prompt triplets generated at temperature $T=0.7$ and ranked by correctness-first gates (1 epoch, LR $5 \times 10^{-6}$, $\beta=0.06$). Reference logprobs are calculated by disabling the adapter to save memory.
 
 ### 2.2 PEFT & Quantization Configuration
-- **Base Model:** `google/gemma-4-31B-it` (pinned Hugging Face revision `8d2f7a9341498b3f27de10b50b503d289196b014`; must match the architecture, weights, and parameters of the local Ollama base `gemma4:31b` ID: `6316f0629137` / digest `sha256:6316f0629137d6e4cc7b9f87451006e98716b14249a5b6c8ba876bf7d848ccf4`)
+- **Base Model:** `google/gemma-4-31B-it` (pinned Hugging Face revision `fcf2302760ae9c6e528a8dbba9dd636e56848237`; must match the architecture, weights, and parameters of the local Ollama base `gemma4:31b` ID: `6316f0629137` / digest `sha256:6316f0629137d6e4cc7b9f87451006e98716b14249a5b6c8ba876bf7d848ccf4`)
 - **LoRA configuration:**
   - `r`: 64
   - `lora_alpha`: 128
@@ -62,7 +68,7 @@ The verification system shall run compliance tests validating reasoning block pa
   ADAPTER ./models/russellgpt-adapter
   PARAMETER num_ctx 4096
   PARAMETER temperature 0.4
-  PARAMETER stop "<|im_end|>"
+  PARAMETER stop "<end_of_turn>"
   SYSTEM "You are the custom-tuned Gemma 4 31B model (RussellGPT) for the Cardano Governance book suite..."
   ```
 

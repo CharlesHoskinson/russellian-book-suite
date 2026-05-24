@@ -10,7 +10,7 @@
 - [ ] 1.7 Add leakage checks across prompts, outputs, and ledgers; export train/val/test/acceptance split manifest to `dataset_dpo.jsonl` (REQ-LLM-TUNE-004)
 
 ## 2. Model Training Configuration
-- [ ] 2.1 Create training execution script `train_adapter.py` targeting base model `google/gemma-4-31B-it` (pinned HF revision `8d2f7a9341498b3f27de10b50b503d289196b014`) (REQ-LLM-TUNE-005)
+- [ ] 2.1 Create training execution script `train_adapter.py` targeting base model `google/gemma-4-31B-it` (pinned HF revision `fcf2302760ae9c6e528a8dbba9dd636e56848237`) (REQ-LLM-TUNE-005)
 - [ ] 2.2 Implement GPU/CUDA preflight assertions (CUDA availability, device capability, PyTorch CUDA build, bitsandbytes 4-bit load, and bf16 support) (REQ-LLM-TUNE-005)
 - [ ] 2.3 Implement pre-training VRAM eviction hooks (unload active Ollama models, poll `/api/ps`, assert free VRAM with `nvidia-smi`) (REQ-LLM-TUNE-005)
 - [ ] 2.4 Implement `--dry-run-memory-profile` preflight (asserts sequence length 4096 fits under 32GB VRAM using NF4 quant, gradient checkpointing, and `model_ref=None` sharing weights) (REQ-LLM-TUNE-005)

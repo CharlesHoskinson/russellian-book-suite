@@ -38,7 +38,7 @@ A Python script to curate the dataset: SFT warmup texts and DPO triplets.
 #### [NEW] [train_adapter.py](file:///C:/governance/llm-infra/scripts/train_adapter.py)
 Training execution pipeline supporting SFT Warmup and `DPOTrainer` (`trl` library) under 32GB VRAM.
 - **GPU Preflight Verification:** Asserts CUDA, `torch.cuda.get_device_capability()`, Blackwell/Ada capability, `bf16` support, and `bitsandbytes` 4-bit loading. Runs a 100-step VRAM profile to detect OOM/fallback and aborts if unsafe.
-- **Base Model Alignment Verification:** Asserts that the base model `google/gemma-4-31B-it` (pinned HF revision `8d2f7a9341498b3f27de10b50b503d289196b014`) maps model details (attention headers, dimensions, architecture) compatibly with the local Ollama model config before launching training.
+- **Base Model Alignment Verification:** Asserts that the base model `google/gemma-4-31B-it` (pinned HF revision `fcf2302760ae9c6e528a8dbba9dd636e56848237`) maps model details (attention headers, dimensions, architecture) compatibly with the local Ollama model config before launching training.
 - **Memory Optimization:**
   - `per_device_train_batch_size=1`
   - `gradient_accumulation_steps=8`

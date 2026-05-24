@@ -33,6 +33,7 @@ Capability slugs and their full capability names:
 | `QA-PIPE` | qa-defect-pipeline |
 | `VERIFIER-BUILD` | verifier-build |
 | `OSMOTIC` | osmotic-pressure-verifier |
+| `REVISE` | review-revise-validate |
 
 ## EARS patterns
 

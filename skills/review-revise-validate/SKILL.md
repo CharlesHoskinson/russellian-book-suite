@@ -22,6 +22,62 @@ Closed-loop chapter editor. Reads a chapter, runs the 7-persona panel, lets gemm
 - `personas/reviser.md` — the precision-editor persona
 - `assets/reviser-prompt-template.md` — slot template for the reviser dispatch
 
+## Usage
+
+### Full cycle on a chapter
+
+```
+cd c:/governance/russellian-book-suite/skills/review-revise-validate
+.venv/Scripts/python.exe -m scripts.run_cycle \
+    --chapter-id ch-01 \
+    --draft-path c:/governance/wiki/report/articles-of-cardano-governance.md \
+    --model gemma4:31b
+```
+
+Outputs land at `workspace/review-cycle/ch-01/<ISO-timestamp>/`:
+- `panel-before/persona-review-*.md` (7 files)
+- `panel-summary-before.md`
+- `revision-instructions.md`
+- `revisions.json` + `revisions-raw-response.md`
+- `revised-chapter.md`
+- `panel-after/persona-review-*.md` (7 files)
+- `panel-summary-after.md`
+- `cycle-report.md` ← read this first
+
+### Skip the revise step (panel + aggregate only)
+
+```
+.venv/Scripts/python.exe -m scripts.run_cycle \
+    --chapter-id ch-01 \
+    --draft-path PATH \
+    --skip-revise
+```
+
+### Skip re-validation (revise once but don't re-panel)
+
+```
+.venv/Scripts/python.exe -m scripts.run_cycle \
+    --chapter-id ch-01 \
+    --draft-path PATH \
+    --skip-revalidate
+```
+
+### Reading `cycle-report.md`
+
+- **`## ⚠ REGRESSION` at the top** — revision introduced new Critical findings. Reject revisions; refine the synthesis or persona prompt.
+- **`Critical | N | M | (-K)`** — K Critical findings resolved. If K > 0 and no regression block, the cycle moved the chapter forward.
+- **`Net interpretation`** — one-line summary.
+
+### Accepting revisions
+
+The cycle never modifies the source chapter. If `cycle-report.md` looks good:
+
+```
+cp workspace/review-cycle/ch-01/<ts>/revised-chapter.md c:/governance/wiki/report/articles-of-cardano-governance.md
+```
+
+(Or apply a portion manually by reading `revisions.json` and editing selectively.)
+
 ## See also
 
 - OpenSpec change: `openspec/changes/2026-05-24-review-revise-validate/`

@@ -71,3 +71,7 @@ The aggregator takes severity at face value. See `references/severity-rubric.md`
 ## Tests
 
 Five suites in `tests/`: `test_persona_loader`, `test_dispatch_review`, `test_aggregate_reviews`, `test_review_pass`, `test_sibling_skills`. Run `pytest` from the skill root. Synthetic reports in `tests/fixtures/synthetic_reviews/`.
+
+## See also
+
+- **`review-revise-validate`** — to take a panel's findings and drive a revision cycle through them, use the sibling `review-revise-validate` skill. It composes this skill's panel + aggregate with a gemma4:31b reviser persona, applies paragraph-level rewrites, re-runs the panel, and reports the before/after delta.

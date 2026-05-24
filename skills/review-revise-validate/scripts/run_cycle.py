@@ -58,6 +58,11 @@ def _stage1_panel(*, chapter_id: str, draft_path: Path, output_dir: Path, model:
     pattern-scanning personas). The cycle proceeds if at least
     MIN_PERSONAS_QUORUM persona artifacts were produced.
     """
+    # Resolve to absolute: subprocess runs with a different cwd, so a relative
+    # output_dir would land at the wrong location (and the post-run glob would
+    # find nothing).
+    output_dir = output_dir.resolve()
+    draft_path = draft_path.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         str(_book_review_python()), "-m", "scripts.review_pass",
@@ -84,6 +89,8 @@ def _stage1_panel(*, chapter_id: str, draft_path: Path, output_dir: Path, model:
 
 def _stage2_aggregate(*, panel_dir: Path, output_path: Path, chapter_id: str) -> None:
     """Stage 2: run book-review aggregate_reviews."""
+    panel_dir = panel_dir.resolve()
+    output_path = output_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         str(_book_review_python()), "-m", "scripts.aggregate_reviews",

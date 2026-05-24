@@ -22,7 +22,7 @@
 - [ ] 3.1 Write the custom Ollama `Modelfile` using the `ADAPTER` command (REQ-LLM-TUNE-007)
 - [ ] 3.2 Set parameter configs for context window (`num_ctx 8192`) and temperature (REQ-LLM-TUNE-007)
 - [ ] 3.3 Add default system prompts mapping to target task instructions (REQ-LLM-TUNE-007)
-- [ ] 3.4 Modify default model configurations in `adapter.py` to target the custom `gemma4-book` model (REQ-LLM-TUNE-007)
+- [ ] 3.4 Modify default model configurations in `adapter.py` to target the custom `russellgpt` model (REQ-LLM-TUNE-007)
 
 ## 4. Verification & Testing
 - [ ] 4.1 Write verification test script `verify_finetune.py` (REQ-LLM-TUNE-008)

@@ -56,7 +56,7 @@ The verification system shall run a mock chapter review using the custom model, 
 - **Trainer:** Hugging Face `trl.DPOTrainer` with context length capped at 4,096.
 
 ### 2.3 Ollama Modelfile
-- Model name: `gemma4-book`
+- Model name: `russellgpt`
 - Config details:
   ```dockerfile
   FROM gemma4:31b
@@ -64,6 +64,6 @@ The verification system shall run a mock chapter review using the custom model, 
   PARAMETER num_ctx 8192
   PARAMETER temperature 0.4
   PARAMETER stop "<|im_end|>"
-  SYSTEM "You are the custom-tuned Gemma 4 31B model for the Cardano Governance book suite..."
+  SYSTEM "You are the custom-tuned Gemma 4 31B model (RussellGPT) for the Cardano Governance book suite..."
   ```
 

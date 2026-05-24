@@ -1,7 +1,7 @@
 # Proposal: Custom Gemma 4 31B Fine-Tuning for Cardano Governance Book Skills
 
 ## Intent
-Align the local LLM dispatch path (`llm-infra`) with the high reasoning and quality standards of the Claude subagent dispatch path. By training a custom `gemma4-book` model using QLoRA fine-tuning on our local RTX 5090 GPU, we will improve the model's adherence to the Russellian academic style, ensure strict format validation (like YAML frontmatter and JSON-LD ledgers), reduce the input context footprint by hardcoding persona rules, and eliminate empty response and timeout errors.
+Align the local LLM dispatch path (`llm-infra`) with the high reasoning and quality standards of the Claude subagent dispatch path. By training a custom `russellgpt` model (**RussellGPT**) using QLoRA fine-tuning on our local RTX 5090 GPU, we will improve the model's adherence to the Russellian academic style, ensure strict format validation (like YAML frontmatter and JSON-LD ledgers), reduce the input context footprint by hardcoding persona rules, and eliminate empty response and timeout errors.
 
 ## Scope
 In scope:
@@ -9,7 +9,7 @@ In scope:
 - Synthesizing or generating high-quality `<think>...</think>` reasoning traces for historical run outputs.
 - Quantizing and fine-tuning `gemma-2-27b-it` using Hugging Face PEFT (LoRA) and TRL on native Windows PyTorch.
 - Packaging the fine-tuned adapter and loading it directly in Ollama using a custom `Modelfile` with the `ADAPTER` command.
-- Modifying `adapter.py` to route calls through the new `gemma4-book` model by default.
+- Modifying `adapter.py` to route calls through the new `russellgpt` model by default.
 - Building a verification suite (`verify_finetune.py`) to test reasoning block outputs and YAML compliance.
 
 Out of scope:

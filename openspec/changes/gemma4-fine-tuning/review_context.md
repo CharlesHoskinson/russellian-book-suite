@@ -7,7 +7,7 @@ This document compiles the Proposal, Technical Design, and Tasks checklist for t
 ## 1. Proposal
 
 ### Intent
-Align the local LLM dispatch path (`llm-infra`) with the high reasoning and quality standards of the Claude subagent dispatch path. By training a custom `gemma4-book` model using QLoRA fine-tuning on our local RTX 5090 GPU, we will improve the model's adherence to the Russellian academic style, ensure strict format validation (like YAML frontmatter and JSON-LD ledgers), reduce the input context footprint by hardcoding persona rules, and eliminate empty response and timeout errors.
+Align the local LLM dispatch path (`llm-infra`) with the high reasoning and quality standards of the Claude subagent dispatch path. By training a custom `russellgpt` model (**RussellGPT**) using QLoRA fine-tuning on our local RTX 5090 GPU, we will improve the model's adherence to the Russellian academic style, ensure strict format validation (like YAML frontmatter and JSON-LD ledgers), reduce the input context footprint by hardcoding persona rules, and eliminate empty response and timeout errors.
 
 ### Scope
 In scope:
@@ -15,7 +15,7 @@ In scope:
 - Synthesizing or generating high-quality `<think>...</think>` reasoning traces for historical run outputs.
 - Quantizing and fine-tuning `gemma-2-27b-it` using Hugging Face PEFT (LoRA) and TRL on native Windows PyTorch.
 - Packaging the fine-tuned adapter and loading it directly in Ollama using a custom `Modelfile` with the `ADAPTER` command.
-- Modifying `adapter.py` to route calls through the new `gemma4-book` model by default.
+- Modifying `adapter.py` to route calls through the new `russellgpt` model by default.
 - Building a verification suite (`verify_finetune.py`) to test reasoning block outputs and YAML compliance.
 
 Out of scope:
@@ -75,7 +75,7 @@ A Python script crawls the active workspace to build a training dataset, mapping
 - **Trainer:** Hugging Face `trl.DPOTrainer` with context length capped at 4,096.
 
 #### Ollama Modelfile
-- Model name: `gemma4-book`
+- Model name: `russellgpt`
 - Config details:
   ```dockerfile
   FROM gemma4:31b
@@ -83,7 +83,7 @@ A Python script crawls the active workspace to build a training dataset, mapping
   PARAMETER num_ctx 8192
   PARAMETER temperature 0.4
   PARAMETER stop "<|im_end|>"
-  SYSTEM "You are the custom-tuned Gemma 4 31B model for the Cardano Governance book suite..."
+  SYSTEM "You are the custom-tuned Gemma 4 31B model (RussellGPT) for the Cardano Governance book suite..."
   ```
 
 ---
@@ -112,7 +112,7 @@ A Python script crawls the active workspace to build a training dataset, mapping
 - [ ] 3.1 Write the custom Ollama `Modelfile` using the `ADAPTER` command (REQ-LLM-TUNE-007)
 - [ ] 3.2 Set parameter configs for context window (`num_ctx 8192`) and temperature (REQ-LLM-TUNE-007)
 - [ ] 3.3 Add default system prompts mapping to target task instructions (REQ-LLM-TUNE-007)
-- [ ] 3.4 Modify default model configurations in `adapter.py` to target the custom `gemma4-book` model (REQ-LLM-TUNE-007)
+- [ ] 3.4 Modify default model configurations in `adapter.py` to target the custom `russellgpt` model (REQ-LLM-TUNE-007)
 
 ### 4. Verification & Testing
 - [ ] 4.1 Write verification test script `verify_finetune.py` (REQ-LLM-TUNE-008)

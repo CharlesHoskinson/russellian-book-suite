@@ -1,6 +1,7 @@
 """Aggregate per-persona review reports into chapters/drafts/<chapter>/persona-review.md."""
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,11 +25,29 @@ def _gather_reviews(workspace: Path, chapter_id: str) -> list[ReviewResult]:
     if not reviews_dir.is_dir():
         return []
     out: list[ReviewResult] = []
-    for path in sorted(reviews_dir.glob("*.md")):
+    skipped: list[tuple[Path, str]] = []
+    candidates = sorted(reviews_dir.glob("*.md"))
+    for path in candidates:
         try:
             out.append(parse_review_report(path))
-        except (ValueError, KeyError):
-            continue
+        except (ValueError, KeyError) as exc:
+            reason = str(exc)
+            skipped.append((path, reason))
+            print(f"[aggregate_reviews] WARNING: skipping {path.name}: {reason}", file=sys.stderr)
+
+    if skipped:
+        print(
+            f"[aggregate_reviews] {len(skipped)} of {len(candidates)} candidate report(s) skipped.",
+            file=sys.stderr,
+        )
+
+    if candidates and not out:
+        raise ValueError(
+            f"[aggregate_reviews] All {len(candidates)} candidate report(s) for "
+            f"{chapter_id} were invalid — cannot produce aggregation. "
+            f"Check that reports have valid YAML frontmatter."
+        )
+
     return out
 
 

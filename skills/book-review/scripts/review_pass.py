@@ -189,33 +189,40 @@ def _main(argv: list[str] | None = None) -> int:
 
     exit_code = 0
     for persona_id in persona_ids:
-        persona = load_persona(persona_id)
-        output_path = output_dir / f"persona-review-{persona_id}.md"
-        slots = {
-            "persona_body": persona.body_md,
-            "display_name": persona.display_name,
-            "role": persona.role,
-            "persona_id": persona_id,
-            "chapter_id": chapter_id,
-            "chapter_title": "",
-            "chapter_purpose": "",
-            "audience": "",
-            "draft_md": draft_md,
-            "output_path": str(output_path),
-        }
-        result = run_persona_via_ollama(
-            persona_id=persona_id,
-            template_path=TEMPLATE_PATH,
-            persona_path=PERSONAS_DIR / f"{persona_id}.md",
-            slots=slots,
-            output_path=output_path,
-            model=args.model,
-            num_predict=args.num_predict,
-        )
-        print(
-            f"[review_pass] {persona_id}: {result.elapsed_seconds:.1f}s "
-            f"-> {result.artifact_path}"
-        )
+        try:
+            persona = load_persona(persona_id)
+            output_path = output_dir / f"persona-review-{persona_id}.md"
+            slots = {
+                "persona_body": persona.body_md,
+                "display_name": persona.display_name,
+                "role": persona.role,
+                "persona_id": persona_id,
+                "chapter_id": chapter_id,
+                "chapter_title": "",
+                "chapter_purpose": "",
+                "audience": "",
+                "draft_md": draft_md,
+                "output_path": str(output_path),
+            }
+            result = run_persona_via_ollama(
+                persona_id=persona_id,
+                template_path=TEMPLATE_PATH,
+                persona_path=PERSONAS_DIR / f"{persona_id}.md",
+                slots=slots,
+                output_path=output_path,
+                model=args.model,
+                num_predict=args.num_predict,
+            )
+            print(
+                f"[review_pass] {persona_id}: {result.elapsed_seconds:.1f}s "
+                f"-> {result.artifact_path}"
+            )
+        except Exception as e:
+            print(
+                f"[review_pass] {persona_id}: FAILED — {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            exit_code = 1
 
     return exit_code
 

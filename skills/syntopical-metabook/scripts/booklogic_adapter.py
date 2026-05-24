@@ -62,6 +62,9 @@ class BooklogicVersion:
     ruleset_checksum: str
 
 def _bin() -> list[str]:
+    # BOOKLOGIC_BIN is a trusted local override; the operator who sets this
+    # env var is responsible for ensuring it resolves to an expected booklogic
+    # executable. The adapter does not validate the binary.
     raw = os.environ.get("BOOKLOGIC_BIN", "booklogic")
     # shlex.split handles `python booklogic_stub.py` cleanly on POSIX;
     # on Windows the same form works for our cases.

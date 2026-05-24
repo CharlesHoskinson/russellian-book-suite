@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.synthesize_findings import _parse_line_range
+from scripts.synthesize_findings import (
+    _parse_line_range,
+    _extract_first_quoted_snippet,
+    _locate_snippet_in_chapter,
+)
 
 
 def test_parse_line_range_single_line():
@@ -160,3 +164,74 @@ _(none)_
     severities = [f.severity for f in findings]
     assert severities.count("critical") == 2
     assert severities.count("important") == 1
+
+
+# ---------------------------------------------------------------------------
+# New tests: Enhancement 1 (snippet extraction & location) + Enhancement 2
+# ---------------------------------------------------------------------------
+
+
+def test_extract_first_quoted_snippet_double_quotes():
+    assert _extract_first_quoted_snippet('finding: "the cardano case" is a problem') == "the cardano case"
+
+
+def test_extract_first_quoted_snippet_curly_quotes():
+    assert _extract_first_quoted_snippet('finding: “the cardano case” is a problem') == "the cardano case"
+
+
+def test_extract_first_quoted_snippet_too_short_ignored():
+    """Snippets <8 chars are skipped (avoid false positives on "X" tokens)."""
+    assert _extract_first_quoted_snippet('an "x" thing') is None
+
+
+def test_locate_snippet_in_chapter_exact_match(tmp_path):
+    chapter_lines = [
+        "Line one prose.",
+        "This is the Cardano case in detail.",
+        "Line three.",
+    ]
+    assert _locate_snippet_in_chapter("the Cardano case", chapter_lines) == (2, 2)
+
+
+def test_locate_snippet_in_chapter_no_match(tmp_path):
+    chapter_lines = ["Line one.", "Line two."]
+    assert _locate_snippet_in_chapter("absent text", chapter_lines) is None
+
+
+def test_cluster_findings_uses_quoted_snippet_when_no_line_range():
+    """A finding with no line ref but a locatable snippet gets a line_range injected."""
+    chapter_text = "Line 1.\nThis is the Cardano case in detail.\nLine 3.\n"
+    findings = [
+        Finding("gottlieb", "critical",
+                'listicle abstract: "the Cardano case" should be argued', None),
+    ]
+    clusters, unanchored = cluster_findings(findings, chapter_text=chapter_text)
+    assert len(clusters) == 1
+    assert clusters[0].findings[0].line_range == (2, 2)
+    assert unanchored == []
+
+
+def test_cluster_findings_routes_truly_unanchored_to_unanchored_list():
+    """A Critical/Important finding with neither line ref nor locatable snippet -> unanchored."""
+    chapter_text = "Line 1.\nLine 2.\n"
+    findings = [
+        Finding("gottlieb", "critical", "vague comment with no anchor", None),
+        Finding("ai-slop-detector", "minor", "another vague comment", None),  # Minor: dropped, not unanchored
+    ]
+    clusters, unanchored = cluster_findings(findings, chapter_text=chapter_text)
+    assert clusters == []
+    assert len(unanchored) == 1
+    assert unanchored[0].persona_id == "gottlieb"
+
+
+def test_render_instructions_markdown_emits_unanchored_section():
+    """Unanchored findings appear under '## Unanchored findings' heading."""
+    chapter_text = "Line 1.\nLine 2.\n"
+    findings = [
+        Finding("gottlieb", "critical", "vague comment", None),
+    ]
+    clusters, unanchored = cluster_findings(findings, chapter_text=chapter_text)
+    md = render_instructions_markdown("ch-01", clusters, unanchored)
+    assert "## Unanchored findings" in md
+    assert "gottlieb" in md
+    assert "vague comment" in md

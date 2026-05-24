@@ -103,12 +103,13 @@ def _stage2_aggregate(*, panel_dir: Path, output_path: Path, chapter_id: str) ->
         raise RuntimeError(f"stage 2 (aggregate) failed with exit {result.returncode}")
 
 
-def _stage3_synthesize(*, panel_summary: Path, chapter_id: str, output_path: Path) -> None:
+def _stage3_synthesize(*, panel_summary: Path, chapter_id: str, output_path: Path, chapter_md: Path) -> None:
     """Stage 3: synthesize_findings (in-process)."""
     from scripts.synthesize_findings import main as synthesize_main
     rc = synthesize_main([
         "--panel-summary", str(panel_summary),
         "--chapter-id", chapter_id,
+        "--chapter-md", str(chapter_md),
         "--output", str(output_path),
     ])
     if rc != 0:
@@ -171,7 +172,7 @@ def run_cycle(
     # Stages 3, 4
     print(f"[run_cycle] stage 3: synthesize -> {revision_instructions}", file=sys.stderr)
     _stage3_synthesize(panel_summary=panel_summary_before, chapter_id=chapter_id,
-                       output_path=revision_instructions)
+                       output_path=revision_instructions, chapter_md=draft_path)
     print(f"[run_cycle] stage 4: revise -> {revised_chapter}", file=sys.stderr)
     _stage4_revise(chapter_path=draft_path, instructions_path=revision_instructions,
                    output_dir=workspace_dir, chapter_id=chapter_id, model=model)

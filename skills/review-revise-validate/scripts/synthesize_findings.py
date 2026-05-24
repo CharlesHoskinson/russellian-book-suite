@@ -15,6 +15,10 @@ from typing import Optional
 
 _LINE_RANGE_RE = re.compile(r"lines?\s+(\d+)(?:[-–](\d+))?", re.IGNORECASE)
 
+# Matches quoted snippets using straight or curly double-quote pairs.
+# Requires at least 8 chars to avoid false positives on short tokens.
+_QUOTED_SNIPPET_RE = re.compile(r'["“”]([^"“”]{8,})["“”]')
+
 
 def _parse_line_range(text: str) -> Optional[tuple[int, int]]:
     """Return (start, end) line numbers from the first match in `text`, or None."""
@@ -24,6 +28,34 @@ def _parse_line_range(text: str) -> Optional[tuple[int, int]]:
     start = int(m.group(1))
     end = int(m.group(2)) if m.group(2) else start
     return (start, end)
+
+
+def _extract_first_quoted_snippet(text: str) -> Optional[str]:
+    """Return the first quoted substring in text that's at least 8 chars long."""
+    m = _QUOTED_SNIPPET_RE.search(text)
+    return m.group(1) if m else None
+
+
+def _locate_snippet_in_chapter(snippet: str, chapter_lines: list[str]) -> Optional[tuple[int, int]]:
+    """Return (start_line, end_line) where snippet appears in chapter_lines, or None.
+
+    Lines are 1-indexed. The match is verbatim substring within a single line
+    OR falls back to a 40-char prefix match if exact fails.
+    """
+    if not snippet:
+        return None
+    # Try exact match within a single line first
+    for i, line in enumerate(chapter_lines, start=1):
+        if snippet in line:
+            return (i, i)
+    # Try 40-char prefix anchor (handles minor whitespace/punctuation drift)
+    prefix = snippet[:40].strip()
+    if len(prefix) < 10:
+        return None
+    for i, line in enumerate(chapter_lines, start=1):
+        if prefix in line:
+            return (i, i)
+    return None
 
 
 from dataclasses import dataclass, field
@@ -127,13 +159,46 @@ def parse_panel_summary(path: Path) -> list[Finding]:
     return findings
 
 
-def cluster_findings(findings: list[Finding]) -> list[Cluster]:
+def cluster_findings(
+    findings: list[Finding],
+    chapter_text: Optional[str] = None,
+) -> tuple[list[Cluster], list[Finding]] | list[Cluster]:
     """Group findings whose line ranges are within _CLUSTER_GAP_LINES of each other.
 
-    Findings without a line_range are dropped (cannot be located in the chapter).
+    When chapter_text is provided:
+      - Findings without a line_range get snippet-anchoring attempted via
+        _locate_snippet_in_chapter(_extract_first_quoted_snippet(finding.text), ...).
+        If a location is found the finding's line_range is set in-place.
+      - Critical/Important findings that remain unanchored are returned as the
+        second element of the tuple (list[Finding]).
+      - Minor unanchored findings are silently dropped.
+    Returns a tuple (clusters, unanchored) when chapter_text is provided.
+
+    When chapter_text is None (default), behavior is unchanged from the
+    original: unanchored findings are dropped and only clusters is returned
+    as a plain list (backward-compatible).
     """
+    chapter_lines: Optional[list[str]] = None
+    if chapter_text is not None:
+        chapter_lines = chapter_text.splitlines()
+
+    # Attempt snippet anchoring when chapter text is available
+    unanchored: list[Finding] = []
+    for f in findings:
+        if f.line_range is None and chapter_lines is not None:
+            snippet = _extract_first_quoted_snippet(f.text)
+            if snippet:
+                loc = _locate_snippet_in_chapter(snippet, chapter_lines)
+                if loc is not None:
+                    f.line_range = loc
+            # Still unanchored — route critical/important to unanchored list
+            if f.line_range is None and f.severity in ("critical", "important"):
+                unanchored.append(f)
+
     located = [f for f in findings if f.line_range is not None]
     if not located:
+        if chapter_text is not None:
+            return ([], unanchored)
         return []
     located.sort(key=lambda f: f.line_range[0])
 
@@ -160,21 +225,34 @@ def cluster_findings(findings: list[Finding]) -> list[Cluster]:
                 findings=[f],
             )
     clusters.append(current)
+
+    if chapter_text is not None:
+        return (clusters, unanchored)
     return clusters
 
 
 _SEVERITY_ORDER = {"critical": 0, "important": 1, "minor": 2}
 
 
-def render_instructions_markdown(chapter_id: str, clusters: list[Cluster]) -> str:
+def render_instructions_markdown(
+    chapter_id: str,
+    clusters: list[Cluster],
+    unanchored: Optional[list[Finding]] = None,
+) -> str:
     """Emit the revision-instructions.md for the reviser.
 
     Only Critical and Important clusters are forwarded (Minor are reported by
     cycle_report but not revised). Clusters sorted by severity DESC then by
     distinct-persona count DESC then by line_start ASC.
+
+    When unanchored is provided (non-empty), a '## Unanchored findings' section
+    is appended listing Critical/Important findings that could not be located.
     """
+    if unanchored is None:
+        unanchored = []
+
     eligible = [c for c in clusters if c.severity_tier in ("critical", "important")]
-    if not eligible:
+    if not eligible and not unanchored:
         return (
             f"# Revision instructions for {chapter_id}\n\n"
             f"_(no clusters eligible for revision — Critical and Important counts both zero)_\n"
@@ -200,6 +278,24 @@ def render_instructions_markdown(chapter_id: str, clusters: list[Cluster]) -> st
         lines.append("")
         lines.append("Fix recipe: address the convergent feedback while preserving the author's voice.")
         lines.append("")
+
+    # Emit unanchored section for Critical/Important findings with no locatable line range
+    unanchored_eligible = [f for f in unanchored if f.severity in ("critical", "important")]
+    if unanchored_eligible:
+        lines.append("## Unanchored findings")
+        lines.append("")
+        lines.append(
+            "The following Critical/Important findings could not be anchored to a specific "
+            "line range in the chapter (no line reference or locatable quoted snippet). "
+            "Address them as global prose concerns."
+        )
+        lines.append("")
+        for f in unanchored_eligible:
+            snippet_hint = _extract_first_quoted_snippet(f.text)
+            hint_str = f' (snippet hint: "{snippet_hint}")' if snippet_hint else ""
+            lines.append(f"- **{f.persona_id}** ({f.severity}){hint_str}: {f.text}")
+        lines.append("")
+
     return "\n".join(lines) + "\n"
 
 
@@ -213,17 +309,32 @@ def main(argv: list[str] | None = None) -> int:
                         help="Chapter identifier for the output heading (e.g. ch-01)")
     parser.add_argument("--output", type=Path, required=True,
                         help="Where to write the revision-instructions.md")
+    parser.add_argument("--chapter-md", type=Path, default=None,
+                        help="Path to the chapter draft for snippet-anchoring unanchored findings")
     args = parser.parse_args(argv)
 
     findings = parse_panel_summary(args.panel_summary)
-    clusters = cluster_findings(findings)
-    md = render_instructions_markdown(args.chapter_id, clusters)
+
+    chapter_text: Optional[str] = None
+    if args.chapter_md is not None and args.chapter_md.exists():
+        chapter_text = args.chapter_md.read_text(encoding="utf-8")
+
+    result = cluster_findings(findings, chapter_text=chapter_text)
+    if isinstance(result, tuple):
+        clusters, unanchored = result
+    else:
+        clusters, unanchored = result, []
+
+    md = render_instructions_markdown(args.chapter_id, clusters, unanchored)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(md, encoding="utf-8")
 
     eligible = [c for c in clusters if c.severity_tier in ("critical", "important")]
-    print(f"[synthesize_findings] {len(findings)} findings -> {len(clusters)} clusters "
-          f"({len(eligible)} eligible) -> {args.output}", file=sys.stderr)
+    print(
+        f"[synthesize_findings] {len(findings)} findings -> {len(clusters)} clusters "
+        f"({len(eligible)} eligible) + {len(unanchored)} unanchored -> {args.output}",
+        file=sys.stderr,
+    )
     return 0
 
 

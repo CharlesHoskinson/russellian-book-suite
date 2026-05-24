@@ -2,6 +2,7 @@
 persona_id: gottlieb
 display_name: Robert Gottlieb
 role: legendary editor
+recommended_num_predict: 1024
 ---
 
 ## Identity

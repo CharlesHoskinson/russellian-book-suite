@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +35,12 @@ def load_persona(persona_id: str) -> Persona:
     for required in ("persona_id", "display_name", "role"):
         if required not in meta:
             raise ValueError(f"persona {persona_id} missing required field: {required}")
+    if len(body) > 5000:
+        print(
+            f"[persona_loader] WARN: persona {persona_id} body is {len(body)} chars;"
+            " consider compressing to <5000 for token-budget parity across the panel",
+            file=sys.stderr,
+        )
     return Persona(
         persona_id=meta["persona_id"],
         display_name=meta["display_name"],

@@ -1,0 +1,17 @@
+[project]
+name = "review-revise-validate"
+version = "0.1.0"
+description = "Single-pass review→revise→re-validate cycle for chapter drafts"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-mock>=3.12"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*", "tests*"]

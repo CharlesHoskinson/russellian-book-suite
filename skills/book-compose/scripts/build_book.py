@@ -132,7 +132,22 @@ def _write_manifest(book_dir: Path, version: str, summary: dict, outputs: list[s
 
 def build_book(workspace: Path, version: str,
                chapter_versions: dict[str, str] | None = None,
-               book_title: str = "Book", book_id: str = "book") -> Path:
+               book_title: str = "Book", book_id: str = "book",
+               backend_ctx: dict | None = None) -> Path:
+    """Assemble a book-level release.
+
+    Parameters
+    ----------
+    backend_ctx:
+        Optional dict with keys ``llm_backend`` ('subagent' | 'ollama'),
+        ``model`` (str), and ``num_predict`` (int | None).  Cascaded to any
+        sub-dispatch that invokes an LLM.  When *None* the default
+        ('subagent', 'gemma4:31b', None) is used.  The book-level assembly
+        stages in this function are pure-Python (no direct LLM calls); the
+        field exists for API surface-area consistency and future
+        LLM-assisted stages (e.g. book-summary generation).
+    """
+    _backend_ctx = backend_ctx or {"llm_backend": "subagent", "model": "gemma4:31b", "num_predict": None}
     workspace = Path(workspace).resolve()
     if chapter_versions is None:
         chapter_versions = _autodetect_latest_versions(workspace)
@@ -176,24 +191,68 @@ def build_book(workspace: Path, version: str,
     return book_dir
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
     import sys
-    if len(argv) < 5:
-        print("usage: build_book.py <workspace> <version> <book_title> <book_id> [chapter_versions.json]",
-              file=sys.stderr)
-        return 2
-    workspace = Path(argv[1])
-    version = argv[2]
-    book_title = argv[3]
-    book_id = argv[4]
+
+    parser = argparse.ArgumentParser(
+        prog="build_book",
+        description="Orchestrate book-level release: preflight -> assemble -> render -> manifest.",
+    )
+    parser.add_argument("workspace", type=Path, help="Workspace root directory.")
+    parser.add_argument("version", help="Release version string (e.g. '1.0.0').")
+    parser.add_argument("book_title", help="Human-readable book title.")
+    parser.add_argument("book_id", help="Machine-readable book identifier slug.")
+    parser.add_argument(
+        "chapter_versions_json",
+        nargs="?",
+        default=None,
+        help="Optional path to a JSON file mapping chapter_id -> version. "
+             "When omitted, the latest release for each chapter is auto-detected.",
+    )
+    parser.add_argument(
+        "--llm-backend",
+        choices=["subagent", "ollama"],
+        default="subagent",
+        help=(
+            "LLM dispatch backend. Cascades to sub-dispatches. "
+            "'subagent' (default): LLM work is driven by the controlling Claude via "
+            "Task-tool packets. 'ollama': route LLM calls through llm_infra locally."
+        ),
+    )
+    parser.add_argument(
+        "--model",
+        default="gemma4:31b",
+        help="Ollama model to use (only relevant with --llm-backend ollama).",
+    )
+    parser.add_argument(
+        "--num-predict",
+        type=int,
+        default=None,
+        help="Cap Ollama output tokens (only relevant with --llm-backend ollama). "
+             "None = use model/frontmatter default.",
+    )
+
+    args = parser.parse_args(argv)
+
+    backend_ctx = {
+        "llm_backend": args.llm_backend,
+        "model": args.model,
+        "num_predict": args.num_predict,
+    }
+
     chapter_versions = None
-    if len(argv) >= 6:
-        chapter_versions = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
-    book_dir = build_book(workspace, version, chapter_versions, book_title, book_id)
+    if args.chapter_versions_json is not None:
+        chapter_versions = json.loads(Path(args.chapter_versions_json).read_text(encoding="utf-8"))
+
+    book_dir = build_book(
+        args.workspace, args.version, chapter_versions, args.book_title, args.book_id,
+        backend_ctx=backend_ctx,
+    )
     print(f"book release written to {book_dir}")
     return 0
 
 
 if __name__ == "__main__":
     import sys
-    raise SystemExit(main(sys.argv))
+    raise SystemExit(main(sys.argv[1:]))

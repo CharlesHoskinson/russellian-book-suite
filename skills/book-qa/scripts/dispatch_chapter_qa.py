@@ -5,6 +5,14 @@ runtime (Claude / Task tool) can spawn a fresh-context subagent against the
 15-item editorial checklist.  Does not itself spawn agents; that is the
 host's responsibility.
 
+Backend matrix:
+    --llm-backend subagent (default): writes JSON payloads to
+        <workspace>/qa/chapter-payloads/<ch-NN>.json. Does NOT execute the
+        LLM. The controlling agent consumes the payloads via Task-tool
+        dispatch. This is the PAYLOAD_ONLY mode for this skill.
+    --llm-backend ollama: not yet supported (this stage's outputs are
+        designed for fresh-context subagent review). Exits with code 2.
+
 Layout assumptions (book-compose convention):
 
     <workspace>/chapters/drafts/ch-NN/draft.md
@@ -148,9 +156,12 @@ def main(argv: list[str]) -> int:
         choices=["subagent", "ollama"],
         default="subagent",
         help=(
-            "LLM dispatch backend. subagent (default): write JSON payloads only; "
-            "external host consumes them. ollama: not yet wired for this stage — "
-            "this stage prepares payloads for subagent dispatch only."
+            "Backend capability matrix: "
+            "subagent — PAYLOAD_ONLY; writes JSON payloads to "
+            "<workspace>/qa/chapter-payloads/. Does NOT execute the LLM. "
+            "The controlling agent consumes payloads via Task-tool dispatch. "
+            "ollama — UNSUPPORTED; this stage's outputs are designed for "
+            "fresh-context subagent review. Exits with code 2."
         ),
     )
     parser.add_argument("--model", default="gemma4:31b",
@@ -165,7 +176,7 @@ def main(argv: list[str]) -> int:
 
     if args.llm_backend == "ollama":
         print(
-            "[dispatch_chapter_qa] ollama backend not yet wired for this stage — "
+            "[dispatch_chapter_qa] --llm-backend ollama is unsupported for this stage — "
             "this stage prepares payloads for subagent dispatch only.",
             file=sys.stderr,
         )

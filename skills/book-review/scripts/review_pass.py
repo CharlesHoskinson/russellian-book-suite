@@ -126,9 +126,10 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["subagent", "ollama"],
         default="subagent",
         help=(
-            "Dispatch backend. 'subagent' is invoked by the controlling Claude "
-            "via Task-tool packets and cannot be self-dispatched from this script. "
-            "'ollama' uses run_persona_via_ollama for local-LLM dispatch."
+            "Backend capability matrix: "
+            "subagent — UNSUPPORTED; the controlling Claude drives Task-tool dispatch "
+            "packets; this script cannot self-dispatch. Exits with code 2. "
+            "ollama — SELF_EXECUTABLE; uses run_persona_via_ollama for local-LLM dispatch."
         ),
     )
     parser.add_argument(
@@ -145,6 +146,34 @@ def _build_parser() -> argparse.ArgumentParser:
             "Defaults to persona frontmatter recommended_num_predict or 2048."
         ),
     )
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        default=None,
+        help=(
+            "Book workspace root. When provided, chapter metadata (title, purpose, audience) "
+            "is loaded from <workspace>/chapters/contracts/<chapter-id>.yaml. "
+            "Takes precedence over --chapter-title / --chapter-purpose / --audience."
+        ),
+    )
+    parser.add_argument(
+        "--chapter-title",
+        default="",
+        help="Human-readable chapter title injected into persona prompts (ollama branch). "
+             "Overridden by --workspace if a contract file exists.",
+    )
+    parser.add_argument(
+        "--chapter-purpose",
+        default="",
+        help="One-sentence chapter purpose injected into persona prompts (ollama branch). "
+             "Overridden by --workspace if a contract file exists.",
+    )
+    parser.add_argument(
+        "--audience",
+        default="",
+        help="Target audience injected into persona prompts (ollama branch). "
+             "Overridden by --workspace if a contract file exists.",
+    )
     return parser
 
 
@@ -154,8 +183,9 @@ def _main(argv: list[str] | None = None) -> int:
 
     if args.llm_backend == "subagent":
         print(
-            "[review_pass] --llm-backend subagent is invoked by the controlling Claude "
-            "via Task-tool dispatch packets; this script cannot self-dispatch. "
+            "[review_pass] --llm-backend subagent is unsupported on this CLI. "
+            "The controlling Claude drives subagent dispatch via Task-tool packets; "
+            "this script cannot self-dispatch. "
             "Use --llm-backend ollama for script-driven local-LLM dispatch.",
             file=sys.stderr,
         )
@@ -187,6 +217,17 @@ def _main(argv: list[str] | None = None) -> int:
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Load chapter metadata: prefer workspace contract file, fall back to CLI flags.
+    if args.workspace is not None:
+        chapter_meta = _load_chapter_meta(args.workspace, chapter_id)
+    else:
+        chapter_meta = {
+            "chapter_id": chapter_id,
+            "chapter_title": args.chapter_title,
+            "chapter_purpose": args.chapter_purpose,
+            "audience": args.audience,
+        }
+
     exit_code = 0
     for persona_id in persona_ids:
         try:
@@ -198,9 +239,9 @@ def _main(argv: list[str] | None = None) -> int:
                 "role": persona.role,
                 "persona_id": persona_id,
                 "chapter_id": chapter_id,
-                "chapter_title": "",
-                "chapter_purpose": "",
-                "audience": "",
+                "chapter_title": chapter_meta.get("chapter_title", ""),
+                "chapter_purpose": chapter_meta.get("chapter_purpose", ""),
+                "audience": chapter_meta.get("audience", ""),
                 "draft_md": draft_md,
                 "output_path": str(output_path),
             }

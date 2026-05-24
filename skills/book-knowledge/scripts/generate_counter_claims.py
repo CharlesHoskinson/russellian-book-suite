@@ -147,8 +147,13 @@ def _main(argv: list[str]) -> int:
         "--llm-backend",
         choices=["subagent", "ollama"],
         default="subagent",
-        help="LLM dispatch backend. subagent (default): existing behavior. "
-             "ollama: route through llm_infra via production_llm.default_llm_call().",
+        help=(
+            "Backend capability matrix: "
+            "subagent — UNSUPPORTED on this CLI; the controlling agent must inject "
+            "llm_call directly via generate_for_claim / generate_for_all_load_bearing. "
+            "Exits with code 2 and a clear message. "
+            "ollama — SELF_EXECUTABLE; calls llm_infra in-process and writes counter-claims."
+        ),
     )
     parser.add_argument(
         "--model",
@@ -164,19 +169,28 @@ def _main(argv: list[str]) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.llm_backend == "ollama":
-        # Import lazily — keeps subagent path free of llm_infra dependency at import time
-        if args.num_predict is not None:
-            from llm_infra import make_ollama_call
-            llm_call = make_ollama_call(model=args.model, num_predict=args.num_predict)
-        else:
-            from scripts.production_llm import default_llm_call
-            llm_call = default_llm_call(model=args.model)
+    if args.llm_backend == "subagent":
+        # Backend matrix: subagent is unsupported on this skill's CLI.
+        # The subagent path expects the controlling agent to inject llm_call directly
+        # via the library API (generate_for_claim / generate_for_all_load_bearing).
+        # Use --llm-backend ollama for script-driven local dispatch.
+        print(
+            "[generate_counter_claims] --llm-backend subagent is unsupported on this skill. "
+            "The subagent path expects the controlling agent to inject llm_call directly via "
+            "the library API (generate_for_claim / generate_for_all_load_bearing). "
+            "Use --llm-backend ollama for script-driven local dispatch.",
+            file=sys.stderr,
+        )
+        return 2
+
+    # --llm-backend ollama (self_executable)
+    # Import lazily — keeps the subagent path free of llm_infra dependency at import time.
+    if args.num_predict is not None:
+        from llm_infra import make_ollama_call
+        llm_call = make_ollama_call(model=args.model, num_predict=args.num_predict)
     else:
-        # subagent path: existing behavior — llm_call must be provided externally.
-        # For CLI invocation without ollama, fall back to production_llm (subagent wrapper).
         from scripts.production_llm import default_llm_call
-        llm_call = default_llm_call()
+        llm_call = default_llm_call(model=args.model)
 
     workspace = args.workspace.resolve()
     if args.claim_id:

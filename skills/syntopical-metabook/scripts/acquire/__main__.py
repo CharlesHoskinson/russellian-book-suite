@@ -5,8 +5,14 @@ download_and_ingest, manifest) is scaffolded but inactive in v0.2.  It is
 scheduled for a v0.3 revisit and will consume LLM (via production_llm or
 llm_infra) for abstract-relevance scoring and seed-generation prompts.
 
-This __main__ wires the --llm-backend flag so the surface area is consistent
-with the other skills when v0.3 work begins.
+Backend matrix (v0.3 scaffold):
+    --llm-backend subagent — UNSUPPORTED; this is a v0.3 scaffold. Exits with
+        code 2 and an inactive-workflow message.
+    --llm-backend ollama — UNSUPPORTED; this is a v0.3 scaffold. Exits with
+        code 2 and an inactive-workflow message.
+
+Note: this is a v0.3 scaffold; both --llm-backend subagent and --llm-backend
+ollama exit with an inactive-workflow message (exit code 2).
 
 Usage:
     python -m scripts.acquire <workspace>
@@ -25,7 +31,9 @@ def _build_parser() -> argparse.ArgumentParser:
         description=(
             "v0.3 Acquire sub-workflow scaffold. "
             "Expand seeds, rank candidates, triage, veto, and ingest papers. "
-            "Currently inactive — v0.2 ships governance sub-workflow only."
+            "Currently inactive — v0.2 ships governance sub-workflow only. "
+            "Note: this is a v0.3 scaffold; both --llm-backend subagent and "
+            "--llm-backend ollama exit with an inactive-workflow message (exit code 2)."
         ),
     )
     parser.add_argument("workspace", type=Path, help="Workspace root.")
@@ -34,9 +42,11 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["subagent", "ollama"],
         default="subagent",
         help=(
-            "LLM dispatch backend. subagent (default): external host consumes "
-            "dispatch payloads. ollama: route through llm_infra — not yet "
-            "wired for this v0.3 sub-workflow (forward-compat scaffold)."
+            "Backend capability matrix (v0.3 scaffold): "
+            "subagent — UNSUPPORTED; inactive-workflow scaffold, exits with code 2. "
+            "ollama — UNSUPPORTED; inactive-workflow scaffold, exits with code 2. "
+            "Note: this is a v0.3 scaffold; both backends exit with an "
+            "inactive-workflow message."
         ),
     )
     parser.add_argument(
@@ -57,15 +67,10 @@ def _main(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.llm_backend == "ollama":
-        from llm_infra import make_ollama_call  # noqa: F401 — import check only
-        raise NotImplementedError(
-            "v0.3 ollama dispatch not yet implemented; --llm-backend flag is "
-            "forward-compat scaffold for when v0.3 Acquire work begins."
-        )
-
+    # Both subagent and ollama are unsupported for this v0.3 scaffold.
     print(
-        "[acquire] v0.3 Acquire sub-workflow is not yet active. "
+        f"[acquire] --llm-backend {args.llm_backend} is unsupported — "
+        "v0.3 Acquire sub-workflow is not yet active (inactive-workflow). "
         "Run 'forge govern build <workspace>' for the v0.2 governance sub-workflow.",
         file=sys.stderr,
     )

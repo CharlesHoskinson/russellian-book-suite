@@ -189,9 +189,12 @@ def main(argv: list[str]) -> int:
         choices=["subagent", "ollama"],
         default="subagent",
         help=(
-            "LLM dispatch backend. subagent (default): write JSON payloads only; "
-            "external host consumes them. ollama: not yet wired for this stage — "
-            "this stage prepares payloads for subagent dispatch only."
+            "Backend capability matrix: "
+            "subagent — PAYLOAD_ONLY; writes JSON payloads to "
+            "<workspace>/qa/healer-payloads/. Does NOT execute the LLM. "
+            "The controlling agent consumes payloads via Task-tool dispatch. "
+            "ollama — UNSUPPORTED; this stage's outputs are designed for "
+            "fresh-context subagent repair. Exits with code 2."
         ),
     )
     parser.add_argument("--model", default="gemma4:31b",
@@ -209,7 +212,7 @@ def main(argv: list[str]) -> int:
     if args.prepare:
         if args.llm_backend == "ollama":
             print(
-                "[healer] ollama backend not yet wired for this stage — "
+                "[healer] --llm-backend ollama is unsupported for this stage — "
                 "this stage prepares payloads for subagent dispatch only.",
                 file=sys.stderr,
             )

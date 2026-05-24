@@ -5,6 +5,14 @@ write a small JSON payload to ``<workspace>/qa/entailment-payloads/``.
 Each payload feeds a fresh-context LLM critic that returns ``entailed |
 weakly-entailed | unrelated | contradicts``. Does not spawn agents.
 
+Backend matrix:
+    --llm-backend subagent (default): PAYLOAD_ONLY — writes JSON payloads to
+        <workspace>/qa/entailment-payloads/. Does NOT execute the LLM. The
+        controlling agent consumes the payloads via Task-tool dispatch.
+    --llm-backend ollama: SELF_EXECUTABLE — writes payloads AND runs the
+        entailment judge in-process via llm_infra, writing verdict files
+        alongside each payload.
+
 Usage: ``python dispatch_entailment.py <workspace> <release-version>``
 """
 from __future__ import annotations
@@ -196,9 +204,14 @@ def main(argv: list[str]) -> int:
         "--llm-backend",
         choices=["subagent", "ollama"],
         default="subagent",
-        help="LLM dispatch backend. subagent (default): write JSON payloads only; "
-             "external critic consumes them. ollama: also run the entailment judge "
-             "in-process via llm_infra.",
+        help=(
+            "Backend capability matrix: "
+            "subagent — PAYLOAD_ONLY; writes JSON payloads to "
+            "<workspace>/qa/entailment-payloads/. Does NOT execute the LLM. "
+            "The controlling agent consumes payloads via Task-tool dispatch. "
+            "ollama — SELF_EXECUTABLE; writes payloads AND runs the entailment "
+            "judge in-process via llm_infra, writing verdict files alongside payloads."
+        ),
     )
     parser.add_argument(
         "--model",

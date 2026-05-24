@@ -26,6 +26,8 @@ from pathlib import Path
 _SUITE_ROOT_DEFAULT = Path(r"c:/governance/russellian-book-suite")
 _CRITICAL_COUNT_RE = re.compile(r"^-\s+Critical:\s+(\d+)\s*$", re.MULTILINE)
 
+MIN_PERSONAS_QUORUM = 4  # tolerate transient gemma4 empty-responses on up to 3 personas
+
 
 def _suite_root() -> Path:
     """Locate the russellian-book-suite root (env var > default)."""
@@ -49,7 +51,13 @@ def _parse_critical_count(summary_path: Path) -> int:
 
 
 def _stage1_panel(*, chapter_id: str, draft_path: Path, output_dir: Path, model: str) -> None:
-    """Stage 1: run book-review panel via ollama."""
+    """Stage 1: run book-review panel via ollama.
+
+    Tolerates partial success: review_pass exits 1 when any persona had a
+    transient LLM failure (gemma4 occasionally returns empty responses on
+    pattern-scanning personas). The cycle proceeds if at least
+    MIN_PERSONAS_QUORUM persona artifacts were produced.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         str(_book_review_python()), "-m", "scripts.review_pass",
@@ -60,8 +68,18 @@ def _stage1_panel(*, chapter_id: str, draft_path: Path, output_dir: Path, model:
         "--model", model,
     ]
     result = subprocess.run(cmd, cwd=str(_book_review_root()))
+    persona_files = list(output_dir.glob("persona-review-*.md"))
+    if len(persona_files) < MIN_PERSONAS_QUORUM:
+        raise RuntimeError(
+            f"stage 1 (panel) produced only {len(persona_files)} persona artifact(s) "
+            f"(quorum {MIN_PERSONAS_QUORUM}); exit code {result.returncode}"
+        )
     if result.returncode != 0:
-        raise RuntimeError(f"stage 1 (panel) failed with exit {result.returncode}")
+        print(
+            f"[run_cycle] stage 1: partial success — "
+            f"{len(persona_files)}/7 personas produced output (quorum met)",
+            file=sys.stderr,
+        )
 
 
 def _stage2_aggregate(*, panel_dir: Path, output_path: Path, chapter_id: str) -> None:

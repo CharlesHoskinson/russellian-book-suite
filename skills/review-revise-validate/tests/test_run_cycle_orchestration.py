@@ -11,12 +11,23 @@ from scripts.run_cycle import run_cycle
 
 def test_run_cycle_stage1_invokes_book_review_with_correct_args(tmp_path):
     """Stage 1 subprocess-invokes book-review review_pass with expected args."""
+    from scripts.run_cycle import MIN_PERSONAS_QUORUM
+
     chapter = tmp_path / "ch.md"
     chapter.write_text("...", encoding="utf-8")
     workspace = tmp_path / "ws"
 
-    with patch("scripts.run_cycle.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
+    def fake_subprocess(cmd, *args, **kwargs):
+        # Write quorum persona files so _stage1_panel quorum check passes
+        if "review_pass" in " ".join(str(c) for c in cmd):
+            out_idx = cmd.index("--output-dir") + 1
+            out_dir = Path(cmd[out_idx])
+            out_dir.mkdir(parents=True, exist_ok=True)
+            for i in range(MIN_PERSONAS_QUORUM):
+                (out_dir / f"persona-review-p{i}.md").write_text("---\n---\n", encoding="utf-8")
+        return MagicMock(returncode=0, stdout=b"", stderr=b"")
+
+    with patch("scripts.run_cycle.subprocess.run", side_effect=fake_subprocess) as mock_run:
         with patch("scripts.run_cycle._parse_critical_count", return_value=0):
             # Force early-exit on zero Critical findings (REQ-REVISE-007)
             run_cycle(
@@ -42,11 +53,16 @@ def test_run_cycle_stages_5_and_6_invoked_when_critical_present(tmp_path):
     workspace = tmp_path / "ws"
 
     def fake_subprocess(cmd, *args, **kwargs):
+        from scripts.run_cycle import MIN_PERSONAS_QUORUM
         cmd_str = " ".join(str(c) for c in cmd)
         if "review_pass" in cmd_str:
             out_idx = cmd.index("--output-dir") + 1
             out_dir = Path(cmd[out_idx])
             out_dir.mkdir(parents=True, exist_ok=True)
+            # Write quorum persona files so _stage1_panel quorum check passes
+            for i in range(MIN_PERSONAS_QUORUM - 1):
+                (out_dir / f"persona-review-p{i}.md").write_text(
+                    "---\n---\n", encoding="utf-8")
             (out_dir / "persona-review-gottlieb.md").write_text(
                 "---\npersona: gottlieb\nverdict: NEEDS_WORK\n---\n## Critical findings\n- a thing\n",
                 encoding="utf-8",
@@ -97,11 +113,15 @@ def test_run_cycle_invokes_claim_validation_when_workspace_has_ledger(tmp_path):
     (claims / "ledger.jsonl").write_text('{"id": "c1"}\n', encoding="utf-8")
 
     def fake_subprocess(cmd, *args, **kwargs):
+        from scripts.run_cycle import MIN_PERSONAS_QUORUM
         cmd_str = " ".join(str(c) for c in cmd)
         if "review_pass" in cmd_str:
-            out_idx = cmd.index("--output-dir") + 1
-            Path(cmd[out_idx]).mkdir(parents=True, exist_ok=True)
-            (Path(cmd[out_idx]) / "persona-review-gottlieb.md").write_text(
+            out_dir = Path(cmd[cmd.index("--output-dir") + 1])
+            out_dir.mkdir(parents=True, exist_ok=True)
+            # Write quorum persona files so _stage1_panel quorum check passes
+            for i in range(MIN_PERSONAS_QUORUM - 1):
+                (out_dir / f"persona-review-p{i}.md").write_text("---\n---\n", encoding="utf-8")
+            (out_dir / "persona-review-gottlieb.md").write_text(
                 "---\npersona: gottlieb\n---\n", encoding="utf-8")
         elif "aggregate_reviews" in cmd_str:
             out_idx = cmd.index("--output") + 1
@@ -130,3 +150,66 @@ def test_run_cycle_invokes_claim_validation_when_workspace_has_ledger(tmp_path):
     cycle_report = (workspace / "cycle-report.md").read_text(encoding="utf-8")
     assert "Post-apply claim validation" in cycle_report
     assert "validated 3 claims" in cycle_report
+
+
+def test_stage1_panel_tolerates_partial_success_when_quorum_met(tmp_path):
+    """review_pass exit 1 is OK if at least MIN_PERSONAS_QUORUM artifacts present."""
+    from scripts.run_cycle import _stage1_panel, MIN_PERSONAS_QUORUM
+
+    output_dir = tmp_path / "panel"
+    chapter = tmp_path / "ch.md"
+    chapter.write_text("...", encoding="utf-8")
+
+    def fake_subprocess(cmd, *args, **kwargs):
+        # Simulate review_pass: write QUORUM files, then exit 1 (partial failure)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for i in range(MIN_PERSONAS_QUORUM):
+            (output_dir / f"persona-review-p{i}.md").write_text("---\n---\n", encoding="utf-8")
+        return MagicMock(returncode=1, stdout=b"", stderr=b"")
+
+    with patch("scripts.run_cycle.subprocess.run", side_effect=fake_subprocess):
+        # Should not raise
+        _stage1_panel(chapter_id="ch-01", draft_path=chapter,
+                      output_dir=output_dir, model="gemma4:31b")
+
+
+def test_stage1_panel_raises_when_quorum_not_met(tmp_path):
+    """review_pass exit 1 + fewer than QUORUM artifacts raises RuntimeError."""
+    from scripts.run_cycle import _stage1_panel, MIN_PERSONAS_QUORUM
+
+    output_dir = tmp_path / "panel"
+    chapter = tmp_path / "ch.md"
+    chapter.write_text("...", encoding="utf-8")
+
+    def fake_subprocess(cmd, *args, **kwargs):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        # Write fewer than quorum
+        for i in range(MIN_PERSONAS_QUORUM - 1):
+            (output_dir / f"persona-review-p{i}.md").write_text("---\n---\n", encoding="utf-8")
+        return MagicMock(returncode=1, stdout=b"", stderr=b"")
+
+    with patch("scripts.run_cycle.subprocess.run", side_effect=fake_subprocess):
+        with pytest.raises(RuntimeError, match="quorum"):
+            _stage1_panel(chapter_id="ch-01", draft_path=chapter,
+                          output_dir=output_dir, model="gemma4:31b")
+
+
+def test_stage1_panel_succeeds_on_exit_0_with_full_panel(tmp_path):
+    """Happy path: review_pass exit 0 with 7 artifacts."""
+    from scripts.run_cycle import _stage1_panel
+
+    output_dir = tmp_path / "panel"
+    chapter = tmp_path / "ch.md"
+    chapter.write_text("...", encoding="utf-8")
+
+    def fake_subprocess(cmd, *args, **kwargs):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for persona in ["gottlieb", "ai-slop-detector", "copyeditor", "domain-expert",
+                        "enjoyment-reader", "first-time-visitor", "lay-reader"]:
+            (output_dir / f"persona-review-{persona}.md").write_text("---\n---\n", encoding="utf-8")
+        return MagicMock(returncode=0, stdout=b"", stderr=b"")
+
+    with patch("scripts.run_cycle.subprocess.run", side_effect=fake_subprocess):
+        # Should not raise
+        _stage1_panel(chapter_id="ch-01", draft_path=chapter,
+                      output_dir=output_dir, model="gemma4:31b")

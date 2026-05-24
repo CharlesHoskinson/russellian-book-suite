@@ -2,6 +2,7 @@
 persona_id: ai-slop-detector
 display_name: AI-Slop Detector
 role: AI-fingerprint sweep
+recommended_num_predict: 1024
 ---
 
 ## Identity

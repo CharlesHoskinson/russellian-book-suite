@@ -7,6 +7,7 @@
 - [ ] 1.4 Import `russellian-style` linters to calculate the composite preference score $S_{style}$ (REQ-LLM-TUNE-003)
 - [ ] 1.5 Generate candidate pool, rank outputs, and build DPO preference triplets (REQ-LLM-TUNE-004)
 - [ ] 1.6 Export formatted training data to `dataset_dpo.jsonl` (REQ-LLM-TUNE-004)
+- [ ] 1.7 Add Gutenberg downloader and preprocessor to fetch and clean Bertrand Russell's corpus of 7 books (REQ-LLM-TUNE-006)
 
 ## 2. Model Training Configuration
 - [ ] 2.1 Create training execution script `train_adapter.py` (REQ-LLM-TUNE-005)

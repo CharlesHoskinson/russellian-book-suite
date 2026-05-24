@@ -34,7 +34,15 @@ The verification system shall run a mock chapter review using the custom model, 
 ## 2. Technical Details
 
 ### 2.1 Two-Stage Training Details
-1.  **Stage 1: SFT Warmup:** Fine-tune `google/gemma-2-27b-it` via Causal LM on Bertrand Russell public-domain texts (1 epoch, LR $1 \times 10^{-5}$).
+1.  **Stage 1: SFT Warmup:** Fine-tune `google/gemma-2-27b-it` via Causal LM (1 epoch, LR $1 \times 10^{-5}$) on a compiled corpus of Bertrand Russell's public-domain prose-heavy works from Project Gutenberg:
+    *   *The Problems of Philosophy* (ID 5827)
+    *   *The Analysis of Mind* (ID 2529)
+    *   *Mysticism and Logic and Other Essays* (ID 17020)
+    *   *Proposed Roads to Freedom* (ID 690)
+    *   *Our Knowledge of the External World* (ID 37090)
+    *   *Introduction to Mathematical Philosophy* (ID 37060)
+    *   *The Problem of China* (ID 13940)
+    *   *Workflow:* Download raw texts, strip Project Gutenberg licensing boilerplate via start/end sentinels, segment into paragraph blocks (~200–500 words), and pack tokens to 4,096 boundaries.
 2.  **Stage 2: DPO Alignment:** Train SFT-warmed weights using `trl.DPOTrainer` (or `trl.IPOTrainer`) on prompt triplets generated at temperature $T=0.7$ and scored via the composite style linter formula (1 epoch, LR $5 \times 10^{-6}$, $\beta=0.06$).
 
 ### 2.2 PEFT & Quantization Configuration

@@ -13,6 +13,7 @@ Layout assumptions (book-compose convention):
 
 Usage:
     python -m scripts.dispatch_chapter_qa <workspace> [ch-NN ...]
+        [--llm-backend {subagent|ollama}] [--model MODEL] [--num-predict N]
 
 When chapter ids are omitted, every chapter draft on disk is prepared.
 Each payload is written to ``<workspace>/qa/chapter-payloads/<ch-NN>.json``
@@ -20,6 +21,7 @@ so the host can pick them up. Re-running overwrites idempotently.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import random
 import re
@@ -130,11 +132,47 @@ def prepare_all_payloads(workspace: Path,
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 2:
-        print("usage: dispatch_chapter_qa.py <workspace> [ch-NN ...]", file=sys.stderr)
+    parser = argparse.ArgumentParser(
+        prog="dispatch_chapter_qa.py",
+        description="Stage-2 per-chapter QA payload preparer.",
+    )
+    parser.add_argument("workspace", help="Path to the book workspace root.")
+    parser.add_argument(
+        "chapter_ids",
+        nargs="*",
+        metavar="ch-NN",
+        help="Chapter ids to prepare (default: all discovered).",
+    )
+    parser.add_argument(
+        "--llm-backend",
+        choices=["subagent", "ollama"],
+        default="subagent",
+        help=(
+            "LLM dispatch backend. subagent (default): write JSON payloads only; "
+            "external host consumes them. ollama: not yet wired for this stage — "
+            "this stage prepares payloads for subagent dispatch only."
+        ),
+    )
+    parser.add_argument("--model", default="gemma4:31b",
+                        help="Ollama model (only used when --llm-backend=ollama).")
+    parser.add_argument(
+        "--num-predict",
+        type=int,
+        default=None,
+        help="Caps Ollama output tokens (only used when --llm-backend=ollama).",
+    )
+    args = parser.parse_args(argv[1:])
+
+    if args.llm_backend == "ollama":
+        print(
+            "[dispatch_chapter_qa] ollama backend not yet wired for this stage — "
+            "this stage prepares payloads for subagent dispatch only.",
+            file=sys.stderr,
+        )
         return 2
-    workspace = Path(argv[1]).resolve()
-    chapter_ids = argv[2:] or None
+
+    workspace = Path(args.workspace).resolve()
+    chapter_ids = args.chapter_ids or None
     payloads = prepare_all_payloads(workspace, chapter_ids)
     print(f"Prepared {len(payloads)} chapter QA payload(s) at "
           f"{workspace / 'qa' / 'chapter-payloads'}")

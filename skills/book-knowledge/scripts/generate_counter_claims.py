@@ -1,8 +1,10 @@
 """Abductive counter-claim generation for load-bearing claims."""
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -89,3 +91,67 @@ def generate_for_all_load_bearing(workspace_root: Path,
                 continue
             out[cid] = generate_for_claim(workspace_root, cid, llm_call)
     return out
+
+
+def _main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m scripts.generate_counter_claims",
+        description="Generate abductive counter-claims for load-bearing claims.",
+    )
+    parser.add_argument("workspace", type=Path, help="Workspace root.")
+    parser.add_argument(
+        "--claim-id",
+        default=None,
+        help="Generate counter-claims for a single claim ID only. "
+             "Omit to process all load-bearing claims without existing counter-claims.",
+    )
+    parser.add_argument(
+        "--llm-backend",
+        choices=["subagent", "ollama"],
+        default="subagent",
+        help="LLM dispatch backend. subagent (default): existing behavior. "
+             "ollama: route through llm_infra via production_llm.default_llm_call().",
+    )
+    parser.add_argument(
+        "--model",
+        default="gemma4:31b",
+        help="Ollama model (only used when --llm-backend=ollama).",
+    )
+    parser.add_argument(
+        "--num-predict",
+        type=int,
+        default=None,
+        help="Caps Ollama output tokens (only used when --llm-backend=ollama). "
+             "None = use frontmatter or default.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.llm_backend == "ollama":
+        # Import lazily — keeps subagent path free of llm_infra dependency at import time
+        if args.num_predict is not None:
+            from llm_infra import make_ollama_call
+            llm_call = make_ollama_call(model=args.model, num_predict=args.num_predict)
+        else:
+            from scripts.production_llm import default_llm_call
+            llm_call = default_llm_call(model=args.model)
+    else:
+        # subagent path: existing behavior — llm_call must be provided externally.
+        # For CLI invocation without ollama, fall back to production_llm (subagent wrapper).
+        from scripts.production_llm import default_llm_call
+        llm_call = default_llm_call()
+
+    workspace = args.workspace.resolve()
+    if args.claim_id:
+        new_ids = generate_for_claim(workspace, args.claim_id, llm_call)
+        print(f"generated {len(new_ids)} counter-claim(s) for {args.claim_id}: {new_ids}")
+    else:
+        result = generate_for_all_load_bearing(workspace, llm_call)
+        total = sum(len(v) for v in result.values())
+        print(f"generated {total} counter-claim(s) across {len(result)} claim(s)")
+        for cid, ids in result.items():
+            print(f"  {cid}: {ids}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv[1:]))

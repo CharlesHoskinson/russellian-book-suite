@@ -6,8 +6,8 @@ Align the local LLM dispatch path (`llm-infra`) with the high reasoning and qual
 ## Scope
 In scope:
 - Crawling the workspace to curate a multi-task fine-tuning dataset containing chapter drafts, persona reviews, and ledger updates.
-- Synthesizing or generating high-quality `<think>...</think>` reasoning traces for historical run outputs.
-- Quantizing and fine-tuning `gemma-2-27b-it` using Hugging Face PEFT (LoRA) and TRL on native Windows PyTorch.
+- Synthesizing clean final outputs and stripping any reasoning blocks from target inputs to allow native thinking during inference.
+- Quantizing and fine-tuning `google/gemma-4-31b-it` using Hugging Face PEFT (LoRA) and TRL on native Windows PyTorch.
 - Packaging the fine-tuned adapter and loading it directly in Ollama using a custom `Modelfile` with the `ADAPTER` command.
 - Modifying `adapter.py` to route calls through the new `russellgpt` model by default.
 - Building a verification suite (`verify_finetune.py`) to test reasoning block outputs and YAML compliance.

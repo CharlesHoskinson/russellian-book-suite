@@ -42,7 +42,7 @@ The verification system shall run a mock chapter review using the custom model, 
     *   *Our Knowledge of the External World* (ID 37090)
     *   *Introduction to Mathematical Philosophy* (ID 37060)
     *   *The Problem of China* (ID 13940)
-    *   *Workflow:* Download raw texts, strip Project Gutenberg licensing boilerplate via start/end sentinels, segment into paragraph blocks (~200–500 words), and pack tokens to 4,096 boundaries.
+    *   *Workflow:* Download raw texts using the `scrapling-fetch` skill, strip Project Gutenberg licensing boilerplate via start/end sentinels, segment into paragraph blocks (~200–500 words), and pack tokens to 4,096 boundaries.
 2.  **Stage 2: DPO Alignment:** Train SFT-warmed weights using `trl.DPOTrainer` (or `trl.IPOTrainer`) on prompt triplets generated at temperature $T=0.7$ and scored via the composite style linter formula (1 epoch, LR $5 \times 10^{-6}$, $\beta=0.06$).
 
 ### 2.2 PEFT & Quantization Configuration

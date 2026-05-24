@@ -17,13 +17,13 @@ The curation system shall use the 12 programmatic style linters in `russellian-s
 The curation system shall construct a DPO preference dataset of `(prompt, chosen, rejected)` triplets using lexicographical ranking where candidates are first gated by schema validity, completeness, and lack of training leakage before applying style-based ranking.
 
 ### REQ-LLM-TUNE-005 — Ubiquitous
-The training system shall run fine-tuning on the base model `google/gemma-4-31b-it` (pinned by digest) using 4-bit NF4 double quantization, gradient checkpointing, batch size of 1, and LoRA targeting backbone layers to fit within 32GB VRAM.
+The training system shall run fine-tuning on the base model `google/gemma-4-31B-it` (pinned HF revision `8d2f7a9341498b3f27de10b50b503d289196b014`) using 4-bit NF4 double quantization, gradient checkpointing, batch size of 1, and LoRA targeting backbone layers to fit within 32GB VRAM.
 
 ### REQ-LLM-TUNE-006 — Ubiquitous
 The training system shall execute a two-stage pipeline: (1) SFT Warmup on a verified allow-list of Bertrand Russell Project Gutenberg texts, and (2) DPO preference alignment using the correctness-gated dataset.
 
 ### REQ-LLM-TUNE-007 — Ubiquitous
-The integration system shall compile the model using `ollama create russellgpt -f Modelfile` with the `ADAPTER` command to load the Safetensors adapter over the pinned local `gemma4:31b` base model (ID: `6316f0629137`).
+The integration system shall compile the model using `ollama create russellgpt -f Modelfile` with the `ADAPTER` command to load the Safetensors adapter over the pinned local `gemma4:31b` base model (ID: `6316f0629137`, digest `sha256:6316f0629137d6e4cc7b9f87451006e98716b14249a5b6c8ba876bf7d848ccf4`).
 
 ### REQ-LLM-TUNE-008 — Ubiquitous
 The verification system shall run compliance tests validating reasoning block parsing, YAML frontmatter position, JSONL/JSON-LD ledger schemas, exact training leakage, and GPU residency.
@@ -33,19 +33,19 @@ The verification system shall run compliance tests validating reasoning block pa
 ## 2. Technical Details
 
 ### 2.1 Two-Stage Training Details
-1.  **Stage 1: SFT Warmup:** Fine-tune `google/gemma-4-31b-it` via Causal LM (1 epoch, LR $1 \times 10^{-5}$) on a compiled corpus of Bertrand Russell's public-domain works. The curation script must verify downloaded files against this checked allow-list:
+1.  **Stage 1: SFT Warmup:** Fine-tune `google/gemma-4-31B-it` (pinned Hugging Face revision: `8d2f7a9341498b3f27de10b50b503d289196b014`) via Causal LM (1 epoch, LR $1 \times 10^{-5}$) on a compiled corpus of Bertrand Russell's public-domain works. The curation script must verify downloaded files against this checked allow-list:
     *   *The Problems of Philosophy* (ID: 5827)
-    *   *The Analysis of Mind* (ID: 25292)
+    *   *The Analysis of Mind* (ID: 2529)
     *   *Mysticism and Logic and Other Essays* (ID: 25447)
     *   *Proposed Roads to Freedom* (ID: 690)
     *   *Our Knowledge of the External World* (ID: 37090)
     *   *Introduction to Mathematical Philosophy* (ID: 41654)
-    *   *The Problem of China* (ID: 74747)
+    *   *The Problem of China* (ID: 13940)
     *   *Workflow:* Fetch books via the `scrapling-fetch` skill, strip Gutenberg headers/footers via sentinels, segment into paragraph blocks (~200–500 words), and pack tokens to 4,096 boundaries.
 2.  **Stage 2: DPO Alignment:** Train SFT-warmed weights using `trl.DPOTrainer` on prompt triplets generated at temperature $T=0.7$ and ranked by correctness-first gates (1 epoch, LR $5 \times 10^{-6}$, $\beta=0.06$). Reference logprobs are calculated by disabling the adapter to save memory.
 
 ### 2.2 PEFT & Quantization Configuration
-- **Base Model:** `google/gemma-4-31b-it` (must match the architecture of `gemma4:31b` ID: `6316f0629137`)
+- **Base Model:** `google/gemma-4-31B-it` (pinned Hugging Face revision `8d2f7a9341498b3f27de10b50b503d289196b014`; must match the architecture, weights, and parameters of the local Ollama base `gemma4:31b` ID: `6316f0629137` / digest `sha256:6316f0629137d6e4cc7b9f87451006e98716b14249a5b6c8ba876bf7d848ccf4`)
 - **LoRA configuration:**
   - `r`: 64
   - `lora_alpha`: 128

@@ -4,8 +4,8 @@ Two phases:
 - Phase A (revise): dispatch the reviser persona once per cluster via gemma4:31b; parse JSON.
 - Phase B (apply): exact-match string replacement of original->revised in chapter.
 
-Satisfies REQ-REVISE-001 (cycle runs end-to-end) and REQ-REVISE-002 (apply
-failures halt the pipeline with a clear error).
+Satisfies REQ-REVISE-001 (cycle runs end-to-end) and REQ-REVISE-002 (per-revision
+tolerance: skipped revisions are added to unresolved; ApplyError only when ALL fail).
 """
 from __future__ import annotations
 
@@ -48,38 +48,59 @@ def apply_revisions(
     chapter_path: Path,
     revisions_obj: dict,
     output_path: Path,
-) -> None:
+) -> int:
     """Apply paragraph-level rewrites; write revised chapter to output_path.
 
-    Raises ApplyError if any `original` doesn't appear verbatim in the chapter.
-    All-or-nothing: on failure, output_path is not written.
+    Per-revision tolerance: revisions whose `original` doesn't appear
+    verbatim in the chapter are skipped and added to revisions_obj["unresolved"]
+    with cluster_id + reason. Successful revisions are applied. The revised
+    chapter is written regardless of partial failures.
+
+    Returns the number of revisions successfully applied.
+
+    Raises ApplyError ONLY when zero revisions could be applied (truly nothing
+    to write). In that case revisions-apply-failures.json carries the diagnostic;
+    output_path is not written.
     """
     chapter_text = chapter_path.read_text(encoding="utf-8")
     revisions = revisions_obj.get("revisions", [])
+    revisions_obj.setdefault("unresolved", [])
 
+    applicable: list[dict] = []
     failures: list[dict] = []
     for entry in revisions:
         original = entry.get("original", "")
-        if original not in chapter_text:
+        if original and original in chapter_text:
+            applicable.append(entry)
+        else:
             failures.append({
                 "cluster_id": entry.get("cluster_id", "(unknown)"),
                 "original_snippet": original[:100],
                 "reason": "verbatim match not found in chapter",
             })
 
-    if failures:
+    # Add per-revision failures to unresolved for cycle-report visibility.
+    for f in failures:
+        revisions_obj["unresolved"].append({
+            "cluster_id": f["cluster_id"],
+            "reason": f["reason"],
+        })
+
+    if not applicable and revisions:
+        # Every single revision failed — this is a genuine halt case.
         raise ApplyError(
-            f"{len(failures)} revision(s) could not be applied: "
+            f"all {len(revisions)} revision(s) failed verbatim match: "
             f"{', '.join(f['cluster_id'] for f in failures)}",
             failures=failures,
         )
 
     revised = chapter_text
-    for entry in revisions:
+    for entry in applicable:
         revised = revised.replace(entry["original"], entry["revised"], 1)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(revised, encoding="utf-8")
+    return len(applicable)
 
 
 @dataclass
@@ -216,10 +237,10 @@ def run_revise(
     (output_dir / "revisions-raw-response.md").write_text(
         "\n\n".join(raw_responses), encoding="utf-8")
 
-    # Phase B: apply (may raise ApplyError)
+    # Phase B: apply (tolerant — only raises if ALL revisions fail)
     revised_chapter_path = output_dir / "revised-chapter.md"
     try:
-        apply_revisions(
+        applied = apply_revisions(
             chapter_path=chapter_path,
             revisions_obj=revisions_obj,
             output_path=revised_chapter_path,
@@ -230,13 +251,31 @@ def run_revise(
             json.dumps({"failures": e.failures}, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        print(f"[revise] APPLY FAILED — {e}", file=sys.stderr)
+        print(f"[revise] APPLY FAILED (all revisions) — {e}", file=sys.stderr)
         print(f"[revise] failures written to {failures_path}", file=sys.stderr)
         raise
 
+    # If some revisions failed (but not all), the updated revisions_obj has
+    # those failures in unresolved. Write a diagnostic file too.
+    apply_failures = [u for u in revisions_obj.get("unresolved", [])
+                       if u.get("reason", "").startswith("verbatim match not found")]
+    if apply_failures:
+        failures_path = output_dir / "revisions-apply-failures.json"
+        failures_path.write_text(
+            json.dumps({"failures": apply_failures}, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(f"[revise] partial apply: {applied} succeeded, {len(apply_failures)} skipped",
+              file=sys.stderr)
+
+    # Re-write revisions.json with the updated unresolved list (now includes
+    # apply failures)
+    (output_dir / "revisions.json").write_text(
+        json.dumps(revisions_obj, indent=2, ensure_ascii=False), encoding="utf-8")
+
     print(f"[revise] dispatched {len(clusters)} clusters; "
-          f"{len(aggregated_revisions)} revisions applied; "
-          f"{len(aggregated_unresolved)} unresolved; "
+          f"{applied} revisions applied; "
+          f"{len(revisions_obj.get('unresolved', []))} unresolved; "
           f"-> {revised_chapter_path}", file=sys.stderr)
 
 

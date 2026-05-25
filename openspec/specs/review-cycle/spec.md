@@ -18,7 +18,9 @@ The system shall run all six stages (panel-before, aggregate-before, synthesize,
 
 ### REQ-REVISE-002 — Event-driven
 
-When the reviser's JSON output references an `original` paragraph that does not appear verbatim in the source chapter, the system shall halt with exit code 2 and write `revisions-apply-failures.json` listing the offending paragraphs.
+When a revision's `original` paragraph does not appear verbatim in the source chapter, the system shall skip that revision, add it to `revisions_obj["unresolved"]` with a "verbatim match not found" reason, and continue applying the remaining revisions. The system shall write `revisions-apply-failures.json` listing skipped revisions whenever any are skipped.
+
+When **all** revisions in a cycle fail verbatim match (zero successfully applied), the system shall halt with exit code 2 — this is a genuine cycle failure (the reviser produced nothing actionable). When at least one revision applies, the system shall continue through stages 5-6 (re-validate + report) so the operator sees the partial outcome.
 
 ### REQ-REVISE-003 — Ubiquitous
 

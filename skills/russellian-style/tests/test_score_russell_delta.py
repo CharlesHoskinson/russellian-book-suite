@@ -55,3 +55,12 @@ def test_outside_verdict_with_stub_profile():
     r = score("of of and and and", profile, min_words=1)
     assert r["verdict"] == "outside Russell's range"
     assert r["delta"] > profile["internal_delta"]["p90"]
+
+
+def test_report_dict_includes_russell_delta(tmp_path):
+    from scripts.style_pass_report import generate_report_dict
+    md = tmp_path / "s.md"
+    md.write_text("# T\n\n" + ("The nineteenth century discovered pure mathematics. " * 60), encoding="utf-8")
+    rep = generate_report_dict(md)
+    assert rep["russell_delta"]["metric"] == "russell-cosine-delta"
+    assert "verdict" in rep["russell_delta"]

@@ -15,8 +15,8 @@ each file stays self-contained, and the change is additive.
   are composition prompts, not chat; a visible thinking block would leak into the book.
 - Anchors cite existing corpus rows by ID; no new corpus entries, no schema coupling.
 - Touchstone quotes are verified verbatim against the cited public-domain source before
-  commit. Candidate rows: `problems-010` (technical), `free-006` (polemic),
-  `analysis-008` (narrative).
+  commit. Verified rows: `problems-010` (technical), `free-001` (polemic),
+  `analysis-008` (narrative). Verbatim text and URLs live in the implementation plan.
 - Duplication of the planning language across three files is deliberate and matches the
   files' existing shared structure.
 

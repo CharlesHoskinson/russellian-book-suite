@@ -7,7 +7,8 @@ Delta against `openspec/specs/russellian-voice/spec.md` (new capability; all ADD
 
 Each mode system prompt under
 `skills/russellian-style/assets/system-prompts/` shall contain a
-`## Calibration and planning` section.
+`# Calibration and planning` section (single-`#`, matching the files' existing
+section-heading level).
 
 ## ADD REQ-VOICE-002 — Event-driven
 
@@ -40,5 +41,5 @@ and audit scripts unmodified.
 ## ADD REQ-VOICE-007 — Event-driven
 
 When the calibration test suite runs, for each mode in `VALID_MODES` it shall assert
-the presence of the `## Calibration and planning` heading, the move vocabulary, and at
+the presence of the `# Calibration and planning` heading, the move vocabulary, and at
 least one attributed anchor.

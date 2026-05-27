@@ -14,7 +14,7 @@ linters and personas remain the enforcers.
 
 ## What changes
 
-- Append a `## Calibration and planning` section to each of `technical-exposition.md`,
+- Append a `# Calibration and planning` section to each of `technical-exposition.md`,
   `narrative-editorial.md`, `polemic.md`: a silent paragraph-motion planning directive,
   mode-matched move anchors cited from `russell-corpus-map.md`, one contrastive
   touchstone (flat-AI vs. a verified public-domain Russell quote), and an

@@ -37,7 +37,7 @@ stays a separate concern with its own tool (`tools/build-russell-corpus`).
 
 ## Design
 
-Each mode file gains one appended section, `## Calibration and planning`, holding
+Each mode file gains one appended section, `# Calibration and planning`, holding
 four parts.
 
 ### a. Silent planning directive
@@ -73,11 +73,13 @@ public-domain Russell quote that demonstrates the target motion and wit. The quo
 carries source attribution (the corpus source ID and URL). The touchstone teaches
 motion and register, not diction to copy.
 
-Quote selection and verbatim verification happen at implementation time. No quote is
-treated as verbatim until checked against the cited public-domain source. The
-candidate touchstones reference these corpus rows: technical → `problems-010`
-(uncertainty turned into value); polemic → `free-006` (reversal compressed into one
-sentence); narrative → `analysis-008` (vivid empirical sequence).
+Quotes are verified verbatim against the cited public-domain source before use; no
+quote is treated as verbatim until checked. The selected touchstones, verified during
+planning: technical → `problems-010` (Problems of Philosophy, uncertainty turned into
+value); polemic → `free-001` (Free Thought and Official Propaganda, the will-to-doubt
+antithesis — selected over the earlier `free-006` candidate, which proved a weaker
+fit); narrative → `analysis-008` (The Analysis of Mind, the hungry-cat learning
+sequence). Verbatim text and source URLs live in the implementation plan.
 
 ### d. Understatement line
 
@@ -107,7 +109,7 @@ No linter, threshold, or schema changes.
 New `tests/test_system_prompt_calibration.py`. For each mode in `VALID_MODES`, assert
 the loaded prompt contains:
 
-- the `## Calibration and planning` heading,
+- the `# Calibration and planning` heading,
 - the move-vocabulary string (`concession`, `consequence`, `turn`),
 - at least one attributed anchor (a source-ID or URL token adjacent to a quote).
 

@@ -35,6 +35,7 @@ Capability slugs and their full capability names:
 | `OSMOTIC` | osmotic-pressure-verifier |
 | `VOICE` | russellian-voice |
 | `DELTA` | russell-delta |
+| `VOICE-EVAL` | voice-eval |
 
 ## EARS patterns
 

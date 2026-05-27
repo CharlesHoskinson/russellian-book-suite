@@ -6,8 +6,9 @@ The russellian-style linters count deviations from a codified style ideal; none 
 proximity to Russell's actual prose. A head-to-head comparison showed real Russell
 tripping the linters 93 times to a machine imitation's 51, because several budgets are
 stricter than Russell's own practice. The suite cannot answer "how close is this to
-Russell?" This change adds a positive, deterministic answer from stylometry (Burrows's
-Delta, cosine variant), reported as an advisory metric.
+Russell?" This change adds a positive, deterministic answer from stylometry (classic Burrows's
+Delta — mean absolute z-score against the author profile), reported as an advisory
+metric.
 
 ## What changes
 
@@ -17,7 +18,8 @@ Delta, cosine variant), reported as an advisory metric.
   only (MFW list, per-feature mean/stdev, per-segment z-vectors, internal pairwise-Delta
   distribution, provenance).
 - `scripts/score_russell_delta.py`: a deterministic, offline scorer that reports a
-  document's Cosine-Delta distance to Russell with an interpretive band and verdict.
+  document's Burrows-Delta distance to Russell with an interpretive band and three-band
+  verdict.
 - One advisory line in `style_pass_report.py` / `style-pass-report.template.md`.
 - Tests for builder and scorer (including a hand-computed example); no network in tests.
 - Register the `DELTA` capability slug in `openspec/README.md`.

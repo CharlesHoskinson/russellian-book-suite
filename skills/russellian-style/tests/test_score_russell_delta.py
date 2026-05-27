@@ -2,7 +2,7 @@
 import pytest
 pytestmark = pytest.mark.windows_canary
 from scripts.build_delta_profile import build_profile
-from scripts.score_russell_delta import score
+from scripts.score_russell_delta import score, _verdict
 
 
 @pytest.fixture
@@ -13,23 +13,43 @@ def fixture_profile():
     }
     return build_profile(texts, n_features=6, segment_words=50, min_segment=20)
 
+
+# A hand-built profile lets the verdict tests control the band directly.
+# (build_profile fixtures from uniform repeats collapse stdev to ~0.)
+STUB = {
+    "mfw": ["the", "of", "and"],
+    "mean": [0.5, 0.3, 0.2],
+    "stdev": [0.05, 0.05, 0.05],
+    "centroid_delta": {"p10": 0.4, "p50": 0.7, "p90": 1.0},
+}
+
+
 def test_score_shape(fixture_profile):
     r = score("the of and to the of a in the of " * 200, fixture_profile, min_words=1000)
-    assert r["metric"] == "russell-cosine-delta"
+    assert r["metric"] == "russell-burrows-delta"
     assert set(r["band"]) == {"p10", "p50", "p90"}
-    assert r["verdict"] in ("within Russell's range", "outside Russell's range")
+    assert r["verdict"] in ("within Russell's range",
+                            "at the edge of Russell's range",
+                            "outside Russell's range")
     assert isinstance(r["delta"], float)
 
-def test_in_distribution_text_is_within_range(fixture_profile):
-    r = score("the of and to the of a in the of " * 300, fixture_profile, min_words=10)
-    assert r["delta"] <= fixture_profile["internal_delta"]["p90"] + 1e-9
+def test_verdict_three_bands():
+    band = {"p10": 0.6, "p50": 0.7, "p90": 0.8}   # fence = 0.8 + (0.8-0.6) = 1.0
+    assert _verdict(0.70, band) == "within Russell's range"
+    assert _verdict(0.90, band) == "at the edge of Russell's range"
+    assert _verdict(1.20, band) == "outside Russell's range"
+
+def test_within_verdict_when_near_profile():
+    # freqs the=0.5, of=0.3, and=0.2 exactly match the profile mean -> delta 0 -> within
+    r = score("the the the the the of of of and and", STUB, min_words=1)
+    assert r["delta"] == pytest.approx(0.0)
     assert r["verdict"] == "within Russell's range"
 
-def test_out_of_distribution_text_scores_outside(fixture_profile):
-    r = score("zebra zebra quux quux blorp blorp " * 300, fixture_profile, min_words=10)
-    # Alien words all absent from mfw; z-vector is (-mean/stdev) or zero-guarded,
-    # giving cosine_delta >= 1.0 against the reference segments.
-    assert r["delta"] >= 1.0
+def test_outside_verdict_when_far_from_profile():
+    # all weight on 'and' -> large absolute z across features -> delta above p90 -> outside
+    r = score("and and and and and", STUB, min_words=1)
+    assert r["delta"] > STUB["centroid_delta"]["p90"]
+    assert r["verdict"] == "outside Russell's range"
 
 def test_min_length_guard_sets_reliable_false(fixture_profile):
     r = score("the of and the", fixture_profile, min_words=1000)
@@ -40,27 +60,11 @@ def test_determinism(fixture_profile):
     t = "the of and to the of a the in of " * 200
     assert score(t, fixture_profile) == score(t, fixture_profile)
 
-def test_outside_verdict_with_stub_profile():
-    # Hand-built profile with a tight internal band so out-of-distribution text
-    # crosses p90 and the "outside Russell's range" verdict path is exercised.
-    # (A build_profile fixture cannot: two synthetic texts yield a bimodal
-    # z-space whose p90 is 2.0, which nothing exceeds.)
-    profile = {
-        "mfw": ["the", "of", "and"],
-        "mean": [0.5, 0.3, 0.2],
-        "stdev": [0.05, 0.05, 0.05],
-        "segments_z": [[1.0, -1.0, 0.0], [1.0, -1.0, 0.0]],
-        "internal_delta": {"p10": 0.0, "p50": 0.0, "p90": 0.05},
-    }
-    r = score("of of and and and", profile, min_words=1)
-    assert r["verdict"] == "outside Russell's range"
-    assert r["delta"] > profile["internal_delta"]["p90"]
-
 
 def test_report_dict_includes_russell_delta(tmp_path):
     from scripts.style_pass_report import generate_report_dict
     md = tmp_path / "s.md"
     md.write_text("# T\n\n" + ("The nineteenth century discovered pure mathematics. " * 60), encoding="utf-8")
     rep = generate_report_dict(md)
-    assert rep["russell_delta"]["metric"] == "russell-cosine-delta"
+    assert rep["russell_delta"]["metric"] == "russell-burrows-delta"
     assert "verdict" in rep["russell_delta"]

@@ -18,14 +18,13 @@ def test_build_profile_shapes_and_determinism():
         "b": " ".join(["the and of dog the of"] * 200),
     }
     p = build_profile(texts, n_features=4, segment_words=50, min_segment=20)
-    assert p["method"] == "cosine-delta"
+    assert p["method"] == "burrows-delta"
     assert p["n_features"] == 4
     assert len(p["mfw"]) == 4
     assert p["mfw"][0] == "the"
     assert len(p["mean"]) == 4 and len(p["stdev"]) == 4
-    assert len(p["segments_z"]) == p["n_segments"]
-    assert all(len(z) == 4 for z in p["segments_z"])
-    assert set(p["internal_delta"]) >= {"p10", "p50", "p90", "max", "mean", "count"}
+    assert set(p["centroid_delta"]) >= {"p10", "p50", "p90", "max", "mean", "count"}
+    assert "segments_z" not in p          # heavy per-segment vectors no longer stored
     assert "no source prose" in p["source_policy"].lower()
     p2 = build_profile(texts, n_features=4, segment_words=50, min_segment=20)
     drop = lambda d: {k: v for k, v in d.items() if k != "built_at"}

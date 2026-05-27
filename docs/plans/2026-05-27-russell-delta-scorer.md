@@ -10,6 +10,12 @@
 
 **Spec:** `openspec/changes/add-russell-delta-scorer/` (REQ-DELTA-001..009), `docs/specs/2026-05-27-russell-delta-scorer-design.md`.
 
+> **Post-implementation note:** the code blocks below show the original cosine-to-segments
+> metric, which validation showed did not discriminate (all formal English scored ~1.0).
+> The shipped metric is classic Burrows's Delta (mean absolute z-score to the author
+> profile) with a three-band verdict. The committed modules and the design doc are the
+> source of truth; these blocks are kept as the original plan of record.
+
 ---
 
 ## File structure

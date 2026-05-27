@@ -22,10 +22,15 @@ stylometry: a Russell-similarity score based on Burrows's Delta.
 Burrows's Delta represents a text by the z-scored relative frequencies of the most
 frequent words (function words dominate the list), and measures stylistic distance in
 that space. Function-word signatures are stable within an author and robust to topic.
-Evert et al. showed that the cosine variant ("Cosine Delta") discriminates better than
-the original Manhattan Delta. The metric is the established standard for authorial
-stylistic proximity, it is deterministic, and it needs no model — a good fit for a
-suite whose discipline is deterministic gates.
+Evert et al. showed the cosine variant discriminates best for multi-author attribution.
+For a single-author distance, the discriminating measure is classic Burrows's Delta —
+the mean absolute z-score of a text against the author's per-word mean and standard
+deviation: a genuine Russell text sits near Russell's means (small Delta), alien prose
+deviates across many features (large Delta). An earlier cosine-to-segments variant was
+tried and abandoned: in high-dimensional z-space independent vectors are near-orthogonal,
+so every formal-English text scored ~1.0 and nothing separated. The metric is
+deterministic and needs no model — a good fit for a suite whose discipline is
+deterministic gates.
 
 References: Burrows 2002; Argamon, geometric/probabilistic foundations; Evert et al.,
 "Understanding and explaining Delta"; "Improving Burrows's Delta."
@@ -65,11 +70,9 @@ the corpus index's frequencies-only policy):
   300).
 - `mean`, `stdev`: per-feature mean and standard deviation of relative frequency across
   reference segments.
-- `segments_z`: the z-vector of every reference segment (the matrix used for the
-  doc-to-segments comparison).
-- `internal_delta`: the distribution of pairwise Cosine Delta among reference segments
-  (p10, p50, p90, max) — Russell's own internal variation, used as the interpretive
-  band.
+- `centroid_delta`: the distribution of per-segment Burrows's Delta to the author
+  profile (p10, p50, p90, max, mean) — Russell's own internal variation, the
+  interpretive band.
 - Provenance: `method`, `n_features`, `segment_words`, `tokenizer`, `source_policy`,
   `reference_ids`, `built_at`.
 
@@ -77,8 +80,9 @@ the corpus index's frequencies-only policy):
 
 `scripts/build_delta_profile.py` is network-free. It consumes local cleaned text files,
 strips Gutenberg boilerplate, segments each work into ~2500-word units, computes the
-MFW list and per-feature mean/stdev across segments, computes each segment's z-vector
-and the internal pairwise-Delta distribution, and writes the asset deterministically.
+MFW list and per-feature mean/stdev across segments, computes each segment's Burrows's
+Delta to the profile, stores that distribution as `centroid_delta`, and writes the
+asset deterministically.
 
 Fetching the sources is a separate documented step that uses `scrapling-fetch`: it
 tries the plain-text Gutenberg path and falls back to fetching the HTML and stripping
@@ -91,19 +95,18 @@ builder testable with fixtures and free of network in CI.
 (`python -m scripts.score_russell_delta <file.md>`):
 
 1. `lint_common.load_markdown` to text; lowercase; tokenize on `[a-z']+`.
-2. Compute relative frequency of each profile MFW; z-score with the profile
-   mean/stdev to get the target z-vector **t**.
-3. Score = mean over reference segments of the cosine distance `1 - cos(t, s_i)`.
-   Cosine Delta is computed document-to-document, not document-to-centroid: the author
-   centroid is approximately zero in z-space, where cosine is undefined, so the target
-   is compared against each reference segment z-vector and averaged.
-4. Compare the score to `internal_delta` to yield a verdict: `within Russell's range`
-   when at or below the band's upper reaches (>= p90 is `outside`), else proportional
-   reporting against p10/p50/p90.
+2. Compute relative frequency of each profile MFW; z-score with the profile mean/stdev.
+3. Delta = mean absolute z-score (classic Burrows's Delta) — the target's average
+   per-feature deviation, in standard deviations, from Russell's profile.
+4. Verdict against `centroid_delta`, in three honest bands: `within Russell's range`
+   (delta ≤ p90), `at the edge of Russell's range` (p90 < delta ≤ fence), `outside
+   Russell's range` (delta > fence), where `fence = p90 + (p90 − p10)`. p90 alone is
+   too strict (~10% of Russell's own segments exceed it) and `max` is outlier-inflated;
+   one inter-decile range past p90 separates Russell's own variation from alien prose.
 5. Below the minimum reliable length (default 1000 words) the score is still reported
    with `reliable: false`.
 
-Output JSON: `{"metric":"russell-cosine-delta","delta":<float>,"band":{"p10","p50",
+Output JSON: `{"metric":"russell-burrows-delta","delta":<float>,"band":{"p10","p50",
 "p90"},"verdict":<str>,"n_words":<int>,"reliable":<bool>}`. Pure Python (`Counter`,
 `math`), deterministic, offline.
 
@@ -120,9 +123,9 @@ Builder: tiny fixture texts produce a profile with the correct MFW ordering and
 mean/stdev; output is deterministic for fixed input.
 
 Scorer:
-- a text equal to a reference segment scores within the band;
-- a modern machine-prose paragraph scores above p90 (`outside`);
-- a 3-MFW, 2-segment hand-computed example yields the exact known cosine-delta value;
+- a target near the profile mean scores within the band;
+- a target far from the profile scores `outside`;
+- the three-band verdict function classifies within / edge / outside correctly;
 - the minimum-length guard sets `reliable: false`;
 - repeated runs on the same input are identical.
 

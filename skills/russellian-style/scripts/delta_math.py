@@ -1,4 +1,9 @@
-"""Stylometric primitives for Russell-Delta (Cosine Delta over MFW frequencies)."""
+"""Stylometric primitives for Russell-Delta over MFW frequencies.
+
+`manhattan_delta` is classic Burrows's Delta (mean absolute z-score to the author
+profile) and is the discriminating single-author measure used by the scorer. The
+cosine helpers are retained for pairwise stylistic comparison.
+"""
 from __future__ import annotations
 
 import math
@@ -35,3 +40,8 @@ def cosine(a: list[float], b: list[float]) -> float:
 
 def cosine_delta(a: list[float], b: list[float]) -> float:
     return 1.0 - cosine(a, b)
+
+
+def manhattan_delta(z: list[float]) -> float:
+    """Classic Burrows's Delta: mean absolute z-score (distance to the author profile)."""
+    return sum(abs(x) for x in z) / len(z) if z else 0.0

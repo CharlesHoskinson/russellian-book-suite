@@ -2,6 +2,10 @@
 
 Network-free. Fetching of public-domain sources is a separate step via
 scrapling-fetch; this module only computes statistics.
+
+The profile holds the author's per-MFW mean and standard deviation, plus the
+distribution of per-segment Burrows's Delta (mean absolute z-score to the author
+profile). The scorer compares a target's Delta against that distribution.
 """
 from __future__ import annotations
 
@@ -13,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean as _mean, pstdev
 
-from scripts.delta_math import tokenize, relative_frequencies, zscore, cosine_delta
+from scripts.delta_math import tokenize, relative_frequencies, zscore, manhattan_delta
 
 _START_RE = re.compile(r"\*\*\*\s*START OF.*?\*\*\*", re.IGNORECASE | re.DOTALL)
 _END_RE = re.compile(r"\*\*\*\s*END OF", re.IGNORECASE)
@@ -58,25 +62,21 @@ def build_profile(texts: dict[str, str], n_features: int = 300,
     seg_freqs = [relative_frequencies(seg, mfw) for seg in segments]
     mean = [_mean(col) for col in zip(*seg_freqs)]
     stdev = [pstdev(col) for col in zip(*seg_freqs)]
-    segments_z = [zscore(f, mean, stdev) for f in seg_freqs]
 
-    deltas: list[float] = []
-    for i in range(len(segments_z)):
-        for j in range(i + 1, len(segments_z)):
-            deltas.append(cosine_delta(segments_z[i], segments_z[j]))
-    deltas.sort()
-    internal = {
-        "p10": _percentile(deltas, 0.10),
-        "p50": _percentile(deltas, 0.50),
-        "p90": _percentile(deltas, 0.90),
-        "max": round(deltas[-1], 6) if deltas else 0.0,
-        "mean": round(_mean(deltas), 6) if deltas else 0.0,
-        "count": len(deltas),
+    # Burrows's Delta of each segment to the author profile: mean absolute z-score.
+    seg_deltas = sorted(manhattan_delta(zscore(f, mean, stdev)) for f in seg_freqs)
+    centroid_delta = {
+        "p10": _percentile(seg_deltas, 0.10),
+        "p50": _percentile(seg_deltas, 0.50),
+        "p90": _percentile(seg_deltas, 0.90),
+        "max": round(seg_deltas[-1], 6),
+        "mean": round(_mean(seg_deltas), 6),
+        "count": len(seg_deltas),
     }
 
     return {
-        "version": "0.1.0",
-        "method": "cosine-delta",
+        "version": "0.2.0",
+        "method": "burrows-delta",
         "n_features": len(mfw),
         "segment_words": segment_words,
         "tokenizer": "lowercase tokens matching [a-z']+",
@@ -86,8 +86,7 @@ def build_profile(texts: dict[str, str], n_features: int = 300,
         "mfw": mfw,
         "mean": [round(x, 9) for x in mean],
         "stdev": [round(x, 9) for x in stdev],
-        "segments_z": [[round(x, 6) for x in z] for z in segments_z],
-        "internal_delta": internal,
+        "centroid_delta": centroid_delta,
         "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
@@ -105,8 +104,9 @@ def main(argv: list[str]) -> int:
         print("usage: build_delta_profile.py <src_dir> <out.json>", file=sys.stderr)
         return 2
     p = build_from_dir(Path(argv[1]), Path(argv[2]))
+    cd = p["centroid_delta"]
     print(f"profile: {p['n_segments']} segments, {p['n_features']} features, "
-          f"internal p50={p['internal_delta']['p50']}")
+          f"delta p50={cd['p50']} p90={cd['p90']}")
     return 0
 
 

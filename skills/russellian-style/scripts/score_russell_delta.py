@@ -1,13 +1,18 @@
-"""Advisory Russell-similarity score (Cosine Delta to the reference profile)."""
+"""Advisory Russell-similarity score (classic Burrows's Delta to the reference profile).
+
+The score is the mean absolute z-score of the target's MFW frequencies against
+Russell's per-word mean and standard deviation. A low Delta means the target's
+function-word usage sits near Russell's; the verdict compares it to the distribution
+of Russell's own per-segment Deltas. Advisory only — it gates nothing.
+"""
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
-from statistics import mean as _mean
 
 from scripts.lint_common import load_markdown
-from scripts.delta_math import tokenize, relative_frequencies, zscore, cosine_delta
+from scripts.delta_math import tokenize, relative_frequencies, zscore, manhattan_delta
 
 PROFILE_PATH = Path(__file__).resolve().parent.parent / "assets" / "russell-delta-profile.json"
 MIN_WORDS = 1000
@@ -17,16 +22,27 @@ def load_profile(path: Path = PROFILE_PATH) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def _verdict(delta: float, band: dict) -> str:
+    """Three honest bands. p90 alone is too strict (~10% of Russell's own segments
+    exceed it); `max` is outlier-inflated. The upper fence is one inter-decile range
+    past p90, which separates Russell's own variation from genuinely alien prose."""
+    p90 = band["p90"]
+    fence = p90 + (p90 - band["p10"])
+    if delta <= p90:
+        return "within Russell's range"
+    if delta <= fence:
+        return "at the edge of Russell's range"
+    return "outside Russell's range"
+
+
 def score(text: str, profile: dict, min_words: int = MIN_WORDS) -> dict:
     tokens = tokenize(text)
     freqs = relative_frequencies(tokens, profile["mfw"])
-    tz = zscore(freqs, profile["mean"], profile["stdev"])
-    deltas = [cosine_delta(tz, s) for s in profile["segments_z"]]
-    delta = round(_mean(deltas), 6) if deltas else 1.0
-    band = profile["internal_delta"]
-    verdict = "within Russell's range" if delta <= band["p90"] else "outside Russell's range"
+    delta = round(manhattan_delta(zscore(freqs, profile["mean"], profile["stdev"])), 6)
+    band = profile["centroid_delta"]
+    verdict = _verdict(delta, band)
     return {
-        "metric": "russell-cosine-delta",
+        "metric": "russell-burrows-delta",
         "delta": delta,
         "band": {"p10": band["p10"], "p50": band["p50"], "p90": band["p90"]},
         "verdict": verdict,

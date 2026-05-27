@@ -7,8 +7,9 @@ Delta against `openspec/specs/russell-delta/spec.md` (new capability; all ADD).
 
 The russellian-style skill shall provide a committed reference-profile asset at
 `assets/russell-delta-profile.json` containing statistics only — the most-frequent-word
-list, per-feature mean and standard deviation, per-segment z-vectors, the internal
-pairwise-Delta distribution, and provenance — and no source prose.
+list, per-feature mean and standard deviation, the distribution of per-segment Burrows's
+Delta to the author profile (`centroid_delta`: p10/p50/p90/max/mean), and provenance —
+and no source prose.
 
 ## ADD REQ-DELTA-002 — Event-driven
 
@@ -19,15 +20,16 @@ for fixed input.
 
 ## ADD REQ-DELTA-003 — Ubiquitous
 
-The scorer shall compute a target document's Russell-Delta as the mean cosine distance
-between the target's z-vector and each reference segment z-vector, using the profile's
-most-frequent-word list and per-feature mean and standard deviation.
+The scorer shall compute a target document's Russell-Delta as classic Burrows's Delta —
+the mean absolute z-score of the target's most-frequent-word relative frequencies
+against the profile's per-feature mean and standard deviation.
 
 ## ADD REQ-DELTA-004 — Event-driven
 
 When the scorer runs on a markdown file, it shall output JSON containing the delta, the
-internal-Delta band (p10, p50, p90), a within-or-outside-range verdict, the word count,
-and a reliability flag.
+band (p10, p50, p90), a three-band verdict (within / at the edge of / outside Russell's
+range, the outside cutoff being one inter-decile range past p90), the word count, and a
+reliability flag.
 
 ## ADD REQ-DELTA-005 — Unwanted behaviour
 

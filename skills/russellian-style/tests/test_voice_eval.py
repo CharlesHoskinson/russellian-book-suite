@@ -47,3 +47,22 @@ def test_evaluate_with_baseline_reports_side_by_side():
     rep = evaluate(gen, russell_baseline_text=base)
     assert rep["baseline"] is not None
     assert rep["baseline"]["russell_delta"]["metric"] == "russell-burrows-delta"
+
+def test_run_orchestrates_generation_and_eval():
+    from scripts.voice_eval import run
+    rep = run("the calculus", mode="technical-exposition", n=4,
+              llm_call=lambda prompt: "The calculus was invented twice. " * 80)
+    assert rep["meta"]["topic"] == "the calculus"
+    assert rep["meta"]["n_requested"] == 4
+    assert rep["generated_text"].startswith("The calculus")
+    assert rep["generated"]["russell_delta"]["metric"] == "russell-burrows-delta"
+
+def test_write_report_emits_paragraphs_and_table(tmp_path):
+    from scripts.voice_eval import run, write_report
+    rep = run("x", mode="polemic", n=3, llm_call=lambda p: "An argument with a turn. " * 80)
+    out = tmp_path / "report.md"
+    write_report(rep, out)
+    md = out.read_text(encoding="utf-8")
+    assert "russell-burrows-delta" in md
+    assert "An argument with a turn." in md
+    assert "| linter |" in md

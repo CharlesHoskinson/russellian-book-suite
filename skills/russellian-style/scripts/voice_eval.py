@@ -91,3 +91,71 @@ def evaluate(generated_text: str, russell_baseline_text: Optional[str] = None,
     if russell_baseline_text is not None:
         report["baseline"] = _signals(russell_baseline_text, profile)
     return report
+
+
+def run(topic: str, mode: str = DEFAULT_MODE, n: int = DEFAULT_N, *,
+        llm_call: Callable[[str], str], russell_baseline_path: Optional[str] = None) -> dict:
+    text = generate_paragraphs(topic, mode, n, llm_call=llm_call)
+    baseline_text = None
+    if russell_baseline_path:
+        baseline_text = Path(russell_baseline_path).read_text(encoding="utf-8", errors="replace")
+    report = evaluate(text, baseline_text)
+    report["meta"] = {"topic": topic, "mode": mode, "n_requested": n}
+    report["generated_text"] = text
+    return report
+
+
+def _delta_line(sig: dict) -> str:
+    d = sig["russell_delta"]
+    return (f"metric={d['metric']} delta={d['delta']} verdict={d['verdict']} "
+            f"(band p50={d['band']['p50']} p90={d['band']['p90']}) words={sig['n_words']}")
+
+
+def write_report(report: dict, out_path) -> None:
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    meta = report.get("meta", {})
+    gen = report["generated"]
+    base = report.get("baseline")
+    lines = [
+        "# Voice-eval report",
+        "",
+        f"- topic: {meta.get('topic')}",
+        f"- mode: {meta.get('mode')}",
+        f"- paragraphs requested: {meta.get('n_requested')}",
+        "",
+        "## Russell-Delta",
+        "",
+        f"- generated: {_delta_line(gen)}",
+    ]
+    if base:
+        lines.append(f"- russell baseline: {_delta_line(base)}")
+    lines += ["", "## Linter densities (per 1,000 words)", "",
+              "| linter | generated | russell baseline |", "|---|---:|---:|"]
+    for lname in gen["linters"]:
+        g = gen["linters"][lname]["per_1000"]
+        b = base["linters"][lname]["per_1000"] if base else "-"
+        lines.append(f"| {lname} | {g} | {b} |")
+    lines += ["", "## Generated prose", "", report.get("generated_text", "")]
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        print("usage: voice_eval.py <generated.md> [russell_baseline.md] [out.md]", file=sys.stderr)
+        return 2
+    generated = Path(argv[1]).read_text(encoding="utf-8", errors="replace")
+    baseline = Path(argv[2]).read_text(encoding="utf-8", errors="replace") if len(argv) > 2 else None
+    report = evaluate(generated, baseline)
+    report["meta"] = {"topic": "(cli)", "mode": "(cli)", "n_requested": "(cli)"}
+    report["generated_text"] = generated
+    if len(argv) > 3:
+        write_report(report, argv[3])
+        print(f"wrote {argv[3]}")
+    else:
+        print(json.dumps({k: v for k, v in report.items() if k != "generated_text"}, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

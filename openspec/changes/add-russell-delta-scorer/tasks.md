@@ -17,3 +17,15 @@ Lightweight checklist. The exhaustive TDD plan lives at
 - [ ] Run russellian-style suite; confirm no regressions
 - [ ] Sanity check: score the prior generated math essay and a real Russell excerpt;
       record the two Delta numbers in the change notes
+
+## Sanity results (2026-05-27)
+
+Profile internal band: p10 = 0.83951, p50 = 1.019974, p90 = 1.138784 (98,346 segments).
+
+| text | delta | p50/p90 band | verdict | reliable |
+|------|-------|-------------|---------|----------|
+| Real Russell (`real-russell-math.md`, 1820 words) | 1.001321 | within (< p90 1.14) | within Russell's range | true |
+| AI imitation (`generated-math-history.md`, 1819 words) | 0.996431 | within (< p90 1.14) | within Russell's range | true |
+| Alien corporate prose (`alien-sample.md`, 1044 words) | 0.996780 | within (< p90 1.14) | within Russell's range | true |
+
+The metric does not discriminate at all between real Russell, AI imitation, and alien corporate/SaaS prose: all three deltas cluster between 0.996 and 1.001, well below the p90 threshold of 1.138. This is a real finding, not a scoring artefact. Absolute cosine-delta against a single-author profile at this feature dimensionality lacks the discriminative power to separate stylistically distant registers, likely because function-word frequency distributions converge across formal English writing styles regardless of genre. A follow-up should investigate per-segment normalization (Evert et al. approach), expansion of the MFW feature set beyond the 150-word profile, or a contrastive reference corpus to compute relative (not absolute) delta distances.

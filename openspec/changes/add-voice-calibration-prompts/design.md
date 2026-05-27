@@ -6,7 +6,7 @@ Full design: `docs/specs/2026-05-27-russellian-voice-calibration-design.md`.
 
 Inline per-mode sections, no loader change (approach A of three considered; B was
 loader-assembled shared block, C was corpus-driven assembly at load time). Each mode
-file gets an appended `## Calibration and planning` section. The loader stays trivial,
+file gets an appended `# Calibration and planning` section. The loader stays trivial,
 each file stays self-contained, and the change is additive.
 
 ## Key decisions

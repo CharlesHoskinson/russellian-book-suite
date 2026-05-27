@@ -157,7 +157,7 @@ Expected: PASS for the four `technical-exposition` parametrizations.
 # Calibration and planning
 
 - Before drafting a scene, map its motion: concession → example → distinction → consequence → turn. Decide which concrete detail carries the turn. This plan is private; do not emit it — only the prose ships.
-- Mode anchors (see `references/russell-corpus-map.md`): ground an abstraction in a vivid empirical sequence with a real actor (analysis-008); put a mistaken view into a recognizable human figure rather than an abstraction (problems-007).
+- Mode anchors (see `references/russell-corpus-map.md`): ground an abstraction in a vivid empirical sequence with a real actor (analysis-008); put a mistaken view into a recognizable human figure rather than an abstraction (problems-007). The corpus has no pure-scene mode, so these are its closest rows; do not pad with ill-fitting rows.
 - Dry understatement, not exclamation: let the absurd show through precise description. Do not name the feeling; describe the action and let the reader infer it.
 - Touchstone. Flat: "Researchers conducted experiments that demonstrated how animals gradually acquire learned behaviours over time." Russell, grounding learning in a scene (The Analysis of Mind, https://www.gutenberg.org/cache/epub/2529/pg2529-images.html): "[You] put a hungry animal, say a cat, in a cage which has a door that can be opened by lifting a latch; outside the cage you put food. The cat at first dashes all round the cage, making frantic efforts to force a way out." Copy the concreteness and pacing, never the words.
 ```
@@ -183,7 +183,7 @@ Expected: PASS for the four `narrative-editorial` parametrizations.
 # Calibration and planning
 
 - Before drafting, map the argument's motion: concession → example → distinction → consequence → turn. Decide where the closing verdict reverses the opener. This plan is private; do not emit it — only the prose ships.
-- Mode anchors (see `references/russell-corpus-map.md`): build the section around a memorable reversal that sets belief against rational doubt (free-001); personify the prevailing view as a human figure (problems-007); ground the charge in a named figure or institution (free-005); state both sides of a principle in the same paragraph before choosing (political-006).
+- Mode anchors (see `references/russell-corpus-map.md`): build the section around a memorable reversal that sets belief against rational doubt (free-001); personify the prevailing view as a human figure (problems-007); use a counterfactual to expose institutional absurdity (free-005); state both sides of a principle in the same paragraph before choosing (political-006).
 - Touchstone. Flat: "It is important to note that one should stay open-minded and avoid believing things without sufficient evidence." Russell, compressing the reversal into an antithesis (Free Thought and Official Propaganda, https://www.gutenberg.org/cache/epub/44932/pg44932-images.html): "William James used to preach the 'will to believe.' For my part, I should wish to preach the 'will to doubt.'" Copy the antithesis and the compression, never the words.
 ```
 

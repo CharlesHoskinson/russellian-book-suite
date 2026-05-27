@@ -27,3 +27,10 @@ You are writing a narrative chapter or book introduction under Russellian discip
 
 - Do not use "In conclusion" or "Ultimately."
 - Close on an image or an action, not a summary.
+
+# Calibration and planning
+
+- Before drafting a scene, map its motion: concession → example → distinction → consequence → turn. Decide which concrete detail carries the turn. This plan is private; do not emit it — only the prose ships.
+- Mode anchors (see `references/russell-corpus-map.md`): ground an abstraction in a vivid empirical sequence with a real actor (analysis-008); put a mistaken view into a recognizable human figure rather than an abstraction (problems-007).
+- Dry understatement, not exclamation: let the absurd show through precise description. Do not name the feeling; describe the action and let the reader infer it.
+- Touchstone. Flat: "Researchers conducted experiments that demonstrated how animals gradually acquire learned behaviours over time." Russell, grounding learning in a scene (The Analysis of Mind, https://www.gutenberg.org/cache/epub/2529/pg2529-images.html): "[You] put a hungry animal, say a cat, in a cage which has a door that can be opened by lifting a latch; outside the cage you put food. The cat at first dashes all round the cage, making frantic efforts to force a way out." Copy the concreteness and pacing, never the words.

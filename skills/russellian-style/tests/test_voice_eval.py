@@ -27,3 +27,23 @@ def test_generate_paragraphs_calls_llm_with_prompt_and_returns_output():
 def test_generate_paragraphs_rejects_unknown_mode():
     with pytest.raises(ValueError):
         generate_paragraphs("t", mode="nope", n=5, llm_call=lambda p: "")
+
+def test_evaluate_reports_delta_and_linters():
+    from scripts.voice_eval import evaluate
+    text = "The nineteenth century discovered pure mathematics. " * 80
+    rep = evaluate(text)
+    g = rep["generated"]
+    assert g["russell_delta"]["metric"] == "russell-burrows-delta"
+    assert "verdict" in g["russell_delta"]
+    assert g["n_words"] > 0
+    assert "hedges" in g["linters"] and "passive_voice" in g["linters"]
+    assert set(g["linters"]["hedges"]) == {"count", "per_1000"}
+    assert rep["baseline"] is None
+
+def test_evaluate_with_baseline_reports_side_by_side():
+    from scripts.voice_eval import evaluate
+    gen = "The argument proceeds by cases. " * 80
+    base = "Philosophy is to be studied for the questions themselves. " * 80
+    rep = evaluate(gen, russell_baseline_text=base)
+    assert rep["baseline"] is not None
+    assert rep["baseline"]["russell_delta"]["metric"] == "russell-burrows-delta"

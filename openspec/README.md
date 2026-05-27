@@ -34,6 +34,7 @@ Capability slugs and their full capability names:
 | `VERIFIER-BUILD` | verifier-build |
 | `OSMOTIC` | osmotic-pressure-verifier |
 | `VOICE` | russellian-voice |
+| `DELTA` | russell-delta |
 
 ## EARS patterns
 

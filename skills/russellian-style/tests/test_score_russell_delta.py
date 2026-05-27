@@ -39,3 +39,19 @@ def test_min_length_guard_sets_reliable_false(fixture_profile):
 def test_determinism(fixture_profile):
     t = "the of and to the of a the in of " * 200
     assert score(t, fixture_profile) == score(t, fixture_profile)
+
+def test_outside_verdict_with_stub_profile():
+    # Hand-built profile with a tight internal band so out-of-distribution text
+    # crosses p90 and the "outside Russell's range" verdict path is exercised.
+    # (A build_profile fixture cannot: two synthetic texts yield a bimodal
+    # z-space whose p90 is 2.0, which nothing exceeds.)
+    profile = {
+        "mfw": ["the", "of", "and"],
+        "mean": [0.5, 0.3, 0.2],
+        "stdev": [0.05, 0.05, 0.05],
+        "segments_z": [[1.0, -1.0, 0.0], [1.0, -1.0, 0.0]],
+        "internal_delta": {"p10": 0.0, "p50": 0.0, "p90": 0.05},
+    }
+    r = score("of of and and and", profile, min_words=1)
+    assert r["verdict"] == "outside Russell's range"
+    assert r["delta"] > profile["internal_delta"]["p90"]

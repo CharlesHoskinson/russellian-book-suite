@@ -109,8 +109,10 @@ Output JSON: `{"metric":"russell-cosine-delta","delta":<float>,"band":{"p10","p5
 
 ### Report integration
 
-`style_pass_report.py` and `style-pass-report.template.md` gain one advisory line that
-prints the Delta score and verdict. It does not gate; it informs.
+`style_pass_report.generate_report_dict()` gains an advisory `russell_delta` entry
+(the scorer's output: score and verdict) in its returned dict. Adding a key is
+backward-compatible and avoids the fragility of the legacy markdown-template format
+path. It does not gate; it informs.
 
 ## Testing
 

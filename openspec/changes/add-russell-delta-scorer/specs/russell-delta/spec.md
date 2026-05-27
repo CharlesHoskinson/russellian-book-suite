@@ -47,8 +47,8 @@ pipeline.
 
 ## ADD REQ-DELTA-008 — Event-driven
 
-When the style pass report is generated, it shall include one advisory line stating the
-Russell-Delta score and verdict.
+When the style pass report dict is generated, it shall include an advisory
+`russell_delta` entry stating the Russell-Delta score and verdict.
 
 ## ADD REQ-DELTA-009 — Ubiquitous
 

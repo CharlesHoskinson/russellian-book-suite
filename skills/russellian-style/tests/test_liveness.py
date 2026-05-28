@@ -42,3 +42,37 @@ def test_below_floor_fragments_are_ignored():
 def test_determinism():
     text = "A short sentence here. A markedly longer one trailing across more words to vary the cadence."
     assert npvi(text) == npvi(text)
+
+
+from scripts.liveness import liveness_summary
+
+
+def test_summary_keys_and_advisory_flag():
+    s = liveness_summary(npvi_value=60.0, motion_variety=0.5,
+                         concrete_per_1000=4.0, ornament_per_1000=0.0)
+    assert s["metric"] == "liveness"
+    assert s["advisory"] is True
+    assert set(s["components"]) == {"cadence", "motion", "concreteness", "ornament_penalty"}
+    assert 0.0 <= s["liveness"] <= 1.0
+
+
+def test_more_ornament_lowers_liveness():
+    base = liveness_summary(60.0, 0.5, 4.0, ornament_per_1000=0.0)["liveness"]
+    pen = liveness_summary(60.0, 0.5, 4.0, ornament_per_1000=10.0)["liveness"]
+    assert pen < base
+
+
+def test_higher_npvi_raises_cadence_component():
+    low = liveness_summary(10.0, 0.5, 4.0, 0.0)["components"]["cadence"]
+    high = liveness_summary(80.0, 0.5, 4.0, 0.0)["components"]["cadence"]
+    assert high > low
+
+
+def test_liveness_floored_at_zero():
+    s = liveness_summary(0.0, 0.0, 0.0, ornament_per_1000=999.0)
+    assert s["liveness"] == 0.0
+
+
+def test_summary_deterministic():
+    args = dict(npvi_value=55.0, motion_variety=0.4, concrete_per_1000=3.0, ornament_per_1000=1.0)
+    assert liveness_summary(**args) == liveness_summary(**args)

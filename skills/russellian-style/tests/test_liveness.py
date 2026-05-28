@@ -4,7 +4,7 @@ import pytest
 
 pytestmark = pytest.mark.windows_canary
 
-from scripts.liveness import npvi
+from scripts.liveness import npvi, liveness_summary
 
 
 def test_alternating_lengths_score_higher_than_uniform():
@@ -42,9 +42,6 @@ def test_below_floor_fragments_are_ignored():
 def test_determinism():
     text = "A short sentence here. A markedly longer one trailing across more words to vary the cadence."
     assert npvi(text) == npvi(text)
-
-
-from scripts.liveness import liveness_summary
 
 
 def test_summary_keys_and_advisory_flag():

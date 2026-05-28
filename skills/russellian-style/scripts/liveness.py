@@ -60,8 +60,11 @@ def liveness_summary(npvi_value: float, motion_variety: float,
                      concrete_per_1000: float, ornament_per_1000: float) -> dict:
     """Compose advisory liveness telemetry. Not a verdict.
 
-    Components normalize to roughly 0..1; ornament subtracts. The numbers describe;
-    the reading-council A/B judges whether the writing is actually livelier.
+    Components normalize to roughly 0..1; ornament subtracts. ``motion_variety`` is
+    expected in [0, 1] (fraction of distinct paragraph shapes); the other three
+    inputs are raw measurements that the function normalises internally.
+    The numbers describe; the reading-council A/B judges whether the writing is
+    actually livelier.
     """
     cadence = round(min(max(npvi_value, 0.0) / _CADENCE_DENOM, 1.0), 3)
     motion = round(min(max(motion_variety, 0.0), 1.0), 3)

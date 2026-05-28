@@ -37,33 +37,38 @@ def generate_paragraphs(topic: str, mode: str = DEFAULT_MODE, n: int = DEFAULT_N
 
 
 from scripts.score_russell_delta import score as _delta_score, load_profile, PROFILE_PATH
-from scripts.lint_hedges import lint_hedges
-from scripts.lint_passive_voice import lint_passive_voice
-from scripts.lint_signal_density import lint_signal_density
-from scripts.lint_parallel_structure import lint_parallel_structure
-from scripts.lint_listicle_abstract import lint_listicle_abstract
-from scripts.lint_sentence_rhythm import lint_sentence_rhythm
-from scripts.lint_burstiness import lint_burstiness
-from scripts.lint_ai_vocabulary import lint_ai_vocabulary
-from scripts.lint_ai_staccato import lint_ai_staccato
-from scripts.lint_concrete_instance_density import lint_concrete_instance_density
-from scripts.lint_epistemic_precision import lint_epistemic_precision
-from scripts.lint_paragraph_motion import lint_paragraph_motion
 
-LINTERS = {
-    "hedges": lint_hedges,
-    "passive_voice": lint_passive_voice,
-    "signal_density": lint_signal_density,
-    "parallel_structure": lint_parallel_structure,
-    "listicle_abstract": lint_listicle_abstract,
-    "sentence_rhythm": lint_sentence_rhythm,
-    "burstiness": lint_burstiness,
-    "ai_vocabulary": lint_ai_vocabulary,
-    "ai_staccato": lint_ai_staccato,
-    "concrete_instance_density": lint_concrete_instance_density,
-    "epistemic_precision": lint_epistemic_precision,
-    "paragraph_motion": lint_paragraph_motion,
-}
+
+def _linters() -> dict:
+    # Lazy import: each linter imports lint_common, which does `import spacy` at module
+    # load (and spaCy's deps may be absent). Keep this module import-safe; the linters
+    # load only when evaluate() actually runs.
+    from scripts.lint_hedges import lint_hedges
+    from scripts.lint_passive_voice import lint_passive_voice
+    from scripts.lint_signal_density import lint_signal_density
+    from scripts.lint_parallel_structure import lint_parallel_structure
+    from scripts.lint_listicle_abstract import lint_listicle_abstract
+    from scripts.lint_sentence_rhythm import lint_sentence_rhythm
+    from scripts.lint_burstiness import lint_burstiness
+    from scripts.lint_ai_vocabulary import lint_ai_vocabulary
+    from scripts.lint_ai_staccato import lint_ai_staccato
+    from scripts.lint_concrete_instance_density import lint_concrete_instance_density
+    from scripts.lint_epistemic_precision import lint_epistemic_precision
+    from scripts.lint_paragraph_motion import lint_paragraph_motion
+    return {
+        "hedges": lint_hedges,
+        "passive_voice": lint_passive_voice,
+        "signal_density": lint_signal_density,
+        "parallel_structure": lint_parallel_structure,
+        "listicle_abstract": lint_listicle_abstract,
+        "sentence_rhythm": lint_sentence_rhythm,
+        "burstiness": lint_burstiness,
+        "ai_vocabulary": lint_ai_vocabulary,
+        "ai_staccato": lint_ai_staccato,
+        "concrete_instance_density": lint_concrete_instance_density,
+        "epistemic_precision": lint_epistemic_precision,
+        "paragraph_motion": lint_paragraph_motion,
+    }
 
 
 def _signals(text: str, profile: dict) -> dict:
@@ -75,7 +80,7 @@ def _signals(text: str, profile: dict) -> dict:
     try:
         path.write_text(text, encoding="utf-8")
         linters = {}
-        for lname, fn in LINTERS.items():
+        for lname, fn in _linters().items():
             count = len(fn(path))
             per_1000 = round(count / n_words * 1000, 3) if n_words else 0.0
             linters[lname] = {"count": count, "per_1000": per_1000}

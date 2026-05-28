@@ -11,7 +11,6 @@ import json
 import sys
 from pathlib import Path
 
-from scripts.lint_common import load_markdown
 from scripts.delta_math import tokenize, relative_frequencies, zscore, manhattan_delta
 
 PROFILE_PATH = Path(__file__).resolve().parent.parent / "assets" / "russell-delta-profile.json"
@@ -52,6 +51,9 @@ def score(text: str, profile: dict, min_words: int = MIN_WORDS) -> dict:
 
 
 def score_file(path, profile_path: Path = PROFILE_PATH) -> dict:
+    # Lazy import: lint_common does `import spacy` at module load, which fails in
+    # environments without spaCy's deps; keep this module import-safe without it.
+    from scripts.lint_common import load_markdown
     return score(load_markdown(Path(path)), load_profile(profile_path))
 
 

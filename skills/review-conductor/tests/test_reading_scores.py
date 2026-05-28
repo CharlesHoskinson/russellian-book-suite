@@ -70,3 +70,17 @@ def test_reading_rubric_names_four_dimensions():
     rubric = (Path(__file__).resolve().parent.parent / "assets" / "reading-rubric.md").read_text(encoding="utf-8")
     for dim in ("Enjoyment", "Flow", "Style", "Quality"):
         assert dim in rubric
+
+def test_run_reading_council_with_stub_dispatcher():
+    from scripts.reading_scores import run_reading_council
+    def stub_dispatcher(prompt, personas):
+        return [{"enjoyment": 4, "flow": 4, "style": 3, "quality": 4, "note": f"{p}-note"}
+                for p in personas]
+    rep = run_reading_council(
+        "A short readable document. It has two plain sentences here for scoring.",
+        dispatcher=stub_dispatcher,
+        rubric_text="RUBRIC",
+        personas=["enjoyment-reader", "gottlieb", "lay-reader", "first-time-visitor"],
+    )
+    assert rep["style"] == 3 and rep["enjoyment"] == 4
+    assert "note" not in rep and "enjoyment-reader-note" not in json.dumps(rep)

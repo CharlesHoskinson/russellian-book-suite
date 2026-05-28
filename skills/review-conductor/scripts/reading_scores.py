@@ -98,3 +98,41 @@ def aggregate_reading_scores(persona_scores: list[dict], text: str) -> dict:
         "deterministic": {"flesch": flesch, "burstiness": burst},
         "verdict": _synthesize_verdict(medians, overall, flesch),
     }
+
+
+def run_reading_council(doc_text: str, *, dispatcher, rubric_text: str,
+                        personas: list[str]) -> dict:
+    """Score a document with the injected council dispatcher and synthesize one score.
+
+    `dispatcher(prompt, personas) -> list[dict]` returns one score dict per persona
+    (keys: enjoyment, flow, style, quality; an optional `note` is ignored in the output).
+    No live LLM call happens here; the dispatcher is caller-provided.
+    """
+    prompt = build_scoring_prompt(rubric_text, doc_text)
+    persona_scores = dispatcher(prompt, personas)
+    return aggregate_reading_scores(persona_scores, doc_text)
+
+
+def write_reading_report(report: dict, out_path) -> None:
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 3:
+        print("usage: reading_scores.py <doc.md> <persona-scores.json> [out.json]", file=sys.stderr)
+        return 2
+    text = Path(argv[1]).read_text(encoding="utf-8", errors="replace")
+    scores = json.loads(Path(argv[2]).read_text(encoding="utf-8"))
+    report = aggregate_reading_scores(scores, text)
+    if len(argv) > 3:
+        write_reading_report(report, argv[3])
+        print(f"wrote {argv[3]}")
+    else:
+        print(json.dumps(report, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

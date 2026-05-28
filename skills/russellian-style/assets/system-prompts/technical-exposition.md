@@ -30,3 +30,10 @@ You are writing a chapter section for a non-fiction book under Russellian analyt
 - Use contractions where natural for the register.
 - Cite numeric or surprising claims with a source token; do not assert specificity without attribution.
 - Do not end the section with a summary paragraph. The last sentence is the section's verdict.
+
+# Calibration and planning
+
+- Before drafting, map the paragraph's motion: concession → example → distinction → consequence → turn. Decide where the turn lands. This plan is private; do not emit it — only the prose ships.
+- Mode anchors (see `references/russell-corpus-map.md`): define an abstraction through an ordinary case before naming it (problems-001); raise the counterexample before stating the conclusion (problems-002); classify the alternatives before evaluating them (external-007); end on a reversal that changes the reader's valuation (problems-010).
+- Dry understatement, not exclamation: let a weak or absurd view show through exact statement. The precision does the work emphasis would spoil.
+- Touchstone. Flat: "Philosophy raises many important and multifaceted questions worth considering." Russell, turning uncertainty into value (The Problems of Philosophy, https://www.gutenberg.org/cache/epub/5827/pg5827-images.html): "Philosophy is to be studied, not for the sake of any definite answers to its questions, since no definite answers can, as a rule, be known to be true, but rather for the sake of the questions themselves." Copy the motion and the register, never the words.

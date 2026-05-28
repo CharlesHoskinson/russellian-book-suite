@@ -5,6 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
   "scrapling==0.4.8",
   "jsonschema>=4.21,<5",
+  "trafilatura>=2,<3",
 ]
 
 [project.optional-dependencies]

@@ -21,6 +21,7 @@ from .lint_epistemic_precision import lint_epistemic_precision
 from .lint_paragraph_motion import lint_paragraph_motion, classify_paragraph
 from .lint_ai_staccato import lint_ai_staccato
 from .retrieve_corpus_anchor import retrieve_anchor
+from .score_russell_delta import score_file as _russell_delta_score_file
 
 _CONCESSION_TURN_RE = re.compile(
     r"\b(But|However|Yet|Still|Nevertheless|Even so|It is true that)\b",
@@ -234,6 +235,8 @@ def generate_report_dict(source_path: Path) -> dict:
         except (LookupError, ValueError):
             pass
 
+    russell_delta = _russell_delta_score_file(source_path)
+
     return {
         "path": str(source_path),
         "negative_metrics": negative_metrics,
@@ -241,6 +244,7 @@ def generate_report_dict(source_path: Path) -> dict:
         "positive_checks": _positive_checks(source_path, motion, concrete, staccato),
         "findings": findings,
         "corpus_anchors": corpus_anchors,
+        "russell_delta": russell_delta,
     }
 
 

@@ -1,65 +1,87 @@
-# Guard the russellian voice against template fatigue
+# Guard the russellian voice against template fatigue (revised after QA pass)
 
 ## Why
 
-The Longfellow-liveness blend solved the decoration fault that an external reader
-diagnosed in the v1 snails essay. A v3 snails essay produced by the new voice then
-received its own reader's verdict: the voice has *one move and runs it sixteen
-times* (fact → pivot → aphorism about humanity), the reader's ear learns the meter by
-paragraph four, the persona is too pleased with itself, and the diction is
+The Longfellow-liveness blend solved the decoration fault diagnosed in the v1 snails
+essay. A v3 snails essay produced by the new voice then received its own reader's
+verdict: *one move at sixteen-time density* (fact → pivot → aphorism about humanity),
+ear learns the meter by paragraph four, persona too pleased with itself,
 Edwardian-familiar-essay pastiche. The reading council scored v3 4/4/4/4 — the suite
 cannot see what the reader saw.
 
-That gap is the next iteration's target. The fault is the Goodhart shape surfacing on
-a new axis: not decoration, but **monotony of figure** — the liveness layer specifies a
-fixed set of moves and applies them at *high* intensity to every paragraph, so the
-writer becomes a metric-shaped author of metric-shaped prose. The corpus calibration
-(Carson/Dillard/Eiseley + Longfellow verse) is pre-1960; without a post-1950 prose
-model, the writer reaches for the Edwardian register the donors share.
+A five-agent QA pass on the first draft of this change surfaced a paradigmatic
+finding: **the deterministic-linter strategy has hit its limit.** Each iteration
+ships a regex to catch the named fault; the next reader names the fault one
+abstraction layer up; regex is perpetually behind. The fix is to put a
+reader-equivalent at the top of the stack — an LLM-judge step — alongside two
+rebuilt deterministic linters that correct the failure modes the QA pass identified
+in the first draft.
 
 ## What changes
 
-- Add `scripts/lint_shape_variance.py`: a stdlib advisory linter that reuses
-  `classify_paragraph` from `lint_paragraph_motion` and flags any single paragraph
-  shape that occupies ≥5 of any 6-paragraph window, or ≥3 paragraphs in immediate
-  succession. Pure stdlib; no spaCy; no `lint_common`.
-- Add `scripts/lint_aphorism_density.py`: a stdlib advisory linter that flags
-  paragraph-closing sentences matching the fact-→-moral shape (8–18 words,
-  humanity-generalising token, no concrete-instance marker). Quote-excluding. Pure
-  regex; no spaCy; no `lint_common`.
-- Wire both new linters into `voice_eval._linters()` so they appear in the standard
-  density table. No change to the liveness composite (the new signals are advisory
-  telemetry, surfaced alongside `ornament`, not folded into the rolled-up number).
-- Append a **self-turning paragraph mandate** to each mode's `## Liveness` subsection
-  (`technical-exposition.md`, `narrative-editorial.md`, `polemic.md`): at least one
-  paragraph per essay must complicate, refuse, or turn the irony of the running
-  thesis on the essayist, not reinforce it. The mandate is identical across the three
-  modes — it is structural, not intensity-scaled — and includes a final clause
-  guarding against the break itself becoming a template.
-- Add **Joan Didion** to the disciplined-lyricism prose-models section of
-  `longfellow-liveness-map.md`: post-1950, in copyright, referenced by named technique
-  only (never quoted), describing the flat declarative as anti-aphorism and the
-  refusal of the moral. Pattern matches the existing Carson/Dillard/Eiseley entries.
-- Extend `tests/test_system_prompt_liveness.py` with one parametrized assertion that
-  each mode's `## Liveness` subsection contains the self-turning mandate.
-- Add tests for the two new linters (`test_shape_variance.py`, `test_aphorism_density.py`,
-  neither named `test_lint_*` so the conftest's spaCy-absent `collect_ignore_glob` does
-  not silently skip them in CI).
-- Add a validation bundle at `docs/audits/2026-05-28-snails-v3-vs-v3.1/`: a rewritten
-  snails essay applying the design + fixing two factual errors caught in the v3
-  critique (`Fulvius Lippinus` not `Hirpinus`; the Bernoulli stonemason carved an
-  Archimedean spiral instead of the requested logarithmic one), with telemetry and a
-  reading-council comparison vs. v3 and the prior bundles.
+- **Add `scripts/chassis_judge.py`** — the LLM-judge step. Single LLM call per essay,
+  caller-provided dispatcher (no live calls in tests; mirrors
+  `reading_scores.run_reading_council`). Extracts per-paragraph rhetorical moves,
+  induces a move taxonomy, reports most-frequent-move frequency, and emits a
+  one-sentence "unsympathetic critique." Advisory. The escape from the deterministic-
+  instrument treadmill.
+- **Add `scripts/lint_chassis_uniformity.py`** — rebuilt from the first draft's
+  `lint_shape_variance`. Combines four signals (marker-hit shape dominance over a
+  3-of-5 window; consecutive-shape streak; paragraph-shape-sequence Shannon entropy
+  below threshold; humanity-token closer-density concentration). The marker-hit
+  requirement excludes the `assertion_justification` fallback that produced
+  false-positive saturation in the first draft; the closer-density signal catches
+  chassis monotony when surface shapes are varied. Pure stdlib; advisory.
+- **Add `scripts/lint_humanity_token_closers.py`** — rebuilt from the first draft's
+  `lint_aphorism_density` and renamed honestly. Word cap raised from 18 to 28 (Russell's
+  characteristic closers run 20–30 words); broadened humanity tokens (adds `men`, `man`,
+  `nature`, `each of us`, `no one`, `anyone`, `everyone`, `the modern world`);
+  first-person-singular subtraction (genuine aphorisms aren't testimony); concrete-
+  instance-marker disqualifier preserved. Pure stdlib regex; advisory.
+- **Promote `_strip_quotes` to public `strip_quotes`** in `lint_ornament.py` (one-line
+  rename) so the new closer-density linter can cross-import it cleanly, matching the
+  existing `from scripts.lint_paragraph_motion import classify_paragraph` idiom.
+- **Wire the two new linters into `voice_eval._linters()`** so they appear in the
+  standard density table. The chassis-judge is **not** auto-wired into `voice_eval`
+  (it requires a dispatcher; kept separate, matching `reading_scores`).
+- **Two new donor entries in `longfellow-liveness-map.md`'s "Disciplined-lyricism
+  prose models"**: **Joan Didion** (with the corrected 5-technique entry —
+  aphorism-as-target, catalogue-as-withheld-verdict, landscape-as-pre-argument,
+  fragmentary-form-as-argument, physical-circumstance-as-epistemic-condition; failure
+  modes; citation-backed sources) and **John McPhee** (technical-essay register,
+  process-as-argument, long-sentence-as-verbed-noun-chain, named-expert-as-locus,
+  structural-conceit-from-subject). Two post-1950 donors shift real corpus weight off
+  the Edwardian-familiar-essay register.
+- **Add tests** for all three new instruments (`test_chassis_uniformity.py`,
+  `test_humanity_token_closers.py`, `test_chassis_judge.py`), each with
+  `pytestmark = pytest.mark.windows_canary`, none named `test_lint_*` so the
+  conftest's spaCy-absent skip glob doesn't catch them.
+- **Add a validation bundle** at `docs/audits/2026-05-28-snails-v3-vs-v3.1/`: snails-
+  v3.1 (rewritten + Lippinus/Bernoulli-mason fixes), `chassis-judge.json` (LLM-judge
+  on both essays), deterministic telemetry, reading-council comparison, README with
+  the two **preregistered falsification conditions**:
+  1. `chassis_judge.most_frequent_move_frequency` ≥ 0.50 in v3.1 → design fails.
+  2. `chassis_judge.unsympathetic_critique` for v3.1 contains chassis/template/
+     metronome/etc. → design fails regardless of linter numbers.
 
-## What does not change
+## What does NOT change (vs. the first draft of this spec)
 
-No new capability; `VOICE` is extended only. `system_prompt_loader.py`, `VALID_MODES`,
-`DEFAULT_MODE`, the Russell corpus index and map, the Longfellow corpus index, the
-Russell-Delta scorer, the existing `ornament`/`burstiness`/`paragraph_motion`/
-`concrete_instance_density`/`hedges`/`passive_voice`/etc. linters, and the
-reading-council scoring scripts are all unmodified. The liveness composite formula and
-its calibration constants are unchanged — the new signals report alongside, not inside.
-No gate is added; both new linters are advisory, matching the v1 vitality convention.
+- **The self-turning paragraph mandate is dropped.** Self-contradictory by
+  construction; the donor expansion + LLM-judge carry the counter-monotony load.
+- **No new capability slug.** Extend `VOICE`; the prior iteration's principle holds.
+- **The liveness composite is not extended.** The new signals report alongside, not
+  inside.
+- **No gate added.** All new instruments advisory.
+
+## What does NOT change (vs. main)
+
+`system_prompt_loader.py`, `VALID_MODES`, `DEFAULT_MODE`, the Russell corpus index
+and map, the Longfellow corpus index, the Russell-Delta scorer, every existing
+linter (`ornament`, `burstiness`, `paragraph_motion`, `concrete_instance_density`,
+`hedges`, `passive_voice`, etc.), the reading-council scoring scripts, and the
+existing `## Liveness` subsections of the three mode prompts are all unmodified.
+`lint_ornament.py` receives only the one-line public rename of `_strip_quotes` →
+`strip_quotes`; no behaviour change.
 
 ## Design
 
@@ -68,7 +90,8 @@ See `docs/specs/2026-05-28-voice-anti-monotony-design.md`.
 ## Branch base
 
 `feat/voice-anti-monotony` is based on `feat/longfellow-liveness` (the new change
-extends files added there: the per-mode `## Liveness` sections, the
-`longfellow-liveness-map.md` reference, the `longfellow-corpus` assets). PR base at
-finish time: `feat/longfellow-liveness` (stacked PR) until that branch merges to main,
-then rebase onto main.
+extends files added there: the `longfellow-liveness-map.md` reference). PR base at
+finish time: `feat/longfellow-liveness` (stacked PR) until that branch merges to
+main, then rebase onto main. If the parent receives review feedback altering the
+`longfellow-liveness-map.md` prose-models section, the donor additions reapply by
+hand.

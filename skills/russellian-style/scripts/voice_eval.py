@@ -135,6 +135,14 @@ def _delta_line(sig: dict) -> str:
             f"(band p50={d['band']['p50']} p90={d['band']['p90']}) words={sig['n_words']}")
 
 
+def _liveness_line(sig: dict) -> str:
+    lv = sig["liveness"]
+    c = lv["components"]
+    return (f"liveness={lv['liveness']:.2f} (cadence={c['cadence']:.2f} "
+            f"motion={c['motion']:.2f} concreteness={c['concreteness']:.2f} "
+            f"ornament_penalty={c['ornament_penalty']:.2f})")
+
+
 def write_report(report: dict, out_path) -> None:
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -154,12 +162,6 @@ def write_report(report: dict, out_path) -> None:
     ]
     if base:
         lines.append(f"- russell baseline: {_delta_line(base)}")
-    def _liveness_line(sig: dict) -> str:
-        lv = sig["liveness"]
-        c = lv["components"]
-        return (f"liveness={lv['liveness']:.2f} (cadence={c['cadence']} motion={c['motion']} "
-                f"concreteness={c['concreteness']} ornament_penalty={c['ornament_penalty']})")
-
     lines += ["", "## Liveness (advisory telemetry — not a verdict)", "",
               f"- generated: {_liveness_line(gen)}"]
     if base:

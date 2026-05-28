@@ -129,6 +129,8 @@ def test_write_report_includes_liveness_telemetry(tmp_path):
     assert "0.55" in md and "0.40" in md
     # REQ-VEVAL-012: no "beats baseline" claim.
     assert "beats" not in md.lower()
+    # REQ-VEVAL-011 layout: the liveness section must appear above the linter table.
+    assert md.index("## Liveness") < md.index("## Linter densities")
 
 
 @requires_spacy

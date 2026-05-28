@@ -6,7 +6,6 @@ referencing a longfellow-corpus snippet ID, and the firewall stated.
 """
 import json
 import pytest
-from pathlib import Path
 
 pytestmark = pytest.mark.windows_canary
 
@@ -19,12 +18,13 @@ MODE_DIAL = {
     "polemic": "medium",
 }
 
+assert set(MODE_DIAL) == VALID_MODES, (
+    f"MODE_DIAL keys {sorted(MODE_DIAL)} must match VALID_MODES {sorted(VALID_MODES)}"
+)
+
 CORPUS_INDEX = (PROMPTS_DIR.parent / "longfellow-corpus" / "index.json")
 
-
-def _anchor_ids() -> set[str]:
-    idx = json.loads(CORPUS_INDEX.read_text(encoding="utf-8"))
-    return {a["id"] for a in idx["anchors"]}
+ANCHOR_IDS = {a["id"] for a in json.loads(CORPUS_INDEX.read_text(encoding="utf-8"))["anchors"]}
 
 
 @pytest.mark.parametrize("mode", sorted(VALID_MODES))
@@ -39,8 +39,7 @@ def test_each_mode_has_liveness_subsection_at_declared_dial(mode):
 @pytest.mark.parametrize("mode", sorted(VALID_MODES))
 def test_each_mode_cites_a_longfellow_corpus_anchor(mode):
     text = load(mode)
-    ids = _anchor_ids()
-    assert any(aid in text for aid in ids), (
+    assert any(aid in text for aid in ANCHOR_IDS), (
         f"{mode} ## Liveness section must reference at least one anchor ID from "
         f"longfellow-corpus/index.json"
     )

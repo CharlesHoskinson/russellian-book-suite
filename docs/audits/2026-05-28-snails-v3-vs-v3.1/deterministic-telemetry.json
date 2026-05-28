@@ -1,0 +1,149 @@
+{
+  "topic": "snails",
+  "mode": "narrative-editorial",
+  "v3": {
+    "n_words": 2064,
+    "chassis_uniformity": {
+      "total_findings": 5,
+      "by_signal": {
+        "streak": [
+          {
+            "signal": "streak",
+            "shape": "assertion_justification",
+            "start_paragraph": 9,
+            "run_length": 3,
+            "tier": "advisory"
+          },
+          {
+            "signal": "streak",
+            "shape": "assertion_justification",
+            "start_paragraph": 13,
+            "run_length": 3,
+            "tier": "advisory"
+          },
+          {
+            "signal": "streak",
+            "shape": "assertion_justification",
+            "start_paragraph": 17,
+            "run_length": 4,
+            "tier": "important"
+          }
+        ],
+        "marker_dominance": [
+          {
+            "signal": "marker_dominance",
+            "shape": "contrast",
+            "start_paragraph": 2,
+            "window_size": 5,
+            "count_in_window": 3,
+            "tier": "advisory"
+          }
+        ],
+        "entropy": [
+          {
+            "signal": "entropy",
+            "entropy": 1.116,
+            "threshold": 1.5,
+            "n_paragraphs": 21,
+            "tier": "advisory"
+          }
+        ]
+      }
+    },
+    "humanity_token_closers": {
+      "count": 4,
+      "per_1000": 1.938,
+      "closers": [
+        {
+          "paragraph_index": 4,
+          "closer": "We have built whole industries on the difficulty of doing what the snail does wi"
+        },
+        {
+          "paragraph_index": 6,
+          "closer": "Knowledge sufficient for life is a far smaller thing than knowledge sufficient f"
+        },
+        {
+          "paragraph_index": 11,
+          "closer": "The distinction lives entirely in the eye and the appetite of the man holding th"
+        },
+        {
+          "paragraph_index": 18,
+          "closer": "Nature is sparing with most things and spends its ironies freely."
+        }
+      ]
+    },
+    "ornament": {
+      "count": 1,
+      "per_1000": 0.484
+    },
+    "nPVI": 66.07,
+    "flesch": 67.9,
+    "burstiness": 0.545,
+    "_note": "concrete_instance_density omitted (spaCy model absent on this host); liveness composite not computed."
+  },
+  "v3.1": {
+    "n_words": 1896,
+    "chassis_uniformity": {
+      "total_findings": 4,
+      "by_signal": {
+        "streak": [
+          {
+            "signal": "streak",
+            "shape": "assertion_justification",
+            "start_paragraph": 1,
+            "run_length": 5,
+            "tier": "important"
+          },
+          {
+            "signal": "streak",
+            "shape": "assertion_justification",
+            "start_paragraph": 13,
+            "run_length": 8,
+            "tier": "important"
+          }
+        ],
+        "marker_dominance": [
+          {
+            "signal": "marker_dominance",
+            "shape": "contrast",
+            "start_paragraph": 5,
+            "window_size": 5,
+            "count_in_window": 3,
+            "tier": "advisory"
+          }
+        ],
+        "entropy": [
+          {
+            "signal": "entropy",
+            "entropy": 0.964,
+            "threshold": 1.5,
+            "n_paragraphs": 21,
+            "tier": "important"
+          }
+        ]
+      }
+    },
+    "humanity_token_closers": {
+      "count": 2,
+      "per_1000": 1.055,
+      "closers": [
+        {
+          "paragraph_index": 3,
+          "closer": "The snail goes on secreting the right curve in lime, generation after generation"
+        },
+        {
+          "paragraph_index": 17,
+          "closer": "The snail teaches us nothing about restraint that biology does not already make "
+        }
+      ]
+    },
+    "ornament": {
+      "count": 0,
+      "per_1000": 0.0
+    },
+    "nPVI": 66.71,
+    "flesch": 66.7,
+    "burstiness": 0.565,
+    "_note": "concrete_instance_density omitted (spaCy model absent on this host); liveness composite not computed."
+  }
+}

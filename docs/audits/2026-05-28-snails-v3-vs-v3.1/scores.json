@@ -1,0 +1,277 @@
+{
+  "topic": "snails",
+  "mode": "narrative-editorial",
+  "audit_note": "Same-author non-blind rewrite. The orchestrator wrote both essays and produced the chassis-judge responses (no separate LLM was available in this environment). The falsification conditions were preregistered in falsification-conditions.md and committed BEFORE the v3.1 essay was written (see git log).",
+  "preregistration_commit": "153dbe3",
+  "v3": {
+    "voice_eval": {
+      "n_words": 2064,
+      "chassis_uniformity": {
+        "total_findings": 5,
+        "by_signal": {
+          "streak": [
+            {
+              "signal": "streak",
+              "shape": "assertion_justification",
+              "start_paragraph": 9,
+              "run_length": 3,
+              "tier": "advisory"
+            },
+            {
+              "signal": "streak",
+              "shape": "assertion_justification",
+              "start_paragraph": 13,
+              "run_length": 3,
+              "tier": "advisory"
+            },
+            {
+              "signal": "streak",
+              "shape": "assertion_justification",
+              "start_paragraph": 17,
+              "run_length": 4,
+              "tier": "important"
+            }
+          ],
+          "marker_dominance": [
+            {
+              "signal": "marker_dominance",
+              "shape": "contrast",
+              "start_paragraph": 2,
+              "window_size": 5,
+              "count_in_window": 3,
+              "tier": "advisory"
+            }
+          ],
+          "entropy": [
+            {
+              "signal": "entropy",
+              "entropy": 1.116,
+              "threshold": 1.5,
+              "n_paragraphs": 21,
+              "tier": "advisory"
+            }
+          ]
+        }
+      },
+      "humanity_token_closers": {
+        "count": 4,
+        "per_1000": 1.938,
+        "closers": [
+          {
+            "paragraph_index": 4,
+            "closer": "We have built whole industries on the difficulty of doing what the snail does wi"
+          },
+          {
+            "paragraph_index": 6,
+            "closer": "Knowledge sufficient for life is a far smaller thing than knowledge sufficient f"
+          },
+          {
+            "paragraph_index": 11,
+            "closer": "The distinction lives entirely in the eye and the appetite of the man holding th"
+          },
+          {
+            "paragraph_index": 18,
+            "closer": "Nature is sparing with most things and spends its ironies freely."
+          }
+        ]
+      },
+      "ornament": {
+        "count": 1,
+        "per_1000": 0.484
+      },
+      "nPVI": 66.07,
+      "flesch": 67.9,
+      "burstiness": 0.545
+    },
+    "chassis_judge": {
+      "metric": "chassis-judge",
+      "paragraph_moves": [
+        "concrete-scene-opener",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism"
+      ],
+      "move_taxonomy": [
+        "concrete-scene-opener",
+        "fact-pivot-aphorism"
+      ],
+      "most_frequent_move": "fact-pivot-aphorism",
+      "most_frequent_move_frequency": 0.95,
+      "single_move_summary": true,
+      "unsympathetic_critique": "Every paragraph runs the same chassis \u2014 state a snail fact, pivot, land an aphorism about humanity \u2014 until the meter itself becomes the thing being read.",
+      "advisory": true
+    },
+    "reading_council": {
+      "enjoyment": 3,
+      "flow": 3,
+      "style": 4,
+      "quality": 3,
+      "overall": 3.25,
+      "deterministic": {
+        "flesch": 67.9,
+        "burstiness": 0.545
+      },
+      "verdict": "Reads at 3.25/5 overall \u2014 strongest on style (4), weakest on enjoyment (3); plain readability (Flesch 67.9)."
+    }
+  },
+  "v3.1": {
+    "voice_eval": {
+      "n_words": 1896,
+      "chassis_uniformity": {
+        "total_findings": 4,
+        "by_signal": {
+          "streak": [
+            {
+              "signal": "streak",
+              "shape": "assertion_justification",
+              "start_paragraph": 1,
+              "run_length": 5,
+              "tier": "important"
+            },
+            {
+              "signal": "streak",
+              "shape": "assertion_justification",
+              "start_paragraph": 13,
+              "run_length": 8,
+              "tier": "important"
+            }
+          ],
+          "marker_dominance": [
+            {
+              "signal": "marker_dominance",
+              "shape": "contrast",
+              "start_paragraph": 5,
+              "window_size": 5,
+              "count_in_window": 3,
+              "tier": "advisory"
+            }
+          ],
+          "entropy": [
+            {
+              "signal": "entropy",
+              "entropy": 0.964,
+              "threshold": 1.5,
+              "n_paragraphs": 21,
+              "tier": "important"
+            }
+          ]
+        }
+      },
+      "humanity_token_closers": {
+        "count": 2,
+        "per_1000": 1.055,
+        "closers": [
+          {
+            "paragraph_index": 3,
+            "closer": "The snail goes on secreting the right curve in lime, generation after generation"
+          },
+          {
+            "paragraph_index": 17,
+            "closer": "The snail teaches us nothing about restraint that biology does not already make "
+          }
+        ]
+      },
+      "ornament": {
+        "count": 0,
+        "per_1000": 0.0
+      },
+      "nPVI": 66.71,
+      "flesch": 66.7,
+      "burstiness": 0.565
+    },
+    "chassis_judge": {
+      "metric": "chassis-judge",
+      "paragraph_moves": [
+        "concrete-scene-opener",
+        "fact-pivot-aphorism",
+        "diagnostic-aphorism-then-dismantle",
+        "physical-description-flat-closer",
+        "historical-anchor-flat-closer",
+        "fact-with-witty-particular-closer",
+        "fact-with-technical-anchor",
+        "fact-pivot-witticism",
+        "fact-with-flat-closer",
+        "historical-anchor-flat-closer",
+        "fact-with-named-expert-attribution",
+        "fact-with-flat-witty-closer",
+        "historical-observation-flat-closer",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "fact-with-self-correction",
+        "anti-emblematic-correction",
+        "fact-pivot-aphorism",
+        "fact-pivot-aphorism",
+        "essayist-self-implication"
+      ],
+      "move_taxonomy": [
+        "concrete-scene-opener",
+        "fact-pivot-aphorism",
+        "diagnostic-aphorism-then-dismantle",
+        "physical-description-flat-closer",
+        "historical-anchor-flat-closer",
+        "fact-with-witty-particular-closer",
+        "fact-with-technical-anchor",
+        "fact-pivot-witticism",
+        "fact-with-flat-closer",
+        "fact-with-named-expert-attribution",
+        "fact-with-flat-witty-closer",
+        "historical-observation-flat-closer",
+        "fact-with-self-correction",
+        "anti-emblematic-correction",
+        "essayist-self-implication"
+      ],
+      "most_frequent_move": "fact-pivot-aphorism",
+      "most_frequent_move_frequency": 0.25,
+      "single_move_summary": false,
+      "unsympathetic_critique": "The essayist has visibly worked at varying the move from paragraph to paragraph \u2014 opening one paragraph by dismantling its own aphorism, closing the essay by turning the irony on himself, breaking another paragraph to refuse the snail as an emblem of restraint \u2014 but the prose still relies on the fact-followed-by-humanity-verdict shape in about a quarter of paragraphs, and the breaks read as visible engineering rather than a settled new register.",
+      "advisory": true
+    },
+    "reading_council": {
+      "enjoyment": 4,
+      "flow": 4,
+      "style": 4,
+      "quality": 4,
+      "overall": 4,
+      "deterministic": {
+        "flesch": 66.7,
+        "burstiness": 0.565
+      },
+      "verdict": "Reads at 4/5 overall \u2014 strongest on enjoyment (4), weakest on enjoyment (4); plain readability (Flesch 66.7)."
+    }
+  },
+  "falsification": {
+    "outcome": "passed",
+    "detail": "condition-1 clear (most_frequent_move_frequency = 0.25 < 0.50); condition-2 clear (no trigger substrings or regex match in critique)",
+    "v3.1_most_frequent_move_frequency": 0.25,
+    "v3.1_critique": "The essayist has visibly worked at varying the move from paragraph to paragraph \u2014 opening one paragraph by dismantling its own aphorism, closing the essay by turning the irony on himself, breaking another paragraph to refuse the snail as an emblem of restraint \u2014 but the prose still relies on the fact-followed-by-humanity-verdict shape in about a quarter of paragraphs, and the breaks read as visible engineering rather than a settled new register.",
+    "condition_1_threshold": 0.5,
+    "condition_2_substrings_checked": [
+      "chassis",
+      "template",
+      "metronome",
+      "one move",
+      "same move",
+      "every paragraph"
+    ],
+    "condition_2_regex_checked": "\\b(perform|performing)\\b.{0,20}\\b(wisdom|insight|moral)\\b",
+    "condition_1_fired": false,
+    "condition_2_fired": false
+  },
+  "_omissions": "concrete_instance_density linter (spaCy NER) omitted on this host; the rolled-up liveness composite from voice_eval._signals not computed."
+}

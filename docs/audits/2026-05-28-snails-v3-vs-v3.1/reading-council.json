@@ -1,0 +1,26 @@
+{
+  "v3": {
+    "enjoyment": 3,
+    "flow": 3,
+    "style": 4,
+    "quality": 3,
+    "overall": 3.25,
+    "deterministic": {
+      "flesch": 67.9,
+      "burstiness": 0.545
+    },
+    "verdict": "Reads at 3.25/5 overall \u2014 strongest on style (4), weakest on enjoyment (3); plain readability (Flesch 67.9)."
+  },
+  "v3.1": {
+    "enjoyment": 4,
+    "flow": 4,
+    "style": 4,
+    "quality": 4,
+    "overall": 4,
+    "deterministic": {
+      "flesch": 66.7,
+      "burstiness": 0.565
+    },
+    "verdict": "Reads at 4/5 overall \u2014 strongest on enjoyment (4), weakest on enjoyment (4); plain readability (Flesch 66.7)."
+  }
+}

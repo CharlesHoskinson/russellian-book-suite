@@ -1,0 +1,101 @@
+{
+  "v3": {
+    "metric": "chassis-judge",
+    "paragraph_moves": [
+      "concrete-scene-opener",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism"
+    ],
+    "move_taxonomy": [
+      "concrete-scene-opener",
+      "fact-pivot-aphorism"
+    ],
+    "most_frequent_move": "fact-pivot-aphorism",
+    "most_frequent_move_frequency": 0.95,
+    "single_move_summary": true,
+    "unsympathetic_critique": "Every paragraph runs the same chassis \u2014 state a snail fact, pivot, land an aphorism about humanity \u2014 until the meter itself becomes the thing being read.",
+    "advisory": true
+  },
+  "v3.1": {
+    "metric": "chassis-judge",
+    "paragraph_moves": [
+      "concrete-scene-opener",
+      "fact-pivot-aphorism",
+      "diagnostic-aphorism-then-dismantle",
+      "physical-description-flat-closer",
+      "historical-anchor-flat-closer",
+      "fact-with-witty-particular-closer",
+      "fact-with-technical-anchor",
+      "fact-pivot-witticism",
+      "fact-with-flat-closer",
+      "historical-anchor-flat-closer",
+      "fact-with-named-expert-attribution",
+      "fact-with-flat-witty-closer",
+      "historical-observation-flat-closer",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "fact-with-self-correction",
+      "anti-emblematic-correction",
+      "fact-pivot-aphorism",
+      "fact-pivot-aphorism",
+      "essayist-self-implication"
+    ],
+    "move_taxonomy": [
+      "concrete-scene-opener",
+      "fact-pivot-aphorism",
+      "diagnostic-aphorism-then-dismantle",
+      "physical-description-flat-closer",
+      "historical-anchor-flat-closer",
+      "fact-with-witty-particular-closer",
+      "fact-with-technical-anchor",
+      "fact-pivot-witticism",
+      "fact-with-flat-closer",
+      "fact-with-named-expert-attribution",
+      "fact-with-flat-witty-closer",
+      "historical-observation-flat-closer",
+      "fact-with-self-correction",
+      "anti-emblematic-correction",
+      "essayist-self-implication"
+    ],
+    "most_frequent_move": "fact-pivot-aphorism",
+    "most_frequent_move_frequency": 0.25,
+    "single_move_summary": false,
+    "unsympathetic_critique": "The essayist has visibly worked at varying the move from paragraph to paragraph \u2014 opening one paragraph by dismantling its own aphorism, closing the essay by turning the irony on himself, breaking another paragraph to refuse the snail as an emblem of restraint \u2014 but the prose still relies on the fact-followed-by-humanity-verdict shape in about a quarter of paragraphs, and the breaks read as visible engineering rather than a settled new register.",
+    "advisory": true
+  },
+  "falsification": {
+    "outcome": "passed",
+    "detail": "condition-1 clear (most_frequent_move_frequency = 0.25 < 0.50); condition-2 clear (no trigger substrings or regex match in critique)",
+    "v3.1_most_frequent_move_frequency": 0.25,
+    "v3.1_critique": "The essayist has visibly worked at varying the move from paragraph to paragraph \u2014 opening one paragraph by dismantling its own aphorism, closing the essay by turning the irony on himself, breaking another paragraph to refuse the snail as an emblem of restraint \u2014 but the prose still relies on the fact-followed-by-humanity-verdict shape in about a quarter of paragraphs, and the breaks read as visible engineering rather than a settled new register.",
+    "condition_1_threshold": 0.5,
+    "condition_2_substrings_checked": [
+      "chassis",
+      "template",
+      "metronome",
+      "one move",
+      "same move",
+      "every paragraph"
+    ],
+    "condition_2_regex_checked": "\\b(perform|performing)\\b.{0,20}\\b(wisdom|insight|moral)\\b",
+    "condition_1_fired": false,
+    "condition_2_fired": false
+  }
+}

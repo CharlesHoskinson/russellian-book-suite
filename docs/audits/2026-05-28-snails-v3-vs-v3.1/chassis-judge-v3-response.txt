@@ -1,0 +1,30 @@
+PARAGRAPH_MOVES:
+1. concrete-scene-opener
+2. fact-pivot-aphorism
+3. fact-pivot-aphorism
+4. fact-pivot-aphorism
+5. fact-pivot-aphorism
+6. fact-pivot-aphorism
+7. fact-pivot-aphorism
+8. fact-pivot-aphorism
+9. fact-pivot-aphorism
+10. fact-pivot-aphorism
+11. fact-pivot-aphorism
+12. fact-pivot-aphorism
+13. fact-pivot-aphorism
+14. fact-pivot-aphorism
+15. fact-pivot-aphorism
+16. fact-pivot-aphorism
+17. fact-pivot-aphorism
+18. fact-pivot-aphorism
+19. fact-pivot-aphorism
+20. fact-pivot-aphorism
+
+MOVE_TAXONOMY:
+- concrete-scene-opener
+- fact-pivot-aphorism
+
+MOST_FREQUENT_MOVE: fact-pivot-aphorism
+MOST_FREQUENT_MOVE_FREQUENCY: 0.95
+SINGLE_MOVE_SUMMARY: yes
+UNSYMPATHETIC_CRITIQUE: Every paragraph runs the same chassis — state a snail fact, pivot, land an aphorism about humanity — until the meter itself becomes the thing being read.

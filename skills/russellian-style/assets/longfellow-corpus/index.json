@@ -1,0 +1,78 @@
+{
+  "version": "0.1.0",
+  "donor": "Henry Wadsworth Longfellow (public domain)",
+  "copyright_policy": "Public-domain (US) source. Short verified verse snippets are stored for anchor use; cite the source URL and locator (canto, line group) in any report. Borrow cadence and image-logic only \u2014 never meter, rhyme, archaism, or sentiment.",
+  "sources": {
+    "hiawatha": {
+      "title": "The Song of Hiawatha",
+      "url": "https://www.gutenberg.org/cache/epub/19/pg19-images.html",
+      "copyright_status": "public_domain_us"
+    },
+    "evangeline": {
+      "title": "Evangeline: A Tale of Acadie",
+      "url": "https://www.gutenberg.org/cache/epub/2039/pg2039-images.html",
+      "copyright_status": "public_domain_us"
+    },
+    "wayside-inn": {
+      "title": "Tales of a Wayside Inn",
+      "url": "https://www.gutenberg.org/cache/epub/1365/pg1365-images.html",
+      "copyright_status": "public_domain_us"
+    },
+    "miles-standish": {
+      "title": "The Courtship of Miles Standish",
+      "url": "https://www.gutenberg.org/cache/epub/6608/pg6608-images.html",
+      "copyright_status": "public_domain_us"
+    }
+  },
+  "anchors": [
+    {
+      "id": "hiawatha-antithesis",
+      "source": "hiawatha",
+      "locator": "Introduction / Hiawatha's Childhood",
+      "snippet": "Dark behind it rose the forest, / Rose the black and gloomy pine-trees, / Rose the firs with cones upon them; / Bright before it beat the water, / Beat the clear and sunny water, / Beat the shining Big-Sea-Water.",
+      "technique": "antithetical spatial parallelism with verb repetition",
+      "prose_translation": "Two sentences with mirrored skeletons hold contrasting claims; the verb is repeated to mark the pulse; drop the meter and the rhyme.",
+      "tags": [
+        "cadence",
+        "antithesis",
+        "parallelism"
+      ]
+    },
+    {
+      "id": "hiawatha-catalog",
+      "source": "hiawatha",
+      "locator": "Hiawatha's Childhood",
+      "snippet": "Saw the wild rice, Mahnomonee, / Saw the blueberry, Meenahga, / And the strawberry, Odahmin",
+      "technique": "specific-named enumeration with polysyndeton",
+      "prose_translation": "When listing items that support a claim, name them exactly \u2014 proper names, technical names, exact quantities \u2014 and use repeated 'and' to make the weight of the list felt.",
+      "tags": [
+        "concreteness",
+        "enumeration"
+      ]
+    },
+    {
+      "id": "hiawatha-anaphora",
+      "source": "hiawatha",
+      "locator": "Introduction",
+      "snippet": "Should you ask me, whence these stories? / Whence these legends and traditions",
+      "technique": "rhetorical-question opening with anaphora",
+      "prose_translation": "Open a section with the question you are about to resolve, in the reader's voice; repeat the wh-word once to mark the structure.",
+      "tags": [
+        "momentum",
+        "anaphora"
+      ]
+    },
+    {
+      "id": "evangeline-primeval",
+      "source": "evangeline",
+      "locator": "Prologue",
+      "snippet": "This is the forest primeval. The murmuring pines and the hemlocks",
+      "technique": "deictic anchor \u2014 name the scene, then particularize",
+      "prose_translation": "State the claim concretely in the first sentence; in the second, name the two specific instances that make it visible.",
+      "tags": [
+        "concreteness",
+        "knot-and-resolution"
+      ]
+    }
+  ]
+}

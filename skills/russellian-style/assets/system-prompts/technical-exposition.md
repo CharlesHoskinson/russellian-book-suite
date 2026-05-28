@@ -37,3 +37,15 @@ You are writing a chapter section for a non-fiction book under Russellian analyt
 - Mode anchors (see `references/russell-corpus-map.md`): define an abstraction through an ordinary case before naming it (problems-001); raise the counterexample before stating the conclusion (problems-002); classify the alternatives before evaluating them (external-007); end on a reversal that changes the reader's valuation (problems-010).
 - Dry understatement, not exclamation: let a weak or absurd view show through exact statement. The precision does the work emphasis would spoil.
 - Touchstone. Flat: "Philosophy raises many important and multifaceted questions worth considering." Russell, turning uncertainty into value (The Problems of Philosophy, https://www.gutenberg.org/cache/epub/5827/pg5827-images.html): "Philosophy is to be studied, not for the sake of any definite answers to its questions, since no definite answers can, as a rule, be known to be true, but rather for the sake of the questions themselves." Copy the motion and the register, never the words.
+
+## Liveness
+
+- Intensity: low. Technical-exposition stays austere; liveness is light support, not the leading move.
+- Sentence-length percussion: vary length every five or six sentences. At least one short sentence per page lands a verdict.
+- Concrete anchor per abstraction: after each abstract claim, add one sentence naming the smallest specific physical thing that instantiates it. Choose for precision, never beauty.
+- Cumulative construction: state the claim first, then add at most one free modifier zooming to a more specific case.
+- No anaphora is required; do not use rhetorical-question openers (this mode bans them already).
+
+Anchor (`evangeline-primeval`, public-domain Longfellow, *Evangeline*, Prologue): "This is the forest primeval. The murmuring pines and the hemlocks." Borrow the technique — state the claim concretely in one sentence, then name the two specific instances that make it visible in the next — never the meter, rhyme, archaism, or sentiment.
+
+Firewall: borrow cadence and image-logic only, never meter, rhyme, archaism, or sentiment. The ornament linter flags decoration; treat its findings as a rewrite signal, not noise.

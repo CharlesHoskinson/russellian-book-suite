@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
 from typing import Callable, Optional
 
 from scripts.system_prompt_loader import load as load_prompt, VALID_MODES
+from scripts.liveness import npvi, liveness_summary
 
 DEFAULT_N = 30
 DEFAULT_MODE = "technical-exposition"
@@ -48,6 +50,7 @@ def _linters() -> dict:
     from scripts.lint_signal_density import lint_signal_density
     from scripts.lint_parallel_structure import lint_parallel_structure
     from scripts.lint_listicle_abstract import lint_listicle_abstract
+    from scripts.lint_ornament import lint_ornament
     from scripts.lint_sentence_rhythm import lint_sentence_rhythm
     from scripts.lint_burstiness import lint_burstiness
     from scripts.lint_ai_vocabulary import lint_ai_vocabulary
@@ -61,6 +64,7 @@ def _linters() -> dict:
         "signal_density": lint_signal_density,
         "parallel_structure": lint_parallel_structure,
         "listicle_abstract": lint_listicle_abstract,
+        "ornament": lint_ornament,
         "sentence_rhythm": lint_sentence_rhythm,
         "burstiness": lint_burstiness,
         "ai_vocabulary": lint_ai_vocabulary,
@@ -69,6 +73,17 @@ def _linters() -> dict:
         "epistemic_precision": lint_epistemic_precision,
         "paragraph_motion": lint_paragraph_motion,
     }
+
+
+def _motion_variety(text: str) -> float:
+    """Distinct paragraph shapes / total paragraphs, via lint_paragraph_motion's
+    stdlib classifier (no spaCy)."""
+    from scripts.lint_paragraph_motion import classify_paragraph
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    if not paras:
+        return 0.0
+    shapes = {classify_paragraph(p) for p in paras}
+    return round(len(shapes) / len(paras), 3)
 
 
 def _signals(text: str, profile: dict) -> dict:
@@ -86,7 +101,11 @@ def _signals(text: str, profile: dict) -> dict:
             linters[lname] = {"count": count, "per_1000": per_1000}
     finally:
         path.unlink(missing_ok=True)
-    return {"russell_delta": delta, "n_words": n_words, "linters": linters}
+    motion_variety = _motion_variety(text)
+    concrete_per_1000 = linters.get("concrete_instance_density", {}).get("per_1000", 0.0)
+    ornament_per_1000 = linters.get("ornament", {}).get("per_1000", 0.0)
+    liveness = liveness_summary(npvi(text), motion_variety, concrete_per_1000, ornament_per_1000)
+    return {"russell_delta": delta, "n_words": n_words, "linters": linters, "liveness": liveness}
 
 
 def evaluate(generated_text: str, russell_baseline_text: Optional[str] = None,
@@ -135,6 +154,16 @@ def write_report(report: dict, out_path) -> None:
     ]
     if base:
         lines.append(f"- russell baseline: {_delta_line(base)}")
+    def _liveness_line(sig: dict) -> str:
+        lv = sig["liveness"]
+        c = lv["components"]
+        return (f"liveness={lv['liveness']:.2f} (cadence={c['cadence']} motion={c['motion']} "
+                f"concreteness={c['concreteness']} ornament_penalty={c['ornament_penalty']})")
+
+    lines += ["", "## Liveness (advisory telemetry — not a verdict)", "",
+              f"- generated: {_liveness_line(gen)}"]
+    if base:
+        lines.append(f"- russell baseline: {_liveness_line(base)}")
     lines += ["", "## Linter densities (per 1,000 words)", "",
               "| linter | generated | russell baseline |", "|---|---:|---:|"]
     for lname in gen["linters"]:

@@ -88,3 +88,57 @@ def test_write_report_emits_paragraphs_and_table(tmp_path):
     assert "russell-burrows-delta" in md
     assert "An argument with a turn." in md
     assert "| linter |" in md
+
+
+def test_write_report_includes_liveness_telemetry(tmp_path):
+    """No-spaCy unit test: write_report renders the liveness section from a hand-built
+    report dict. Confirms REQ-VEVAL-010/011/012 surface in the bundle without invoking
+    the full linter battery."""
+    from scripts.voice_eval import write_report
+    report = {
+        "meta": {"topic": "x", "mode": "polemic", "n_requested": 3},
+        "generated_text": "Sample.",
+        "generated": {
+            "russell_delta": {"metric": "russell-burrows-delta", "delta": 0.7,
+                              "verdict": "within Russell's range",
+                              "band": {"p10": 0.6, "p50": 0.7, "p90": 0.8}},
+            "n_words": 80,
+            "linters": {"ornament": {"count": 0, "per_1000": 0.0}},
+            "liveness": {"metric": "liveness", "liveness": 0.55,
+                         "components": {"cadence": 0.7, "motion": 0.5,
+                                        "concreteness": 0.45, "ornament_penalty": 0.0},
+                         "advisory": True},
+        },
+        "baseline": {
+            "russell_delta": {"metric": "russell-burrows-delta", "delta": 0.69,
+                              "verdict": "within Russell's range",
+                              "band": {"p10": 0.6, "p50": 0.7, "p90": 0.8}},
+            "n_words": 80,
+            "linters": {"ornament": {"count": 0, "per_1000": 0.0}},
+            "liveness": {"metric": "liveness", "liveness": 0.40,
+                         "components": {"cadence": 0.45, "motion": 0.4,
+                                        "concreteness": 0.35, "ornament_penalty": 0.0},
+                         "advisory": True},
+        },
+    }
+    out = tmp_path / "r.md"
+    write_report(report, out)
+    md = out.read_text(encoding="utf-8")
+    assert "## Liveness" in md
+    assert "advisory telemetry" in md.lower()
+    assert "0.55" in md and "0.40" in md
+    # REQ-VEVAL-012: no "beats baseline" claim.
+    assert "beats" not in md.lower()
+
+
+@requires_spacy
+def test_evaluate_emits_liveness_block():
+    from scripts.voice_eval import evaluate
+    text = "Philosophy is studied for the questions. The argument proceeds by cases. " * 30
+    rep = evaluate(text)
+    lv = rep["generated"]["liveness"]
+    assert lv["metric"] == "liveness"
+    assert set(lv["components"]) == {"cadence", "motion", "concreteness", "ornament_penalty"}
+    assert lv["advisory"] is True
+    # ornament linter is now part of the battery
+    assert "ornament" in rep["generated"]["linters"]

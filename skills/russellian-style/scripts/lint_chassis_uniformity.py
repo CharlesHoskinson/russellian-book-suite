@@ -29,6 +29,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from scripts.lint_ornament import strip_quotes
 from scripts.lint_paragraph_motion import classify_paragraph
 from scripts.lint_humanity_token_closers import (
     _closing_sentence,
@@ -39,12 +40,10 @@ from scripts.lint_humanity_token_closers import (
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
 
 # classify_paragraph's seven shapes split into marker-hit (an explicit cue
-# matched) and fallback (no cue matched; default by sentence count).
+# matched) and fallback (no cue matched; default by sentence count). Only the
+# fallback set is referenced in code — marker_dominance treats every non-fallback
+# shape as marker-hit, so listing the marker-hit shapes explicitly is redundant.
 _FALLBACK_SHAPES = frozenset({"assertion_only", "assertion_justification"})
-_MARKER_HIT_SHAPES = frozenset({
-    "question_answer", "concession_turn", "contrast",
-    "example_inference", "definition_by_pressure",
-})
 
 # Signal calibration constants.
 _WINDOW_SIZE = 5
@@ -52,7 +51,7 @@ _WINDOW_DOMINANCE_THRESHOLD = 3  # 3 of 5 = 60%
 _STREAK_THRESHOLD = 3            # ≥3 consecutive same shape
 _ENTROPY_THRESHOLD = 1.5         # bits; max over 7-shape taxonomy is log2(7) ≈ 2.81
 _CLOSER_CONCENTRATION_THRESHOLD = 0.5
-_CLOSER_MIN_PARAGRAPHS = 8
+_MIN_PARAGRAPHS_FOR_DOC_SIGNALS = 8  # used by both entropy and closer_concentration
 
 
 def _paragraphs(text: str) -> list[str]:
@@ -99,35 +98,38 @@ def _streak_findings(shapes: list[str]) -> list[dict]:
 
 
 def _marker_dominance_findings(shapes: list[str]) -> list[dict]:
+    """One finding per dominant marker-hit shape, recorded at the first window
+    that exhibits the dominance. Subsequent overlapping windows for the same
+    shape are suppressed so a long monotone run produces one report, not many."""
     findings: list[dict] = []
     if len(shapes) < _WINDOW_SIZE:
         return findings
-    seen_windows: set[tuple[int, str]] = set()
+    reported_shapes: set[str] = set()
     for start in range(len(shapes) - _WINDOW_SIZE + 1):
         window = shapes[start:start + _WINDOW_SIZE]
         for shape, count in Counter(window).items():
             if shape in _FALLBACK_SHAPES:
                 continue
-            if count >= _WINDOW_DOMINANCE_THRESHOLD:
-                key = (start, shape)
-                if key in seen_windows:
-                    continue
-                seen_windows.add(key)
-                findings.append({
-                    "rule": "chassis-uniformity",
-                    "signal": "marker_dominance",
-                    "shape": shape,
-                    "start_paragraph": start,
-                    "window_size": _WINDOW_SIZE,
-                    "count_in_window": count,
-                    "tier": "important" if count >= 4 else "advisory",
-                    "severity": "advisory",
-                })
+            if count < _WINDOW_DOMINANCE_THRESHOLD:
+                continue
+            if shape in reported_shapes:
+                continue
+            reported_shapes.add(shape)
+            findings.append({
+                "rule": "chassis-uniformity",
+                "signal": "marker_dominance",
+                "shape": shape,
+                "start_paragraph": start,
+                "window_size": _WINDOW_SIZE,
+                "count_in_window": count,
+                "tier": "important" if count >= 4 else "advisory",
+                "severity": "advisory",
+            })
     return findings
 
 
 def _entropy_finding(shapes: list[str]) -> list[dict]:
-    if len(shapes) < _CLOSER_MIN_PARAGRAPHS:
+    if len(shapes) < _MIN_PARAGRAPHS_FOR_DOC_SIGNALS:
         # Entropy on a very short document is uninformative; suppress.
         return []
     h = _shape_entropy(shapes)
@@ -145,7 +147,7 @@ def _entropy_finding(shapes: list[str]) -> list[dict]:
 
 
 def _closer_concentration_finding(paragraphs: list[str]) -> list[dict]:
-    if len(paragraphs) < _CLOSER_MIN_PARAGRAPHS:
+    if len(paragraphs) < _MIN_PARAGRAPHS_FOR_DOC_SIGNALS:
         return []
     closer_count = sum(
         1 for p in paragraphs
@@ -166,7 +168,7 @@ def _closer_concentration_finding(paragraphs: list[str]) -> list[dict]:
 
 
 def lint_chassis_uniformity(path: Path) -> list[dict]:
-    text = Path(path).read_text(encoding="utf-8")
+    text = strip_quotes(Path(path).read_text(encoding="utf-8"))
     paragraphs = _paragraphs(text)
     shapes = _shapes(paragraphs)
     return (

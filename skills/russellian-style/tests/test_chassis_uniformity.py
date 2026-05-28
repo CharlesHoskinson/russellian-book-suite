@@ -111,12 +111,21 @@ def test_low_entropy_flags(tmp_path):
     assert entropy[0]["entropy"] == 0.0
 
 
+def test_short_document_skips_entropy_signal(tmp_path):
+    # 7 paragraphs (< 8 minimum) — the entropy signal should not even compute,
+    # regardless of how varied or uniform the shapes are.
+    text = _doc(*[_FALLBACK_PARA] * 7)
+    findings = lint_chassis_uniformity(_write(tmp_path, text))
+    entropy = [f for f in findings if f["signal"] == "entropy"]
+    assert entropy == []
+
+
 def test_high_entropy_does_not_flag(tmp_path):
-    # 7 paragraphs spread across all 7 shapes → entropy ≈ log2(7) ≈ 2.81.
+    # 8 paragraphs spread across multiple shapes → entropy well above threshold.
     text = _doc(
         _QUESTION_PARA, _CONCESSION_TURN_PARA, _CONTRAST_PARA,
         _EXAMPLE_INFERENCE_PARA, _DEFINITION_BY_PRESSURE_PARA,
-        _FALLBACK_PARA, "Single.",
+        _FALLBACK_PARA, _QUESTION_PARA, _CONCESSION_TURN_PARA,
     )
     findings = lint_chassis_uniformity(_write(tmp_path, text))
     entropy = [f for f in findings if f["signal"] == "entropy"]

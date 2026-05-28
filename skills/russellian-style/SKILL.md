@@ -36,6 +36,7 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 - `scripts/lint_parallel_structure.py` — grammatical-opening parity across bullet lists.
 - `scripts/lint_sentence_rhythm.py` — sentence-length variance and cadence defects.
 - `scripts/lint_listicle_abstract.py` — abstract-noun listicles masquerading as content.
+- `scripts/lint_ornament.py` — purple-prose markers (archaism, apostrophe, adjective stacking, adverb-amplified verbs, abstract emotion words, nature-mirrors-mood); pure-regex, quote-excluding, advisory.
 
 ## Style guide
 

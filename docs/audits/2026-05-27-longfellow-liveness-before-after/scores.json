@@ -1,0 +1,60 @@
+{
+  "topic": "The printing press and the limits of disruption",
+  "mode": "narrative-editorial",
+  "audit_note": "Both passages were written by the same author against the two prompt versions (baseline = origin/main; blended = feat/longfellow-liveness after Task 7). This is not a double-blind reader study; it is the suite scoring its own output. The success criterion is the trade-off shape — flow and enjoyment up without quality falling — not the absolute numbers.",
+  "instruments": {
+    "voice_eval": "deterministic telemetry (stdlib pieces only on this host; concrete_instance_density omitted because spaCy en_core_web_sm is not installed)",
+    "reading_council": "5-persona role-play scored on enjoyment/flow/style/quality; aggregated by skills/review-conductor/scripts/reading_scores.py"
+  },
+  "baseline": {
+    "reading_council": {
+      "enjoyment": 3,
+      "flow": 3,
+      "style": 3,
+      "quality": 4,
+      "overall": 3.25,
+      "deterministic": {"flesch": 53.81, "burstiness": 0.546},
+      "verdict": "Reads at 3.25/5 overall — strongest on quality (4), weakest on enjoyment (3); plain readability (Flesch 53.81)."
+    },
+    "voice_eval": {
+      "n_words": 899,
+      "nPVI": 69.68,
+      "motion_variety": 0.273,
+      "ornament_total": 0,
+      "ornament_per_1000": 0.0,
+      "ornament_by_marker": {},
+      "liveness_partial": {
+        "metric": "liveness",
+        "liveness": 0.424,
+        "components": {"cadence": 1.0, "motion": 0.273, "concreteness": 0.0, "ornament_penalty": 0.0},
+        "advisory": true
+      }
+    }
+  },
+  "blended": {
+    "reading_council": {
+      "enjoyment": 4,
+      "flow": 4,
+      "style": 4,
+      "quality": 4,
+      "overall": 4.0,
+      "deterministic": {"flesch": 56.38, "burstiness": 0.694},
+      "verdict": "Reads at 4/5 overall — flow and enjoyment both rose to 4; plain readability (Flesch 56.38)."
+    },
+    "voice_eval": {
+      "n_words": 950,
+      "nPVI": 79.62,
+      "motion_variety": 0.273,
+      "ornament_total": 0,
+      "ornament_per_1000": 0.0,
+      "ornament_by_marker": {},
+      "liveness_partial": {
+        "metric": "liveness",
+        "liveness": 0.424,
+        "components": {"cadence": 1.0, "motion": 0.273, "concreteness": 0.0, "ornament_penalty": 0.0},
+        "advisory": true
+      }
+    }
+  },
+  "composite_saturation_note": "The composite liveness number is identical (0.424) in both passages because cadence is capped at 1.0 (both nPVI values exceed the 60.0 calibration ceiling) and concreteness is 0 (spaCy-NER absent). The genuine cadence lift is visible in the raw nPVI delta (+9.94) and the burstiness delta (+0.148), not in the saturated composite."
+}

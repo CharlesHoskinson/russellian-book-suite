@@ -97,6 +97,19 @@ def test_chassis_judge_does_not_call_dispatcher_more_than_once():
     assert call_count["n"] == 1
 
 
+def test_frequency_clamped_into_unit_interval():
+    # REQ-VOICE-022: frequency is a fraction in 0..1. A malformed dispatcher value
+    # must not leak out of range (it would otherwise distort the Condition-1 check).
+    over = _FAKE_RESPONSE.replace(
+        "MOST_FREQUENT_MOVE_FREQUENCY: 0.33", "MOST_FREQUENT_MOVE_FREQUENCY: 1.7"
+    )
+    under = _FAKE_RESPONSE.replace(
+        "MOST_FREQUENT_MOVE_FREQUENCY: 0.33", "MOST_FREQUENT_MOVE_FREQUENCY: -0.4"
+    )
+    assert _parse_judge_response(over)["most_frequent_move_frequency"] == 1.0
+    assert _parse_judge_response(under)["most_frequent_move_frequency"] == 0.0
+
+
 def test_chassis_judge_return_keys():
     result = chassis_judge(_DOC, dispatcher=lambda p: _FAKE_RESPONSE)
     assert set(result.keys()) == {

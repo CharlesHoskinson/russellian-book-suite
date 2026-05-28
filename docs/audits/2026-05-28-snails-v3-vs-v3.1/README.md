@@ -21,14 +21,39 @@ The audit's success gate is **the preregistered falsification check on the
 chassis-judge output**, not the deterministic linter numbers. The reading council
 is the supporting human-proxy score.
 
-## Preregistered falsification result: **PASSED**
+## Preregistered falsification result: **PASSED (as preregistered) — read with the two caveats below**
 
 | Condition | Threshold | v3.1 value | Status |
 |---|---|---|---|
 | 1. `most_frequent_move_frequency` | < 0.50 | **0.25** | clear |
 | 2. `unsympathetic_critique` matches trigger substrings or `r"\b(perform\|performing)\b.{0,20}\b(wisdom\|insight\|moral)\b"` | none match | none match | clear |
 
-Both preregistered conditions cleared in v3.1.
+Both preregistered conditions cleared in v3.1. They are reported below at full
+strength **and** discounted by the two structural caveats that follow; the honest
+summary of this audit is "the prose moved materially," not "the chassis was 73%
+dismantled."
+
+**Caveat 1 — the pass is taxonomy-granularity-dependent.** Condition 1 measures the
+frequency of the single most-frequent *move label*, and the move taxonomy is induced by
+the judge — here, the same author who wrote the preregistered thresholds. The two essays
+are labelled at opposite granularities: v3 collapses all nineteen body paragraphs to one
+label (`fact-pivot-aphorism`, 0.95); v3.1 splits the same fact-then-closer family into
+ten labels (`fact-with-flat-closer`, `fact-with-flat-witty-closer`,
+`historical-anchor-flat-closer`, `fact-with-technical-anchor`,
+`fact-with-named-expert-attribution`, …), so the top label falls to 0.25. Collapsing
+that family back into a single "fact → closer" move on the recorded v3.1 labels gives
+17 / 20 = **0.85**, which would *trip* Condition 1. The dominant rhetorical *shape* still
+governs ~85% of paragraphs; the 0.95 → 0.25 headline reflects finer labelling as much as
+broken monotony. Granularity is author-controlled and is the sharpest unmitigated
+Goodhart surface in this audit.
+
+**Caveat 2 — Condition 2 is a lexical trip-wire, not an independent verdict.** It checks
+for fixed substrings (`chassis`, `metronome`, `every paragraph`, …). The v3.1 critique
+clears it while naming the same fault in synonyms — "shape" for "chassis," "visible
+engineering" for "metronome," "about a quarter of paragraphs" for "every paragraph."
+Written by someone who knows the trigger list, the check tests vocabulary rather than
+judgement and is close to self-fulfilling. The future-iteration external judge (see
+caveats below), blind to the substrings, is what would make this condition load-bearing.
 
 ## Headline numbers
 
@@ -68,8 +93,15 @@ The **humanity-token-closer density** dropped from 1.94 / 1000 to 1.06 / 1000 �
 45% reduction in chassis-shaped closers. The four v3 closers the linter caught
 (civilisation, knowledge-sufficient-for-life, the-man-with-the-fork, nature-spends-
 its-ironies) have been rewritten or dropped; v3.1 retains two (the Didion paragraph
-itself plus the anti-emblematic correction's closer). The **ornament linter** went
-from one finding to zero — no archaism, apostrophe, or sentimentality drift.
+itself plus the anti-emblematic correction's closer). Part of the drop is genuine
+removal (the "most of us" close of the opening paragraph and the "narcotics against
+tedium" close are simply gone); part, however, is **gate-evasion rather than
+chassis-breaking** — the v3 "the distinction lives entirely in the eye … of the man
+holding the fork" verdict survives nearly verbatim in v3.1's Rome paragraph, but folded
+into a ~40-word sentence that now exceeds the linter's 28-word closer gate, so the
+instrument no longer counts it. The 45% figure is therefore "humanity-verdict closers
+the linter can still detect," not "humanity verdicts removed." The **ornament linter**
+went from one finding to zero — no archaism, apostrophe, or sentimentality drift.
 
 The **chassis-uniformity linter** is a more interesting story: it actually shows
 v3.1 as *worse* on the shape-entropy signal (1.116 → 0.964) and longer streaks
@@ -113,6 +145,15 @@ inputs (Flesch, burstiness) barely moved — readability is essentially unchange
   module docstring; the design acknowledged it and added the LLM-judge as the
   layer that catches what the shape classifier cannot. The audit confirms both
   the documented limitation and the design's chosen escape.
+- **Every author-independent paragraph-shape signal is worse on v3.1, not better.**
+  Entropy fell (1.116 → 0.964) and the longest fallback streak grew (run-4 → run-8;
+  see `deterministic-telemetry.json`). The improvement claim therefore rests on
+  exactly two instruments: the humanity-token-closer density (mechanical, but see the
+  gate-evasion note in *Reading* above) and the chassis_judge (author-run, and see
+  Caveat 1). A reader who trusts only the fully author-independent mechanical signals
+  would not, on this evidence alone, conclude v3.1 is less monotone at the
+  paragraph-shape level. The case for v3.1 leans on the judge and the council, both of
+  which the same author produced.
 
 ## What this audit can and cannot claim
 
@@ -121,7 +162,9 @@ It **can** claim:
 - The deterministic humanity-token-closer signal moved in the intended direction
   (~45% reduction) on a real rewrite.
 - The chassis_judge step, run on v3.1, cleared both preregistered falsification
-  conditions; the same step on v3 correctly named the v3 fault.
+  conditions; the same step on v3 correctly named the v3 fault. (Subject to Caveat 1:
+  the clearance of Condition 1 is taxonomy-granularity-dependent and the judge is
+  author-run.)
 - The reading council shows the success-gate trade-off shape (flow and enjoyment
   up, quality up — not falling).
 - Both factual errors named in the critique are fixed in v3.1.

@@ -100,6 +100,10 @@ def _parse_judge_response(response: str) -> dict:
         most_frequent_freq = float(freq_raw) if freq_raw else 0.0
     except ValueError:
         most_frequent_freq = 0.0
+    # REQ-VOICE-022: the frequency is a fraction in 0..1. Clamp so a malformed
+    # dispatcher value cannot leak out of range or distort the preregistered
+    # falsification arithmetic (Condition 1 compares against 0.50).
+    most_frequent_freq = max(0.0, min(1.0, most_frequent_freq))
     single_raw = _scalar(response, "SINGLE_MOVE_SUMMARY").lower()
     single_move = single_raw.startswith("y")
     critique = _scalar(response, "UNSYMPATHETIC_CRITIQUE")

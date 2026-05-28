@@ -144,3 +144,23 @@ def test_evaluate_emits_liveness_block():
     assert lv["advisory"] is True
     # ornament linter is now part of the battery
     assert "ornament" in rep["generated"]["linters"]
+
+
+@requires_spacy
+def test_evaluate_emits_chassis_uniformity_and_humanity_token_closers():
+    """REQ-VOICE-024: the two new deterministic linters appear in the battery."""
+    from scripts.voice_eval import evaluate
+    text = (
+        "What can we say of the snail? It is the modest claim of a slow life "
+        "lived to its own measure without insistence. "
+        "The defender will say the snail is merely slow, but the slowness is the point. "
+        "Consider the radula, with thousands of teeth. Therefore the snail is not unarmed.\n\n"
+        "We have built whole industries on what the snail does without thought.\n\n"
+    ) * 4
+    rep = evaluate(text)
+    linters = rep["generated"]["linters"]
+    assert "chassis_uniformity" in linters
+    assert "humanity_token_closers" in linters
+    # Both report the standard per-1000 density shape.
+    for name in ("chassis_uniformity", "humanity_token_closers"):
+        assert set(linters[name]) == {"count", "per_1000"}

@@ -37,6 +37,8 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 - `scripts/lint_sentence_rhythm.py` — sentence-length variance and cadence defects.
 - `scripts/lint_listicle_abstract.py` — abstract-noun listicles masquerading as content.
 - `scripts/lint_ornament.py` — purple-prose markers (archaism, apostrophe, adjective stacking, adverb-amplified verbs, abstract emotion words, nature-mirrors-mood); pure-regex, quote-excluding, advisory.
+- `scripts/lint_chassis_uniformity.py` — four-signal advisory linter for paragraph-shape monotony: marker-hit shape dominance over 3-of-5 windows; ≥3-consecutive-shape streaks; low shape-sequence Shannon entropy; high humanity-token-closer concentration. Pure stdlib.
+- `scripts/lint_humanity_token_closers.py` — advisory regex linter for paragraph closers fitting the fact-→-moral-aphorism shape (6–28 words; humanity-generalising token; no concrete-instance marker; no first-person singular). Pure stdlib; quote-excluding.
 
 ## Style guide
 

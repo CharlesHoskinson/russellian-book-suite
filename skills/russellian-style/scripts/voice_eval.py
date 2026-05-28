@@ -50,13 +50,15 @@ def _linters() -> dict:
     from scripts.lint_signal_density import lint_signal_density
     from scripts.lint_parallel_structure import lint_parallel_structure
     from scripts.lint_listicle_abstract import lint_listicle_abstract
-    from scripts.lint_ornament import lint_ornament
     from scripts.lint_sentence_rhythm import lint_sentence_rhythm
     from scripts.lint_burstiness import lint_burstiness
+    from scripts.lint_chassis_uniformity import lint_chassis_uniformity
     from scripts.lint_ai_vocabulary import lint_ai_vocabulary
     from scripts.lint_ai_staccato import lint_ai_staccato
     from scripts.lint_concrete_instance_density import lint_concrete_instance_density
     from scripts.lint_epistemic_precision import lint_epistemic_precision
+    from scripts.lint_humanity_token_closers import lint_humanity_token_closers
+    from scripts.lint_ornament import lint_ornament
     from scripts.lint_paragraph_motion import lint_paragraph_motion
     return {
         "hedges": lint_hedges,
@@ -64,13 +66,15 @@ def _linters() -> dict:
         "signal_density": lint_signal_density,
         "parallel_structure": lint_parallel_structure,
         "listicle_abstract": lint_listicle_abstract,
-        "ornament": lint_ornament,
         "sentence_rhythm": lint_sentence_rhythm,
         "burstiness": lint_burstiness,
+        "chassis_uniformity": lint_chassis_uniformity,
         "ai_vocabulary": lint_ai_vocabulary,
         "ai_staccato": lint_ai_staccato,
         "concrete_instance_density": lint_concrete_instance_density,
         "epistemic_precision": lint_epistemic_precision,
+        "humanity_token_closers": lint_humanity_token_closers,
+        "ornament": lint_ornament,
         "paragraph_motion": lint_paragraph_motion,
     }
 

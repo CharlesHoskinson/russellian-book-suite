@@ -62,7 +62,7 @@ exactly chosen, outweighs three atmospheric adjectives.
 
 ## Disciplined-lyricism prose models (referenced by technique, not quoted)
 
-Three prose stylists demonstrate the lively-but-not-purple register the blend targets.
+Five prose stylists demonstrate the lively-but-not-purple register the blend targets.
 Use their techniques; do not quote them.
 
 - **Rachel Carson** — anaphoric accumulation with epistemic progression (a repeated
@@ -74,6 +74,78 @@ Use their techniques; do not quote them.
 - **Loren Eiseley** — scale-collision: a human-scale physical particular juxtaposed
   with a geological or cosmological claim in one sentence, the collision doing the
   emotional work.
+
+- **Joan Didion** (1934–2021; works in copyright through at least 2047 — reference by
+  named technique only, never quote). The core Didion move is not the aphorism but
+  the aphorism's deferral. She accumulates specific sensory and procedural detail —
+  temperatures, brand names, route numbers, furniture — until the reader is carrying
+  an argument she has pointedly declined to state. Five translatable moves:
+    1. **The diagnostic aphorism that eats itself.** "We tell ourselves stories in
+       order to live" (*The White Album*, 1979) is not an inspirational declaration;
+       it is a clinical diagnosis Didion spends the essay demonstrating to be
+       unstable. The aphorism arrives as thesis; the essay dismantles it. In analytic
+       prose: state the generalising claim early, then assemble evidence that
+       complicates rather than confirms it; close without re-landing the opening.
+    2. **The catalogue as withheld verdict.** In "Some Dreamers of the Golden Dream"
+       (*Slouching Towards Bethlehem*, 1968), the affair's mechanics — falsified
+       motel registrations, lunch dates, remembered phrases — are listed without
+       editorial comment. The accumulation *is* the judgment.
+    3. **The landscape that pre-argues.** "Some Dreamers" opens with the San
+       Bernardino Valley as "a place where it is routine to misplace the future"
+       before any human character appears. The setting states the conclusion in
+       displaced form.
+    4. **The fragmentary form as argument.** *Slouching*'s title essay uses only two
+       explicit transitional markers across forty-four pages. White-space
+       segmentation mirrors the "centre cannot hold" argument structurally.
+    5. **The physical circumstance as epistemic condition.** "On Morality" is
+       written at 119°F in the Enterprise Motel and Trailer Park in Death Valley;
+       the physical conditions force the particular. The constraint on knowing
+       licenses the observation that follows it.
+
+  *Failure modes* (Didionesque mannerism to avoid): when repetition accumulates
+  without variation in force, loop replaces liturgy; when "we" assumes a
+  civilisational position the reader has not consented to, detachment becomes
+  superiority; when juxtaposition connects nothing discoverable, it becomes surface
+  shock. *Canonical texts*: "Slouching Towards Bethlehem" (1968 title essay); "Some
+  Dreamers of the Golden Dream" (1968); "Holy Water" (1979); "The White Album"
+  (1979 title essay); "On Morality" (1968); "Why I Write" (NYT, 1976). *Critical
+  sources*: Als, *NYRB* (Dec 2020); Harrison, "Joan Didion: Only Disconnect"
+  (1980); Wilkinson, *We Tell Ourselves Stories* (Liveright, 2025); Bellot,
+  *Lit Hub* (2020).
+
+- **John McPhee** (b. 1931; *New Yorker* essays 1965–present; works in copyright —
+  reference by named technique only, never quote). McPhee's gift is the
+  technical/process essay that makes geology, freight, oranges, or basketball
+  coaches read as argument. He counters the Edwardian-familiar-essay register on a
+  different axis from Didion: where Didion withholds the verdict, McPhee makes the
+  *process* the verdict. Three translatable moves:
+    1. **The long sentence as a chain of verbed nouns.** McPhee's signature is a
+       cumulative sentence whose engine is a series of concrete verbs, each acting
+       on a specific named noun: "The truck shifted, the load settled, the tarp
+       belled." The sentence carries information density without ornament.
+    2. **The named expert as locus of the technical claim.** Rather than asserting
+       a geological or institutional fact in the writer's voice, McPhee credits it
+       to a specific named source ("Anita Harris, of the U.S. Geological Survey,
+       told me…"). The opposite of the abstract humanity-generalising closer —
+       specificity-as-authority.
+    3. **The structural conceit borrowed from the subject.** *Annals of the Former
+       World* uses geological time as its own structuring principle; *Oranges*
+       tells its history in concentric layers like the fruit. The form mirrors the
+       content's logic without the form having to be stated.
+
+  *Failure modes*: when the named-expert technique becomes "as X told me" in every
+  paragraph, attribution itself becomes a tic; when the technical inventory
+  accumulates without ever pivoting, the essay turns into a Wikipedia article with
+  a byline. *Canonical texts*: *Oranges* (1967); *Coming into the Country* (1977);
+  *Annals of the Former World* (1998); "The Search for Marvin Gardens" (1972);
+  "Travels in Georgia" (1973). *Critical sources*: Sims, ed., *The Literary
+  Journalists* (1984); Kerrane & Yagoda, eds., *The Art of Fact* (1997); McPhee,
+  *Draft No. 4* (2017).
+
+The five-donor balance: Carson, Dillard, Eiseley (anaphoric / image-evolution /
+scale-collision; pre-1960 register) + Didion, McPhee (aphorism-as-target /
+process-as-argument; post-1950 register). Two post-1950 donors with different
+registers shift real corpus weight off the Edwardian-familiar-essay register.
 
 ## The firewall (what each liveness anchor must not import)
 

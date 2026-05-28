@@ -5,6 +5,11 @@ so this module loads and runs under the CI [ci] extra without the spaCy model.
 
 Quoted spans (double-quoted, curly-quoted, and markdown blockquotes) are removed
 before scanning so the linter does not penalize quoting or discussing ornate sources.
+The strip is per-line for double/curly quotes (an unmatched opening quote that spans
+paragraphs is not detected); markdown blockquote lines (`>`) are dropped wholesale.
+
+Each match emits one finding so ``len(lint_ornament(path))`` measures total ornament
+instances — the value ``voice_eval._signals`` consumes via per-1000 density.
 Severity is advisory; the tier records internal strength for the report only.
 """
 from __future__ import annotations
@@ -19,28 +24,49 @@ _ARCHAIC = re.compile(
     re.IGNORECASE,
 )
 
-# "O Reader,", "O, Time" at sentence boundaries. Avoids matching the letter O in
-# ordinary words by requiring sentence-initial position and a following capital.
-_APOSTROPHE = re.compile(r"(?:^|[.!?]\s+)O[, ]+[A-Z][a-z]")
+# Sentence-initial "O Reader, ..." or "O Time! ...": the addressee must be followed
+# by a comma or exclamation, which is the apostrophe-trope pattern. This excludes
+# technical terms like "O Ring" (no following comma/exclamation).
+_APOSTROPHE = re.compile(r"(?:^|[.!?]\s+)O[, ]+[A-Z][a-z]+\s*[,!]")
 
-_STRONG_VERBS = ("roared", "shouted", "whispered", "screamed", "blazed", "raced",
-                 "sprinted", "glared", "thundered", "bellowed")
+# Closed list of amplifying adverbs paired with already-strong verbs. Using a closed
+# list (rather than ``\w+ly``) avoids false positives on nouns and proper nouns that
+# happen to end in "ly" — "gully roared", "family roared", "Italy blazed".
+_AMPLIFIER_ADVERBS = (
+    "loudly", "quietly", "softly", "harshly", "fiercely", "ferociously",
+    "mightily", "savagely", "wildly", "frantically", "hastily", "rapidly",
+    "swiftly", "deeply", "profoundly", "suddenly", "abruptly", "violently",
+    "intensely", "furiously",
+)
+_STRONG_VERBS = (
+    "roared", "shouted", "whispered", "screamed", "blazed", "raced",
+    "sprinted", "glared", "thundered", "bellowed",
+)
 _ADVERB_STRONG_VERB = re.compile(
-    r"\b\w+ly\s+(" + "|".join(_STRONG_VERBS) + r")\b", re.IGNORECASE
+    r"\b(" + "|".join(_AMPLIFIER_ADVERBS) + r")\s+(" + "|".join(_STRONG_VERBS) + r")\b",
+    re.IGNORECASE,
 )
 
-_EMOTION_WORDS = ("sorrow", "grief", "despair", "longing", "rapture", "melancholy",
-                  "anguish", "yearning", "woe")
-# Match the word in subject/object position (bare nominal use), not in compounds.
+_EMOTION_WORDS = (
+    "sorrow", "grief", "despair", "longing", "rapture", "melancholy",
+    "anguish", "yearning", "woe",
+)
+# Bare nominal use; tolerate end-of-string so a file that does not end with a newline
+# does not silently miss a trailing emotion word.
 _EMOTION_RE = re.compile(
-    r"(?:^|[\s,;])(" + "|".join(_EMOTION_WORDS) + r")(?=[\s,.;!?])", re.IGNORECASE
+    r"(?:^|[\s,;])(" + "|".join(_EMOTION_WORDS) + r")(?=[\s,.;!?]|$)",
+    re.IGNORECASE,
 )
 
-_EVALUATIVE = ("beautiful", "lovely", "gorgeous", "exquisite", "magnificent",
-               "glorious", "radiant", "dazzling", "sublime", "delicate", "tender",
-               "wondrous", "ethereal")
+_EVALUATIVE = (
+    "beautiful", "lovely", "gorgeous", "exquisite", "magnificent", "glorious",
+    "radiant", "dazzling", "sublime", "delicate", "tender", "wondrous", "ethereal",
+)
+# Bridge between adjacent evaluative adjectives must NOT cross a line — otherwise the
+# pattern fires across sentence boundaries when a line happens to start with an
+# evaluative word ("radiant\nTender treatment ...").
 _ADJ_STACK = re.compile(
-    r"\b(" + "|".join(_EVALUATIVE) + r")\b[,\s]+(?:and\s+)?\b("
+    r"\b(" + "|".join(_EVALUATIVE) + r")\b[, ]+(?:and\s+)?\b("
     + "|".join(_EVALUATIVE) + r")\b",
     re.IGNORECASE,
 )
@@ -52,44 +78,42 @@ _NATURE_MOOD = re.compile(
 )
 
 
+# (marker, compiled-regex, tier). Tier is internal strength for reports; severity
+# stays advisory regardless (REQ-VOICE-015).
+_MARKERS: tuple[tuple[str, "re.Pattern[str]", str], ...] = (
+    ("archaic_diction", _ARCHAIC, "important"),
+    ("apostrophe", _APOSTROPHE, "important"),
+    ("adverb_amplified_verb", _ADVERB_STRONG_VERB, "advisory"),
+    ("abstract_emotion_word", _EMOTION_RE, "advisory"),
+    ("adjective_stacking", _ADJ_STACK, "advisory"),
+    ("nature_mirrors_mood", _NATURE_MOOD, "advisory"),
+)
+
+
 def _strip_quotes(text: str) -> str:
-    # Drop double-quoted spans, curly-quoted spans, and markdown blockquote lines.
+    # Per-line strip: double-quoted spans, curly-quoted spans, blockquote lines.
     text = re.sub(r'"[^"\n]*"', " ", text)
-    text = re.sub(r"“[^”\n]*”", " ", text)
+    text = re.sub(u"“[^”\n]*”", " ", text)
     text = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(">"))
     return text
 
 
-def _tier(marker: str) -> str:
-    # "Important" tiers carry to the report; "advisory" stays severity-advisory
-    # regardless (REQ-VOICE-015). All vitality linters are advisory in v1.
-    if marker in {"archaic_diction", "apostrophe"}:
-        return "important"
-    return "advisory"
-
-
 def lint_ornament(path: Path) -> list[dict]:
-    raw = Path(path).read_text(encoding="utf-8")
-    text = _strip_quotes(raw)
+    """Return one advisory finding per ornament-marker match. Quoted spans are excluded.
+
+    ``len(lint_ornament(path))`` is the total ornament instance count — what
+    ``voice_eval._signals`` consumes as a per-1000-word density.
+    """
+    text = _strip_quotes(Path(path).read_text(encoding="utf-8"))
     findings: list[dict] = []
-
-    def _add(marker: str, count: int) -> None:
-        if count <= 0:
-            return
-        findings.append({
-            "rule": "ornament",
-            "marker": marker,
-            "count": count,
-            "tier": _tier(marker),
-            "severity": "advisory",
-        })
-
-    _add("archaic_diction", len(_ARCHAIC.findall(text)))
-    _add("apostrophe", len(_APOSTROPHE.findall(text)))
-    _add("adverb_amplified_verb", len(_ADVERB_STRONG_VERB.findall(text)))
-    _add("abstract_emotion_word", len(_EMOTION_RE.findall(text)))
-    _add("adjective_stacking", len(_ADJ_STACK.findall(text)))
-    _add("nature_mirrors_mood", len(_NATURE_MOOD.findall(text)))
+    for marker, pattern, tier in _MARKERS:
+        for _ in pattern.finditer(text):
+            findings.append({
+                "rule": "ornament",
+                "marker": marker,
+                "tier": tier,
+                "severity": "advisory",
+            })
     return findings
 
 

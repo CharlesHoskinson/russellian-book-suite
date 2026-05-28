@@ -61,7 +61,7 @@ def test_compact_aphorism_at_word_floor_flagged(tmp_path):
     assert len(findings) == 1
 
 
-def test_long_russell_closer_within_cap_flagged(tmp_path):
+def test_long_within_cap_closer_with_first_person_singular_not_flagged(tmp_path):
     # 27 words. The first draft's 18-word cap missed Russell's characteristic 20-30 word closers.
     text = (
         "The snail keeps no theology and holds no opinion for which it would kill a neighbour.\n\n"
@@ -89,10 +89,12 @@ def test_closer_above_28_word_cap_not_flagged(tmp_path):
 
 
 def test_closer_with_concrete_instance_marker_not_flagged(tmp_path):
-    # Capitalised non-initial word ("Bernoulli") = concrete-instance marker.
+    # Gate 3: a capitalised non-initial word disqualifies the closer even when
+    # a humanity token ("we") is present. Replaces the previous Bernoulli fixture,
+    # which failed gate 2 and never reached gate 3.
     text = (
         "The shell records the seasons.\n\n"
-        "The geometer Bernoulli earns the spiral by labour and dies."
+        "We have all built our hopes on the genius of Darwin and found it was not enough."
     )
     findings = lint_humanity_token_closers(_write(tmp_path, text))
     assert findings == []

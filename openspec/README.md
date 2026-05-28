@@ -36,6 +36,7 @@ Capability slugs and their full capability names:
 | `VOICE` | russellian-voice |
 | `DELTA` | russell-delta |
 | `VOICE-EVAL` | voice-eval |
+| `READING` | reading-council |
 
 ## EARS patterns
 

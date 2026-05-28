@@ -3,9 +3,9 @@
 nPVI (normalized pairwise variability index; Grabe & Low 2002) measures adjacent-
 sentence length contrast — the ordering that the Fano factor throws away.
 
-liveness_summary composes nPVI with paragraph-motion variety and concrete-instance
-density, minus an ornament penalty. The result is advisory telemetry, not a verdict;
-qualitative judgement of improvement belongs to the reading-council A/B.
+A forthcoming ``liveness_summary`` (added in the next task) will compose nPVI with
+paragraph-motion variety and concrete-instance density, minus an ornament penalty,
+as advisory telemetry — not a verdict; the reading-council A/B is the judge.
 """
 from __future__ import annotations
 

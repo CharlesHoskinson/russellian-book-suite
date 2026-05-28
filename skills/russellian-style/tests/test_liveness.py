@@ -27,13 +27,16 @@ def test_single_qualifying_sentence_returns_zero():
 
 
 def test_below_floor_fragments_are_ignored():
-    # "Yes." / "No." stuffing must not inflate cadence; the floor (default 4) drops them.
+    # "Yes." / "No." stuffing must not inflate cadence: with the floor active, only
+    # the two genuine sentences remain (equal length -> 0.0). With the floor disabled,
+    # the fragments alternate with the long sentences and inflate the score above 0.
     text = " ".join([
         "Yes.", "No.", "Indeed.",
         "A genuine sentence with comfortably more than four words to clear the floor here.",
         "Another genuine sentence with comfortably more than four words to clear the floor again.",
     ])
-    assert npvi(text) == 0.0  # only 2 qualifying sentences of similar length -> low contrast
+    assert npvi(text) == 0.0
+    assert npvi(text, min_words=1) > 0.0
 
 
 def test_determinism():

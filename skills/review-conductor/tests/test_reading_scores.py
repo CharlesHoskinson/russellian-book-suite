@@ -58,13 +58,13 @@ def test_aggregate_empty_raises():
         aggregate_reading_scores([], "text")
 
 def test_documentation_panel_loads_with_documentation_scope():
-    # load_panel requires jsonschema (not installed globally); parse YAML directly instead
-    import yaml
+    # Goes through the schema-validating loader, exercising the "documentation"
+    # artifact_scope enum addition (jsonschema is a declared review-conductor dependency).
+    from scripts.load_panel import load_panel
     panel_path = Path(__file__).resolve().parent.parent / "panels" / "documentation.yaml"
-    panel = yaml.safe_load(panel_path.read_text(encoding="utf-8"))
-    assert panel["artifact_scope"] == "documentation"
-    ids = [p["id"] for p in panel["personas"]]
-    assert "enjoyment-reader" in ids
+    panel = load_panel(panel_path)
+    assert panel.artifact_scope == "documentation"
+    assert "enjoyment-reader" in [p.id for p in panel.personas]
 
 def test_reading_rubric_names_four_dimensions():
     rubric = (Path(__file__).resolve().parent.parent / "assets" / "reading-rubric.md").read_text(encoding="utf-8")

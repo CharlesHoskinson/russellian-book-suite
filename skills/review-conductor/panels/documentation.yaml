@@ -1,0 +1,22 @@
+panel_id: documentation
+artifact_scope: documentation
+description: Reading-council scoring of documentation prose (advisory).
+personas:
+  - id: enjoyment-reader
+    severity_gate: advisory
+  - id: gottlieb
+    severity_gate: advisory
+  - id: lay-reader
+    severity_gate: advisory
+  - id: first-time-visitor
+    severity_gate: advisory
+verdict:
+  hard_gate: false
+  soft_gate_rule: any_critical_from_gating
+outcomes:
+  exemplar_paths:
+    - ../book-review/references/outcomes/readme-pass-2026-05-13/
+  per_persona_exemplars: 1
+output:
+  panel_report_path: "reports/reading/{artifact_id}-reading.md"
+  verdict_path: "reports/reading/{artifact_id}-reading-score.json"

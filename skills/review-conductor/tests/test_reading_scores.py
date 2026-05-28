@@ -56,3 +56,17 @@ def test_aggregate_empty_raises():
     from scripts.reading_scores import aggregate_reading_scores
     with pytest.raises(ValueError):
         aggregate_reading_scores([], "text")
+
+def test_documentation_panel_loads_with_documentation_scope():
+    # load_panel requires jsonschema (not installed globally); parse YAML directly instead
+    import yaml
+    panel_path = Path(__file__).resolve().parent.parent / "panels" / "documentation.yaml"
+    panel = yaml.safe_load(panel_path.read_text(encoding="utf-8"))
+    assert panel["artifact_scope"] == "documentation"
+    ids = [p["id"] for p in panel["personas"]]
+    assert "enjoyment-reader" in ids
+
+def test_reading_rubric_names_four_dimensions():
+    rubric = (Path(__file__).resolve().parent.parent / "assets" / "reading-rubric.md").read_text(encoding="utf-8")
+    for dim in ("Enjoyment", "Flow", "Style", "Quality"):
+        assert dim in rubric

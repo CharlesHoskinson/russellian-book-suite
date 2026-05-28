@@ -5,6 +5,15 @@ from scripts.build_delta_profile import build_profile
 from scripts.score_russell_delta import score, _verdict
 
 
+def _spacy_model_available():
+    try:
+        import spacy
+        spacy.load("en_core_web_sm")
+        return True
+    except Exception:
+        return False
+
+
 @pytest.fixture
 def fixture_profile():
     texts = {
@@ -61,6 +70,8 @@ def test_determinism(fixture_profile):
     assert score(t, fixture_profile) == score(t, fixture_profile)
 
 
+@pytest.mark.skipif(not _spacy_model_available(),
+                    reason="spaCy en_core_web_sm model not installed")
 def test_report_dict_includes_russell_delta(tmp_path):
     from scripts.style_pass_report import generate_report_dict
     md = tmp_path / "s.md"

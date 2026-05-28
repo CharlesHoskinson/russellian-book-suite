@@ -7,6 +7,8 @@ Quoted spans (double-quoted, curly-quoted, and markdown blockquotes) are removed
 before scanning so the linter does not penalize quoting or discussing ornate sources.
 The strip is per-line for double/curly quotes (an unmatched opening quote that spans
 paragraphs is not detected); markdown blockquote lines (`>`) are dropped wholesale.
+The ``strip_quotes`` helper is exposed publicly so sibling linters (e.g.,
+``lint_humanity_token_closers``) reuse it without copy-paste.
 
 Each match emits one finding so ``len(lint_ornament(path))`` measures total ornament
 instances — the value ``voice_eval._signals`` consumes via per-1000 density.
@@ -90,7 +92,7 @@ _MARKERS: tuple[tuple[str, "re.Pattern[str]", str], ...] = (
 )
 
 
-def _strip_quotes(text: str) -> str:
+def strip_quotes(text: str) -> str:
     # Per-line strip: double-quoted spans, curly-quoted spans, blockquote lines.
     text = re.sub(r'"[^"\n]*"', " ", text)
     text = re.sub(u"“[^”\n]*”", " ", text)
@@ -104,7 +106,7 @@ def lint_ornament(path: Path) -> list[dict]:
     ``len(lint_ornament(path))`` is the total ornament instance count — what
     ``voice_eval._signals`` consumes as a per-1000-word density.
     """
-    text = _strip_quotes(Path(path).read_text(encoding="utf-8"))
+    text = strip_quotes(Path(path).read_text(encoding="utf-8"))
     findings: list[dict] = []
     for marker, pattern, tier in _MARKERS:
         for _ in pattern.finditer(text):

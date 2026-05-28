@@ -54,3 +54,47 @@ def burstiness(text: str) -> float:
     if mean == 0:
         return 0.0
     return round(statistics.pstdev(lengths) / mean, 3)
+
+
+def build_scoring_prompt(rubric_text: str, doc_text: str) -> str:
+    return (
+        f"{rubric_text}\n\n"
+        f"# Document to score\n\n{doc_text}\n\n"
+        f"# Task\n"
+        f"Score the document on each of the four dimensions — enjoyment, flow, style, "
+        f"quality — from 1 to 5 against the rubric above, with one line of justification "
+        f"per dimension. Return only the four scores and their one-line justifications."
+    )
+
+
+def _band(flesch: float) -> str:
+    if flesch >= 70:
+        return "very easy"
+    if flesch >= 50:
+        return "plain"
+    return "demanding"
+
+
+def _synthesize_verdict(medians: dict, overall: float, flesch: float) -> str:
+    best = max(DIMENSIONS, key=lambda d: medians[d])
+    worst = min(DIMENSIONS, key=lambda d: medians[d])
+    return (
+        f"Reads at {overall}/5 overall — strongest on {best} ({medians[best]}), "
+        f"weakest on {worst} ({medians[worst]}); {_band(flesch)} readability "
+        f"(Flesch {flesch})."
+    )
+
+
+def aggregate_reading_scores(persona_scores: list[dict], text: str) -> dict:
+    if not persona_scores:
+        raise ValueError("need at least one persona score")
+    medians = {d: round(statistics.median([s[d] for s in persona_scores]), 2) for d in DIMENSIONS}
+    overall = round(statistics.mean([medians[d] for d in DIMENSIONS]), 2)
+    flesch = flesch_reading_ease(text)
+    burst = burstiness(text)
+    return {
+        **medians,
+        "overall": overall,
+        "deterministic": {"flesch": flesch, "burstiness": burst},
+        "verdict": _synthesize_verdict(medians, overall, flesch),
+    }

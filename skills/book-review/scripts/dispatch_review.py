@@ -71,8 +71,8 @@ def _parse_findings_section(body: str, header: str) -> list[Finding]:
         line = line.strip()
         if not line:
             continue
-        if line.startswith(("- ", "* ", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")):
-            text = re.sub(r"^[-*\d.]\s*\d*\.?\s*", "", line).strip()
+        if re.match(r"^([-*]\s|\d+\.)", line):
+            text = re.sub(r"^([-*]|\d+\.)\s*", "", line).strip()
             if text:
                 out.append(Finding(text=text))
     return out

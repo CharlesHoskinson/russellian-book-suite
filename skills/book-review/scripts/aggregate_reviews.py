@@ -33,14 +33,27 @@ def _gather_reviews(workspace: Path, chapter_id: str) -> list[ReviewResult]:
 
 
 def _dedup_findings(findings: list[tuple[str, str]]) -> list[dict]:
+    """Collapse findings only on exact normalized equality.
+
+    Bare substring containment is never used to drop a finding: a short generic
+    finding must not swallow a longer, more-specific one. Exact (case/whitespace-
+    insensitive) duplicates across personas are merged into a single entry whose
+    persona attribution lists every persona that raised it, in encounter order.
+    """
     out: list[dict] = []
-    seen: list[str] = []
+    by_norm: dict[str, dict] = {}
     for persona_id, text in findings:
         norm = text.lower().strip()
-        is_dup = any(norm in s or s in norm for s in seen) if norm else False
-        if not is_dup:
-            out.append({"persona": persona_id, "text": text})
-            seen.append(norm)
+        existing = by_norm.get(norm)
+        if existing is None:
+            entry = {"persona": persona_id, "_personas": [persona_id], "text": text}
+            by_norm[norm] = entry
+            out.append(entry)
+        elif persona_id not in existing["_personas"]:
+            existing["_personas"].append(persona_id)
+            existing["persona"] = ", ".join(existing["_personas"])
+    for entry in out:
+        entry.pop("_personas", None)
     return out
 
 
@@ -56,10 +69,14 @@ def aggregate_reviews(workspace: Path, chapter_id: str) -> AggregatedReview:
     important = _dedup_findings(imp_pairs)
     minor = _dedup_findings(min_pairs)
 
+    # Gating counts are the RAW per-persona sums, never the deduplicated
+    # display-list lengths. Dedup collapses cross-persona repeats for
+    # presentation; using it for the gate would let a chapter that should
+    # block (multiple personas flag the same critical issue) slip through.
     severity_counts = {
-        "critical": len(critical),
-        "important": len(important),
-        "minor": len(minor),
+        "critical": len(crit_pairs),
+        "important": len(imp_pairs),
+        "minor": len(min_pairs),
     }
 
     per_persona = {r.persona_id: r.verdict for r in reviews}

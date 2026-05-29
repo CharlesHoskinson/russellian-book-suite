@@ -12,22 +12,28 @@ import json
 from pathlib import Path
 from typing import Any
 
-from scripts.corpus_io import append_index_entries, read_index
+from scripts.corpus_io import append_index_entries, content_locator, read_index
 
 
 def _project_candidate_to_index_entry(cand: dict[str, Any]) -> dict[str, Any]:
-    """Project a fat verified candidate to the committed index entry schema."""
-    parsed_id = cand["candidate_id"].split("-")
-    # Allow IDs like "problems-051" or "external-world-007"; reconstruct integer suffix.
-    numeric_suffix = parsed_id[-1]
-    source_id = "-".join(parsed_id[:-1])
+    """Project a fat verified candidate to the committed index entry schema.
+
+    `id` is taken verbatim from candidate_id (no split/rejoin string surgery), and
+    `source` comes from the explicit source_id field the extractor emits — not from
+    chopping candidate_id, which corrupts multi-segment sources like "external-world".
+
+    `content_locator` is stored as the *canonical* dedup key — the first 120 chars of
+    the paragraph text (content_locator(paragraph_text)) — so a future sentinel run can
+    detect a re-extracted identical paragraph. Storing the LLM's free-form short snippet
+    instead would never match the candidate-side key and silently re-admit duplicates.
+    """
     return {
-        "id": f"{source_id}-{numeric_suffix}",
-        "source": source_id,
+        "id": cand["candidate_id"],
+        "source": cand["source_id"],
         "line_hint": cand["line_hint"],
         "rhetorical_move": cand["calibration_lesson"],
         "tags": [cand["rhetorical_move_tag"]],
-        "content_locator": cand["content_locator"],
+        "content_locator": content_locator(cand["paragraph_text"]),
     }
 
 

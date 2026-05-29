@@ -6,15 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .load_panel import Panel
+from .placeholder import is_placeholder as _is_placeholder
 from .sibling_skills import load_book_review_module
-
-
-_PLACEHOLDER_TEXTS = {"_(none)_", "(none)", "_none_", "none"}
-
-
-def _is_placeholder(text: str) -> bool:
-    stripped = text.strip().lower().strip("_*-").strip()
-    return stripped in {"(none)", "none"} or text.strip() in _PLACEHOLDER_TEXTS
 
 
 def _format_path(template: str, chapter_id: str) -> str:
@@ -35,10 +28,14 @@ def run_aggregation(workspace: Path, chapter_id: str, panel: Panel) -> dict:
     aggregated = aggregate_reviews.aggregate_reviews(workspace, chapter_id)
 
     persona_gates = {p.id: p.severity_gate for p in panel.personas}
+    gating_persona_ids = {p.id for p in panel.personas if p.severity_gate == "gating"}
 
     gating_criticals = 0
     advisory_criticals = 0
     per_persona: dict[str, dict[str, int]] = {}
+    reported_persona_ids: set[str] = set()
+    unrecognized_persona_ids: set[str] = set()
+    parse_failures: list[str] = []
 
     dispatch_review = load_book_review_module("dispatch_review")
     reviews_dir = workspace / "chapters" / "drafts" / chapter_id / "reviews"
@@ -46,22 +43,37 @@ def run_aggregation(workspace: Path, chapter_id: str, panel: Panel) -> dict:
         try:
             r = dispatch_review.parse_review_report(path)
         except (ValueError, KeyError):
+            # A report we cannot parse may belong to a gating persona; record
+            # the failure so the completeness check below can fail closed
+            # rather than silently shrinking the gate's evidence base.
+            parse_failures.append(path.name)
             continue
         c = _count_real(r.critical)
         i = _count_real(r.important)
         m = _count_real(r.minor)
         per_persona[r.persona_id] = {"critical": c, "important": i, "minor": m}
-        gate = persona_gates.get(r.persona_id, "advisory")
-        if gate == "gating":
+        reported_persona_ids.add(r.persona_id)
+        gate = persona_gates.get(r.persona_id)
+        if gate is None:
+            # A report whose persona id matches no configured persona (typo or
+            # stale id). Do NOT silently classify it as advisory and drop its
+            # criticals from the gate; flag it so we fail closed.
+            unrecognized_persona_ids.add(r.persona_id)
+            advisory_criticals += c
+        elif gate == "gating":
             gating_criticals += c
         else:
             advisory_criticals += c
 
-    # The hard_gate field is reserved for future use per the spec
-    # (docs/specs/2026-05-13-review-conductor-design.md, "Invariants").
-    # v1 always produces "pass" or "soft-gate-fail"; "hard-gate-fail" stays
-    # in the schema enum for the future deterministic-failure hook.
+    # Fail closed on an incomplete or untrustworthy evidence base. A gating
+    # persona that produced no parseable report, or a report carrying an
+    # unrecognized persona id, means the panel verdict cannot be trusted as a
+    # clean "pass" -- emit the deterministic "hard-gate-fail" rather than
+    # scoring the missing/mismatched persona as zero criticals.
+    missing_gating = gating_persona_ids - reported_persona_ids
     result = None
+    if missing_gating or unrecognized_persona_ids or parse_failures:
+        result = "hard-gate-fail"
 
     if result is None:
         rule = panel.verdict.soft_gate_rule
@@ -70,11 +82,22 @@ def run_aggregation(workspace: Path, chapter_id: str, panel: Panel) -> dict:
         elif rule == "any_critical":
             result = "soft-gate-fail" if (gating_criticals + advisory_criticals) > 0 else "pass"
         elif rule == "majority_critical":
-            total = len(panel.personas)
+            # Honor the gating/advisory distinction: count and divide only over
+            # gating personas (the personas the gate is defined to consider).
+            gating_reported = [
+                pid for pid in per_persona if pid in gating_persona_ids
+            ]
+            total = len(gating_persona_ids)
             critical_personas = sum(
-                1 for stats in per_persona.values() if stats["critical"] > 0
+                1 for pid in gating_reported if per_persona[pid]["critical"] > 0
             )
-            result = "soft-gate-fail" if critical_personas > total / 2 else "pass"
+            # Tie semantics: a tie does not pass. With an even gating-persona
+            # count, an exact half-and-half split soft-gate-fails (>=).
+            result = (
+                "soft-gate-fail"
+                if total > 0 and critical_personas >= total / 2 and critical_personas > 0
+                else "pass"
+            )
         else:
             result = "pass"
 

@@ -172,14 +172,23 @@ fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
         Default::default(),
         cozo::ScriptMutability::Mutable,
     ).map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
+    // Use Cozo parameterised inputs ($id / $source) rather than string
+    // interpolation so claim ids/sources containing backslashes, quotes,
+    // or other Cozo-special characters cannot break the script or alter
+    // the inserted data (no manual escaping, no injection surface).
     for c in claims {
-        let script = format!(
-            "?[id, source] <- [['{}', '{}']] :put claim {{id, source}}",
-            c.id.replace("'", "\\'"),
-            c.source.replace("'", "\\'"),
+        let mut params = std::collections::BTreeMap::new();
+        params.insert("id".to_string(), DataValue::Str(c.id.as_str().into()));
+        params.insert(
+            "source".to_string(),
+            DataValue::Str(c.source.as_str().into()),
         );
-        db.run_script(&script, Default::default(), cozo::ScriptMutability::Mutable)
-            .map_err(|e| Error::Kg(format!("cozo insert: {e}")))?;
+        db.run_script(
+            "?[id, source] <- [[$id, $source]] :put claim {id, source}",
+            params,
+            cozo::ScriptMutability::Mutable,
+        )
+        .map_err(|e| Error::Kg(format!("cozo insert: {e}")))?;
     }
     Ok(db)
 }
@@ -198,4 +207,30 @@ pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
 #[cfg(not(feature = "kg"))]
 pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
     Ok(GraphSummary { claim_count: claims.len(), contradictions: vec![] })
+}
+
+#[cfg(all(test, feature = "kg"))]
+mod tests {
+    use super::*;
+
+    // kg-cozo-single-quote-escape: claim ids/sources containing
+    // backslashes or quotes must not break the Cozo insert. Parameterised
+    // inputs avoid the invalid-escape failure the old `replace("'", ...)`
+    // interpolation produced for backslashes.
+    #[test]
+    fn ingest_handles_backslash_and_quote_in_source() {
+        let claims = vec![
+            Claim {
+                id: "clm-001".into(),
+                source: r"C:\Users\charl\raw\intro.md".into(),
+            },
+            Claim {
+                id: "clm-002".into(),
+                source: "it's a \\regex\\ with 'quotes'".into(),
+            },
+        ];
+        let summary = ingest_and_summarize(&claims)
+            .expect("ingest must tolerate backslashes and quotes in claim source");
+        assert_eq!(summary.claim_count, 2);
+    }
 }

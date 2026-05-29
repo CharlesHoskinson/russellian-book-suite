@@ -19,7 +19,7 @@ jobs:
     name: lint workflow yaml
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install actionlint (pinned tarball + SHA verification)
         env:
           ACTIONLINT_VERSION: "1.7.12"
@@ -44,7 +44,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -62,7 +62,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -80,7 +80,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -98,7 +98,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -126,7 +126,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -144,7 +144,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -164,7 +164,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -182,7 +182,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: ${{ matrix.python }}
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-book-qa, test-book-thesis]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
@@ -210,7 +210,7 @@ jobs:
           python skills/book-thesis/scripts/datalog_consistency.py examples/bermuda-manual
       - name: upload qa reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: bermuda-qa-reports
           path: |
@@ -228,8 +228,8 @@ jobs:
     needs: [smoke-bermuda-pipeline]
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
           cache: pip
@@ -251,7 +251,7 @@ jobs:
           python skills/book-qa/scripts/lint_artifact.py examples/bermuda-manual 3.0.0
       - name: upload informational reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: bermuda-informational-reports
           path: |
@@ -263,22 +263,24 @@ jobs:
     name: cljs-bermuda-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: verifiers/bermuda/package-lock.json
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
         with:
           distribution: temurin
           java-version: "21"
-      - name: npm install (lockfile-respecting)
+      - name: npm ci (strict lockfile install)
         working-directory: verifiers/bermuda
-        # `npm install` instead of `npm ci` — bermuda's lockfile sometimes
-        # drifts from package.json across PRs in flight, and `npm ci` is
-        # strict-fail there. The lockfile-cache key still keys on it.
-        run: npm install --no-audit --no-fund
+        # `npm ci` installs strictly from package-lock.json so transitive deps
+        # cannot resolve to newer/unintended versions at CI time. If the lockfile
+        # genuinely drifts from package.json, fix the lockfile (npm install
+        # locally + commit) rather than masking it with `npm install`, which
+        # silently mutates the resolved dependency set.
+        run: npm ci --no-audit --no-fund
       - name: shadow-cljs compile + node test
         working-directory: verifiers/bermuda
         run: |
@@ -289,15 +291,15 @@ jobs:
     name: bermuda verifier z3 build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install build deps
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential
       - name: install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
       - name: cargo cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/bermuda/rust-verifier
       - name: cargo build --features smt
@@ -305,26 +307,31 @@ jobs:
         run: cargo build --features smt
 
   bermuda-z3-verify:
-    name: bermuda end-to-end verify (real Z3)
+    # Stubbed smoke test: run_verification runs with --stub and the D13
+    # assertion is advisory (continue-on-error), so this job does NOT
+    # exercise real-Z3 end-to-end D13 verification. Named accordingly so a
+    # green check is not mistaken for genuine real-Z3 signal. Real D13-via-Z3
+    # lands in a follow-up sprint (see the assert-D13 step comment below).
+    name: bermuda end-to-end smoke (stubbed Z3, advisory D13)
     runs-on: ubuntu-latest
     needs: [bermuda-z3-build]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install build deps
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
           cache: pip
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
       - name: install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
       - name: cargo cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/bermuda/rust-verifier
       - name: install python deps
@@ -333,7 +340,8 @@ jobs:
           python -m pip install pyyaml pytest edn-format
       - name: install node deps
         working-directory: verifiers/bermuda
-        run: npm install
+        # strict lockfile install — see cljs-bermuda-test rationale.
+        run: npm ci
       - name: booklogic compile
         working-directory: verifiers/bermuda
         run: npm run booklogic-compile
@@ -383,7 +391,7 @@ jobs:
           PY
       - name: upload verification artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: bermuda-verify-artifacts
           path: |
@@ -397,18 +405,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-book-qa]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
           cache: pip
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
       - name: install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
       - name: cargo cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/osmotic_pressure/rust-verifier
       - name: install python deps
@@ -428,7 +436,8 @@ jobs:
             || (echo "constraints.edn missing"; exit 1)
       - name: install project npm deps
         working-directory: verifiers/osmotic_pressure
-        run: npm install
+        # strict lockfile install (package-lock.json is committed).
+        run: npm ci
       - name: compile booklogic source
         working-directory: verifiers/osmotic_pressure
         run: nbb -m osmotic-pressure.booklogic .
@@ -452,7 +461,7 @@ jobs:
           PYTHONPATH: skills/neurosym-forge
       - name: upload verdict artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: osmotic-pressure-verdicts
           path: |

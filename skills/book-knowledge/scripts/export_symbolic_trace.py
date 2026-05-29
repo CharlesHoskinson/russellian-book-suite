@@ -34,14 +34,16 @@ def _parse_instant(value: str) -> dt.datetime:
 
 
 def _infer_kind(manifest: dict) -> Symbol:
-    """Map a manifest hint to an :kind value."""
-    path = manifest.get("path", "")
-    if path.endswith(".pdf"):
+    """Map a manifest's authoritative source_kind to a :kind value.
+
+    Production manifests (written by ingest) carry source_kind ("pdf" or
+    "markdown") and never path/title — the manifest schema forbids those keys.
+    """
+    source_kind = manifest.get("source_kind")
+    if source_kind == "pdf":
         return Keyword("pdf")
-    if path.endswith(".md"):
+    if source_kind == "markdown":
         return Keyword("markdown")
-    if path.endswith(".yaml") or path.endswith(".yml"):
-        return Keyword("yaml")
     if "thesis" in manifest.get("doc_id", "").lower():
         return Keyword("thesis")
     return Keyword("unknown")
@@ -54,10 +56,8 @@ def _manifest_to_event(manifest: dict) -> tuple[Symbol, dict]:
         Keyword("ingested-at"): _parse_instant(manifest["ingested_at"]),
         Keyword("kind"): _infer_kind(manifest),
     }
-    if "path" in manifest:
-        payload[Keyword("path")] = manifest["path"]
-    if "title" in manifest:
-        payload[Keyword("title")] = manifest["title"]
+    if "doc_name" in manifest:
+        payload[Keyword("doc-name")] = manifest["doc_name"]
     if "sha256" in manifest:
         payload[Keyword("sha256")] = manifest["sha256"]
     return Symbol("ingested", namespace="source"), payload

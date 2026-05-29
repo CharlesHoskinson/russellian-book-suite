@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from scripts import _induction_sources as sources
+from scripts import _induction_validator as _validator
 from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file, write_edn_file
 
@@ -136,6 +137,58 @@ def _atom_clusters(atoms: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     for a in atoms:
         by_pred.setdefault(a["predicate"], []).append(a)
     return [by_pred[k] for k in sorted(by_pred.keys())]
+
+
+# ---------------------------------------------------------------------------
+# Held-out document folds (REQ-TEST-043)
+# ---------------------------------------------------------------------------
+
+
+def _build_document_folds(
+    atoms: list[dict[str, Any]], n_folds: int = 5
+) -> list[list[dict[str, Any]]]:
+    """Partition the atomspace into per-document value maps split across
+    folds for held-out validation.
+
+    Each document becomes one flat dict ``predicate-name -> value`` (the
+    shape ``validate_with_holdout`` evaluates a candidate's :assert
+    against). Documents are assigned round-robin to ``n_folds`` folds so
+    the split is deterministic. Returns ``[]`` when there are no
+    documents (holdout is then skipped).
+    """
+    by_doc: dict[str, dict[str, Any]] = {}
+    for a in atoms:
+        doc = a.get("document")
+        if doc is None:
+            continue
+        value = a.get("value")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            # Non-numeric predicate values cannot drive the comparator
+            # evaluator; presence is recorded as 1 so existence-style
+            # rules still see the predicate.
+            value = 1
+        by_doc.setdefault(doc, {})[a["predicate"]] = value
+    docs = [by_doc[k] for k in sorted(by_doc.keys())]
+    if not docs:
+        return []
+    n = max(1, min(n_folds, len(docs)))
+    folds: list[list[dict[str, Any]]] = [[] for _ in range(n)]
+    for i, doc in enumerate(docs):
+        folds[i % n].append(doc)
+    return [f for f in folds if f]
+
+
+def _parse_candidate_edn(edn: Optional[str]):
+    """Parse a candidate's raw EDN string into the reader's AST, or None
+    when absent / unparseable."""
+    if not edn:
+        return None
+    try:
+        from scripts._edn_reader import read_edn
+
+        return read_edn(edn)
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +305,52 @@ def run(project_root: Path) -> int:
     all_cands = horn_cands + popper_cands + llm_cands
     survivors, rejected = sources.dedup_with_rejection_log(all_cands)
 
+    # Grammar gate (REQ-INDUCE-040): the FIRST gate — every surviving
+    # candidate is checked against the supported operator set, the
+    # schema's predicates, and the circular-definition rule BEFORE any
+    # solver call. Non-conforming forms are routed into rejected with the
+    # grammar-fail tag rather than persisted as accepted.
+    gate_kept: list[dict[str, Any]] = []
+    for c in survivors:
+        parsed = _parse_candidate_edn(c.get("edn"))
+        result = (
+            _validator.grammar_conforming(parsed, schema)
+            if parsed is not None
+            else _validator.GrammarResult(False, ":grammar-fail/non-edn")
+        )
+        if result.ok:
+            gate_kept.append(c)
+        else:
+            entry = dict(c)
+            entry["status"] = "rejected"
+            # Store the grammar-fail tag without the leading colon to match
+            # the EDN-keyword serialisation other rejection reasons use.
+            entry["rejection_reason"] = (result.tag or ":grammar-fail").lstrip(":")
+            rejected.append(entry)
+    survivors = gate_kept
+
+    # Held-out validation (REQ-TEST-043): reject candidates that fit the
+    # corpus but fail a held-out document fold (memorisation defence).
+    # Survivors whose :assert fails any fold are routed into rejected with
+    # reason :memorization before persistence, rather than accepted.
+    folds = _build_document_folds(atoms)
+    if folds:
+        kept: list[dict[str, Any]] = []
+        for c in survivors:
+            parsed = _parse_candidate_edn(c.get("edn"))
+            result = (
+                validate_with_holdout(parsed, folds) if parsed is not None
+                else HoldoutResult(rejected=False)
+            )
+            if result.rejected:
+                entry = dict(c)
+                entry["status"] = "rejected"
+                entry["rejection_reason"] = "memorization"
+                rejected.append(entry)
+            else:
+                kept.append(c)
+        survivors = kept
+
     # Rank by semantic coherence when Phase Q is available (REQ-INDUCE-053)
     sem_index = _try_load_semantic_index(project_root)
     survivors = sources.rank_by_semantic_coherence(survivors, sem_index)
@@ -287,29 +386,136 @@ class HoldoutResult:
         self.failing_folds = failing_folds or []
 
 
+def _extract_assert_form(candidate):
+    """Pull the value following `:assert` from a parsed `defconstraint`
+    form. The EDN reader yields a list whose elements alternate
+    keyword/value after the rule name; scan the tail for `:assert`.
+
+    Returns None when the candidate is not a defconstraint list or has
+    no `:assert` option.
+    """
+    if not isinstance(candidate, list):
+        return None
+    items = list(candidate)
+    for i, item in enumerate(items):
+        if getattr(item, "name", None) == "assert" and i + 1 < len(items):
+            return items[i + 1]
+    return None
+
+
+_COMPARATORS = {
+    ">=": lambda a, b: a >= b,
+    ">": lambda a, b: a > b,
+    "<=": lambda a, b: a <= b,
+    "<": lambda a, b: a < b,
+    "=": lambda a, b: a == b,
+    "~=": lambda a, b: a != b,
+}
+
+
+def _eval_assert(form, doc: dict):
+    """Evaluate a parsed `:assert` form against one document dict.
+
+    A document is a flat map predicate-name -> value. A predicate call
+    `(:name ?d)` resolves to `doc[name]`; comparators (`>= > <= < = ~=`)
+    and the boolean connectives `and`/`or`/`not` are evaluated
+    structurally. Anything we cannot evaluate (unknown op, missing
+    predicate value) is treated as unsatisfied so an un-interpretable
+    rule never silently "passes".
+
+    Returns a bool.
+    """
+    # Predicate call: (:name ?d) -> doc value (truthy-as-presence handled
+    # by the caller via comparators).
+    if isinstance(form, list) and form and isinstance(form[0], Keyword):
+        return doc.get(form[0].name)
+
+    if not isinstance(form, list) or not form:
+        return bool(form)
+
+    head = getattr(form[0], "name", str(form[0]))
+    args = list(form[1:])
+
+    if head in _COMPARATORS and len(args) == 2:
+        left = _resolve_term(args[0], doc)
+        right = _resolve_term(args[1], doc)
+        if left is None or right is None:
+            return False
+        try:
+            return _COMPARATORS[head](left, right)
+        except TypeError:
+            return False
+    if head == "approx=" and len(args) >= 2:
+        left = _resolve_term(args[0], doc)
+        right = _resolve_term(args[1], doc)
+        tol = 0.0
+        for i, a in enumerate(args):
+            if getattr(a, "name", None) == "tolerance" and i + 1 < len(args):
+                tol = _resolve_term(args[i + 1], doc) or 0.0
+        if left is None or right is None:
+            return False
+        try:
+            return abs(left - right) <= tol
+        except TypeError:
+            return False
+    if head == "and":
+        return all(bool(_eval_assert(a, doc)) for a in args)
+    if head == "or":
+        return any(bool(_eval_assert(a, doc)) for a in args)
+    if head == "not" and len(args) == 1:
+        return not bool(_eval_assert(args[0], doc))
+    if head in ("=>", "implies") and len(args) == 2:
+        # Material implication, evaluated per document: a predicate-call
+        # premise/conclusion is "present/true" when its value is truthy.
+        premise = _eval_assert(args[0], doc)
+        conclusion = _eval_assert(args[1], doc)
+        return (not bool(premise)) or bool(conclusion)
+    # Unknown / unsupported operator: cannot interpret -> unsatisfied.
+    return False
+
+
+def _resolve_term(term, doc: dict):
+    """Resolve an argument term to a scalar: a predicate call resolves to
+    the document's value; a number resolves to itself; anything else is
+    None (un-resolvable)."""
+    if isinstance(term, list) and term and isinstance(term[0], Keyword):
+        return doc.get(term[0].name)
+    if isinstance(term, (int, float)):
+        return term
+    return None
+
+
 def validate_with_holdout(
     candidate, folds: list[list[dict]], threshold: float = 0.5
 ) -> HoldoutResult:
     """Document-held-out validation against the memorization-vs-induction
     failure mode.
 
-    For each fold, compute sat-rate as the fraction of documents whose
-    `r0` field is non-negative. Folds whose sat-rate falls below
+    The candidate's `:assert` form is parsed and evaluated per document:
+    for each fold, sat-rate is the fraction of documents that satisfy the
+    candidate's own assertion. Folds whose sat-rate falls below
     `threshold` are reported as failing. If any fold fails, reject with
     `:memorization` — a rule that "works" only because it memorised the
-    documents in the training fold cannot withstand a held-out fold
-    drawn from the same corpus.
+    documents in the training fold cannot withstand a held-out fold drawn
+    from the same corpus.
 
-    The `r0`-based predicate is hard-coded to match the memorization
-    fixture used by the failure-mode regression tests. Future
-    generalisation (per-candidate predicate, per-fold parsing) is a
-    Phase-V follow-up.
+    The evaluator (`_eval_assert`) supports comparators and boolean
+    connectives over predicate-call terms `(:name ?d)` resolved against
+    the per-document value map. An un-interpretable rule evaluates as
+    unsatisfied on every document, so a malformed candidate fails rather
+    than silently passing.
     """
+    assert_form = _extract_assert_form(candidate)
     failing: list[int] = []
     for idx, fold in enumerate(folds):
         if not fold:
             continue
-        sat = sum(1 for doc in fold if doc.get("r0", 0) >= 0) / len(fold)
+        if assert_form is None:
+            # No parseable assertion: cannot validate; treat as failing
+            # so an un-interpretable candidate is rejected, not accepted.
+            failing.append(idx)
+            continue
+        sat = sum(1 for doc in fold if _eval_assert(assert_form, doc)) / len(fold)
         if sat < threshold:
             failing.append(idx)
     if failing:

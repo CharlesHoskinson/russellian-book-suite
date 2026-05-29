@@ -31,3 +31,25 @@ fn ingest_and_summarize_is_ok_for_empty_claims() {
         kg::ingest_and_summarize(&[]).expect("ingest_and_summarize must return Ok for no claims");
     assert_eq!(summary.claim_count, 0);
 }
+
+// A claim source containing a backslash (e.g. a Windows path) or a
+// single quote must not break the Cozo insert. String interpolation
+// that only escapes `'` mishandles backslashes (Cozo single-quoted
+// literals use C-style escapes), so `C:\Users` becomes an invalid
+// escape and the insert errors. Parameterised inputs avoid this.
+#[test]
+fn ingest_and_summarize_handles_backslash_and_quote_in_source() {
+    let claims = vec![
+        Claim {
+            id: "clm-001".into(),
+            source: r"C:\Users\charl\raw\intro.md".into(),
+        },
+        Claim {
+            id: "clm-002".into(),
+            source: "it's a \\regex\\ with 'quotes'".into(),
+        },
+    ];
+    let summary = kg::ingest_and_summarize(&claims)
+        .expect("ingest must tolerate backslashes and quotes in claim source");
+    assert_eq!(summary.claim_count, 2);
+}

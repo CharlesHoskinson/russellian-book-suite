@@ -199,10 +199,66 @@ pub fn emit_verdict(v: &Verdict) -> String {
         out.push_str(&edn_escape(&cd.explanation));
         out.push_str("\"}");
     }
-    out.push_str("]}");
+    // Serialise the kg graph summary so the contradiction data lib.rs
+    // computes (claim count + contradiction pairs) reaches the cljs
+    // consumer instead of being silently dropped on the EDN return trip.
+    if let Some(gs) = &v.graph_summary {
+        out.push_str("] :graph-summary {:claim-count ");
+        out.push_str(&gs.claim_count.to_string());
+        out.push_str(" :contradictions [");
+        for (i, (claim_id, reason)) in gs.contradictions.iter().enumerate() {
+            if i > 0 {
+                out.push(' ');
+            }
+            out.push_str("{:claim-id \"");
+            out.push_str(&edn_escape(claim_id));
+            out.push_str("\" :reason \"");
+            out.push_str(&edn_escape(reason));
+            out.push_str("\"}");
+        }
+        out.push_str("]}}");
+    } else {
+        out.push_str("]}");
+    }
     out
 }
 
 fn edn_escape(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emit_verdict_serialises_graph_summary_when_present() {
+        let v = Verdict {
+            status: "sat".into(),
+            graph_summary: Some(GraphSummary {
+                claim_count: 3,
+                contradictions: vec![(
+                    "C001".to_string(),
+                    "posterior-floor/warning/Q001".to_string(),
+                )],
+            }),
+            ..Default::default()
+        };
+        let edn = emit_verdict(&v);
+        assert!(edn.contains(":graph-summary"), "got {edn}");
+        assert!(edn.contains(":claim-count 3"), "got {edn}");
+        assert!(edn.contains("C001"), "got {edn}");
+        assert!(edn.contains("posterior-floor/warning/Q001"), "got {edn}");
+    }
+
+    #[test]
+    fn emit_verdict_omits_graph_summary_when_absent() {
+        let v = Verdict {
+            status: "sat".into(),
+            ..Default::default()
+        };
+        let edn = emit_verdict(&v);
+        assert!(!edn.contains(":graph-summary"), "got {edn}");
+        assert!(edn.ends_with("]}"), "got {edn}");
+    }
 }

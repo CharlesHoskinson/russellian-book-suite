@@ -188,14 +188,23 @@ fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
         Default::default(),
         cozo::ScriptMutability::Mutable,
     ).map_err(|e| Error::Kg(format!("cozo create claim_posterior: {e}")))?;
+    // Use Cozo parameterised inputs ($id / $source) rather than string
+    // interpolation so claim ids/sources containing backslashes, quotes,
+    // or other Cozo-special characters cannot break the script or alter
+    // the inserted data (no manual escaping, no injection surface).
     for c in claims {
-        let script = format!(
-            "?[id, source] <- [['{}', '{}']] :put claim {{id, source}}",
-            c.id.replace("'", "\\'"),
-            c.source.replace("'", "\\'"),
+        let mut params = std::collections::BTreeMap::new();
+        params.insert("id".to_string(), DataValue::Str(c.id.as_str().into()));
+        params.insert(
+            "source".to_string(),
+            DataValue::Str(c.source.as_str().into()),
         );
-        db.run_script(&script, Default::default(), cozo::ScriptMutability::Mutable)
-            .map_err(|e| Error::Kg(format!("cozo insert: {e}")))?;
+        db.run_script(
+            "?[id, source] <- [[$id, $source]] :put claim {id, source}",
+            params,
+            cozo::ScriptMutability::Mutable,
+        )
+        .map_err(|e| Error::Kg(format!("cozo insert: {e}")))?;
     }
     Ok(db)
 }

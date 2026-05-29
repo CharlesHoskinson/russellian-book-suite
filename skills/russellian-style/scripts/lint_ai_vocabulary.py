@@ -9,10 +9,28 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 
 from .lint_common import iter_sentences, load_markdown
 from .sibling_skills import SiblingNotFoundError, humanizer_available, load_humanizer_catalog
+
+
+# Concrete actors that exempt a sentence from sweeping_abstraction_subject even
+# when the grammatical subject is an abstract head noun. Mirrors the occupational
+# nouns used by the concrete-instance-density linter.
+_CONCRETE_ACTOR_NOUNS = {
+    "official", "censor", "philosopher", "worker", "student", "judge",
+    "magistrate", "officer", "professor", "physician", "scholar", "tradesman",
+    "soldier", "merchant", "scientist", "clerk", "minister", "barrister",
+    "author", "reader", "auditor", "critic", "defender",
+}
+
+
+@lru_cache(maxsize=1)
+def _nlp_parser():
+    import spacy
+    return spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
 
 
 SUPPLEMENT_PATH = (
@@ -88,7 +106,35 @@ def lint_ai_vocabulary(path: Path) -> list[dict]:
                 "severity": "advisory",
             })
 
-    # Note: sweeping_abstraction_subject requires a dependency parser; deferred.
+    sa = patterns_by_id.get("sweeping_abstraction_subject")
+    if sa is not None:
+        head_nouns = {n.lower() for n in sa.get("head_nouns", [])}
+        nlp = _nlp_parser()
+        for sentence in iter_sentences(text):
+            doc = nlp(sentence.text)
+            subjects = [t for t in doc if t.dep_ in ("nsubj", "nsubjpass")]
+            abstract_subj = next(
+                (t for t in subjects if t.lower_ in head_nouns), None
+            )
+            if abstract_subj is None:
+                continue
+            # Exemption: concrete_actor_present — a proper-noun subject or a
+            # subject naming a particular human actor keeps the sentence alive.
+            concrete_actor = any(
+                t.pos_ == "PROPN" or t.lower_ in _CONCRETE_ACTOR_NOUNS
+                for t in subjects
+            )
+            if concrete_actor:
+                continue
+            findings.append({
+                "rule": "ai-vocabulary",
+                "pattern_id": "sweeping_abstraction_subject",
+                "phrase": abstract_subj.lower_,
+                "sentence": sentence.text,
+                "line": getattr(sentence, "line", 0),
+                "tier": "important",
+                "severity": "advisory",
+            })
 
     if humanizer_available():
         try:

@@ -6,7 +6,7 @@
                "critical_count", "important_count", "minor_count", "reviewed_at"],
   "properties": {
     "persona":         {"type": "string"},
-    "chapter_id":      {"type": "string", "pattern": "^ch-[0-9]{2,3}$"},
+    "chapter_id":      {"type": "string", "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$"},
     "verdict":         {"enum": ["APPROVED", "APPROVED_WITH_NOTES", "NEEDS_WORK", "REJECT"]},
     "critical_count":  {"type": "integer", "minimum": 0},
     "important_count": {"type": "integer", "minimum": 0},

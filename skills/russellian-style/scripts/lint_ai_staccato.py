@@ -208,41 +208,47 @@ def _subject_lemma(sentence_doc) -> str | None:
 
 
 def _abstract_subject_run(paragraphs: list[tuple[int, str]], cfg: dict) -> list[dict]:
-    """Flag runs of N+ consecutive sentences whose nsubj is the same stoplist noun."""
+    """Flag runs of N+ consecutive sentences whose nsubj is the same stoplist noun.
+
+    Runs are tracked over the flattened sentence stream so a run that spans a
+    paragraph break is detected (the docstring semantics are about consecutive
+    sentences, not per-paragraph state). Each finding reports the line of the
+    sentence where the run actually started, not the enclosing paragraph's
+    first line.
+    """
     stoplist = {w.lower() for w in cfg["abstract_subject_stoplist"]}
     min_run = cfg["abstract_subject_min_run"]
     nlp = _nlp_parser()
-    findings: list[dict] = []
+
+    # Flatten every sentence across paragraphs, resolving the 1-indexed source
+    # line where each sentence begins.
+    flat: list[tuple[str | None, int]] = []
     for start_line, text in paragraphs:
         doc = nlp(text)
-        sents = list(doc.sents)
-        if len(sents) < min_run:
-            continue
-        run_subj: str | None = None
-        run_len = 0
-        for idx, sent in enumerate(sents):
-            subj = _subject_lemma(sent)
+        for sent in doc.sents:
+            line = start_line + text[: sent.start_char].count("\n")
+            flat.append((_subject_lemma(sent), line))
+
+    findings: list[dict] = []
+    run_subj: str | None = None
+    run_len = 0
+    run_line = 0
+    for subj, line in flat:
+        if subj is not None and subj in stoplist and subj == run_subj:
+            run_len += 1
+        else:
+            if run_subj is not None and run_len >= min_run:
+                findings.append(_abstract_run_finding(run_subj, run_len, run_line))
             if subj is not None and subj in stoplist:
-                if subj == run_subj:
-                    run_len += 1
-                else:
-                    if run_subj is not None and run_len >= min_run:
-                        findings.append(_abstract_run_finding(
-                            run_subj, run_len, start_line
-                        ))
-                    run_subj = subj
-                    run_len = 1
+                run_subj = subj
+                run_len = 1
+                run_line = line
             else:
-                if run_subj is not None and run_len >= min_run:
-                    findings.append(_abstract_run_finding(
-                        run_subj, run_len, start_line
-                    ))
                 run_subj = None
                 run_len = 0
-        if run_subj is not None and run_len >= min_run:
-            findings.append(_abstract_run_finding(
-                run_subj, run_len, start_line
-            ))
+                run_line = 0
+    if run_subj is not None and run_len >= min_run:
+        findings.append(_abstract_run_finding(run_subj, run_len, run_line))
     return findings
 
 

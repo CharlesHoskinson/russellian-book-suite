@@ -46,11 +46,30 @@ def _clamp(p: float) -> float:
     return max(POSTERIOR_FLOOR, min(POSTERIOR_CEIL, p))
 
 
+def _apply_derivation_damping(evidence: float, parents: list[str],
+                              p_prev: dict[str, float]) -> float:
+    """Dampen a derived claim's local evidence by its weakest parent's belief.
+
+    A claim that builds on others cannot be believed more strongly than the
+    parent it most depends on, so we multiply local evidence by the minimum
+    parent posterior. Reading p_prev (the previous iteration's values) is what
+    lets influence propagate along multi-hop derivation chains: each pass moves
+    a parent's belief one edge further down the graph until it converges.
+    """
+    if not parents:
+        return evidence
+    weakest = min(p_prev.get(parent, 1.0) for parent in parents)
+    return evidence * weakest
+
+
 def propagate(graph: BeliefGraph, trust: dict[str, float],
               counter_claims: Iterable[dict]) -> dict[str, float]:
     cc_by_target: dict[str, list[dict]] = {}
     for cc in counter_claims:
         cc_by_target.setdefault(cc["target_claim_id"], []).append(cc)
+    parents_by_child: dict[str, list[str]] = {}
+    for parent, child in graph.derivation_edges:
+        parents_by_child.setdefault(child, []).append(parent)
     p: dict[str, float] = {}
     for cid, node in graph.nodes.items():
         p[cid] = node.p_prior if node.p_prior is not None else prior_for_status(node.status)
@@ -60,6 +79,7 @@ def propagate(graph: BeliefGraph, trust: dict[str, float],
             base = node.p_prior if node.p_prior is not None else prior_for_status(node.status)
             evidence = _evidence_combine(node.sources, trust, base)
             evidence = _apply_counter_damping(evidence, cc_by_target.get(cid, []))
+            evidence = _apply_derivation_damping(evidence, parents_by_child.get(cid, []), p)
             new_p[cid] = _clamp(evidence)
         delta = max(abs(new_p[c] - p[c]) for c in p) if p else 0.0
         p = new_p

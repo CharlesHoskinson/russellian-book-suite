@@ -1,25 +1,21 @@
 # import-linter contract for NFR-4: no direct HTTP outside scrapling-fetch.
 #
-# source_modules is intentionally empty — this is a permanent deferred scope,
-# not a defect.  All skill code lives under skills/<name>/scripts/, where the
-# top-level package name "scripts" is not unique and is not resolvable by
-# import-linter from the repo root without per-skill PYTHONPATH juggling.
+# source_modules is empty by necessity, NOT as the enforcement mechanism.  All
+# skill code lives under skills/<name>/scripts/, where the top-level package name
+# "scripts" is not unique and is not resolvable by import-linter from the repo
+# root without per-skill PYTHONPATH juggling, so import-linter cannot walk the
+# real graph here.
 #
-# The practical NFR-4 guarantee is upheld by code organisation:
-#   - scrapling-fetch's skill_api is the only surface that touches HTTP.
-#   - syntopical-metabook and every other skill route downloads through
-#     skills/syntopical-metabook/scripts/acquire/download_and_ingest.py, which
-#     calls load_skill_api("scrapling-fetch") — not requests/httpx directly.
-#   - Each skill's pyproject.toml lists scrapling/requests etc. only as dev
-#     deps of scrapling-fetch itself.
-#   - The ci/test_lint_no_direct_http.py suite asserts that the forbidden
-#     module list (requests, httpx, urllib3, aiohttp, playwright) remains in
-#     the config, providing a documentation-level guard.
+# ACTUAL ENFORCEMENT lives in ci/lint_no_direct_http.py, which AST-scans every
+# skill's source tree and fails on any forbidden HTTP/browser import outside
+# scrapling-fetch (with an explicit, enumerated allowlist for book-compose's
+# local file:/// PDF rendering).  Run it via `python -m ci.lint_no_direct_http`;
+# it is exercised by ci/test_lint_no_direct_http.py against the real tree.
 #
-# If skills are ever refactored to publish as proper top-level packages (e.g.
-# via namespace packages or an editable install at the repo root), add the
-# resulting package names to source_modules at that time.  The Phase 9 NFR
-# validation pass (2026-05-16) confirmed this deferred scope is intentional.
+# This INI is retained as documentation of the forbidden module list and as a
+# wiring point if skills are ever refactored to publish as proper top-level
+# packages (namespace packages or an editable install at the repo root), at
+# which point the resulting package names can be added to source_modules.
 
 [importlinter]
 root_packages =

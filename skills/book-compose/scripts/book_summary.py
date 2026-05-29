@@ -44,7 +44,8 @@ def _section_headings(text: str) -> list[str]:
     return [m.group(1).strip() for m in _HEADING2.finditer(text)]
 
 
-def collect_chapter_data(workspace: Path, chapter_versions: dict[str, str]) -> list[dict]:
+def collect_chapter_data(workspace: Path, chapter_versions: dict[str, str],
+                         contracts: dict[str, dict] | None = None) -> list[dict]:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
     layout = workspace_mod.WorkspaceLayout(Path(workspace))
@@ -56,7 +57,10 @@ def collect_chapter_data(workspace: Path, chapter_versions: dict[str, str]) -> l
     contracts_dir = Path(workspace) / "chapters" / "contracts"
     records: list[dict] = []
     for chapter_id, version in sorted(chapter_versions.items()):
-        contract = load_contract(contracts_dir / f"{chapter_id}.yaml")
+        if contracts is not None and chapter_id in contracts:
+            contract = contracts[chapter_id]
+        else:
+            contract = load_contract(contracts_dir / f"{chapter_id}.yaml")
         release_dir = Path(workspace) / "chapters" / "releases" / f"{chapter_id}-{version}"
         draft = (release_dir / "draft.md").read_text(encoding="utf-8")
         manifest = yaml.safe_load((release_dir / "manifest.yaml").read_text(encoding="utf-8"))
@@ -97,8 +101,9 @@ def _claim_source_spans(workspace: Path, claim_ids: list[str]) -> list[dict]:
 
 
 def build_book_summary(workspace: Path, chapter_versions: dict[str, str],
-                       book_title: str = "Book", book_id: str = "book") -> dict:
-    chapters = collect_chapter_data(workspace, chapter_versions)
+                       book_title: str = "Book", book_id: str = "book",
+                       contracts: dict[str, dict] | None = None) -> dict:
+    chapters = collect_chapter_data(workspace, chapter_versions, contracts=contracts)
     total_words = sum(c["word_count"] for c in chapters)
     total_claims = sum(c["claim_count"] for c in chapters)
     sources = sorted({

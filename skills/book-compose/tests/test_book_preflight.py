@@ -92,3 +92,28 @@ def test_preflight_includes_shacl_status(tmp_path):
     result = book_preflight(workspace, {"ch-01": "v1"})
     assert result.shacl_conforms is True
     assert result.unsupported_claims == 0
+
+
+def test_preflight_fails_when_chapter_manifest_marked_non_conforming(tmp_path):
+    workspace = _seed_workspace_with_chapter(tmp_path, "ch-01", "v1")
+    manifest_path = (workspace / "chapters" / "releases" / "ch-01-v1" / "manifest.yaml")
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    manifest["shacl_conforms"] = False
+    manifest_path.write_text(yaml.safe_dump(manifest), encoding="utf-8")
+
+    result = book_preflight(workspace, {"ch-01": "v1"})
+    # The current workspace still conforms, but the chapter bundle is stamped
+    # non-conforming and must not pass preflight.
+    assert result.passes is False
+    assert "ch-01" in result.missing_releases
+
+
+def test_preflight_fails_when_chapter_manifest_competency_unclean(tmp_path):
+    workspace = _seed_workspace_with_chapter(tmp_path, "ch-01", "v1")
+    manifest_path = (workspace / "chapters" / "releases" / "ch-01-v1" / "manifest.yaml")
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    manifest["competency_clean"] = False
+    manifest_path.write_text(yaml.safe_dump(manifest), encoding="utf-8")
+
+    result = book_preflight(workspace, {"ch-01": "v1"})
+    assert result.passes is False

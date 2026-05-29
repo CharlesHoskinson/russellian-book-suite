@@ -60,3 +60,19 @@
   (testing ":unsat verdict with core list validates"
     (is (m/validate ir/Verdict
                     {:status :unsat :core ["C001" "C002"]}))))
+
+(deftest verdict-matches-rust-emit-shape
+  (testing "the exact key set ir.rs::emit_verdict serialises validates"
+    (is (m/validate ir/Verdict
+                    {:status :unsat
+                     :core ["C001"]
+                     :explanation "core: C001"
+                     :queries [{:name "Q001" :rows 2}]
+                     :cozo-defects [{:name "D-cozo" :rows 1}]
+                     :corpus-defects [{:constraint-id "C002"
+                                       :subjects ["S1" "S2"]
+                                       :explanation "conflict"}]
+                     :graph-summary {:claim-count 3
+                                     :contradictions
+                                     [{:claim-id "C001"
+                                       :reason "posterior-floor/warning/Q001"}]}}))))

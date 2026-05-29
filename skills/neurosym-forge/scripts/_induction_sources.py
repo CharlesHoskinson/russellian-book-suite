@@ -269,7 +269,7 @@ def popper_search(schema: dict[str, Any]) -> list[dict[str, Any]]:
             if len(out) >= cap:
                 break
             edn = (
-                f"(defconstraint :induced/{p1}~{p2}\n"
+                f"(defconstraint :induced/{p1}-approx-{p2}\n"
                 f"  :backend :z3\n"
                 f"  :assert (approx= (:{p1} ?d) (:{p2} ?d) :tolerance 0.05)\n"
                 f"  :on-unsat {{:defect :D-induced-p :severity :advisory\n"

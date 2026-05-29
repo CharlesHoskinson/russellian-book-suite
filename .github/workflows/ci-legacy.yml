@@ -307,7 +307,12 @@ jobs:
         run: cargo build --features smt
 
   bermuda-z3-verify:
-    name: bermuda end-to-end verify (real Z3)
+    # Stubbed smoke test: run_verification runs with --stub and the D13
+    # assertion is advisory (continue-on-error), so this job does NOT
+    # exercise real-Z3 end-to-end D13 verification. Named accordingly so a
+    # green check is not mistaken for genuine real-Z3 signal. Real D13-via-Z3
+    # lands in a follow-up sprint (see the assert-D13 step comment below).
+    name: bermuda end-to-end smoke (stubbed Z3, advisory D13)
     runs-on: ubuntu-latest
     needs: [bermuda-z3-build]
     steps:

@@ -6,7 +6,8 @@ layout), asserts pyDatalog facts, loads the rules in ``rules/consistency.dl``,
 and writes derived defects to ``<workspace>/qa/datalog-defects.json``. Defect
 classes: D9 paragraph-orphan, D10 (transitive) contradiction, D11
 invariant-violation (declared-conflict, unreachable-supports,
-missing-evidence, sub-arg-advanced-by-no-chapter). D12
+missing-evidence, sub-arg-advanced-by-no-chapter, and authored-invariant
+violations compiled from thesis `formal:` clauses). D12
 (unadvanced-sub-argument = named by no paragraph's supports) is owned by
 lint_supports / book-qa, not this pass.
 Exit codes: 0 clean, 1 D10/D11 finding (gate fail), 2 CLI error.
@@ -31,10 +32,11 @@ RULES_FILE = Path(__file__).resolve().parent.parent / "rules" / "consistency.dl"
 TERMS = (
     "is_thesis, sub_arg, paragraph, supports, advances, requires_evidence, "
     "claim, claim_subject, claim_value, claim_chapter, conflict_decl, implies, "
+    "invariant_pin, invariant_forbid, invariant_violation, "
     "states, reaches_thesis, orphan_paragraph, direct_contradiction, "
     "transitive_contradiction, sub_arg_no_chapter, missing_evidence, "
     "unreachable_supports, declared_conflict, advanced, evidence_met, "
-    "P, N, M, S, V, V1, V2, A, B, C, Ch, E, X, Y"
+    "P, N, M, S, V, V1, V2, Vok, Vbad, A, B, C, Ch, E, I, Inv, X, Y"
 )
 
 # pyDatalog raises if a rule body references a predicate with zero facts. Seed
@@ -46,6 +48,7 @@ EXTENSIONAL: tuple[tuple[str, int], ...] = (
     ("supports", 2), ("advances", 2), ("requires_evidence", 2),
     ("claim", 1), ("claim_subject", 2), ("claim_value", 2),
     ("claim_chapter", 2), ("conflict_decl", 2), ("implies", 2),
+    ("invariant_pin", 3), ("invariant_forbid", 3),
 )
 
 
@@ -88,8 +91,13 @@ def _iter_claims(path: Path) -> Iterable[dict[str, Any]]:
         if line: yield json.loads(line)
 
 
-def _hashable(value: Any) -> Any:
-    if isinstance(value, (str, int, float, bool)) or value is None: return value
+def _value_str(value: Any) -> str:
+    """Canonical string form of a claim value, for comparison against
+    authored invariant literals (which are strings in the thesis YAML)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (str, int, float)):
+        return str(value)
     return json.dumps(value, sort_keys=True)
 
 
@@ -106,6 +114,15 @@ def _assert_thesis_facts(graph: Graph) -> None:
         pyDatalog.assert_fact("advances", _local(o), _local(s))
     for s, _p, o in graph.triples((None, NS["requiresEvidence"], None)):
         pyDatalog.assert_fact("requires_evidence", _local(s), _local(o))
+    # Authored invariants, compiled by compile_thesis into (subject, value)
+    # pairs. invariant_pin(Inv, Subject, Value): a claim about Subject MUST
+    # equal Value. invariant_forbid(Inv, Subject, Value): it must NOT equal it.
+    for s, _p, subject in graph.triples((None, NS["invariantSubject"], None)):
+        inv = _local(s)
+        for _s, _p2, val in graph.triples((s, NS["invariantPinnedValue"], None)):
+            pyDatalog.assert_fact("invariant_pin", inv, str(subject), str(val))
+        for _s, _p2, val in graph.triples((s, NS["invariantForbiddenValue"], None)):
+            pyDatalog.assert_fact("invariant_forbid", inv, str(subject), str(val))
 
 
 def _assert_claim_facts(records: Iterable[dict[str, Any]]) -> bool:
@@ -131,7 +148,9 @@ def _assert_claim_facts(records: Iterable[dict[str, Any]]) -> bool:
             pyDatalog.assert_fact("claim_subject", cid, str(subject))
             any_subject = True
         if "value" in rec:
-            pyDatalog.assert_fact("claim_value", cid, _hashable(rec["value"]))
+            # Stringify so values compare cleanly against invariant literals
+            # (which are authored as strings in the thesis YAML).
+            pyDatalog.assert_fact("claim_value", cid, _value_str(rec["value"]))
         _multi_assert("claim_chapter", cid, rec.get("supports_chapters"))
         _multi_assert("conflict_decl", cid, rec.get("conflicts_with"))
         _multi_assert("implies", cid, rec.get("implies"))
@@ -203,6 +222,9 @@ def run(workspace: Path) -> DefectReport:
     for (p,) in _collect("unreachable_supports", 1):
         report.invariants.append({"class": "D11", "rule": "unreachable_supports", "facts": [p],
             "detail": f"{p!r} supports a node that is neither :Thesis nor a SubArgument"})
+    for cid, inv in _collect("invariant_violation", 2):
+        report.invariants.append({"class": "D11", "rule": "invariant_violation", "facts": [cid, inv],
+            "detail": f"claim {cid!r} violates authored invariant {inv!r}"})
     # NB: this is the chapter-coverage invariant, NOT book-qa's D12
     # ("unadvanced-sub-argument" = named by no paragraph's supports, computed by
     # lint_supports from qa/supports-defects.json). Distinct class + rule name

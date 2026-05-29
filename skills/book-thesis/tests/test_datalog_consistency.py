@@ -23,6 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from compile_thesis import compile_thesis  # noqa: E402
 from datalog_consistency import run  # noqa: E402
 
 FIXTURE_TTL = Path(__file__).parent / "fixtures" / "datalog_thesis.ttl"
@@ -48,6 +49,50 @@ def _make_workspace(tmp_path: Path, claims: list[dict]) -> Path:
 
 def _load_payload(workspace: Path) -> dict:
     return json.loads((workspace / "qa" / "datalog-defects.json").read_text(encoding="utf-8"))
+
+
+def test_authored_invariant_fires_on_violating_claim(tmp_path: Path) -> None:
+    """An author-declared invariant (formal: claims(P, subj, V), V != lit) is
+    compiled by compile_thesis and enforced by datalog_consistency: a verified
+    claim whose subject=subj asserts a value != lit raises a D11
+    invariant_violation. Compiles the thesis YAML end-to-end (no hand-written
+    TTL) so the schema's "Compiled to Datalog rules" promise is exercised."""
+    (tmp_path / "thesis").mkdir()
+    (tmp_path / "thesis" / "inv.yaml").write_text(
+        "book_id: inv\n"
+        "thesis:\n"
+        "  statement: Invariant test thesis.\n"
+        "  polarity: descriptive\n"
+        "sub_arguments:\n"
+        "  - id: only-leg\n"
+        "    parent: thesis\n"
+        "    statement: The only leg.\n"
+        "    advanced_by_chapters: [ch-01]\n"
+        "invariants:\n"
+        "  - id: parish-count\n"
+        "    rule: Bermuda has nine parishes.\n"
+        "    formal: |\n"
+        "      contradicts(P, parish_count_canonical) :-\n"
+        "        claims(P, parish_count, N), N != 9.\n",
+        encoding="utf-8",
+    )
+    compile_thesis(tmp_path, "inv")
+    (tmp_path / "claims").mkdir()
+    (tmp_path / "claims" / "ledger.jsonl").write_text(
+        json.dumps({"claim_id": "clm-bad", "status": "verified",
+                    "subject": "parish_count", "value": 7}) + "\n"
+        + json.dumps({"claim_id": "clm-ok", "status": "verified",
+                      "subject": "parish_count", "value": 9}) + "\n",
+        encoding="utf-8",
+    )
+    report = run(tmp_path)
+    payload = _load_payload(tmp_path)
+    viol = [d for d in payload["defects"] if d["rule"] == "invariant_violation"]
+    assert any("clm-bad" in d["facts"] and "parish-count" in d["facts"] for d in viol), payload["defects"]
+    # The conforming claim (value == 9) must NOT trip the invariant.
+    assert not any("clm-ok" in d["facts"] for d in viol)
+    assert all(d["class"] == "D11" for d in viol)
+    assert report.gate_failed()
 
 
 def test_sub_arg_with_no_advancing_chapter_is_not_d12(tmp_path: Path) -> None:

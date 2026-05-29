@@ -17,12 +17,14 @@
 #   claim_chapter(C, Ch)    — claim C supports chapter Ch.
 #   conflict_decl(A, B)     — claim A declares conflict with claim B.
 #   implies(A, B)           — claim A implies claim B (extension).
+#   invariant_pin(I, S, V)  — invariant I pins subject S to value V.
+#   invariant_forbid(I,S,V) — invariant I forbids subject S taking value V.
 #
 # Intensional (derived; queried by the loader):
 #   states/3, reaches_thesis/1, orphan_paragraph/1,
 #   direct_contradiction/2, transitive_contradiction/2,
 #   sub_arg_no_chapter/1, missing_evidence/2,
-#   unreachable_supports/1, declared_conflict/2.
+#   unreachable_supports/1, declared_conflict/2, invariant_violation/2.
 
 # A claim "states" subject=value when both attributes are present.
 states(C, S, V) <= claim_subject(C, S) & claim_value(C, V)
@@ -59,3 +61,10 @@ sub_arg_no_chapter(N) <= sub_arg(N) & ~advanced(N)
 # An evidence slot named by a sub-argument but never met by a claim.
 evidence_met(N, E) <= requires_evidence(N, E) & claim_subject(C, E)
 missing_evidence(N, E) <= requires_evidence(N, E) & ~evidence_met(N, E)
+
+# Author-declared invariants, compiled by compile_thesis from the `formal:`
+# clause. invariant_pin(Inv, S, Vok): a claim about S must equal Vok; any other
+# value violates Inv. invariant_forbid(Inv, S, Vbad): a claim about S must not
+# equal Vbad.
+invariant_violation(C, Inv) <= invariant_pin(Inv, S, Vok) & states(C, S, V) & (V != Vok)
+invariant_violation(C, Inv) <= invariant_forbid(Inv, S, Vbad) & states(C, S, Vbad)

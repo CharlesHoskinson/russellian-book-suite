@@ -17,7 +17,8 @@ concurrency:
 jobs:
   lint-workflow:
     name: lint workflow yaml
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install actionlint (pinned tarball + SHA verification)
@@ -37,7 +38,8 @@ jobs:
 
   test-book-qa:
     name: test book-qa (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -55,7 +57,8 @@ jobs:
 
   test-book-thesis:
     name: test book-thesis (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -73,7 +76,8 @@ jobs:
 
   test-book-knowledge:
     name: test book-knowledge (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -91,7 +95,8 @@ jobs:
 
   test-book-compose:
     name: test book-compose (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -119,7 +124,8 @@ jobs:
 
   test-book-review:
     name: test book-review (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -137,7 +143,8 @@ jobs:
 
   test-russellian-style:
     name: test russellian-style (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -157,7 +164,8 @@ jobs:
 
   test-review-conductor:
     name: test review-conductor (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -175,7 +183,8 @@ jobs:
 
   test-neurosym-forge:
     name: test neurosym-forge offline (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -194,7 +203,8 @@ jobs:
 
   smoke-bermuda-pipeline:
     name: smoke (Bermuda end-to-end)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [test-book-qa, test-book-thesis]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -224,7 +234,8 @@ jobs:
     # Allowed to fail; regressions are visible in artifact uploads but do not
     # gate the branch.
     name: bermuda informational lints
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [smoke-bermuda-pipeline]
     continue-on-error: true
     steps:
@@ -261,7 +272,8 @@ jobs:
 
   cljs-bermuda-test:
     name: cljs-bermuda-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -289,7 +301,8 @@ jobs:
 
   bermuda-z3-build:
     name: bermuda verifier z3 build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install build deps
@@ -298,6 +311,8 @@ jobs:
           sudo apt-get install -y cmake build-essential
       - name: install rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
+        with:
+          toolchain: 1.90.0
       - name: cargo cache
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
@@ -313,7 +328,8 @@ jobs:
     # green check is not mistaken for genuine real-Z3 signal. Real D13-via-Z3
     # lands in a follow-up sprint (see the assert-D13 step comment below).
     name: bermuda end-to-end smoke (stubbed Z3, advisory D13)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [bermuda-z3-build]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -330,6 +346,8 @@ jobs:
           node-version: "22"
       - name: install rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
+        with:
+          toolchain: 1.90.0
       - name: cargo cache
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
@@ -402,7 +420,8 @@ jobs:
 
   osmotic-pressure-smoke:
     name: smoke (osmotic-pressure verifier)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [test-book-qa]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -415,6 +434,8 @@ jobs:
           node-version: "22"
       - name: install rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
+        with:
+          toolchain: 1.90.0
       - name: cargo cache
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:

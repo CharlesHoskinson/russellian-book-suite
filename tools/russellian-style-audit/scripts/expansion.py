@@ -73,11 +73,18 @@ def run_expansion_batch(
     n: int,
     run_dir: Path,
     operator_decision_fn,  # callable returning "halt" | list[str]
+    promote: bool = False,
 ) -> dict:
     """Run the full expansion pipeline. Returns a dict with counts and appended-bool.
 
     operator_decision_fn is called once with (audit_sample_path, n_sample, n_verified)
     after the audit sample is written.
+
+    By default (promote=False) an accepted batch is *staged* into the batch's run_dir
+    and the committed russellian-style corpus assets are left untouched — a tool/audit
+    run must not silently rewrite shipped skill assets. Pass promote=True to perform the
+    in-place append into the canonical index + corpus map (finding
+    expansion-writes-real-corpus-bypassing-runs).
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     candidates_path = run_dir / "candidates.jsonl"
@@ -150,12 +157,35 @@ def run_expansion_batch(
             "sample_accepted": [],
         }
 
-    # Stage 5 — append
+    # Stage 5 — append (or stage)
+    sample_ids = [s["candidate_id"] for s in sampled]
+    if not promote:
+        # Stage the accepted batch into the run dir; do NOT mutate the committed assets.
+        # An explicit --promote run (or `append` CLI) performs the canonical append.
+        staged_index = run_dir / "staged-index.json"
+        staged_map = run_dir / "staged-corpus-map.md"
+        append_verified_to_index(verified_path=verified_path, index_path=staged_index_seed(staged_index))
+        regenerate_corpus_map(index_path=staged_index, out_path=staged_map)
+        return {
+            "batch_id": batch_id, "n_candidates": n_candidates, "n_passed_sentinel": n_passed,
+            "n_verified": n_verified, "n_rejected": n_rejected, "appended": False, "staged": True,
+            "halt_reason": None, "sample_accepted": sample_ids,
+            "staged_index": str(staged_index), "staged_corpus_map": str(staged_map),
+        }
+
     append_verified_to_index(verified_path=verified_path, index_path=_INDEX_PATH)
     regenerate_corpus_map(index_path=_INDEX_PATH, out_path=_CORPUS_MAP_PATH)
-    sample_ids = [s["candidate_id"] for s in sampled]
     return {
         "batch_id": batch_id, "n_candidates": n_candidates, "n_passed_sentinel": n_passed,
-        "n_verified": n_verified, "n_rejected": n_rejected, "appended": True,
+        "n_verified": n_verified, "n_rejected": n_rejected, "appended": True, "staged": False,
         "halt_reason": None, "sample_accepted": sample_ids,
     }
+
+
+def staged_index_seed(staged_index: Path) -> Path:
+    """Seed the staged index with a copy of the committed index so the staged append
+    reflects what a promote would produce, without touching the live file."""
+    if not staged_index.exists():
+        staged_index.parent.mkdir(parents=True, exist_ok=True)
+        staged_index.write_text(_INDEX_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    return staged_index

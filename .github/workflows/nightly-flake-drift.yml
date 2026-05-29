@@ -6,10 +6,12 @@ on:
 
 permissions:
   contents: read
+  issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
 
 jobs:
   drift-check:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
@@ -28,6 +30,7 @@ jobs:
   windows-full-canary:
     name: windows full suite (catches under-tagging)
     runs-on: windows-2022
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +49,15 @@ jobs:
             pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
           - skill: neurosym-forge
             extra: dev,semantic
+          # P2-matrix-coverage-gaps: install + import smoke on Windows too, so a
+          # bump that only breaks the Windows install is caught nightly. Full
+          # pytest is intentionally not run (heavy/risky deps, red-prone suites).
+          - skill: scrapling-fetch
+            extra: none
+            smoke: import
+          - skill: syntopical-metabook
+            extra: none
+            smoke: import
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
@@ -70,7 +82,54 @@ jobs:
               if (existsSync(link)) rmSync(link, { recursive: true, force: true });
               symlinkSync(join(cwd, 'skills', s), link, 'dir');
             }
+      - name: import smoke
+        if: matrix.smoke == 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
       - name: pytest (unfiltered)
+        if: matrix.smoke != 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
         run: python -m pytest tests/ -q --tb=short ${{ matrix.pytest-deselect }}
+
+  # P2-nightly-alerting-and-drift: a red scheduled run used to fail silently.
+  # On failure, open (or update) a single dedup-by-title tracking issue so the
+  # regression is actionable. Runs only on schedule (not on manual dispatch or
+  # self-edit pushes) to avoid issue spam during workflow iteration.
+  alert-on-failure:
+    needs: [drift-check, windows-full-canary]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const title = 'nightly-flake-drift failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled \`nightly-flake-drift\` run failed.`,
+              ``,
+              `- Run: ${runUrl}`,
+              `- Triggered: ${context.eventName} @ ${new Date().toISOString()}`,
+              ``,
+              `Investigate the failing job (flake check / preflight / windows canary)`,
+              `and close this issue once green. This issue is updated, not`,
+              `duplicated, on subsequent failures.`,
+            ].join('\n');
+            const existing = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
+            });
+            const hit = existing.data.items.find((i) => i.title === title);
+            if (hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: hit.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['ci-failure'],
+              });
+            }

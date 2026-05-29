@@ -51,7 +51,7 @@ def _workflow_text() -> str:
 def test_python_skill_matrix_has_three_oses():
     """REQ-CI-040: python-skill matrix axis enumerates all three OSes."""
     text = _workflow_text()
-    for os_label in ("ubuntu-24.04", "macos-latest", "windows-2022"):
+    for os_label in ("ubuntu-24.04", "macos-15", "windows-2022"):
         assert os_label in text, f"workflow missing OS label {os_label}"
 
 
@@ -83,6 +83,23 @@ def test_python_skill_include_overrides_are_in_skill_axis():
             f"{skill} must be in matrix.skill; otherwise its include override "
             "creates a matrix row without matrix.os"
         )
+
+
+def test_coverage_gap_skills_have_smoke_legs():
+    """P2-matrix-coverage-gaps: scrapling-fetch + syntopical-metabook are
+    covered by an install+import smoke leg (include-only rows pinned to one OS
+    with `smoke: import`), closing the zero-CI-signal gap on the highest
+    supply-chain-risk skills."""
+    text = _workflow_text()
+    include_block = text.split("        include:", 1)[1].split("\n    steps:", 1)[0]
+    for skill in ("scrapling-fetch", "syntopical-metabook"):
+        assert f"- skill: {skill}" in include_block, (
+            f"{skill} must have a matrix include row"
+        )
+    # These rows must be smoke-only (not full pytest) to stay green.
+    assert "smoke: import" in include_block, (
+        "coverage-gap skills must be added as `smoke: import` legs"
+    )
 
 
 # ---------- REQ-CI-041 ----------

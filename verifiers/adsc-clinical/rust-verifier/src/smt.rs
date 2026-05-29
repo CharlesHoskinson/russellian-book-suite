@@ -212,7 +212,7 @@ pub fn check_all(_formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
 
 #[cfg(all(test, feature = "smt"))]
 mod tests {
-    use crate::ir::{parse_formulas, Error};
+    use crate::ir::{Error, parse_formulas};
 
     // edn-rs renders bare non-negative integers (e.g. `:trial-n 15`) as
     // `Edn::UInt`, not `Edn::Int`. The bind walk must assert those values to
@@ -267,8 +267,7 @@ mod tests {
     fn scalar_for_vector_predicate_errors() {
         use edn_rs::Edn;
         let value: Edn = "154".parse().expect("parse edn");
-        let res =
-            super::check_value_sort_compat("doses_p", "atom-1", &value, |_| true);
+        let res = super::check_value_sort_compat("doses_p", "atom-1", &value, |_| true);
         let err = res.expect_err("scalar bound to vector predicate must be rejected");
         let Error::Smt(msg) = err else {
             panic!("expected Error::Smt, got {err:?}")

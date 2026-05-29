@@ -11,7 +11,6 @@ enforcement boundary.
 
 Invoke via:  python -m pytest ci/test_no_shadow_writes.py -v   (from the repo root)
 """
-import builtins
 import os
 from pathlib import Path
 

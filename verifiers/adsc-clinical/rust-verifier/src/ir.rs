@@ -134,7 +134,10 @@ mod tests {
             status: "sat".into(),
             graph_summary: Some(GraphSummary {
                 claim_count: 3,
-                contradictions: vec![("C001".to_string(), "posterior-floor/warning/Q001".to_string())],
+                contradictions: vec![(
+                    "C001".to_string(),
+                    "posterior-floor/warning/Q001".to_string(),
+                )],
             }),
             ..Default::default()
         };

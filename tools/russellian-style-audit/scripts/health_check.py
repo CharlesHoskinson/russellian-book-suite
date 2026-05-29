@@ -205,14 +205,12 @@ def check_composes_with(*, consumers: list[str]) -> HealthCheckResult:
     """
     per_consumer: list[str] = []
     all_pass = True
-    any_warn = False
     any_fail = False
     for consumer in consumers:
         consumer_root = _REPO_ROOT / "skills" / consumer
         venv_python = consumer_root / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python")
         if not venv_python.exists():
             per_consumer.append(f"{consumer}=WARN(venv missing)")
-            any_warn = True
             all_pass = False
             continue
         completed = subprocess.run(

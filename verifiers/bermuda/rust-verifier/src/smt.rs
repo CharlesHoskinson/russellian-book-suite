@@ -411,10 +411,7 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
                 let z3_var = Real::new_const(var_name.as_str());
                 let scale: i64 = 1_000_000;
                 let scaled = (v * scale as f64).round();
-                if !scaled.is_finite()
-                    || scaled > i64::MAX as f64
-                    || scaled < i64::MIN as f64
-                {
+                if !scaled.is_finite() || scaled > i64::MAX as f64 || scaled < i64::MIN as f64 {
                     return Err(Error::Smt(format!(
                         "double value {v} out of range for the fixed 1e6-scale \
                          rational encoding (scaled numerator overflows i64)"

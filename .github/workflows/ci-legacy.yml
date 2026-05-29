@@ -3,7 +3,18 @@ name: ci-legacy
 permissions:
   contents: read
 
+# ci-legacy holds coverage that ci.yml does NOT replicate: the py3.11/3.12
+# back-compat matrix and the z3-build / cljs / Bermuda+osmotic end-to-end
+# smokes. It used to trigger only when this file edited itself (near-zero
+# signal). It now runs on a weekly schedule so that unique coverage actually
+# executes, plus on self-edits and on demand. It is NOT a ci-required check, so
+# a red scheduled ci-legacy surfaces a real regression without wedging the merge
+# queue (see P2-actionlint-and-legacy). Workflow-YAML linting moved to the
+# always-run `actionlint` job in ci.yml; the duplicate lint-workflow job here
+# was retired.
 on:
+  schedule:
+    - cron: '0 8 * * 1'   # Mondays 08:00 UTC
   push:
     branches: [main]
     paths:
@@ -15,29 +26,10 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  lint-workflow:
-    name: lint workflow yaml
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - name: install actionlint (pinned tarball + SHA verification)
-        env:
-          ACTIONLINT_VERSION: "1.7.12"
-        run: |
-          BASE="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-          TARBALL="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          # Download the tarball under its real filename so sha256sum -c can find it.
-          curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}"
-          curl -fsSL "${BASE}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o checksums.txt
-          grep "${TARBALL}" checksums.txt | sha256sum -c -
-          tar -xzf "${TARBALL}" actionlint
-          mv actionlint /usr/local/bin/
-      - name: run actionlint
-        run: actionlint -color
-
   test-book-qa:
     name: test book-qa (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -55,7 +47,8 @@ jobs:
 
   test-book-thesis:
     name: test book-thesis (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -73,7 +66,8 @@ jobs:
 
   test-book-knowledge:
     name: test book-knowledge (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -91,7 +85,8 @@ jobs:
 
   test-book-compose:
     name: test book-compose (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -119,7 +114,8 @@ jobs:
 
   test-book-review:
     name: test book-review (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -137,7 +133,8 @@ jobs:
 
   test-russellian-style:
     name: test russellian-style (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -157,7 +154,8 @@ jobs:
 
   test-review-conductor:
     name: test review-conductor (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -175,7 +173,8 @@ jobs:
 
   test-neurosym-forge:
     name: test neurosym-forge offline (py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       # fail-fast: false — run all matrix legs so we see all breakages at once
       fail-fast: false
@@ -194,7 +193,8 @@ jobs:
 
   smoke-bermuda-pipeline:
     name: smoke (Bermuda end-to-end)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [test-book-qa, test-book-thesis]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -224,7 +224,8 @@ jobs:
     # Allowed to fail; regressions are visible in artifact uploads but do not
     # gate the branch.
     name: bermuda informational lints
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [smoke-bermuda-pipeline]
     continue-on-error: true
     steps:
@@ -261,7 +262,8 @@ jobs:
 
   cljs-bermuda-test:
     name: cljs-bermuda-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -279,8 +281,14 @@ jobs:
         # cannot resolve to newer/unintended versions at CI time. If the lockfile
         # genuinely drifts from package.json, fix the lockfile (npm install
         # locally + commit) rather than masking it with `npm install`, which
-        # silently mutates the resolved dependency set.
-        run: npm ci --no-audit --no-fund
+        # silently mutates the resolved dependency set. 3-try backoff around the
+        # registry (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            npm ci --no-audit --no-fund && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: shadow-cljs compile + node test
         working-directory: verifiers/bermuda
         run: |
@@ -289,13 +297,18 @@ jobs:
 
   bermuda-z3-build:
     name: bermuda verifier z3 build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install build deps
+        # 3-try backoff around the apt mirror (P2-network-retries).
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y cmake build-essential && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: install rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
       - name: cargo cache
@@ -313,14 +326,19 @@ jobs:
     # green check is not mistaken for genuine real-Z3 signal. Real D13-via-Z3
     # lands in a follow-up sprint (see the assert-D13 step comment below).
     name: bermuda end-to-end smoke (stubbed Z3, advisory D13)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [bermuda-z3-build]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install build deps
+        # 3-try backoff around the apt mirror (P2-network-retries).
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y cmake build-essential && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
@@ -341,7 +359,13 @@ jobs:
       - name: install node deps
         working-directory: verifiers/bermuda
         # strict lockfile install — see cljs-bermuda-test rationale.
-        run: npm ci
+        # 3-try backoff around the registry (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            npm ci && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: booklogic compile
         working-directory: verifiers/bermuda
         run: npm run booklogic-compile
@@ -402,7 +426,8 @@ jobs:
 
   osmotic-pressure-smoke:
     name: smoke (osmotic-pressure verifier)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [test-book-qa]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -424,11 +449,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest
       - name: install nbb
-        run: npm install -g nbb
-      - name: install z3 build prerequisites
+        # 3-try backoff around the registry (P2-network-retries).
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          for i in 1 2 3; do
+            npm install -g nbb && break
+            echo "npm install attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+      - name: install z3 build prerequisites
+        # 3-try backoff around the apt mirror (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y cmake build-essential && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: confirm scaffold present in tree
         run: |
           test -d verifiers/osmotic_pressure || (echo "scaffold missing"; exit 1)
@@ -437,7 +472,13 @@ jobs:
       - name: install project npm deps
         working-directory: verifiers/osmotic_pressure
         # strict lockfile install (package-lock.json is committed).
-        run: npm ci
+        # 3-try backoff around the registry (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            npm ci && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: compile booklogic source
         working-directory: verifiers/osmotic_pressure
         run: nbb -m osmotic-pressure.booklogic .

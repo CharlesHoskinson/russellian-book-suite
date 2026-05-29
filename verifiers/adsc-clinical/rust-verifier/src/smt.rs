@@ -84,6 +84,16 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
                 let z3_var = Int::new_const(var_name.as_str());
                 z3_var.eq(&Int::from_i64(*n))
             }
+            // edn-rs renders bare non-negative integers (e.g. `:trial-n 15`)
+            // as `Edn::UInt` rather than `Edn::Int`. Bind them identically so
+            // those values are asserted to Z3 instead of silently dropped.
+            Edn::UInt(n) => {
+                let n_i64: i64 = (*n)
+                    .try_into()
+                    .map_err(|_| Error::Smt(format!("value too large to bind as Int: {n}")))?;
+                let z3_var = Int::new_const(var_name.as_str());
+                z3_var.eq(&Int::from_i64(n_i64))
+            }
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);
                 let z3_var = Real::new_const(var_name.as_str());
@@ -138,4 +148,31 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
 #[cfg(not(feature = "smt"))]
 pub fn check_all(_formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     Err(Error::Smt("compiled without `smt` feature".into()))
+}
+
+#[cfg(all(test, feature = "smt"))]
+mod tests {
+    use crate::ir::parse_formulas;
+
+    // edn-rs renders bare non-negative integers (e.g. `:trial-n 15`) as
+    // `Edn::UInt`, not `Edn::Int`. The bind walk must assert those values to
+    // Z3 just like signed ints; otherwise they fall through to `_ => continue`
+    // and the constraint is silently dropped (a false `sat`).
+    //
+    // Two atoms pin the same `{predicate}_{subject}` Z3 var to two distinct
+    // bare integers. If both UInt values are bound, the conjunction is `unsat`.
+    // If the UInt arm is missing they are dropped and Z3 reports `sat`.
+    #[test]
+    fn binds_bare_unsigned_integer_value() {
+        let edn = r#"{:atoms [
+            {:id "a1" :kind :expression :predicate :trial-n :subject :study :value 15}
+            {:id "a2" :kind :expression :predicate :trial-n :subject :study :value 16}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse");
+        let verdict = super::check_all(&formulas).expect("check");
+        assert_eq!(
+            verdict.status, "unsat",
+            "bare unsigned integer values must be bound to Z3; got {verdict:?}"
+        );
+    }
 }

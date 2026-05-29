@@ -240,7 +240,14 @@ def main() -> int:
         result = lint_section(section)
         _print_results([result])
         return 0 if result.passes else 1
-    results, exit_code = run_full_lint(args.readme)
+    try:
+        results, exit_code = run_full_lint(args.readme)
+    except ValueError as exc:
+        # parse_readme raises when an H2 section is missing/has an invalid voice tag.
+        # Emit a clean error with a nonzero exit code, mirroring the --section path,
+        # rather than crashing the pre-commit hook with an uncaught traceback.
+        print(f"ERROR: {exc}")
+        return 2
     _print_results(results)
     return exit_code
 

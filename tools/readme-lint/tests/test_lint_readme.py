@@ -114,3 +114,22 @@ def test_parse_single_section_ignores_other_sections_missing_voice():
     )
     section = parse_single_section(sample, "tools")
     assert section.heading == "Tools"
+
+
+def test_main_full_lint_missing_voice_clean_error_not_traceback(tmp_path, monkeypatch, capsys):
+    """The lefthook/Makefile full-lint path must report a clean error and a nonzero exit
+    when a section lacks a voice declaration, instead of crashing with an uncaught
+    ValueError traceback. Finding readme-full-lint-crashes-on-missing-voice."""
+    import sys
+    import scripts.lint_readme as mod
+
+    readme = tmp_path / "README.md"
+    readme.write_text("## New section\n\nbody with no voice declaration\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["lint_readme", "--readme", str(readme)])
+
+    # Must NOT raise — must return a nonzero exit code cleanly.
+    rc = mod.main()
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "voice declaration" in out
+    assert "New section" in out

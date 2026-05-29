@@ -255,6 +255,9 @@ mod tests {
             edn.contains("posterior-floor/warning/Q001"),
             "contradiction reason must round-trip; got {edn}"
         );
+        // The emitted verdict must be well-formed EDN (balanced braces).
+        edn.parse::<edn_rs::Edn>()
+            .unwrap_or_else(|e| panic!("emit_verdict must produce valid EDN: {e}; got {edn}"));
     }
 
     #[test]

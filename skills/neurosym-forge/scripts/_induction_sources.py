@@ -69,8 +69,8 @@ def per_source_cap() -> int:
 
 PHASE_V_AVAILABLE = False
 _phase_v_propose = None
-try:  # pragma: no cover - imported when Phase V lands
-    from scripts._induction_proposer import propose_candidate as _phase_v_propose  # type: ignore
+try:
+    from scripts._induction_proposer import propose_constraint as _phase_v_propose  # type: ignore
 
     PHASE_V_AVAILABLE = True
 except Exception:
@@ -150,7 +150,7 @@ def horn_mine(atoms: list[dict[str, Any]], schema: dict[str, Any]) -> list[dict[
     co-occurrence patterns over the atomspace.
 
     Each surviving pair is wrapped in a ``defconstraint`` candidate
-    template ``(implies (predicate-A ?d) (predicate-B ?d))``. The
+    template ``(=> (predicate-A ?d) (predicate-B ?d))``. The
     support count (number of documents in which both predicates appear)
     becomes the candidate's :support metadata.
 
@@ -199,7 +199,7 @@ def horn_mine(atoms: list[dict[str, Any]], schema: dict[str, Any]) -> list[dict[
         edn = (
             f"(defconstraint :induced/{p1}-{p2}\n"
             f"  :backend :z3\n"
-            f"  :assert (implies (:{p1} ?d) (:{p2} ?d))\n"
+            f"  :assert (=> (:{p1} ?d) (:{p2} ?d))\n"
             f"  :on-unsat {{:defect :D-induced-h :severity :advisory\n"
             f'             :message "Horn-body co-occurrence: {p1} → {p2}"}})'
         )
@@ -354,7 +354,7 @@ class StubProposer:
         edn = (
             f"(defconstraint :induced/llm-{pred}\n"
             f"  :backend :z3\n"
-            f"  :assert (positive (:{pred} ?d))\n"
+            f"  :assert (> (:{pred} ?d) 0)\n"
             f"  :on-unsat {{:defect :D-induced-l :severity :advisory\n"
             f'             :message "LLM-proposed: {pred} > 0"}})'
         )
@@ -372,6 +372,30 @@ class StubProposer:
         }
 
 
+def _candidate_from_edn(edn: str, cluster: list[dict[str, Any]]) -> dict[str, Any]:
+    """Wrap a raw EDN string from the Phase V proposer into the uniform
+    candidate dict shape documented at the top of this module.
+
+    The proposer (``propose_constraint``) returns only the EDN form; the
+    canonical key, cited atoms, and origin tags are derived here so the
+    Phase V path produces the same candidate shape as the Horn-body,
+    Popper, and Stub sources.
+    """
+    cited = sorted({a["claim_id"] for a in cluster if a.get("claim_id")})
+    return {
+        "id": f"llm-{cluster[0]['predicate']}" if cluster else "llm",
+        "canonical_form": canonical_constraint_form(edn),
+        "edn": edn,
+        "cited_atoms": cited,
+        "origin": [LLM],
+        "support": None,
+        "coherence": None,
+        "literal_count": 2,
+        "status": "pending",
+        "rejection_reason": None,
+    }
+
+
 def llm_propose(
     *,
     schema: dict[str, Any],
@@ -381,22 +405,32 @@ def llm_propose(
 ) -> list[dict[str, Any]]:
     """REQ-INDUCE-051(c), 056: invoke the LLM proposer for one cluster.
 
-    Phase V's ``propose_candidate`` is used when available; otherwise
-    the StubProposer's deterministic shape is the fallback. The budget
-    tracker is consulted BEFORE each call; once exhausted, the source
-    returns [] and downstream Horn-body / Popper sources are unaffected.
+    Phase V's ``propose_constraint`` is used when available; it returns a
+    raw EDN string, which is wrapped into the uniform candidate dict via
+    ``_candidate_from_edn``. Otherwise the StubProposer's deterministic
+    shape is the fallback. The budget tracker is consulted BEFORE each
+    call; once exhausted, the source returns [] and downstream Horn-body
+    / Popper sources are unaffected.
     """
     cost = provider.cost_per_call() if hasattr(provider, "cost_per_call") else 0.001
     if budget is not None:
         if not budget.can_spend(cost):
             budget.halted = True
             return []
+    candidate = None
     if PHASE_V_AVAILABLE and _phase_v_propose is not None:
         try:
-            candidate = _phase_v_propose(schema=schema, cluster=cluster)
+            edn = _phase_v_propose(atom_cluster=cluster, schema=schema)
+            # The proposer emits a self-disclaiming placeholder when no
+            # real LLM / canned candidate is configured (offline CI with
+            # no NEUROSYM_STUB_CANDIDATE). Treat that as "proposer not
+            # configured" and fall back to the deterministic local stub
+            # so the offline default stays grammar-valid.
+            if edn and "UNCONFIGURED-STUB" not in edn:
+                candidate = _candidate_from_edn(edn, cluster)
         except Exception:
-            candidate = provider.propose(cluster=cluster, schema=schema)
-    else:
+            candidate = None
+    if candidate is None:
         candidate = provider.propose(cluster=cluster, schema=schema)
     if budget is not None:
         budget.charge(cost)

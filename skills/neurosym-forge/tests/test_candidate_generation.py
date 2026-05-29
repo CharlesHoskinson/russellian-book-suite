@@ -483,3 +483,195 @@ def test_budget_unset_does_not_halt_llm(tmp_path: Path, monkeypatch) -> None:
     data = json.loads(budget_log.read_text(encoding="utf-8"))
     assert data["limit_usd"] is None
     assert data["llm_halted"] is False
+
+
+# ---------------------------------------------------------------------------
+# REQ-INDUCE-046: generated candidates must use grammar-supported operators
+# ---------------------------------------------------------------------------
+
+
+# The canonical operator set, mirrored from `_induction_grammar.cljs`'s
+# SUPPORTED-OPERATORS and `codegen_axioms.py`'s _SUPPORTED_ASSERT_HEADS.
+_SUPPORTED_OPS = {
+    "=", "~=", "approx=",
+    "<", "<=", ">", ">=",
+    "+", "-", "*", "/",
+    "and", "or", "not", "=>", "ite",
+    "sum", "count", "in", "select",
+    "forall", "exists",
+}
+
+
+def _assert_body(edn: str) -> str:
+    """Pull the text following ``:assert`` up to ``:on-unsat`` from a
+    generated defconstraint EDN string."""
+    start = edn.index(":assert") + len(":assert")
+    end = edn.index(":on-unsat", start)
+    return edn[start:end]
+
+
+def _operator_heads(assert_body: str) -> set[str]:
+    """Collect every operator head (the symbol immediately after a ``(``
+    that is not a ``:keyword`` predicate call) from an :assert body.
+
+    Mirrors the cljs ``collect-operators`` walk: a ``(`` followed by a
+    keyword is a predicate call (skipped); a ``(`` followed by anything
+    else is an operator call whose head is the first token."""
+    import re
+
+    heads: set[str] = set()
+    for m in re.finditer(r"\(\s*([^\s()]+)", assert_body):
+        head = m.group(1)
+        if head.startswith(":"):
+            continue  # predicate call, not an operator
+        heads.add(head)
+    return heads
+
+
+def _grammar_check_via_nbb(form_edn: str, schema_edn: str) -> dict:
+    """Run the real `_induction_grammar.cljs` gate against a generated
+    candidate by writing the eval expression to a temp .cljs file under
+    the scripts dir and shelling into nbb.
+
+    We invoke nbb on a file rather than `nbb -e <expr>` because the `=>`
+    operator the Horn-body source emits contains `>`, which the Windows
+    `cmd.exe` nbb shim treats as a redirection metacharacter on the
+    command line. A file argument sidesteps that."""
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+
+    nbb = shutil.which("nbb")
+    assert nbb is not None
+    grammar_dir = SCRIPTS_PARENT / "scripts"
+    expr = (
+        "(require '[_induction-grammar :as g]) "
+        f"(println (g/grammar-conforming-json {json.dumps(form_edn)} "
+        f"{json.dumps(schema_edn)}))"
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".cljs", dir=str(grammar_dir), delete=False, encoding="utf-8"
+    ) as fh:
+        fh.write(expr)
+        script = fh.name
+    try:
+        result = subprocess.run(
+            [nbb, "--classpath", str(grammar_dir), script],
+            capture_output=True, text=True, check=False, timeout=60,
+        )
+    finally:
+        os.unlink(script)
+    assert result.returncode == 0, f"nbb failed: {result.stderr!r}"
+    line = result.stdout.strip().splitlines()[-1]
+    return json.loads(line)
+
+
+def test_generated_candidates_pass_the_real_grammar_gate(seeded_project: Path) -> None:
+    """generators-emit-unsupported-ops: every Horn-body and Stub-LLM
+    candidate, run through the production cljs grammar gate, must
+    conform. Before the fix, `implies` / `positive` were rejected as
+    `:grammar-fail/illegal-op`. Skips when nbb is not on PATH."""
+    import shutil
+
+    if not shutil.which("nbb"):
+        pytest.skip("nbb not available on PATH")
+
+    schema = orch.load_schema(seeded_project)
+    atoms = orch.load_atoms(seeded_project)
+    # Schema EDN string with the fixture predicates so the gate does not
+    # trip on :grammar-fail/unknown-predicate.
+    preds = " ".join(
+        f":{name} {{:arg-sorts [:s] :return :real}}"
+        for name in ("basic-reproduction-number", "herd-immunity-threshold",
+                     "vaccination-coverage")
+    )
+    schema_edn = f"{{:predicates {{{preds}}} :sorts [:s]}}"
+
+    cands = list(sources.horn_mine(atoms, schema))
+    cluster = [a for a in atoms if a["predicate"] == "basic-reproduction-number"]
+    cands += list(
+        sources.llm_propose(
+            schema=schema, cluster=cluster, provider=sources.StubProposer()
+        )
+    )
+    assert cands
+    for c in cands:
+        result = _grammar_check_via_nbb(c["edn"], schema_edn)
+        assert result["ok"] is True, (
+            f"candidate rejected by grammar gate: {result} :: {c['edn']}"
+        )
+
+
+def test_horn_candidates_use_supported_operators(seeded_project: Path) -> None:
+    """REQ-INDUCE-046: every operator a Horn-body candidate emits must be
+    in the BookLogic supported-operator set, so the grammar gate accepts
+    it. `implies` is not in the set; the implication head is `=>`."""
+    schema = orch.load_schema(seeded_project)
+    atoms = orch.load_atoms(seeded_project)
+    for c in sources.horn_mine(atoms, schema):
+        ops = _operator_heads(_assert_body(c["edn"]))
+        illegal = ops - _SUPPORTED_OPS
+        assert not illegal, f"Horn candidate emits unsupported op(s) {illegal}: {c['edn']}"
+
+
+def test_stub_llm_candidate_uses_supported_operators(seeded_project: Path) -> None:
+    """REQ-INDUCE-046: the Stub LLM proposer must emit only supported
+    operators. `positive` is not in the set; use a numeric comparison."""
+    schema = orch.load_schema(seeded_project)
+    atoms = orch.load_atoms(seeded_project)
+    cluster = [a for a in atoms if a["predicate"] == "basic-reproduction-number"]
+    cands = sources.llm_propose(
+        schema=schema, cluster=cluster, provider=sources.StubProposer()
+    )
+    assert cands
+    for c in cands:
+        ops = _operator_heads(_assert_body(c["edn"]))
+        illegal = ops - _SUPPORTED_OPS
+        assert not illegal, f"Stub candidate emits unsupported op(s) {illegal}: {c['edn']}"
+
+
+# ---------------------------------------------------------------------------
+# REQ-INDUCE-041/043: Phase V proposer wiring
+# ---------------------------------------------------------------------------
+
+
+def test_phase_v_available_when_proposer_module_present() -> None:
+    """phase-v-import-always-fails: the Phase V conditional import must
+    resolve a symbol that actually exists in `_induction_proposer`, so
+    PHASE_V_AVAILABLE is True when the proposer module is on the branch."""
+    import importlib
+
+    import scripts._induction_sources as fresh
+    fresh = importlib.reload(fresh)
+    assert fresh.PHASE_V_AVAILABLE is True, (
+        "PHASE_V_AVAILABLE must be True when scripts._induction_proposer "
+        "is importable; the conditional import targets a nonexistent symbol"
+    )
+    assert fresh._phase_v_propose is not None
+
+
+def test_phase_v_propose_returns_candidate_dict(seeded_project: Path, monkeypatch) -> None:
+    """phase-v-import-always-fails: when Phase V is active, llm_propose
+    must hand back a well-shaped candidate dict (not a raw EDN string),
+    driven by the deterministic stub provider so no live LLM is called."""
+    monkeypatch.setenv("NEUROSYM_LLM_PROVIDER", "stub")
+    canned = (
+        "(defconstraint :induced/llm-r0 :backend :z3 "
+        ":assert (> (:basic-reproduction-number ?d) 0) "
+        ':on-unsat {:defect :D-induced-l :severity :advisory :message "x"})'
+    )
+    monkeypatch.setenv("NEUROSYM_STUB_CANDIDATE", canned)
+
+    schema = orch.load_schema(seeded_project)
+    atoms = orch.load_atoms(seeded_project)
+    cluster = [a for a in atoms if a["predicate"] == "basic-reproduction-number"]
+    cands = sources.llm_propose(
+        schema=schema, cluster=cluster, provider=sources.StubProposer()
+    )
+    assert cands, "Phase V path must yield at least one candidate"
+    for c in cands:
+        assert isinstance(c, dict), f"candidate must be a dict, got {type(c)}"
+        assert isinstance(c["canonical_form"], str)
+        assert isinstance(c["edn"], str)
+        assert sources.LLM in c["origin"]

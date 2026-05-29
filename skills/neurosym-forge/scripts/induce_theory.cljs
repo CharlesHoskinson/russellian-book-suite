@@ -134,7 +134,7 @@
         (mapv (fn [[[p1 p2] support]]
                 (let [edn-str (str "(defconstraint :induced/" p1 "-" p2 "\n"
                                    "  :backend :z3\n"
-                                   "  :assert (implies (:" p1 " ?d) (:" p2 " ?d))\n"
+                                   "  :assert (=> (:" p1 " ?d) (:" p2 " ?d))\n"
                                    "  :on-unsat {:defect :D-induced-h :severity :advisory\n"
                                    "             :message \"Horn-body co-occurrence: " p1 " → " p2 "\"})")]
                   {:id (str "horn-" p1 "-" p2)
@@ -208,7 +208,7 @@
           cited (vec (sort (distinct (map :claim-id cluster))))
           edn-str (str "(defconstraint :induced/llm-" pred "\n"
                        "  :backend :z3\n"
-                       "  :assert (positive (:" pred " ?d))\n"
+                       "  :assert (> (:" pred " ?d) 0)\n"
                        "  :on-unsat {:defect :D-induced-l :severity :advisory\n"
                        "             :message \"LLM-proposed: " pred " > 0\"})")]
       {:id (str "llm-" pred)

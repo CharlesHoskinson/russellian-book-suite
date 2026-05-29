@@ -5,8 +5,24 @@ updates:
     schedule:
       interval: weekly
 
+  # --- pip: one entry per skill with a pyproject.toml (all 10 skills) ---
+  - package-ecosystem: pip
+    directory: /skills/book-compose
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/book-knowledge
+    schedule:
+      interval: weekly
+
   - package-ecosystem: pip
     directory: /skills/book-qa
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/book-review
     schedule:
       interval: weekly
 
@@ -20,8 +36,52 @@ updates:
     schedule:
       interval: weekly
 
+  - package-ecosystem: pip
+    directory: /skills/review-conductor
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/russellian-style
+    schedule:
+      interval: weekly
+
+  # scrapling-fetch pins scrapling==0.4.8 and pulls in trafilatura/playwright —
+  # the highest-risk supply-chain surface in the repo; keep it watched.
+  - package-ecosystem: pip
+    directory: /skills/scrapling-fetch
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/syntopical-metabook
+    schedule:
+      interval: weekly
+
+  # --- cargo: one entry per verifier rust-verifier crate ---
+  - package-ecosystem: cargo
+    directory: /verifiers/adsc-clinical/rust-verifier
+    schedule:
+      interval: weekly
+
   - package-ecosystem: cargo
     directory: /verifiers/bermuda/rust-verifier
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: cargo
+    directory: /verifiers/epidemiology/rust-verifier
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: cargo
+    directory: /verifiers/osmotic_pressure/rust-verifier
+    schedule:
+      interval: weekly
+
+  # --- npm: one entry per verifier package.json ---
+  - package-ecosystem: npm
+    directory: /verifiers/adsc-clinical
     schedule:
       interval: weekly
 
@@ -29,3 +89,18 @@ updates:
     directory: /verifiers/bermuda
     schedule:
       interval: weekly
+
+  - package-ecosystem: npm
+    directory: /verifiers/epidemiology
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /verifiers/osmotic_pressure
+    schedule:
+      interval: weekly
+
+# NOTE: Clojure (deps.edn) dependencies in all four verifiers have NO native
+# Dependabot ecosystem. They must be reviewed manually or scanned with a tool
+# such as clj-watson / clj-holmes on a regular cadence — Dependabot cannot flag
+# CVEs in their transitive Clojure deps.

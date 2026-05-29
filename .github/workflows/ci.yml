@@ -111,12 +111,20 @@ jobs:
             }
       # russellian-style's linters require the spaCy English model. Without it
       # conftest would skip the entire linter suite (and now hard-errors in CI).
-      # Install the model wheel directly with --no-deps so the click/typer-free
-      # [ci] extra is not disturbed (the `spacy download` CLI needs click).
-      - name: install spaCy model (russellian-style)
-        if: matrix.skill == 'russellian-style'
+      # book-compose symlinks russellian-style as a sibling and has its own
+      # spaCy-dependent tests, so it needs the model too (else those tests
+      # silently drop from collection). Install the model wheel directly with
+      # --no-deps so the click/typer-free [ci] extra is not disturbed (the
+      # `spacy download` CLI needs click/typer). `click` is added back because
+      # spaCy's top-level __init__ eagerly imports spacy.cli, which imports
+      # click; without it `import spacy` (and thus `spacy.load`) raises
+      # ModuleNotFoundError and the conftest still hard-errors in CI. Pin to
+      # the spaCy 3.8.x model that matches `spacy>=3.7,<4.0` in [ci].
+      - name: install spaCy model (russellian-style / book-compose)
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
         shell: bash
         run: |
+          python -m pip install click
           python -m pip install --no-deps \
             "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
       - name: pytest

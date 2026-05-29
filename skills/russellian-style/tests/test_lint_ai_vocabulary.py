@@ -58,3 +58,23 @@ def test_supplement_loads():
     supp = load_supplement()
     ids = {p["id"] for p in supp["patterns"]}
     assert {"false_certainty", "magic_adverb", "transition_adverb_starter"} <= ids
+
+
+def test_sweeping_abstraction_subject_flagged(tmp_path):
+    from scripts.lint_ai_vocabulary import lint_ai_vocabulary
+    text = "The system enables collaboration. The framework reshapes the model."
+    findings = lint_ai_vocabulary(_write(tmp_path, text))
+    ids = {f["pattern_id"] for f in findings}
+    assert "sweeping_abstraction_subject" in ids
+    hit = [f for f in findings if f["pattern_id"] == "sweeping_abstraction_subject"][0]
+    assert hit["phrase"] in {"system", "framework"}
+
+
+def test_sweeping_abstraction_exempt_when_concrete_actor_present(tmp_path):
+    # When a concrete actor is the/an additional subject, the abstract-subject
+    # sentence is exempt (concrete_actor_present exemption).
+    from scripts.lint_ai_vocabulary import lint_ai_vocabulary
+    text = "Russell shows the system fails. The censor blocks the paradigm."
+    findings = lint_ai_vocabulary(_write(tmp_path, text))
+    ids = {f["pattern_id"] for f in findings}
+    assert "sweeping_abstraction_subject" not in ids, findings

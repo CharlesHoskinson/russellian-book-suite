@@ -90,6 +90,26 @@ def test_cargo_template_includes_edn_rs() -> None:
     assert "edn-rs" in text, "Cargo.toml.tmpl must declare edn-rs"
 
 
+def test_cargo_template_declares_msrv_for_edition_2024() -> None:
+    """cargo-edition-2024-toolchain: edition 2024 needs Rust 1.85+, so the
+    template must declare `rust-version` to emit an actionable MSRV error
+    on older toolchains instead of an opaque edition-support failure."""
+    text = _read("Cargo.toml.tmpl")
+    assert 'edition = "2024"' in text
+    assert 'rust-version = "1.85"' in text, (
+        "Cargo.toml.tmpl pins edition 2024 (Rust 1.85+) but declares no "
+        "rust-version MSRV"
+    )
+
+
+def test_readme_template_documents_rust_toolchain() -> None:
+    """cargo-edition-2024-toolchain: the scaffolded README must surface the
+    Rust 1.85+ toolchain requirement so a builder on an older toolchain
+    knows why the build fails."""
+    readme = (TEMPLATE_ROOT / "README.md.tmpl").read_text(encoding="utf-8")
+    assert "1.85" in readme, "README.md.tmpl must document the Rust 1.85+ MSRV"
+
+
 def test_ir_template_uses_edn_rs_not_serde_json() -> None:
     text = _read("ir.rs.tmpl")
     # ir.rs PARSES atoms from the Python writer — must use edn-rs

@@ -3,7 +3,18 @@ name: ci-legacy
 permissions:
   contents: read
 
+# ci-legacy holds coverage that ci.yml does NOT replicate: the py3.11/3.12
+# back-compat matrix and the z3-build / cljs / Bermuda+osmotic end-to-end
+# smokes. It used to trigger only when this file edited itself (near-zero
+# signal). It now runs on a weekly schedule so that unique coverage actually
+# executes, plus on self-edits and on demand. It is NOT a ci-required check, so
+# a red scheduled ci-legacy surfaces a real regression without wedging the merge
+# queue (see P2-actionlint-and-legacy). Workflow-YAML linting moved to the
+# always-run `actionlint` job in ci.yml; the duplicate lint-workflow job here
+# was retired.
 on:
+  schedule:
+    - cron: '0 8 * * 1'   # Mondays 08:00 UTC
   push:
     branches: [main]
     paths:
@@ -15,27 +26,6 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  lint-workflow:
-    name: lint workflow yaml
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - name: install actionlint (pinned tarball + SHA verification)
-        env:
-          ACTIONLINT_VERSION: "1.7.12"
-        run: |
-          BASE="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-          TARBALL="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          # Download the tarball under its real filename so sha256sum -c can find it.
-          curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}"
-          curl -fsSL "${BASE}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o checksums.txt
-          grep "${TARBALL}" checksums.txt | sha256sum -c -
-          tar -xzf "${TARBALL}" actionlint
-          mv actionlint /usr/local/bin/
-      - name: run actionlint
-        run: actionlint -color
-
   test-book-qa:
     name: test book-qa (py${{ matrix.python }})
     runs-on: ubuntu-24.04

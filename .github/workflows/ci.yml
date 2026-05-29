@@ -47,6 +47,36 @@ jobs:
       - name: required-check name drift (ci.yml job name == ruleset context)
         run: nix develop -c bash scripts/check-required-name.sh
 
+  # Always-run actionlint on every PR/push (P2-actionlint-and-legacy). Workflow
+  # YAML errors used to be caught only when ci-legacy edited itself (its
+  # paths-filter is self-referential); now any change to .github/workflows is
+  # linted at PR time and feeds the ci-required aggregator. Uses the same
+  # pinned-tarball + SHA-verification install as ci-legacy's lint-workflow job.
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: install actionlint (pinned tarball + SHA verification)
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+        run: |
+          BASE="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          TARBALL="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          for i in 1 2 3; do
+            curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}" \
+              && curl -fsSL "${BASE}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o checksums.txt \
+              && break
+            echo "download attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+          grep "${TARBALL}" checksums.txt | sha256sum -c -
+          tar -xzf "${TARBALL}" actionlint
+          mv actionlint /usr/local/bin/
+      - name: run actionlint (.github/workflows/**)
+        run: actionlint -color
+
   # Detect whether the PR diff touches anything that could affect the Rust
   # verifiers or the Nix preflight. Pure-Python PRs skip those jobs (they
   # always pass on pure-Python changes). Pushes to main always run them.
@@ -232,6 +262,11 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             marker_filter="-m windows_canary"
           fi
+          # $marker_filter and the deselect/workers expansions are deliberately
+          # unquoted: each must word-split into separate argv tokens (e.g.
+          # `-m windows_canary`, `--deselect <id>`). Empty values expand to no
+          # args. SC2086 is intentional here.
+          # shellcheck disable=SC2086
           if [ -n "${{ matrix.pytest-workers }}" ]; then
             python -m pytest tests/ -q --tb=short $marker_filter -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
           else
@@ -358,6 +393,7 @@ jobs:
     name: ci-required
     needs:
       - lint
+      - actionlint
       - preflight
       - python-skill-matrix
       - cargo-test
@@ -374,6 +410,7 @@ jobs:
       - name: aggregate
         env:
           LINT: ${{ needs.lint.result }}
+          ACTIONLINT: ${{ needs.actionlint.result }}
           PYTHON_SKILL: ${{ needs.python-skill-matrix.result }}
           DIVERGENCE: ${{ needs.ci-divergence-summary.result }}
           PREFLIGHT: ${{ needs.preflight.result }}
@@ -393,6 +430,7 @@ jobs:
             fi
           }
           require_success lint "$LINT"
+          require_success actionlint "$ACTIONLINT"
           require_success python-skill-matrix "$PYTHON_SKILL"
           require_success ci-divergence-summary "$DIVERGENCE"
           require_not_failed preflight "$PREFLIGHT"

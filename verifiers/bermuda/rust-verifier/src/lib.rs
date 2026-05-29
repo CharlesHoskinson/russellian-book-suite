@@ -3,7 +3,7 @@ use napi_derive::napi;
 
 mod axioms;
 pub mod ir;
-mod smt;
+pub mod smt;
 pub mod var_name;
 
 #[cfg(feature = "eqsat")]

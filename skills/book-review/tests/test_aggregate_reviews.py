@@ -97,6 +97,66 @@ def test_severity_counts_sum_raw_per_persona_not_deduped(tmp_path):
     assert "Critical: 2" in text
 
 
+def test_malformed_report_surfaced_not_silently_dropped(tmp_path):
+    workspace = tmp_path / "book"
+    reviews_dir = workspace / "chapters" / "drafts" / "ch-04" / "reviews"
+    reviews_dir.mkdir(parents=True, exist_ok=True)
+    (workspace / "CLAUDE.md").write_text("# marker\n", encoding="utf-8")
+    # A report with no frontmatter at all (parse_review_report raises ValueError).
+    (reviews_dir / "domain-expert.md").write_text(
+        "## Critical findings (gating)\n- Something broke.\n", encoding="utf-8"
+    )
+    # A well-formed report alongside it.
+    (reviews_dir / "gottlieb.md").write_text(
+        "---\npersona: gottlieb\nchapter_id: ch-04\nverdict: APPROVED\n"
+        "critical_count: 0\nimportant_count: 0\nminor_count: 0\n"
+        "reviewed_at: 2026-05-10T12:00:00+00:00\n---\n\n"
+        "## Critical findings (gating)\n(none)\n",
+        encoding="utf-8",
+    )
+    result = aggregate_reviews(workspace, "ch-04")
+    text = result.report_path.read_text(encoding="utf-8")
+    assert "domain-expert" in text
+    assert "Failed" in text or "failed" in text
+
+
+def test_gating_count_honours_frontmatter_when_body_undercounts(tmp_path):
+    # Frontmatter declares 2 critical findings but the body only renders 1
+    # (a parse drop). The gate must not undercount: use the larger value.
+    workspace = tmp_path / "book"
+    reviews_dir = workspace / "chapters" / "drafts" / "ch-04" / "reviews"
+    reviews_dir.mkdir(parents=True, exist_ok=True)
+    (workspace / "CLAUDE.md").write_text("# marker\n", encoding="utf-8")
+    (reviews_dir / "gottlieb.md").write_text(
+        "---\npersona: gottlieb\nchapter_id: ch-04\nverdict: NEEDS_WORK\n"
+        "critical_count: 2\nimportant_count: 0\nminor_count: 0\n"
+        "reviewed_at: 2026-05-10T12:00:00+00:00\n---\n\n"
+        "## Critical findings (gating)\n- Only one bullet rendered.\n\n"
+        "## Important findings\n(none)\n\n## Minor findings\n(none)\n",
+        encoding="utf-8",
+    )
+    result = aggregate_reviews(workspace, "ch-04")
+    assert result.severity_counts["critical"] == 2
+
+
+def test_aggregate_no_persona_key_collision(tmp_path):
+    # Two reports both missing the persona field must not collide on key "".
+    workspace = tmp_path / "book"
+    reviews_dir = workspace / "chapters" / "drafts" / "ch-04" / "reviews"
+    reviews_dir.mkdir(parents=True, exist_ok=True)
+    (workspace / "CLAUDE.md").write_text("# marker\n", encoding="utf-8")
+    body = "## Critical findings (gating)\n(none)\n"
+    for pid, verdict in (("alpha", "NEEDS_WORK"), ("beta", "APPROVED")):
+        (reviews_dir / f"{pid}.md").write_text(
+            f"---\nchapter_id: ch-04\nverdict: {verdict}\n"
+            f"critical_count: 0\nimportant_count: 0\nminor_count: 0\n"
+            f"reviewed_at: 2026-05-10T12:00:00+00:00\n---\n\n" + body,
+            encoding="utf-8",
+        )
+    result = aggregate_reviews(workspace, "ch-04")
+    assert set(result.per_persona_verdicts) == {"alpha", "beta"}
+
+
 def test_aggregate_handles_no_reviews(tmp_path):
     workspace = tmp_path / "book"
     (workspace / "chapters" / "drafts" / "ch-04" / "reviews").mkdir(parents=True, exist_ok=True)

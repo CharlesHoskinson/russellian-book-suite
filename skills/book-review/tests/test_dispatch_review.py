@@ -86,6 +86,70 @@ reviewed_at: 2026-05-10T12:00:00+00:00
 """
 
 
+BAD_VERDICT_REVIEW = """---
+persona: gottlieb
+chapter_id: ch-04
+verdict: TOTALLY_FINE
+critical_count: 0
+important_count: 0
+minor_count: 0
+reviewed_at: 2026-05-10T12:00:00+00:00
+---
+
+## Critical findings (gating)
+(none)
+"""
+
+BAD_CHAPTER_ID_REVIEW = """---
+persona: gottlieb
+chapter_id: Chapter Four!
+verdict: APPROVED
+critical_count: 0
+important_count: 0
+minor_count: 0
+reviewed_at: 2026-05-10T12:00:00+00:00
+---
+
+## Critical findings (gating)
+(none)
+"""
+
+
+def test_parse_review_report_rejects_invalid_verdict(tmp_path):
+    f = tmp_path / "gottlieb.md"
+    f.write_text(BAD_VERDICT_REVIEW, encoding="utf-8")
+    with pytest.raises(ValueError):
+        parse_review_report(f)
+
+
+def test_parse_review_report_rejects_bad_chapter_id(tmp_path):
+    f = tmp_path / "gottlieb.md"
+    f.write_text(BAD_CHAPTER_ID_REVIEW, encoding="utf-8")
+    with pytest.raises(ValueError):
+        parse_review_report(f)
+
+
+NO_PERSONA_REVIEW = """---
+chapter_id: ch-04
+verdict: APPROVED
+critical_count: 0
+important_count: 0
+minor_count: 0
+reviewed_at: 2026-05-10T12:00:00+00:00
+---
+
+## Critical findings (gating)
+(none)
+"""
+
+
+def test_parse_review_report_falls_back_to_filename_stem(tmp_path):
+    f = tmp_path / "domain-expert.md"
+    f.write_text(NO_PERSONA_REVIEW, encoding="utf-8")
+    result = parse_review_report(f)
+    assert result.persona_id == "domain-expert"
+
+
 def test_parse_review_report_keeps_double_digit_findings(tmp_path):
     f = tmp_path / "review.md"
     f.write_text(DOUBLE_DIGIT_REVIEW, encoding="utf-8")

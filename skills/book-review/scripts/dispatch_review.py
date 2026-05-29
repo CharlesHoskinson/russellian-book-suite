@@ -6,16 +6,20 @@ markdown, keeping the unit testable in pure Python.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from pathlib import Path
 
+import jsonschema
 import yaml
 
 from .persona_loader import Persona
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 PROMPT_TEMPLATE = (ASSETS / "persona-prompt-template.md").read_text(encoding="utf-8")
+REPORT_SCHEMA = json.loads((ASSETS / "review-report.schema.json").read_text(encoding="utf-8"))
 
 
 @dataclass(frozen=True)
@@ -78,6 +82,20 @@ def _parse_findings_section(body: str, header: str) -> list[Finding]:
     return out
 
 
+def _schema_serializable(meta: dict) -> dict:
+    """Coerce YAML-native scalars to JSON-Schema-comparable forms.
+
+    PyYAML decodes an ISO timestamp into a datetime/date object, but the schema
+    declares reviewed_at as a date-time *string*; render such values back to
+    ISO strings so validation sees what the report actually wrote.
+    """
+    out = dict(meta)
+    for key, value in out.items():
+        if isinstance(value, (datetime, date)):
+            out[key] = value.isoformat()
+    return out
+
+
 def parse_review_report(path: Path) -> ReviewResult:
     text = Path(path).read_text(encoding="utf-8")
     match = _FRONTMATTER.match(text)
@@ -85,6 +103,21 @@ def parse_review_report(path: Path) -> ReviewResult:
         raise ValueError(f"review report missing frontmatter: {path}")
     meta = yaml.safe_load(match.group(1)) or {}
     body = match.group(2)
+
+    # Persona is the dict key for per-persona verdicts/breakdowns downstream.
+    # Fall back to the report filename stem when the frontmatter omits it, so
+    # two field-less reports don't collide on the empty-string key.
+    persona_id = (str(meta.get("persona") or "").strip()) or Path(path).stem
+    meta.setdefault("persona", persona_id)
+
+    # Validate frontmatter against the report schema: reject bad chapter_id,
+    # invalid verdict, or missing/negative count fields rather than silently
+    # coercing them with defaults.
+    try:
+        jsonschema.validate(_schema_serializable(meta), REPORT_SCHEMA)
+    except jsonschema.ValidationError as exc:
+        raise ValueError(f"invalid review report {path}: {exc.message}") from exc
+
     critical = _parse_findings_section(body, "Critical")
     important = _parse_findings_section(body, "Important")
     minor = _parse_findings_section(body, "Minor")
@@ -95,8 +128,9 @@ def parse_review_report(path: Path) -> ReviewResult:
         next_section = _SECTION.search(body, pos=start)
         end = next_section.start() if next_section else len(body)
         voice_notes = body[start:end].strip()
+
     return ReviewResult(
-        persona_id=meta.get("persona", ""),
+        persona_id=persona_id,
         chapter_id=meta.get("chapter_id", ""),
         verdict=meta.get("verdict", "APPROVED"),
         critical=critical,

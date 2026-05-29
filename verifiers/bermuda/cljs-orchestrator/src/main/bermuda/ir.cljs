@@ -65,13 +65,39 @@
    Claim map, or a new Event vector."
   [:or Claim Event])
 
-(def Verdict
+(def QueryResult
+  "A cozo query/defect row count, as serialised by ir.rs::emit_verdict."
   [:map
-   [:status       [:enum :sat :unsat :unknown]]
-   [:verified-claims {:optional true} [:vector Claim]]
-   [:core         {:optional true} [:vector :string]]
-   [:proofs       {:optional true} [:vector :map]]
-   [:graph-summary {:optional true} :map]])
+   [:name :string]
+   [:rows :int]])
+
+(def CorpusDefect
+  "A corpus-scope constraint violation (REQ-CORPUS-053)."
+  [:map
+   [:constraint-id :string]
+   [:subjects      [:vector :string]]
+   [:explanation   :string]])
+
+(def GraphSummary
+  "kg contradiction summary; emitted only when the kg feature ran."
+  [:map
+   [:claim-count :int]
+   [:contradictions [:vector [:map
+                              [:claim-id :string]
+                              [:reason   :string]]]]])
+
+(def Verdict
+  "Mirror of the keys ir.rs::emit_verdict actually serialises. :status/:core/
+   :explanation/:queries/:cozo-defects/:corpus-defects are always emitted (the
+   collections may be empty); :graph-summary appears only when the kg pass ran."
+  [:map
+   [:status        [:enum :sat :unsat :unknown]]
+   [:core          {:optional true} [:vector :string]]
+   [:explanation   {:optional true} :string]
+   [:queries       {:optional true} [:vector QueryResult]]
+   [:cozo-defects  {:optional true} [:vector QueryResult]]
+   [:corpus-defects {:optional true} [:vector CorpusDefect]]
+   [:graph-summary {:optional true} GraphSummary]])
 
 (defn enable-instrumentation! []
   (mi/instrument!

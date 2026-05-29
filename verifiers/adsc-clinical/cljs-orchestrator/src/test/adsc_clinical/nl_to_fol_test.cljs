@@ -66,6 +66,18 @@
       (is (= :expression (:kind (first out))))
       (is (= :symbol (:kind (second out)))))))
 
+(deftest translate-contract-accepts-claims-rejects-events
+  (testing "phases/translate's [:vector ir/Claim] :pre accepts legacy claims
+            but rejects trace-event tuples (documented contract divergence
+            from bermuda, which accepts ClaimOrEvent)"
+    ;; a vector of legacy Claim maps satisfies the precondition
+    (is (m/validate [:vector ir/Claim] [quantity-claim opaque-claim]))
+    ;; a book-knowledge trace event is a [head payload] tuple, NOT a Claim,
+    ;; so it must fail the precondition rather than be silently dropped.
+    (let [event ['claim/verified {:claim/id "C001"}]]
+      (is (not (m/validate ir/Claim event)))
+      (is (not (m/validate [:vector ir/Claim] [event]))))))
+
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests)]
     (when (or (pos? fail) (pos? error))

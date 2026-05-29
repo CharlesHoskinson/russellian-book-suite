@@ -49,6 +49,11 @@
    [:modality    [:enum :assertion :hypothesis :definition :counterfactual]]
    [:confidence  [:double {:min 0.0 :max 1.0}]]])
 
+;; NOTE: this verifier intentionally has no EventHead/Event/ClaimOrEvent
+;; schemas (cf. bermuda.ir). Its nl_to_fol translates legacy Claim maps only;
+;; phases/translate's :pre validates [:vector Claim] by design. See the
+;; CONTRACT DIVERGENCE note in phases.cljs.
+
 (def Verdict
   [:map
    [:status       [:enum :sat :unsat :unknown]]

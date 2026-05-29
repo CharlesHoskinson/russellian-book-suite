@@ -51,7 +51,7 @@ def _workflow_text() -> str:
 def test_python_skill_matrix_has_three_oses():
     """REQ-CI-040: python-skill matrix axis enumerates all three OSes."""
     text = _workflow_text()
-    for os_label in ("ubuntu-24.04", "macos-latest", "windows-2022"):
+    for os_label in ("ubuntu-24.04", "macos-15", "windows-2022"):
         assert os_label in text, f"workflow missing OS label {os_label}"
 
 

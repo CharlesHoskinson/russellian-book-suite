@@ -227,8 +227,6 @@ jobs:
         if: matrix.os == 'macos-15'
         run: brew install z3
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
-        with:
-          toolchain: 1.90.0
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/${{ matrix.verifier }}/rust-verifier

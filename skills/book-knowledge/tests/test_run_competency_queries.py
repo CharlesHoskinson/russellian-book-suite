@@ -146,6 +146,29 @@ def test_defeasible_critical_fire_hard_fails_when_blocking(tmp_path):
         run_competency_queries(layout)
 
 
+def test_cli_main_returns_clean_gate_code_on_hard_fail(tmp_path, capsys):
+    """When BLOCKING_DEFEASIBLE fires, main() must surface a clean gate-failure
+    message and a distinct non-zero exit code, not an unhandled traceback."""
+    import json
+    from scripts.workspace import init_workspace, WorkspaceLayout
+    from scripts.project_graph import project_graph
+    from scripts.run_competency_queries import main
+    layout = WorkspaceLayout(init_workspace(tmp_path))
+    layout.ledger.write_text(json.dumps({
+        "claim_id": "clm-2026-000001", "canonical_text": "Bermuda fact.",
+        "status": "verified", "claim_type": "fact", "confidence": 0.8,
+        "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+        "created_at": "2026-05-11T00:00:00Z",
+        "load_bearing": True, "supports_chapters": ["ch07"]
+    }) + "\n", encoding="utf-8")
+    project_graph(layout)
+    rc = main(["run_competency_queries.py", str(tmp_path)])
+    assert rc == 3
+    captured = capsys.readouterr()
+    assert "GATE FAILED" in captured.err
+    assert "rebuttal-presence" in captured.err
+
+
 def test_posterior_floor_fires_on_low_posterior(tmp_path, monkeypatch):
     """posterior-floor query must return rows when a chapter-supporting claim
     has p_posterior < 0.4 without pin_low_confidence."""

@@ -137,7 +137,13 @@ def main(argv: list[str]) -> int:
         print("usage: run_competency_queries.py <workspace-dir>", file=sys.stderr)
         return 2
     layout = WorkspaceLayout(Path(argv[1]))
-    findings = run_competency_queries(layout)
+    try:
+        findings = run_competency_queries(layout)
+    except RuntimeError as e:
+        # BLOCKING_DEFEASIBLE hard-gate fired. Surface a clean gate-failure
+        # message and a distinct non-zero exit code instead of a raw traceback.
+        print(f"GATE FAILED: {e}", file=sys.stderr)
+        return 3
     for name, rows in findings.items():
         if name == "warnings":
             print(f"warnings: {len(rows)} defeasible fire(s)")

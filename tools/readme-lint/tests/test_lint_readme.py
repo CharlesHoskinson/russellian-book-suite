@@ -78,9 +78,6 @@ def test_run_full_lint_returns_per_section_results(tmp_path: Path):
     assert exit_code == 0
 
 
-from scripts.lint_readme import parse_single_section
-
-
 def test_parse_single_section_finds_by_substring():
     sample = (
         "## Setting up\n\n"

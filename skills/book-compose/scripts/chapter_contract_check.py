@@ -66,11 +66,14 @@ def _read_verdict_counts(verdict_path: Path) -> tuple[int, int, int, int]:
 def _compute_persona_metrics(draft_path: Path) -> dict:
     workspace_root = _find_workspace_root_from_draft(draft_path)
     if workspace_root is None:
+        # No workspace root means no review could have run; the persona gate
+        # must not be trivially satisfiable by drafting outside a workspace.
         return {
             "persona_critical_count": 0,
+            "persona_advisory_critical_count": 0,
             "persona_important_count": 0,
             "persona_minor_count": 0,
-            "persona_reviews_complete": True,
+            "persona_reviews_complete": False,
         }
 
     chapter_id = draft_path.parent.name
@@ -96,6 +99,7 @@ def _compute_persona_metrics(draft_path: Path) -> dict:
     if not review_path.exists():
         return {
             "persona_critical_count": 0,
+            "persona_advisory_critical_count": 0,
             "persona_important_count": 0,
             "persona_minor_count": 0,
             "persona_reviews_complete": False,
@@ -103,6 +107,7 @@ def _compute_persona_metrics(draft_path: Path) -> dict:
     if review_path.stat().st_mtime < draft_path.stat().st_mtime:
         return {
             "persona_critical_count": 0,
+            "persona_advisory_critical_count": 0,
             "persona_important_count": 0,
             "persona_minor_count": 0,
             "persona_reviews_complete": False,
@@ -110,6 +115,7 @@ def _compute_persona_metrics(draft_path: Path) -> dict:
     crit, imp, minr = _read_persona_severity_counts(review_path)
     return {
         "persona_critical_count": crit,
+        "persona_advisory_critical_count": 0,
         "persona_important_count": imp,
         "persona_minor_count": minr,
         "persona_reviews_complete": True,

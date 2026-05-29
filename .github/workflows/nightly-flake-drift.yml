@@ -48,6 +48,15 @@ jobs:
             pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
           - skill: neurosym-forge
             extra: dev,semantic
+          # P2-matrix-coverage-gaps: install + import smoke on Windows too, so a
+          # bump that only breaks the Windows install is caught nightly. Full
+          # pytest is intentionally not run (heavy/risky deps, red-prone suites).
+          - skill: scrapling-fetch
+            extra: none
+            smoke: import
+          - skill: syntopical-metabook
+            extra: none
+            smoke: import
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
@@ -72,7 +81,13 @@ jobs:
               if (existsSync(link)) rmSync(link, { recursive: true, force: true });
               symlinkSync(join(cwd, 'skills', s), link, 'dir');
             }
+      - name: import smoke
+        if: matrix.smoke == 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
       - name: pytest (unfiltered)
+        if: matrix.smoke != 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
         run: python -m pytest tests/ -q --tb=short ${{ matrix.pytest-deselect }}

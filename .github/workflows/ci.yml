@@ -123,6 +123,26 @@ jobs:
           - skill: neurosym-forge
             extra: dev,semantic
             pytest-workers: auto
+          # P2-matrix-coverage-gaps: scrapling-fetch (highest supply-chain risk
+          # per dependabot.yml) and syntopical-metabook had ZERO CI signal — a
+          # Dependabot bump could land unverified. They carry heavy/risky
+          # transitive deps (scrapling/trafilatura; torch/sentence-transformers)
+          # and large suites with live-network and integration tests, so a full
+          # pytest leg is not reliably green under the no-extra base install.
+          # Add them as Linux-only install + import-smoke legs (smoke: import):
+          # the base package installs and `import skill_api` succeeds, which
+          # catches a broken dependency pin or a top-level import regression
+          # without committing to the full (red-prone) suite. These are
+          # include-only rows (not in the `skill` axis) so they create exactly
+          # one row each, pinned to ubuntu-24.04.
+          - skill: scrapling-fetch
+            os: ubuntu-24.04
+            extra: none
+            smoke: import
+          - skill: syntopical-metabook
+            os: ubuntu-24.04
+            extra: none
+            smoke: import
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
@@ -194,7 +214,17 @@ jobs:
           fi
           retry python -m pip install click
           python -m pip install --no-deps "$WHEEL"
+      # Install + import smoke for the coverage-gap skills (P2-matrix-coverage-gaps).
+      # The setup-book-python step above already installed the base package;
+      # importing skill_api proves the dependency pins resolve and the public
+      # surface imports cleanly. A broken Dependabot bump now reddens this leg.
+      - name: import smoke
+        if: matrix.smoke == 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
       - name: pytest
+        if: matrix.smoke != 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
         run: |

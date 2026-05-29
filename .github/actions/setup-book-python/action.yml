@@ -36,8 +36,15 @@ runs:
       # versions.
       run: |
         python -m pip install --upgrade "pip==25.2"
+        # An empty `extra` installs the base package with no optional-deps
+        # bracket (some skills, e.g. the smoke-only matrix legs, have no `ci`
+        # extra). A non-empty `extra` appends the `[extra]` selector.
+        target="${{ inputs.skill-path }}"
+        if [ -n "${{ inputs.extra }}" ] && [ "${{ inputs.extra }}" != "none" ]; then
+          target="${target}[${{ inputs.extra }}]"
+        fi
         if [ -n "${{ inputs.constraints }}" ]; then
-          python -m pip install -e "${{ inputs.skill-path }}[${{ inputs.extra }}]" -c "${{ inputs.constraints }}"
+          python -m pip install -e "${target}" -c "${{ inputs.constraints }}"
         else
-          python -m pip install -e "${{ inputs.skill-path }}[${{ inputs.extra }}]"
+          python -m pip install -e "${target}"
         fi

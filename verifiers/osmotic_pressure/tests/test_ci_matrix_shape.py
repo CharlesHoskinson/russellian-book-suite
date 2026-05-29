@@ -85,6 +85,23 @@ def test_python_skill_include_overrides_are_in_skill_axis():
         )
 
 
+def test_coverage_gap_skills_have_smoke_legs():
+    """P2-matrix-coverage-gaps: scrapling-fetch + syntopical-metabook are
+    covered by an install+import smoke leg (include-only rows pinned to one OS
+    with `smoke: import`), closing the zero-CI-signal gap on the highest
+    supply-chain-risk skills."""
+    text = _workflow_text()
+    include_block = text.split("        include:", 1)[1].split("\n    steps:", 1)[0]
+    for skill in ("scrapling-fetch", "syntopical-metabook"):
+        assert f"- skill: {skill}" in include_block, (
+            f"{skill} must have a matrix include row"
+        )
+    # These rows must be smoke-only (not full pytest) to stay green.
+    assert "smoke: import" in include_block, (
+        "coverage-gap skills must be added as `smoke: import` legs"
+    )
+
+
 # ---------- REQ-CI-041 ----------
 
 

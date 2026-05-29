@@ -11,17 +11,16 @@ from pathlib import Path
 from typing import Callable
 
 
-def _stub_llm(_: str) -> str:
-    raise SystemExit("No LLM caller wired. Run via the project's llm-call harness; CLI defaults are stubs only.")
-
-
 def cmd_derive_vocabulary(args: argparse.Namespace) -> None:
     from scripts.derive_vocabulary import derive_controlled_vocabulary
     derive_controlled_vocabulary(index_path=args.index, out_path=args.out)
 
 
-def cmd_extract(args: argparse.Namespace, llm_call: Callable[[str], str] = _stub_llm) -> None:
+def cmd_extract(args: argparse.Namespace, llm_call: Callable[[str], str] | None = None) -> None:
     from scripts.extract_candidates import extract_candidates
+    if llm_call is None:
+        from scripts.live_llm import extract_llm
+        llm_call = extract_llm
     extract_candidates(
         source_path=args.source,
         source_id=args.source_id,
@@ -47,8 +46,11 @@ def cmd_sentinel(args: argparse.Namespace) -> None:
     )
 
 
-def cmd_cross_check(args: argparse.Namespace, llm_call: Callable[[str], str] = _stub_llm) -> None:
+def cmd_cross_check(args: argparse.Namespace, llm_call: Callable[[str], str] | None = None) -> None:
     from scripts.cross_check import run_cross_check_batch
+    if llm_call is None:
+        from scripts.live_llm import cross_check_llm
+        llm_call = cross_check_llm
     run_cross_check_batch(
         passed_sentinel_path=args.passed_sentinel,
         rejected_path=args.rejected,

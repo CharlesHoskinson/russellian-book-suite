@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write   # for the ci-budget job to comment
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,12 +20,40 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Always-run lint gate (no rust gate, no `needs`). Pure-Python PRs skip the
+  # rust-gated `preflight` job, so without this job ruff/clj-kondo/fmt would
+  # never run at PR time on a pure-Python change (the root cause of the
+  # red-since-PR-122 incident). Reuses the proven `nix develop -c make lint`
+  # command set (identical toolchain to preflight) so it is green by
+  # construction. `make preflight` still chains `lint` too; the double-run only
+  # happens when preflight actually runs (push to main, or a rust-touching PR),
+  # which is an acceptable cost for keeping the Makefile/flake-drift contract
+  # intact. Also wires the NFR-4/NFR-5 invariant linters and ci/ tests that no
+  # gate previously executed.
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - name: make lint (ruff + clj-kondo + nixpkgs-fmt + cargo-fmt)
+        run: nix develop -c make lint
+      - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, ci tests)
+        run: |
+          nix develop -c python -m ci.lint_no_direct_http
+          nix develop -c python -m pytest ci/ -q
+      - name: required-check name drift (ci.yml job name == ruleset context)
+        run: nix develop -c bash scripts/check-required-name.sh
+
   # Detect whether the PR diff touches anything that could affect the Rust
   # verifiers or the Nix preflight. Pure-Python PRs skip those jobs (they
   # always pass on pure-Python changes). Pushes to main always run them.
   changes:
     name: detect rust/nix changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
     steps:
@@ -37,7 +64,16 @@ jobs:
           filters: |
             rust:
               - 'verifiers/**'
+              - 'skills/**'
+              - 'tools/**'
+              - 'ci/**'
               - '**/*.rs'
+              - '**/*.py'
+              - '**/*.clj'
+              - '**/*.cljs'
+              - '**/*.cljc'
+              - '**/*.edn'
+              - '**/*.nix'
               - '**/Cargo.toml'
               - '**/Cargo.lock'
               - 'flake.nix'
@@ -57,10 +93,11 @@ jobs:
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-2022]
+        os: [ubuntu-24.04, macos-15, windows-2022]
         skill:
           - book-qa
           - book-thesis
@@ -152,6 +189,7 @@ jobs:
     needs: [changes]
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
@@ -174,10 +212,11 @@ jobs:
     needs: [changes]
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest]
+        os: [ubuntu-24.04, macos-15]
         verifier: [bermuda, osmotic_pressure]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -185,9 +224,11 @@ jobs:
         if: matrix.os == 'ubuntu-24.04'
         run: sudo apt-get update && sudo apt-get install -y libz3-dev
       - name: install libz3 (macos)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-15'
         run: brew install z3
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
+        with:
+          toolchain: 1.90.0
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/${{ matrix.verifier }}/rust-verifier
@@ -208,6 +249,7 @@ jobs:
       - python-skill-matrix
       - cargo-test
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: always()
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -243,19 +285,50 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   required:
-    name: ci required ✓
+    name: ci-required
     needs:
+      - lint
       - preflight
       - python-skill-matrix
       - cargo-test
       - ci-divergence-summary
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: always()
     steps:
+      # Fail-closed aggregation. Always-run jobs (lint, python-skill-matrix,
+      # ci-divergence-summary) MUST be 'success' — a 'skipped' there means the
+      # gate did not actually run and is now treated as a failure. Change-scoped
+      # jobs (preflight, cargo-test) are legitimately 'skipped' on pure-Python
+      # PRs, so they accept 'success' OR 'skipped' but never 'failure'/'cancelled'.
       - name: aggregate
+        env:
+          LINT: ${{ needs.lint.result }}
+          PYTHON_SKILL: ${{ needs.python-skill-matrix.result }}
+          DIVERGENCE: ${{ needs.ci-divergence-summary.result }}
+          PREFLIGHT: ${{ needs.preflight.result }}
+          CARGO_TEST: ${{ needs.cargo-test.result }}
         run: |
-          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] ||
-             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
-            echo "one or more required jobs failed"
+          fail=0
+          require_success() {
+            if [ "$2" != "success" ]; then
+              echo "always-run job '$1' is '$2' (expected success)"
+              fail=1
+            fi
+          }
+          require_not_failed() {
+            if [ "$2" != "success" ] && [ "$2" != "skipped" ]; then
+              echo "change-scoped job '$1' is '$2' (expected success or skipped)"
+              fail=1
+            fi
+          }
+          require_success lint "$LINT"
+          require_success python-skill-matrix "$PYTHON_SKILL"
+          require_success ci-divergence-summary "$DIVERGENCE"
+          require_not_failed preflight "$PREFLIGHT"
+          require_not_failed cargo-test "$CARGO_TEST"
+          if [ "$fail" -ne 0 ]; then
+            echo "ci-required: one or more required jobs did not pass"
             exit 1
           fi
+          echo "ci-required: all required jobs passed"

@@ -108,6 +108,10 @@ jobs:
           - review-conductor
           - neurosym-forge
         include:
+          # book-qa is the P2-pip-lockfiles pilot: its install is pinned with a
+          # committed constraints.txt for byte-identical transitive versions.
+          - skill: book-qa
+            constraints: skills/book-qa/constraints.txt
           # book-compose needs sibling skills symlinked under ~/.claude/skills/
           - skill: book-compose
             siblings: book-knowledge russellian-style book-review review-conductor
@@ -126,6 +130,7 @@ jobs:
           python-version: "3.13"
           skill-path: skills/${{ matrix.skill }}
           extra: ${{ matrix.extra || 'ci' }}
+          constraints: ${{ matrix.constraints || '' }}
       # Portable symlink: `ln -sfn` requires Developer Mode (or admin) on
       # Windows. The Node `fs.symlinkSync` path works uniformly across
       # ubuntu/macos/windows runners.

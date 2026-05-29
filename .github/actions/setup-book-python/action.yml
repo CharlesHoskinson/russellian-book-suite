@@ -12,6 +12,13 @@ inputs:
     description: Optional-dependency extra to install (default "ci")
     required: false
     default: ci
+  constraints:
+    description: >
+      Optional path to a pip constraints file (relative to repo root). When
+      set, the skill install is pinned with `-c <file>` for reproducible
+      transitive versions (P2-pip-lockfiles pilot). Empty = unconstrained.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -23,6 +30,14 @@ runs:
         cache-dependency-path: ${{ inputs.skill-path }}/pyproject.toml
     - name: install ${{ inputs.skill-path }}[${{ inputs.extra }}]
       shell: bash
+      # Pin pip itself so the resolver/installer behaviour is reproducible
+      # across runs (P2-pip-lockfiles). When a constraints file is provided
+      # the editable install is pinned with `-c` for byte-identical transitive
+      # versions.
       run: |
-        python -m pip install --upgrade pip
-        python -m pip install -e "${{ inputs.skill-path }}[${{ inputs.extra }}]"
+        python -m pip install --upgrade "pip==25.2"
+        if [ -n "${{ inputs.constraints }}" ]; then
+          python -m pip install -e "${{ inputs.skill-path }}[${{ inputs.extra }}]" -c "${{ inputs.constraints }}"
+        else
+          python -m pip install -e "${{ inputs.skill-path }}[${{ inputs.extra }}]"
+        fi

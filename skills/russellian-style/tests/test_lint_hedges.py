@@ -63,3 +63,30 @@ def test_lint_hedges_still_catches_lowercase_may(tmp_path):
     f.write_text(text, encoding="utf-8")
     findings = lint_hedges(f)
     assert any(f["term"] == "may" for f in findings)
+
+
+def test_lint_hedges_col_on_continuation_line(tmp_path):
+    # A single sentence wrapped across two source lines, with the hedge on the
+    # second physical line. The reported line must be the hedge's physical line
+    # and col must be relative to that line, not a monotonic offset from the
+    # sentence's starting column.
+    text = "# Sample\n\nThe long opening clause carries on and on across the page,\nand it might fail.\n"
+    f = tmp_path / "wrap.md"
+    f.write_text(text, encoding="utf-8")
+    findings = lint_hedges(f)
+    might = [x for x in findings if x["term"] == "might"]
+    assert might, findings
+    h = might[0]
+    # "and it might fail." is source line 4; "might" starts at column 8.
+    assert h["line"] == 4, h
+    assert h["col"] == 8, h
+
+
+def test_lint_hedges_catches_capitalized_hedge_not_sentence_initial(tmp_path):
+    # A capitalized hedge that is NOT sentence-initial (here after a colon) is
+    # a genuine hedge, not a proper noun, and must not be skipped.
+    text = "# Sample\n\nThe rule is simple: May the build pass, the deploy proceeds."
+    f = tmp_path / "midcap.md"
+    f.write_text(text, encoding="utf-8")
+    findings = lint_hedges(f)
+    assert any(x["term"] == "may" for x in findings), findings

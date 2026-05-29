@@ -400,6 +400,129 @@ def test_memorization_vs_induction_rejected():
     assert 4 in result.failing_folds
 
 
+def test_run_rejects_memorizing_candidate_end_to_end(tmp_path):
+    """holdout-validation-not-wired: a candidate that fits the training
+    documents but fails a held-out document fold must be routed into the
+    rejected list with reason :memorization by the production `run()`
+    path, not accepted as a survivor.
+
+    We seed a corpus where predicate `flag` is positive in four documents
+    but negative in a fifth (held-out) document. The Stub LLM proposer
+    emits `(> (:flag ?d) 0)`, which the orchestrator must reject across
+    the document folds."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts import _induction_orchestrator as orch
+    from scripts._edn_reader import Keyword
+    from scripts._edn_writer import write_edn
+
+    rules = tmp_path / "rules"
+    rules.mkdir(parents=True)
+    schema = {
+        Keyword("version"): 1,
+        Keyword("sorts"): [Keyword("disease")],
+        Keyword("predicates"): {
+            Keyword("flag"): {
+                Keyword("arg-sorts"): [Keyword("disease")],
+                Keyword("return"): Keyword("real"),
+            }
+        },
+    }
+    (rules / "booklogic-schema.edn").write_text(
+        write_edn(schema, pretty=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    atom_rows = []
+    for i, doc in enumerate(["d1", "d2", "d3", "d4"]):
+        atom_rows.append((f"c{i}", doc, 5.0))
+    atom_rows.append(("c-neg", "d5", -1.0))  # held-out fold dips negative
+    atomspace = {
+        Keyword("version"): 1,
+        Keyword("atoms"): [
+            {
+                Keyword("claim-id"): cid,
+                Keyword("document"): doc,
+                Keyword("predicate"): Keyword("flag"),
+                Keyword("subject"): Keyword("s"),
+                Keyword("value"): val,
+            }
+            for cid, doc, val in atom_rows
+        ],
+    }
+    (rules / "atomspace.edn").write_text(
+        write_edn(atomspace, pretty=True) + "\n", encoding="utf-8", newline="\n"
+    )
+
+    rc = orch.main([str(tmp_path)])
+    assert rc == 0
+
+    payload = read_edn_file_local(tmp_path / "work" / "induction" / "candidates.edn")
+    cands = payload[Keyword("candidates")]
+    memo_rejected = [
+        c
+        for c in cands
+        if c.get(Keyword("rejection-reason")) == Keyword("memorization")
+    ]
+    assert memo_rejected, (
+        "the memorizing (> (:flag ?d) 0) candidate must be rejected with "
+        ":memorization end-to-end"
+    )
+    # The flag candidate must NOT survive as :pending.
+    pending_flag = [
+        c
+        for c in cands
+        if c.get(Keyword("status")) == Keyword("pending")
+        and "flag" in str(c.get(Keyword("canonical-form")))
+        and ">" in str(c.get(Keyword("canonical-form")))
+    ]
+    assert not pending_flag, "memorizing flag rule must not be accepted"
+
+
+def read_edn_file_local(path: Path):
+    from scripts._io import read_edn_file
+
+    return read_edn_file(path)
+
+
+def test_holdout_evaluates_the_candidates_own_predicate():
+    """holdout-ignores-candidate: validate_with_holdout must evaluate the
+    candidate's parsed :assert, not a hard-coded `r0` predicate.
+
+    Two candidates over the SAME folds must give DIFFERENT verdicts when
+    they assert different things. We build folds whose `r0` is always
+    non-negative but whose `coverage` dips negative in one fold:
+
+      - `(>= (:r0 ?d) 0)`       passes every fold  -> accepted
+      - `(>= (:coverage ?d) 0)` fails the dip fold -> rejected
+
+    If the function ignored its candidate (hard-coded r0), both would be
+    accepted and this test would fail."""
+    from scripts._induction_orchestrator import validate_with_holdout
+
+    folds = [
+        [{"r0": 3, "coverage": 1}, {"r0": 7, "coverage": 2}],
+        [{"r0": 0, "coverage": 5}, {"r0": 5, "coverage": 1}],
+        [{"r0": 4, "coverage": -1}, {"r0": 2, "coverage": -3}],  # coverage dips
+    ]
+
+    r0_form = read_edn(
+        "(defconstraint :c :backend :z3 :assert (>= (:r0 ?d) 0) "
+        ":on-unsat {:defect :D :severity :low})"
+    )
+    cov_form = read_edn(
+        "(defconstraint :c :backend :z3 :assert (>= (:coverage ?d) 0) "
+        ":on-unsat {:defect :D :severity :low})"
+    )
+
+    r0_result = validate_with_holdout(r0_form, folds)
+    cov_result = validate_with_holdout(cov_form, folds)
+
+    assert r0_result.rejected is False, "r0 is non-negative on every fold"
+    assert cov_result.rejected is True, "coverage dips negative in fold 2"
+    assert cov_result.reason == ":memorization"
+    assert 2 in cov_result.failing_folds
+
+
 # ---------------------------------------------------------------------------
 # REQ-TEST-044 — Module layout self-check
 # ---------------------------------------------------------------------------

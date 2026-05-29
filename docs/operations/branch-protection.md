@@ -8,12 +8,9 @@ For a PR to merge into `main`:
 1. A pull request is open (no direct push)
 2. The branch is up to date with `main`
 3. Every check below is green:
-   - `lint`
-   - `scaffold-bake`
-   - `regression (sprint-5)`
-   - `verifier (bermuda)`
-   - `verifier (osmotic-pressure)`
    - `ci required ✓`
+
+   Required contexts must match `ci.yml` job `name:` values exactly, so when CI jobs are renamed, update both this doc and `scripts/ruleset-apply.sh` in the same change.
 4. The PR enters the **merge queue**; the queue re-runs CI on the merged-base before pressing Merge
 
 ## Bypass

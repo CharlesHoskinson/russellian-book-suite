@@ -38,11 +38,6 @@ cat > /tmp/ruleset.json <<EOF
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
-          { "context": "lint" },
-          { "context": "scaffold-bake" },
-          { "context": "regression (sprint-5)" },
-          { "context": "verifier (bermuda)" },
-          { "context": "verifier (osmotic-pressure)" },
           { "context": "ci required ✓" }
         ]
       }

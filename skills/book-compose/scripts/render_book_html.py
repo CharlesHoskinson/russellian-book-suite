@@ -16,6 +16,9 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 SKELETON_TEMPLATE = (ASSETS / "book-html-skeleton.html").read_text(encoding="utf-8")
 INSERTION_MARKER = "<!-- BOOK_APP_INSERTION_POINT -->"
 
+# Orphan claim-citation tokens must not leak into the merged HTML (CLAUDE.md).
+_CITATION_PATTERN = re.compile(r"\[clm-\d{4}-\d{6}\]")
+
 
 _SCRIPT_END_RE = re.compile(r"</(script)", re.IGNORECASE)
 
@@ -30,7 +33,8 @@ def _escape_for_script_block(text: str) -> str:
 
 
 def write_html_skeleton(out_path: Path, summary: dict, manuscript_md: str) -> Path:
-    payload_json = json.dumps(summary, indent=2)
+    payload_json = _CITATION_PATTERN.sub("", json.dumps(summary, indent=2))
+    manuscript_md = _CITATION_PATTERN.sub("", manuscript_md)
     rendered = (
         SKELETON_TEMPLATE
         .replace("{{book_title}}", html.escape(summary.get("book_title", "Book")))

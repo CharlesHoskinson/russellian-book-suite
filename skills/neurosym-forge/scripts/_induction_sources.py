@@ -241,6 +241,19 @@ def _schema_predicates(schema: dict[str, Any]) -> list[tuple[str, list[Keyword],
     return out
 
 
+def _return_inner_sort(ret: Any) -> Any:
+    """Strip a one-layer container wrapper from a return sort, mirroring the
+    cljs booklogic ``return-inner-sort``. A scalar keyword passes through; a
+    ``[:vector T]`` / ``[:set T]`` container yields its inner sort T."""
+    if (
+        isinstance(ret, (list, tuple))
+        and len(ret) == 2
+        and ret[0] in (Keyword("vector"), Keyword("set"))
+    ):
+        return ret[1]
+    return ret
+
+
 def popper_search(schema: dict[str, Any]) -> list[dict[str, Any]]:
     """REQ-INDUCE-051(b): typed top-down enumeration up to 4-literal
     rule bodies. Mode declarations are derived mechanically from the
@@ -255,7 +268,7 @@ def popper_search(schema: dict[str, Any]) -> list[dict[str, Any]]:
     counts as one. Total = 4, the upper bound the spec sets.
     """
     preds = _schema_predicates(schema)
-    real_preds = [p for p in preds if p[2] == Keyword("real")]
+    real_preds = [p for p in preds if _return_inner_sort(p[2]) == Keyword("real")]
     cap = per_source_cap()
     out: list[dict[str, Any]] = []
     # Group by binding sort so we only pair predicates over the same domain.

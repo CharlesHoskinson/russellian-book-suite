@@ -592,6 +592,32 @@ def test_popper_search_cljs_python_parity_on_empty_arg_sorts() -> None:
     )
 
 
+def test_popper_search_treats_vector_real_return_as_real() -> None:
+    """induce-popper-real-keyword-vs-string: a predicate whose return is a
+    multi-valued container [:vector :real] is genuinely real-valued and must
+    be paired by popper_search, not silently dropped because the bare
+    equality (= :return :real) fails against the container form."""
+    from scripts._edn_reader import EdnVector
+
+    schema = {
+        Keyword("predicates"): {
+            Keyword("a"): {
+                Keyword("arg-sorts"): [Keyword("s")],
+                Keyword("return"): EdnVector([Keyword("vector"), Keyword("real")]),
+            },
+            Keyword("b"): {
+                Keyword("arg-sorts"): [Keyword("s")],
+                Keyword("return"): EdnVector([Keyword("set"), Keyword("real")]),
+            },
+        }
+    }
+    ids = sorted(c["id"] for c in sources.popper_search(schema))
+    assert ids == ["popper-a-b"], (
+        "container-typed real returns must be paired into an approx= "
+        f"candidate; got {ids}"
+    )
+
+
 def test_run_grammar_gates_non_conforming_candidate(seeded_project: Path, monkeypatch) -> None:
     """grammar-gate-never-invoked: run() must gate candidates through the
     grammar enforcer before persistence. A candidate with an illegal

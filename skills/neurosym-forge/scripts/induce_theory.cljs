@@ -152,13 +152,23 @@
 
 ;; ----- Source 2: Popper-style typed search (REQ-INDUCE-051(b)) -----
 
+(defn- return-inner-sort
+  "Strip a one-layer container wrapper from a return sort, mirroring booklogic
+   return-inner-sort. A scalar keyword passes through; [:vector T] / [:set T]
+   yields the inner sort T."
+  [ret]
+  (if (and (vector? ret) (#{:vector :set} (first ret)))
+    (second ret)
+    ret))
+
 (defn popper-search
   "Typed top-down enumeration up to 4 literals per rule.
    For each pair of :real-returning predicates over the same binding sort,
-   emit (approx= (:P ?d) (:Q ?d) :tolerance ε); Phase X fills ε."
+   emit (approx= (:P ?d) (:Q ?d) :tolerance ε); Phase X fills ε.
+   Container returns [:vector :real] / [:set :real] count as real-valued."
   [schema]
   (let [preds (:predicates schema)
-        real-preds (filter (fn [[_ sig]] (= (:return sig) :real)) preds)
+        real-preds (filter (fn [[_ sig]] (= (return-inner-sort (:return sig)) :real)) preds)
         by-sort (reduce (fn [acc [pname sig]]
                           (update acc (vec (or (:arg-sorts sig) []))
                                   (fnil conj []) (name pname)))

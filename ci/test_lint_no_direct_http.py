@@ -9,14 +9,12 @@ same forbidden module list.
 
 Invoke via:  python -m pytest ci/test_lint_no_direct_http.py -v   (from the repo root)
 """
-import ast
 import configparser
 import textwrap
 from pathlib import Path
 
 from ci.lint_no_direct_http import (
     ALLOWED_BROWSER_AUTOMATION,
-    FORBIDDEN_HTTP,
     FORBIDDEN_MODULES,
     _imports_in,
     find_violations,

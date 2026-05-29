@@ -31,7 +31,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 from scripts.corpus_io import content_locator, read_index
 

@@ -531,6 +531,67 @@ def _operator_heads(assert_body: str) -> set[str]:
     return heads
 
 
+def test_popper_search_cljs_python_parity_on_empty_arg_sorts() -> None:
+    """popper-cljs-python-divergence: a schema with two :real predicates
+    that lack :arg-sorts (grouped under the empty key) plus two with
+    :arg-sorts must yield the SAME candidate id set from the Python and
+    CLJS popper searches. Before the cljs (seq sort-key) guard, the cljs
+    side paired the no-arg-sorts predicates while Python dropped them.
+    Skips when nbb is not on PATH."""
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+
+    nbb = shutil.which("nbb")
+    if not nbb:
+        pytest.skip("nbb not available on PATH")
+
+    schema = {
+        Keyword("predicates"): {
+            Keyword("a"): {Keyword("return"): Keyword("real")},
+            Keyword("b"): {Keyword("return"): Keyword("real")},
+            Keyword("c"): {
+                Keyword("arg-sorts"): [Keyword("s")],
+                Keyword("return"): Keyword("real"),
+            },
+            Keyword("d"): {
+                Keyword("arg-sorts"): [Keyword("s")],
+                Keyword("return"): Keyword("real"),
+            },
+        }
+    }
+    py_ids = sorted(c["id"] for c in sources.popper_search(schema))
+
+    scripts_dir = SCRIPTS_PARENT / "scripts"
+    expr = (
+        "(require '[induce-theory :as it]) "
+        "(def schema {:predicates {:a {:return :real} :b {:return :real} "
+        ":c {:arg-sorts [:s] :return :real} :d {:arg-sorts [:s] :return :real}}}) "
+        "(doseq [c (it/popper-search schema)] (println (:id c)))"
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".cljs", dir=str(scripts_dir), delete=False, encoding="utf-8"
+    ) as fh:
+        fh.write(expr)
+        script = fh.name
+    try:
+        result = subprocess.run(
+            [nbb, "--classpath", str(scripts_dir), script],
+            capture_output=True, text=True, check=False, timeout=60,
+        )
+    finally:
+        os.unlink(script)
+    assert result.returncode == 0, result.stderr
+    cljs_ids = sorted(
+        ln.strip() for ln in result.stdout.splitlines() if ln.strip()
+    )
+
+    assert py_ids == cljs_ids == ["popper-c-d"], (
+        f"popper parity mismatch: python={py_ids} cljs={cljs_ids}"
+    )
+
+
 def test_run_grammar_gates_non_conforming_candidate(seeded_project: Path, monkeypatch) -> None:
     """grammar-gate-never-invoked: run() must gate candidates through the
     grammar enforcer before persistence. A candidate with an illegal

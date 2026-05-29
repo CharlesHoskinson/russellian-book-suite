@@ -165,13 +165,21 @@
                         {}
                         (mapv (fn [[k v]] [k v]) real-preds))
         cap (per-source-cap)]
-    (loop [groups (vals by-sort)
+    (loop [groups (seq by-sort)
            out []]
       (cond
         (empty? groups) (vec out)
         (>= (count out) cap) (vec out)
+        ;; Parity with Python popper_search: skip predicates with no
+        ;; :arg-sorts (grouped under the empty key) and groups of fewer
+        ;; than two predicates. Without the (seq sort-key) guard the cljs
+        ;; and Python implementations produce different candidate sets.
+        (let [[sort-key names0] (first groups)]
+          (or (empty? sort-key) (< (count names0) 2)))
+        (recur (rest groups) out)
         :else
-        (let [names (sort (first groups))
+        (let [[_sort-key names0] (first groups)
+              names (sort names0)
               pairs (for [i (range (count names))
                           j (range (inc i) (count names))]
                       [(nth names i) (nth names j)])

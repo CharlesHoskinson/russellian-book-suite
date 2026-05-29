@@ -187,9 +187,12 @@ jobs:
 
   # Divergence summary (REQ-CI-042). Runs regardless of upstream status so
   # the summary is published even on red runs. Emits a markdown table to
-  # $GITHUB_STEP_SUMMARY naming each matrix job's aggregate result and
-  # calling out per-OS divergence visible from the PR's checks page
-  # without expanding any per-job logs.
+  # $GITHUB_STEP_SUMMARY with each matrix job's *aggregate* result. The
+  # `needs.<job>.result` value is a single matrix-wide scalar — GitHub does
+  # not expose per-OS leg results to a downstream job — so the table is
+  # deliberately NOT broken out by OS (that would fan one scalar into three
+  # identical columns and misreport which leg actually broke). When the
+  # aggregate is `failure`, expand the run page to see which leg is red.
   ci-divergence-summary:
     name: ci divergence summary
     needs:
@@ -199,36 +202,31 @@ jobs:
     if: always()
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - name: emit per-OS divergence table
+      - name: emit matrix-aggregate result table
         env:
           PYTHON_SKILL_RESULT: ${{ needs.python-skill-matrix.result }}
           CARGO_TEST_RESULT: ${{ needs.cargo-test.result }}
         run: |
+          render() {
+            case "$1" in
+              success)   echo "pass" ;;
+              failure)   echo "see legs (red — expand run page)" ;;
+              skipped)   echo "skip" ;;
+              cancelled) echo "cancel" ;;
+              *)         echo "$1" ;;
+            esac
+          }
           {
-            echo "## Per-OS CI divergence"
+            echo "## CI matrix-aggregate results"
             echo
-            echo "Aggregate result per matrix job. Individual matrix legs"
-            echo "(per-OS, per-skill) are visible on the run page; this"
-            echo "table is the at-a-glance summary."
+            echo "One aggregate result per matrix job (matrix-wide, NOT"
+            echo "per-OS). Per-leg (per-OS, per-skill) status is on the run"
+            echo "page; a \`see legs\` result means at least one leg is red."
             echo
-            echo "| Job | Linux | macOS | Windows |"
-            echo "|---|---|---|---|"
-            case "$PYTHON_SKILL_RESULT" in
-              success)   ps_l="pass"; ps_m="pass"; ps_w="pass" ;;
-              failure)   ps_l="see legs"; ps_m="see legs"; ps_w="see legs" ;;
-              skipped)   ps_l="skip"; ps_m="skip"; ps_w="skip" ;;
-              cancelled) ps_l="cancel"; ps_m="cancel"; ps_w="cancel" ;;
-              *)         ps_l="$PYTHON_SKILL_RESULT"; ps_m="$PYTHON_SKILL_RESULT"; ps_w="$PYTHON_SKILL_RESULT" ;;
-            esac
-            case "$CARGO_TEST_RESULT" in
-              success)   ct_l="pass"; ct_m="pass" ;;
-              failure)   ct_l="see legs"; ct_m="see legs" ;;
-              skipped)   ct_l="skip"; ct_m="skip" ;;
-              cancelled) ct_l="cancel"; ct_m="cancel" ;;
-              *)         ct_l="$CARGO_TEST_RESULT"; ct_m="$CARGO_TEST_RESULT" ;;
-            esac
-            echo "| python-skill | $ps_l | $ps_m | $ps_w |"
-            echo "| cargo-test | $ct_l | $ct_m | n/a (REQ-CI-044: WSL fallback) |"
+            echo "| Job | OS coverage | Aggregate result |"
+            echo "|---|---|---|"
+            echo "| python-skill | Linux + macOS + Windows | $(render "$PYTHON_SKILL_RESULT") |"
+            echo "| cargo-test | Linux + macOS (Windows: WSL fallback) | $(render "$CARGO_TEST_RESULT") |"
             echo
             echo "See \`docs/operations/ci-platforms.md\` for the libz3"
             echo "matrix, the Windows-cargo skip rationale, and the"

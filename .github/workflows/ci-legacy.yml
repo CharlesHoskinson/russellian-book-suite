@@ -291,8 +291,14 @@ jobs:
         # cannot resolve to newer/unintended versions at CI time. If the lockfile
         # genuinely drifts from package.json, fix the lockfile (npm install
         # locally + commit) rather than masking it with `npm install`, which
-        # silently mutates the resolved dependency set.
-        run: npm ci --no-audit --no-fund
+        # silently mutates the resolved dependency set. 3-try backoff around the
+        # registry (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            npm ci --no-audit --no-fund && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: shadow-cljs compile + node test
         working-directory: verifiers/bermuda
         run: |
@@ -306,9 +312,13 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install build deps
+        # 3-try backoff around the apt mirror (P2-network-retries).
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y cmake build-essential && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: install rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
       - name: cargo cache
@@ -332,9 +342,13 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install build deps
+        # 3-try backoff around the apt mirror (P2-network-retries).
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y cmake build-essential && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
@@ -355,7 +369,13 @@ jobs:
       - name: install node deps
         working-directory: verifiers/bermuda
         # strict lockfile install — see cljs-bermuda-test rationale.
-        run: npm ci
+        # 3-try backoff around the registry (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            npm ci && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: booklogic compile
         working-directory: verifiers/bermuda
         run: npm run booklogic-compile
@@ -439,11 +459,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest
       - name: install nbb
-        run: npm install -g nbb
-      - name: install z3 build prerequisites
+        # 3-try backoff around the registry (P2-network-retries).
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          for i in 1 2 3; do
+            npm install -g nbb && break
+            echo "npm install attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+      - name: install z3 build prerequisites
+        # 3-try backoff around the apt mirror (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y cmake build-essential && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: confirm scaffold present in tree
         run: |
           test -d verifiers/osmotic_pressure || (echo "scaffold missing"; exit 1)
@@ -452,7 +482,13 @@ jobs:
       - name: install project npm deps
         working-directory: verifiers/osmotic_pressure
         # strict lockfile install (package-lock.json is committed).
-        run: npm ci
+        # 3-try backoff around the registry (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            npm ci && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: compile booklogic source
         working-directory: verifiers/osmotic_pressure
         run: nbb -m osmotic-pressure.booklogic .

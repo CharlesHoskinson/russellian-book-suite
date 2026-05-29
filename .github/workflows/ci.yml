@@ -157,13 +157,38 @@ jobs:
       # click; without it `import spacy` (and thus `spacy.load`) raises
       # ModuleNotFoundError and the conftest still hard-errors in CI. Pin to
       # the spaCy 3.8.x model that matches `spacy>=3.7,<4.0` in [ci].
+      # Cache the spaCy model wheel keyed on its pinned version so it is not
+      # re-fetched from GitHub releases on every run. The download step below
+      # uses the cached wheel when present and only hits the network on a miss.
+      - name: cache spaCy model wheel
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: spacy-wheel
+          key: spacy-model-en_core_web_sm-3.8.0
       - name: install spaCy model (russellian-style / book-compose)
         if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
         shell: bash
+        # Single-shot network steps are wrapped in a 3-try backoff so a
+        # transient registry/GitHub-release blip retries rather than reddening
+        # the required check (P2-network-retries).
         run: |
-          python -m pip install click
-          python -m pip install --no-deps \
-            "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+          retry() {
+            for i in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $i failed; retrying in $((i * 5))s" >&2
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          WHEEL_URL="https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+          WHEEL="spacy-wheel/en_core_web_sm-3.8.0-py3-none-any.whl"
+          mkdir -p spacy-wheel
+          if [ ! -f "$WHEEL" ]; then
+            retry curl -fsSL "$WHEEL_URL" -o "$WHEEL"
+          fi
+          retry python -m pip install click
+          python -m pip install --no-deps "$WHEEL"
       - name: pytest
         working-directory: skills/${{ matrix.skill }}
         shell: bash
@@ -222,10 +247,22 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: install libz3 (linux)
         if: matrix.os == 'ubuntu-24.04'
-        run: sudo apt-get update && sudo apt-get install -y libz3-dev
+        # 3-try backoff around the apt mirror (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y libz3-dev && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: install libz3 (macos)
         if: matrix.os == 'macos-15'
-        run: brew install z3
+        # 3-try backoff around the brew formula download (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            brew install z3 && break
+            echo "brew attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:

@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from scripts import _induction_sources as sources
+from scripts import _induction_validator as _validator
 from scripts._edn_reader import Keyword
 from scripts._io import read_edn_file, write_edn_file
 
@@ -303,6 +304,30 @@ def run(project_root: Path) -> int:
     # Dedup with rejection logging (REQ-INDUCE-052, 055)
     all_cands = horn_cands + popper_cands + llm_cands
     survivors, rejected = sources.dedup_with_rejection_log(all_cands)
+
+    # Grammar gate (REQ-INDUCE-040): the FIRST gate — every surviving
+    # candidate is checked against the supported operator set, the
+    # schema's predicates, and the circular-definition rule BEFORE any
+    # solver call. Non-conforming forms are routed into rejected with the
+    # grammar-fail tag rather than persisted as accepted.
+    gate_kept: list[dict[str, Any]] = []
+    for c in survivors:
+        parsed = _parse_candidate_edn(c.get("edn"))
+        result = (
+            _validator.grammar_conforming(parsed, schema)
+            if parsed is not None
+            else _validator.GrammarResult(False, ":grammar-fail/non-edn")
+        )
+        if result.ok:
+            gate_kept.append(c)
+        else:
+            entry = dict(c)
+            entry["status"] = "rejected"
+            # Store the grammar-fail tag without the leading colon to match
+            # the EDN-keyword serialisation other rejection reasons use.
+            entry["rejection_reason"] = (result.tag or ":grammar-fail").lstrip(":")
+            rejected.append(entry)
+    survivors = gate_kept
 
     # Held-out validation (REQ-TEST-043): reject candidates that fit the
     # corpus but fail a held-out document fold (memorisation defence).

@@ -178,47 +178,9 @@ def _extract_keyed_value(form, key_name: str):
     return None
 
 
-class _StubGrammarResult:
-    def __init__(self, ok: bool, tag: str | None = None) -> None:
-        self.ok = ok
-        self.tag = tag
-
-
-def _stub_grammar_conforming(candidate) -> _StubGrammarResult:
-    """Stub grammar enforcer.
-
-    Extracts the rule's `:on-unsat` defect id, walks the `:assert` AST,
-    and rejects with `:grammar-fail/circular-definition` if any node
-    matches the defect id (the rule "refers to itself").
-    """
-    assert_form = _extract_keyed_value(candidate, "assert")
-    on_unsat = _extract_keyed_value(candidate, "on-unsat")
-    defect_id = None
-    if isinstance(on_unsat, dict):
-        for k, v in on_unsat.items():
-            k_name = getattr(k, "name", str(k))
-            if k_name == "defect":
-                defect_id = v
-                break
-    if defect_id is not None and assert_form is not None:
-        if _contains_term(assert_form, defect_id):
-            return _StubGrammarResult(
-                ok=False, tag=":grammar-fail/circular-definition"
-            )
-    return _StubGrammarResult(ok=True)
-
-
-def _contains_term(form, target) -> bool:
-    """Recursively check whether `form` contains `target` as a subterm."""
-    if _terms_equal(form, target):
-        return True
-    if isinstance(form, list):
-        return any(_contains_term(x, target) for x in form)
-    if isinstance(form, dict):
-        for k, v in form.items():
-            if _contains_term(k, target) or _contains_term(v, target):
-                return True
-    return False
+# The circular-definition gate now lives in production
+# (`_induction_grammar.cljs`); `test_proof_level_confabulation_rejected`
+# binds to it directly via nbb rather than a test-local stub.
 
 
 class _StubHoldoutResult:
@@ -334,35 +296,99 @@ def test_outcome_driven_constraint_violation_rejected():
     assert result.reason == ":trivial-tautology"
 
 
+def test_real_validator_module_is_bound_and_discriminating():
+    """tautology-circular-only-in-test-stubs: the tautology gate must
+    exist in production (`scripts._induction_validator`), not only as a
+    test-local stub. Assert the module is importable AND discriminating
+    (accepts a non-trivial rule, rejects a tautology) so the test is not
+    satisfied by a degenerate always-reject."""
+    assert _has_module("scripts._induction_validator"), (
+        "scripts._induction_validator must exist in production"
+    )
+    from scripts._induction_validator import validate  # type: ignore
+
+    tautology = read_edn(
+        (FIXTURES / "tautology_candidate.edn").read_text(encoding="utf-8")
+    )
+    non_trivial = read_edn(
+        "(defconstraint :c :backend :z3 :assert (>= (:r0 ?d) 0) "
+        ":on-unsat {:defect :D :severity :low})"
+    )
+    assert validate(tautology).rejected is True
+    assert validate(tautology).reason == ":trivial-tautology"
+    assert validate(non_trivial).rejected is False
+
+
 # ---------------------------------------------------------------------------
 # REQ-TEST-042 — Proof-Level Confabulation
 # ---------------------------------------------------------------------------
 
 
+def _grammar_conforming_via_nbb(form_edn: str, schema_edn: str) -> dict:
+    """Run the cljs `_induction_grammar.cljs` enforcer over a candidate by
+    writing the eval expression to a temp .cljs file under the scripts
+    dir and shelling into nbb.
+
+    The enforcer is a ClojureScript module with no Python surface, so the
+    test binds to it via nbb (the structurally-correct binding) rather
+    than an importlib spec probe that can never resolve a .cljs file.
+    A file argument (not `nbb -e <expr>`) sidesteps the Windows cmd.exe
+    redirection issue with operators containing `>`."""
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+
+    nbb = shutil.which("nbb")
+    assert nbb is not None
+    scripts_dir = Path(__file__).resolve().parents[1] / "scripts"
+    expr = (
+        "(require '[_induction-grammar :as g]) "
+        f"(println (g/grammar-conforming-json {json.dumps(form_edn)} "
+        f"{json.dumps(schema_edn)}))"
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".cljs", dir=str(scripts_dir), delete=False, encoding="utf-8"
+    ) as fh:
+        fh.write(expr)
+        script = fh.name
+    try:
+        result = subprocess.run(
+            [nbb, "--classpath", str(scripts_dir), script],
+            capture_output=True, text=True, check=False, timeout=60,
+        )
+    finally:
+        os.unlink(script)
+    assert result.returncode == 0, f"nbb failed: {result.stderr!r}"
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
 def test_proof_level_confabulation_rejected():
     """REQ-TEST-042: grammar enforcer rejects circular `:assert` references.
 
-    Mitigation under test: Phase V's grammar enforcer walks the
-    `:assert` AST and rejects with
-    `:grammar-fail/circular-definition` when any node matches the
-    rule's own `:on-unsat` defect id. A rule that references its own
-    defect "proves itself" without ever touching the atomspace; the AST
-    walker catches the cycle before the candidate reaches the
-    validator.
-    """
-    candidate = read_edn(
-        (FIXTURES / "circular_candidate.edn").read_text(encoding="utf-8")
-    )
+    Mitigation under test: the grammar enforcer walks the `:assert` AST
+    and rejects with `:grammar-fail/circular-definition` when any node
+    matches the rule's own `:on-unsat` defect id. A rule that references
+    its own defect "proves itself" without ever touching the atomspace.
 
-    if _has_module("scripts._induction_grammar"):
-        from scripts._induction_grammar import grammar_conforming  # type: ignore
+    The enforcer is ClojureScript (`_induction_grammar.cljs`), so the
+    test shells into nbb against the real gate. It skips when nbb is not
+    on PATH (the static `find_spec` probe could never bind a .cljs file —
+    that was the confabulation-test-module-mismatch defect)."""
+    import shutil
 
-        result = grammar_conforming(candidate)
-    else:
-        result = _stub_grammar_conforming(candidate)
+    if not shutil.which("nbb"):
+        pytest.skip("nbb not available on PATH; cljs grammar gate needs nbb")
 
-    assert result.ok is False
-    assert result.tag == ":grammar-fail/circular-definition"
+    form = (FIXTURES / "circular_candidate.edn").read_text(encoding="utf-8")
+    # Schema declaring the predicate the circular fixture references so the
+    # gate reaches the circular-definition check rather than tripping on
+    # :grammar-fail/unknown-predicate first.
+    schema = "{:predicates {:defect-id {:arg-sorts [:s] :return :int}} :sorts [:s]}"
+
+    result = _grammar_conforming_via_nbb(form, schema)
+    assert result["ok"] is False
+    assert result.get("tag") == "grammar-fail/circular-definition"
 
 
 # ---------------------------------------------------------------------------

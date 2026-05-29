@@ -9,7 +9,7 @@
    discipline: the LLM never invents the language. Everything outside
    this grammar is rejected here.
 
-   Five disjoint failure categories, each tagged for the orchestrator's
+   Six disjoint failure categories, each tagged for the orchestrator's
    failure log:
 
      :grammar-fail/non-edn             — reader error / not parseable EDN
@@ -20,6 +20,10 @@
                                          lands when Phase W wires the
                                          schema's per-arg sort table)
      :grammar-fail/illegal-op          — op outside SUPPORTED-OPERATORS
+     :grammar-fail/circular-definition — :assert references the rule's
+                                         own :on-unsat defect id, so it
+                                         proves itself without touching
+                                         the atomspace (REQ-TEST-042)
 
    Public surface:
 
@@ -106,6 +110,25 @@
   (set (keys (get schema :predicates {}))))
 
 
+(defn- contains-term?
+  "Recursively test whether `form` contains `target` as a subterm
+   (equal by value). Walks sequential forms and maps."
+  [form target]
+  (cond
+    (= form target) true
+    (map? form) (some (fn [[k v]] (or (contains-term? k target)
+                                      (contains-term? v target)))
+                      form)
+    (sequential? form) (some #(contains-term? % target) form)
+    :else false))
+
+
+(defn- on-unsat-defect-id
+  "Pull the `:defect` id out of the `:on-unsat` option map, or nil."
+  [on-unsat]
+  (when (map? on-unsat) (:defect on-unsat)))
+
+
 ;; ----- public surface -------------------------------------------------------
 
 
@@ -168,7 +191,18 @@
                  :tag :grammar-fail/unknown-predicate
                  :reason (str "unknown predicate(s) not declared in "
                               "schema: " missing)}
-                {:ok true}))))))))
+                ;; REQ-TEST-042: a rule whose :assert references its own
+                ;; :on-unsat defect id "proves itself" without touching
+                ;; the atomspace — reject as a circular definition.
+                (let [defect-id (on-unsat-defect-id on-unsat)]
+                  (if (and (some? defect-id)
+                           (contains-term? assert-form defect-id))
+                    {:ok false
+                     :tag :grammar-fail/circular-definition
+                     :reason (str "assert references its own :on-unsat "
+                                  "defect id " defect-id
+                                  " (circular self-proof)")}
+                    {:ok true}))))))))))
 
 
 (defn- result->json-string [m]

@@ -182,9 +182,12 @@ def test_orchestrator_entrypoint_runs_on_fixture_project(seeded_project: Path) -
 
     if not shutil.which("nbb"):
         pytest.skip("nbb not available on PATH")
-    cljs = SCRIPTS_PARENT / "scripts" / "induce_theory.cljs"
+    scripts_dir = SCRIPTS_PARENT / "scripts"
+    cljs = scripts_dir / "induce_theory.cljs"
+    # --classpath is required so the orchestrator can require its sibling
+    # `_induction-grammar` namespace for the grammar gate.
     result = subprocess.run(
-        ["nbb", str(cljs), str(seeded_project)],
+        ["nbb", "--classpath", str(scripts_dir), str(cljs), str(seeded_project)],
         capture_output=True,
         text=True,
         check=False,
@@ -526,6 +529,47 @@ def _operator_heads(assert_body: str) -> set[str]:
             continue  # predicate call, not an operator
         heads.add(head)
     return heads
+
+
+def test_run_grammar_gates_non_conforming_candidate(seeded_project: Path, monkeypatch) -> None:
+    """grammar-gate-never-invoked: run() must gate candidates through the
+    grammar enforcer before persistence. A candidate with an illegal
+    operator must be routed into the queue as :rejected with a
+    grammar-fail reason, not accepted as :pending."""
+    # Drive the Stub LLM proposer to emit an illegal-operator candidate.
+    monkeypatch.setenv("NEUROSYM_LLM_PROVIDER", "stub")
+    monkeypatch.setenv(
+        "NEUROSYM_STUB_CANDIDATE",
+        "(defconstraint :induced/bad :backend :z3 "
+        ":assert (bogusop (:basic-reproduction-number ?d) 0) "
+        ':on-unsat {:defect :D :severity :advisory :message "x"})',
+    )
+    rc = orch.main([str(seeded_project)])
+    assert rc == 0
+    payload = read_edn_file(seeded_project / "work" / "induction" / "candidates.edn")
+    cands = payload[Keyword("candidates")]
+    bad = [c for c in cands if "bogusop" in str(c.get(Keyword("canonical-form")))]
+    assert bad, "the illegal-operator candidate must appear in the queue"
+    # No bogusop candidate may be accepted as :pending.
+    assert all(
+        c[Keyword("status")] == Keyword("rejected") for c in bad
+    ), "illegal-operator candidate must not survive the grammar gate"
+    # At least one must carry a grammar-fail rejection reason (the deduped
+    # survivor copy that the gate rejected, vs the :duplicate copies).
+    reasons = {str(c[Keyword("rejection-reason")]) for c in bad}
+    assert any("grammar-fail" in r for r in reasons), reasons
+
+
+def test_run_grammar_gate_keeps_conforming_candidates(seeded_project: Path) -> None:
+    """grammar-gate-never-invoked: conforming Horn/Popper/Stub candidates
+    survive the gate (the fixed `=>` / `approx=` / `>` operators all
+    conform), so the gate is not a blanket reject."""
+    rc = orch.main([str(seeded_project)])
+    assert rc == 0
+    payload = read_edn_file(seeded_project / "work" / "induction" / "candidates.edn")
+    cands = payload[Keyword("candidates")]
+    pending = [c for c in cands if c[Keyword("status")] == Keyword("pending")]
+    assert pending, "conforming candidates must survive the grammar gate"
 
 
 def _grammar_check_via_nbb(form_edn: str, schema_edn: str) -> dict:

@@ -21,6 +21,7 @@
    (REQ-INDUCE-056) are wired in follow-on commits."
   (:require [cljs.reader :as edn]
             [clojure.string :as str]
+            [_induction-grammar :as grammar]
             ["fs" :as fs]
             ["path" :as path]))
 
@@ -175,7 +176,7 @@
                           j (range (inc i) (count names))]
                       [(nth names i) (nth names j)])
               new-cands (for [[p1 p2] pairs
-                              :let [edn-str (str "(defconstraint :induced/" p1 "~" p2 "\n"
+                              :let [edn-str (str "(defconstraint :induced/" p1 "-approx-" p2 "\n"
                                                  "  :backend :z3\n"
                                                  "  :assert (approx= (:" p1 " ?d) (:" p2 " ?d) :tolerance 0.05)\n"
                                                  "  :on-unsat {:defect :D-induced-p :severity :advisory\n"
@@ -359,6 +360,30 @@
                      :corpus-size corpus-size
                      :candidates queue})))
 
+;; ----- grammar gate (REQ-INDUCE-040) -----
+
+(defn grammar-gate
+  "Gate each candidate through the grammar enforcer before persistence.
+   Conforming candidates are returned as survivors; non-conforming ones
+   are moved to rejected with the enforcer's grammar-fail tag as the
+   :rejection-reason. This is the FIRST gate before any solver call —
+   non-conforming forms never reach Z3."
+  [candidates schema]
+  (reduce (fn [{:keys [survivors rejected]} c]
+            (let [form (try (edn/read-string (:edn c)) (catch :default _ nil))
+                  result (if (nil? form)
+                           {:ok false :tag :grammar-fail/non-edn}
+                           (grammar/grammar-conforming? form schema))]
+              (if (:ok result)
+                {:survivors (conj survivors c) :rejected rejected}
+                {:survivors survivors
+                 :rejected (conj rejected
+                                 (-> c
+                                     (assoc :status :rejected)
+                                     (assoc :rejection-reason (:tag result))))})))
+          {:survivors [] :rejected []}
+          candidates))
+
 ;; ----- main -----
 
 (defn -main
@@ -377,7 +402,13 @@
                 :spent-usd (:spent-usd llm-result)
                 :halted? (:halted? llm-result)}
         all (vec (concat horn-cands popper-cands llm-cands))
-        {:keys [survivors rejected]} (dedup-with-rejection-log all)]
+        {:keys [survivors rejected]} (dedup-with-rejection-log all)
+        ;; Grammar gate (REQ-INDUCE-040): every surviving candidate is
+        ;; gated before persistence; non-conforming forms are rejected
+        ;; with the grammar-fail tag rather than persisted.
+        gated (grammar-gate survivors schema)
+        survivors (:survivors gated)
+        rejected (vec (concat rejected (:rejected gated)))]
     (persist-queue project-root survivors rejected (count atoms))
     (persist-budget project-root budget)
     (println (str "[induce-theory] " (count survivors) " candidates, "
@@ -386,15 +417,18 @@
                   (if-let [l (:limit-usd budget)] (str "$" l) "unbounded")))))
 
 ;; When invoked as `nbb <file> <args>`, nbb runs the file top-to-bottom and
-;; does NOT auto-call -main. Inspect argv: if argv[2] is a file path matching
-;; this script, drop the leading runtime args and invoke -main with the rest.
+;; does NOT auto-call -main. Scan argv for the entry that is this script's
+;; path (it can appear after runtime flags like `--classpath scripts`, so a
+;; fixed argv index is brittle), then invoke -main with everything after it.
 ;; When invoked as `nbb -m induce-theory <args>`, nbb's main resolver calls
-;; -main directly, so this branch SHOULD NOT also fire — argv[2] is "-m" or
-;; the namespace name, not a file path.
+;; -main directly and no argv entry ends in induce_theory.cljs, so this
+;; branch does NOT also fire.
 (let [argv (vec (.-argv js/process))
-      script-arg (get argv 2)
-      is-file-mode? (and script-arg
-                         (or (.endsWith script-arg "induce_theory.cljs")
-                             (.endsWith script-arg "induce_theory.cljc")))]
-  (when is-file-mode?
-    (apply -main (drop 3 argv))))
+      script-idx (->> (map-indexed vector argv)
+                      (some (fn [[i a]]
+                              (when (and (string? a)
+                                         (or (.endsWith a "induce_theory.cljs")
+                                             (.endsWith a "induce_theory.cljc")))
+                                i))))]
+  (when script-idx
+    (apply -main (drop (inc script-idx) argv))))

@@ -120,6 +120,44 @@ def test_sentinel_rejects_duplicate_appended_by_prior_run(tmp_path: Path) -> Non
     assert outcome.reason == "duplicate"
 
 
+def test_sentinel_rejects_reextraction_of_locatorless_seed_entry(tmp_path: Path) -> None:
+    """The 50 committed seed entries carry only id/source/line_hint/rhetorical_move/tags —
+    no content_locator and no paragraph_text. Re-extracting one of those seed paragraphs
+    must still be rejected as a duplicate, otherwise dedup against the entire pre-seeded
+    corpus is structurally impossible. Finding sentinel-seed-entries-have-no-locator.
+
+    The good.json candidate has source_id "problems" and line_hint matching the seed entry
+    below; that (source, line_hint) pair is the dedup key the seed can carry today, before
+    any content_locator backfill."""
+    candidate = json.loads((CANDIDATES / "good.json").read_text())
+    seed_entry = {
+        "id": "problems-001",
+        "source": candidate["source_id"],
+        "line_hint": candidate["line_hint"],
+        "rhetorical_move": "relation made concrete through a room example",
+        "tags": ["concrete_example", "abstraction_grounding"],
+    }
+    assert "content_locator" not in seed_entry  # exactly like the committed seeds
+    index = tmp_path / "index.json"
+    index.write_text(json.dumps({
+        "version": "0.1.0",
+        "paragraph_count": 1,
+        "sources": {"problems": {"title": "x", "url": "u", "copyright_status": "public_domain_us", "mode": ["m"]}},
+        "paragraphs": [seed_entry],
+    }), encoding="utf-8")
+    outcome = run_sentinel(
+        candidate=candidate,
+        source_path=SOURCE_CACHE / "problems_subset.html",
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=GENERIC_PHRASES,
+        existing_index_path=index,
+        batch_seen_locators=set(),
+    )
+    assert outcome.status == "reject"
+    assert outcome.reason == "duplicate"
+
+
 def test_sentinel_defers_novel_tag(tmp_path: Path) -> None:
     candidate = json.loads((CANDIDATES / "novel_tag.json").read_text())
     outcome = run_sentinel(

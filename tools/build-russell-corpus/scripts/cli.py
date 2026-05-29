@@ -65,6 +65,16 @@ def cmd_audit(args: argparse.Namespace) -> None:
     sample_audit(verified_path=args.verified, out_path=args.out, sample_rate=args.rate, seed=args.seed)
 
 
+def cmd_backfill_locators(args: argparse.Namespace) -> None:
+    from scripts.backfill_locators import backfill_content_locators
+    n = backfill_content_locators(
+        index_path=args.index,
+        source_cache_dir=args.source_cache,
+        cache_filename=lambda sid: f"{sid}{args.cache_suffix}",
+    )
+    print(f"backfilled content_locator onto {n} entr{'y' if n == 1 else 'ies'}")
+
+
 def cmd_append(args: argparse.Namespace) -> None:
     from scripts.append_to_index import append_verified_to_index, regenerate_corpus_map
     append_verified_to_index(verified_path=args.verified, index_path=args.index)
@@ -113,6 +123,12 @@ def main() -> None:
     p.add_argument("--rate", type=float, default=0.05)
     p.add_argument("--seed", type=int, default=None)
     p.set_defaults(func=cmd_audit)
+
+    p = sub.add_parser("backfill-locators")
+    p.add_argument("--index", type=Path, required=True)
+    p.add_argument("--source-cache", type=Path, required=True)
+    p.add_argument("--cache-suffix", type=str, default=".html")
+    p.set_defaults(func=cmd_backfill_locators)
 
     p = sub.add_parser("append")
     p.add_argument("--verified", type=Path, required=True)

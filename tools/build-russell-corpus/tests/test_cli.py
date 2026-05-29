@@ -55,3 +55,26 @@ def test_cross_check_subcommand_uses_live_caller_not_stub(monkeypatch, tmp_path)
     cli.main()
     from scripts.live_llm import cross_check_llm
     assert captured["llm_call"] is cross_check_llm
+
+
+def test_backfill_locators_subcommand_dispatches(monkeypatch, tmp_path):
+    """The backfill-locators subcommand routes to backfill_content_locators with the
+    index/source-cache paths (finding sentinel-seed-entries-have-no-locator)."""
+    captured = {}
+
+    def fake_backfill(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(
+        "scripts.backfill_locators.backfill_content_locators", fake_backfill
+    )
+    argv = [
+        "build-russell-corpus", "backfill-locators",
+        "--index", str(tmp_path / "index.json"),
+        "--source-cache", str(tmp_path / "cache"),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    cli.main()
+    assert captured["index_path"] == tmp_path / "index.json"
+    assert captured["source_cache_dir"] == tmp_path / "cache"

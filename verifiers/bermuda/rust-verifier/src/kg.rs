@@ -163,15 +163,15 @@ pub fn run_queries(_query_edn: &str) -> Result<Vec<QueryRunResult>, String> {
 
 #[cfg(feature = "kg")]
 fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
-    let db = DbInstance::new("mem", "", "")
-        .map_err(|e| Error::Kg(format!("cozo init: {e}")))?;
+    let db = DbInstance::new("mem", "", "").map_err(|e| Error::Kg(format!("cozo init: {e}")))?;
     // Populate a minimal `claim {id, source}` relation; expand as the
     // schema grows. v0.4 only models the two ir::Claim fields.
     db.run_script(
         ":create claim {id: String => source: String}",
         Default::default(),
         cozo::ScriptMutability::Mutable,
-    ).map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
+    )
+    .map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
     // Declare `claim_load_bearing` (value column typed Bool); referenced by a generated defquery but
     // not yet populated from the claim model. Created empty so the query
     // returns zero rows rather than erroring on an unknown relation.
@@ -179,7 +179,8 @@ fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
         ":create claim_load_bearing {id: String => value: Bool}",
         Default::default(),
         cozo::ScriptMutability::Mutable,
-    ).map_err(|e| Error::Kg(format!("cozo create claim_load_bearing: {e}")))?;
+    )
+    .map_err(|e| Error::Kg(format!("cozo create claim_load_bearing: {e}")))?;
     // Declare `claim_posterior` (value column typed Float); referenced by a generated defquery but
     // not yet populated from the claim model. Created empty so the query
     // returns zero rows rather than erroring on an unknown relation.
@@ -187,7 +188,8 @@ fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
         ":create claim_posterior {id: String => value: Float}",
         Default::default(),
         cozo::ScriptMutability::Mutable,
-    ).map_err(|e| Error::Kg(format!("cozo create claim_posterior: {e}")))?;
+    )
+    .map_err(|e| Error::Kg(format!("cozo create claim_posterior: {e}")))?;
     // Use Cozo parameterised inputs ($id / $source) rather than string
     // interpolation so claim ids/sources containing backslashes, quotes,
     // or other Cozo-special characters cannot break the script or alter
@@ -215,17 +217,25 @@ pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
     let mut contradictions: Vec<(String, String)> = Vec::new();
     // dispatch: "Q001-low-confidence-load-bearing"
     {
-        let script = r#"?[claim] := *claim_load_bearing[claim, true], *claim_posterior[claim, p], p < 0.8"#;
-        let result: NamedRows = db.run_script(
-            script, Default::default(), cozo::ScriptMutability::Immutable,
-        ).map_err(|e| Error::Kg(format!(r#"query Q001-low-confidence-load-bearing: {e}"#)))?;
+        let script =
+            r#"?[claim] := *claim_load_bearing[claim, true], *claim_posterior[claim, p], p < 0.8"#;
+        let result: NamedRows = db
+            .run_script(
+                script,
+                Default::default(),
+                cozo::ScriptMutability::Immutable,
+            )
+            .map_err(|e| Error::Kg(format!(r#"query Q001-low-confidence-load-bearing: {e}"#)))?;
         for row in result.rows.iter() {
             // Each matched row produces a defect (posterior-floor/warning/Q001-low-confidence-load-bearing).
             let row_id = match row.first() {
                 Some(DataValue::Str(s)) => s.to_string(),
                 _ => continue,
             };
-            contradictions.push((row_id, r#"posterior-floor/warning/Q001-low-confidence-load-bearing"#.to_string()));
+            contradictions.push((
+                row_id,
+                r#"posterior-floor/warning/Q001-low-confidence-load-bearing"#.to_string(),
+            ));
         }
     }
     Ok(GraphSummary {
@@ -236,5 +246,8 @@ pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
 
 #[cfg(not(feature = "kg"))]
 pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
-    Ok(GraphSummary { claim_count: claims.len(), contradictions: vec![] })
+    Ok(GraphSummary {
+        claim_count: claims.len(),
+        contradictions: vec![],
+    })
 }

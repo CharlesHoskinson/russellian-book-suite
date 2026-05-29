@@ -56,9 +56,7 @@ pub fn make_rewrites() -> Vec<Rewrite<BookLogic, ()>> {
 /// cost-minimal canonical form via `AstSize`. `budget_nodes` caps the
 /// runner's `with_node_limit` so divergent rewrite sets terminate.
 pub fn canonicalize(input: &str, budget_nodes: usize) -> Result<RecExpr<BookLogic>, String> {
-    let expr: RecExpr<BookLogic> = input
-        .parse()
-        .map_err(|e| format!("parse RecExpr: {e}"))?;
+    let expr: RecExpr<BookLogic> = input.parse().map_err(|e| format!("parse RecExpr: {e}"))?;
     let runner = Runner::default()
         .with_node_limit(budget_nodes)
         .with_expr(&expr)

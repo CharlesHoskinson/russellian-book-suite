@@ -163,15 +163,15 @@ pub fn run_queries(_query_edn: &str) -> Result<Vec<QueryRunResult>, String> {
 
 #[cfg(feature = "kg")]
 fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
-    let db = DbInstance::new("mem", "", "")
-        .map_err(|e| Error::Kg(format!("cozo init: {e}")))?;
+    let db = DbInstance::new("mem", "", "").map_err(|e| Error::Kg(format!("cozo init: {e}")))?;
     // Populate a minimal `claim {id, source}` relation; expand as the
     // schema grows. v0.4 only models the two ir::Claim fields.
     db.run_script(
         ":create claim {id: String => source: String}",
         Default::default(),
         cozo::ScriptMutability::Mutable,
-    ).map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
+    )
+    .map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
     // Use Cozo parameterised inputs ($id / $source) rather than string
     // interpolation so claim ids/sources containing backslashes, quotes,
     // or other Cozo-special characters cannot break the script or alter
@@ -206,7 +206,10 @@ pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
 
 #[cfg(not(feature = "kg"))]
 pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
-    Ok(GraphSummary { claim_count: claims.len(), contradictions: vec![] })
+    Ok(GraphSummary {
+        claim_count: claims.len(),
+        contradictions: vec![],
+    })
 }
 
 #[cfg(all(test, feature = "kg"))]

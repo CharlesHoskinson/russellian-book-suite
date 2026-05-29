@@ -273,12 +273,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: npm install (lockfile-respecting)
+      - name: npm ci (strict lockfile install)
         working-directory: verifiers/bermuda
-        # `npm install` instead of `npm ci` — bermuda's lockfile sometimes
-        # drifts from package.json across PRs in flight, and `npm ci` is
-        # strict-fail there. The lockfile-cache key still keys on it.
-        run: npm install --no-audit --no-fund
+        # `npm ci` installs strictly from package-lock.json so transitive deps
+        # cannot resolve to newer/unintended versions at CI time. If the lockfile
+        # genuinely drifts from package.json, fix the lockfile (npm install
+        # locally + commit) rather than masking it with `npm install`, which
+        # silently mutates the resolved dependency set.
+        run: npm ci --no-audit --no-fund
       - name: shadow-cljs compile + node test
         working-directory: verifiers/bermuda
         run: |
@@ -333,7 +335,8 @@ jobs:
           python -m pip install pyyaml pytest edn-format
       - name: install node deps
         working-directory: verifiers/bermuda
-        run: npm install
+        # strict lockfile install — see cljs-bermuda-test rationale.
+        run: npm ci
       - name: booklogic compile
         working-directory: verifiers/bermuda
         run: npm run booklogic-compile
@@ -428,7 +431,8 @@ jobs:
             || (echo "constraints.edn missing"; exit 1)
       - name: install project npm deps
         working-directory: verifiers/osmotic_pressure
-        run: npm install
+        # strict lockfile install (package-lock.json is committed).
+        run: npm ci
       - name: compile booklogic source
         working-directory: verifiers/osmotic_pressure
         run: nbb -m osmotic-pressure.booklogic .

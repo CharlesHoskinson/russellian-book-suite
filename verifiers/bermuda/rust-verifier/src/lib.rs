@@ -2,7 +2,7 @@
 use napi_derive::napi;
 
 mod axioms;
-mod ir;
+pub mod ir;
 mod smt;
 pub mod var_name;
 

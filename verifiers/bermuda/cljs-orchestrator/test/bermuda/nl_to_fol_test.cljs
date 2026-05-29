@@ -31,14 +31,19 @@
       (is (= :symbol (:kind out)))
       (is (= :formula (:sort out))))))
 
-(deftest quantity-claim-rewrites-to-expression
-  (testing "a quantity-shaped claim produces an :expression formula"
+(deftest quantity-claim-rewrites-to-flat-atom
+  (testing "a quantity-shaped claim produces a FLAT :expression atom the Rust SMT path consumes"
     (let [out (nl/claim->formula quantity-claim)]
       (is (= :expression (:kind out)))
-      (is (= :formula (:sort out)))
-      (is (map? (:head out)))
-      (is (= :symbol (get-in out [:head :kind])))
-      (is (= :rule (get-in out [:head :sort]))))))
+      (is (string? (:id out)))
+      (is (keyword? (:predicate out)))
+      (is (keyword? (:subject out)))
+      (is (some? (:value out)))
+      ;; the nested expression-tree keys must be gone
+      (is (nil? (:head out)))
+      (is (nil? (:args out)))
+      ;; unit conversion preserved: 1.5 atm -> pascals
+      (is (= (nl/to-si 1.5 "atm") (:value out))))))
 
 (deftest to-si-atm
   (testing "atm → pascals conversion"
@@ -87,8 +92,11 @@
           out (nl/claim->formula event)]
       (is (some? out))
       (is (= :expression (:kind out))
-          "verified events project to an :expression formula")
-      (is (= :formula (:sort out))))))
+          "verified events project to a flat :expression atom")
+      (is (keyword? (:predicate out)))
+      (is (keyword? (:subject out)))
+      (is (some? (:value out)))
+      (is (nil? (:head out))))))
 
 (deftest source-ingested-event-skipped
   (testing "REQ-CLJS-ORCH-010: source/ingested produces nil — caller drops nils"

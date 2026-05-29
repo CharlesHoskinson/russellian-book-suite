@@ -38,6 +38,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts._edn_reader import read_edn
 
 

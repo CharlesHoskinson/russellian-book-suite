@@ -21,7 +21,7 @@
 # Intensional (derived; queried by the loader):
 #   states/3, reaches_thesis/1, orphan_paragraph/1,
 #   direct_contradiction/2, transitive_contradiction/2,
-#   unadvanced_sub_arg/1, missing_evidence/2,
+#   sub_arg_no_chapter/1, missing_evidence/2,
 #   unreachable_supports/1, declared_conflict/2.
 
 # A claim "states" subject=value when both attributes are present.
@@ -50,9 +50,11 @@ transitive_contradiction(A, C) <= implies(A, B) & direct_contradiction(B, C)
 transitive_contradiction(A, C) <= implies(A, B) & transitive_contradiction(B, C)
 transitive_contradiction(A, C) <= direct_contradiction(A, C)
 
-# A sub-argument with no advances() fact is unadvanced.
+# A sub-argument advanced by no chapter. This is the chapter-coverage invariant
+# (distinct from lint_supports' D12 paragraph-supports check); the loader emits
+# it as a D11 invariant under the rule name sub_arg_no_chapter.
 advanced(N) <= advances(Ch, N)
-unadvanced_sub_arg(N) <= sub_arg(N) & ~advanced(N)
+sub_arg_no_chapter(N) <= sub_arg(N) & ~advanced(N)
 
 # An evidence slot named by a sub-argument but never met by a claim.
 evidence_met(N, E) <= requires_evidence(N, E) & claim_subject(C, E)

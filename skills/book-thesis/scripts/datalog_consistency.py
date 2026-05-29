@@ -5,7 +5,10 @@ ledger at ``<workspace>/claims/ledger.jsonl`` (the canonical book-knowledge
 layout), asserts pyDatalog facts, loads the rules in ``rules/consistency.dl``,
 and writes derived defects to ``<workspace>/qa/datalog-defects.json``. Defect
 classes: D9 paragraph-orphan, D10 (transitive) contradiction, D11
-invariant-violation, D12 unadvanced sub-arg.
+invariant-violation (declared-conflict, unreachable-supports,
+missing-evidence, sub-arg-advanced-by-no-chapter). D12
+(unadvanced-sub-argument = named by no paragraph's supports) is owned by
+lint_supports / book-qa, not this pass.
 Exit codes: 0 clean, 1 D10/D11 finding (gate fail), 2 CLI error.
 """
 from __future__ import annotations
@@ -29,7 +32,7 @@ TERMS = (
     "is_thesis, sub_arg, paragraph, supports, advances, requires_evidence, "
     "claim, claim_subject, claim_value, claim_chapter, conflict_decl, implies, "
     "states, reaches_thesis, orphan_paragraph, direct_contradiction, "
-    "transitive_contradiction, unadvanced_sub_arg, missing_evidence, "
+    "transitive_contradiction, sub_arg_no_chapter, missing_evidence, "
     "unreachable_supports, declared_conflict, advanced, evidence_met, "
     "P, N, M, S, V, V1, V2, A, B, C, Ch, E, X, Y"
 )
@@ -105,23 +108,34 @@ def _assert_thesis_facts(graph: Graph) -> None:
         pyDatalog.assert_fact("requires_evidence", _local(s), _local(o))
 
 
-def _assert_claim_facts(records: Iterable[dict[str, Any]]) -> None:
+def _assert_claim_facts(records: Iterable[dict[str, Any]]) -> bool:
+    """Assert claim-derived facts. Returns True if any ``claim_subject`` fact
+    was asserted (i.e. the ledger carries structured subject data)."""
     seen: set[str] = set()
+    any_subject = False
     for rec in records:
         cid = rec.get("claim_id") or rec.get("id")
         if not cid or rec.get("status", "verified") != "verified" or cid in seen:
             continue
         seen.add(cid)
         pyDatalog.assert_fact("claim", cid)
-        pyDatalog.assert_fact("paragraph", cid)
+        # Only claims that actually carry a supports edge participate in the
+        # orphan/reachability check. A bare ledger record (the real schema has
+        # no supports_nodes field) is not a manuscript paragraph and must not
+        # be flagged as an orphan — that would flood D9 with false positives.
+        supports_nodes = rec.get("supports_nodes")
+        if supports_nodes:
+            pyDatalog.assert_fact("paragraph", cid)
+            _multi_assert("supports", cid, supports_nodes)
         if (subject := rec.get("subject") or rec.get("semantic_class")):
             pyDatalog.assert_fact("claim_subject", cid, str(subject))
+            any_subject = True
         if "value" in rec:
             pyDatalog.assert_fact("claim_value", cid, _hashable(rec["value"]))
         _multi_assert("claim_chapter", cid, rec.get("supports_chapters"))
         _multi_assert("conflict_decl", cid, rec.get("conflicts_with"))
         _multi_assert("implies", cid, rec.get("implies"))
-        _multi_assert("supports", cid, rec.get("supports_nodes"))
+    return any_subject
 
 
 def _multi_assert(pred: str, cid: str, values: Any) -> None:
@@ -166,9 +180,10 @@ def run(workspace: Path) -> DefectReport:
     graph.parse(ttl_path, format="turtle")
     _assert_thesis_facts(graph)
 
+    have_subjects = False
     claims_path = _resolve_claims_path(workspace)
     if claims_path is not None:
-        _assert_claim_facts(_iter_claims(claims_path))
+        have_subjects = _assert_claim_facts(_iter_claims(claims_path))
 
     pyDatalog.load(RULES_FILE.read_text(encoding="utf-8"))
 
@@ -188,9 +203,21 @@ def run(workspace: Path) -> DefectReport:
     for (p,) in _collect("unreachable_supports", 1):
         report.invariants.append({"class": "D11", "rule": "unreachable_supports", "facts": [p],
             "detail": f"{p!r} supports a node that is neither :Thesis nor a SubArgument"})
-    for (n,) in _collect("unadvanced_sub_arg", 1):
-        report.invariants.append({"class": "D12", "rule": "unadvanced_sub_arg", "facts": [n],
-            "detail": f"sub-argument {n!r} has no chapter advancing it"})
+    # NB: this is the chapter-coverage invariant, NOT book-qa's D12
+    # ("unadvanced-sub-argument" = named by no paragraph's supports, computed by
+    # lint_supports from qa/supports-defects.json). Distinct class + rule name
+    # so the two are never conflated.
+    for (n,) in _collect("sub_arg_no_chapter", 1):
+        report.invariants.append({"class": "D11", "rule": "sub_arg_no_chapter", "facts": [n],
+            "detail": f"sub-argument {n!r} is advanced by no chapter"})
+    # Evidence-slot satisfaction is only meaningful when the ledger carries
+    # structured claim subjects to match against required-evidence slots. With
+    # no subjects asserted, every slot is trivially "unmet"; reporting that
+    # would flood D11 with false positives on a real ledger, so skip it.
+    if have_subjects:
+        for n, e in _collect("missing_evidence", 2):
+            report.invariants.append({"class": "D11", "rule": "missing_evidence", "facts": [n, e],
+                "detail": f"sub-argument {n!r} requires evidence {e!r} that no claim's subject meets"})
 
     out = workspace / "qa" / "datalog-defects.json"
     out.parent.mkdir(parents=True, exist_ok=True)

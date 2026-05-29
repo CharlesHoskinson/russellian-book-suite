@@ -36,7 +36,7 @@ Workspace and ingest:
 - `source_manifest.py` — sha256, doc_id, manifest schema
 
 Claim ledger:
-- `claim_validator.py` — schema plus state machine (proposed → verified → disputed → superseded)
+- `claim_validator.py` — schema plus five-state machine (proposed, verified, disputed, superseded, refuted; superseded and refuted terminal)
 - `ledger.py` — append-only claim ledger
 - `verify_claim.py` — locator-text cross-check; promotes proposed to verified
 - `detect_conflicts.py` — antonym-pair contradiction scan
@@ -98,7 +98,7 @@ Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclos
 .venv\Scripts\python.exe -m scripts.validate_shacl <workspace>
 .venv\Scripts\python.exe -m scripts.run_competency_queries <workspace>
 .venv\Scripts\python.exe -m scripts.propagate_belief <workspace>
-.venv\Scripts\python.exe -m scripts.generate_counter_claims <workspace>
+.venv\Scripts\python.exe -m scripts.generate_counter_claims <workspace>  # prints abduction prompts for pending load-bearing claims
 ```
 
 Release gate: SHACL conforms, `unsupported_claims` returns zero, `contradiction_scan` returns zero for chapters under release, and each contract meets its `minimum_verified_claims`. On failure, write `graph/reports/release-gate-<run>.md` and stop.

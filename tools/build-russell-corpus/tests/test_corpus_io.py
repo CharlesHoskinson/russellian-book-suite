@@ -115,6 +115,32 @@ def test_find_paragraph_line_returns_locator_line_number() -> None:
     assert line >= 1
 
 
+def test_find_paragraph_line_resolves_locator_across_wrapped_lines(tmp_path: Path) -> None:
+    """A 120-char content_locator that straddles physical line breaks (real Gutenberg
+    HTML wraps at ~70 chars) must still resolve to a line number, consistently with
+    paragraph_in_source's whitespace-normalised matching. Finding
+    find-paragraph-line-wrapped-html."""
+    wrapped = tmp_path / "wrapped.html"
+    wrapped.write_text(
+        "<html><body>\n"
+        "<p>Philosophy, throughout its history, has consisted of two\n"
+        "parts inharmoniously blended: on the one hand a theory as to the\n"
+        "nature of the world, on the other an ethical doctrine.</p>\n"
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    paragraph = (
+        "Philosophy, throughout its history, has consisted of two parts "
+        "inharmoniously blended: on the one hand a theory as to the nature of "
+        "the world, on the other an ethical doctrine."
+    )
+    locator = content_locator(paragraph)
+    assert len(locator) == 120  # spans the wrap boundary
+    line = find_paragraph_line(locator, wrapped)
+    assert isinstance(line, int)
+    assert line >= 1
+
+
 def test_paragraph_in_source_matches_line_wrapped_html(tmp_path: Path) -> None:
     """Paragraph present in source but wrapped across multiple lines must still match."""
     wrapped = tmp_path / "wrapped.html"

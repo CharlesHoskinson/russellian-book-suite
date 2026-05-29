@@ -83,11 +83,29 @@ def paragraph_in_source(paragraph_text: str, source_path: Path) -> bool:
 
 
 def find_paragraph_line(locator: str, source_path: Path) -> int | None:
-    """Return the 1-indexed line number where the locator first appears, or None."""
+    """Return the 1-indexed line number where the locator first appears, or None.
+
+    The locator (up to 120 chars) routinely straddles physical line breaks because real
+    Gutenberg HTML wraps paragraphs at ~70 chars. A raw per-line substring test would miss
+    every wrapped paragraph, so we match against a whitespace-normalised view consistent
+    with paragraph_in_source: the locator is whitespace-normalised, and we accumulate the
+    normalised text line by line, returning the 1-indexed line at which the running
+    normalised buffer first contains the locator.
+    """
+    normalised_locator = " ".join(locator.split())
+    if not normalised_locator:
+        return None
+    buffer = ""
     with source_path.open("r", encoding="utf-8") as fh:
         for i, line in enumerate(fh, start=1):
-            if locator in line:
+            buffer = (buffer + " " + line).strip() if buffer else line
+            buffer = " ".join(buffer.split())
+            if normalised_locator in buffer:
                 return i
+            # Keep only the tail long enough to still match a locator that began on an
+            # earlier line, bounding memory for large sources.
+            if len(buffer) > 2 * len(normalised_locator):
+                buffer = buffer[-2 * len(normalised_locator):]
     return None
 
 

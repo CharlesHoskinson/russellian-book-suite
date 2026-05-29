@@ -26,10 +26,10 @@ cat > /tmp/ruleset.json <<EOF
     {
       "type": "pull_request",
       "parameters": {
-        "required_approving_review_count": 0,
+        "required_approving_review_count": 1,
         "dismiss_stale_reviews_on_push": false,
         "require_code_owner_review": false,
-        "require_last_push_approval": false,
+        "require_last_push_approval": true,
         "required_review_thread_resolution": false
       }
     },
@@ -38,7 +38,7 @@ cat > /tmp/ruleset.json <<EOF
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
-          { "context": "ci required ✓" }
+          { "context": "ci-required" }
         ]
       }
     },

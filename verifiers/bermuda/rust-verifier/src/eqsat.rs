@@ -55,15 +55,17 @@ pub fn make_rewrites() -> Vec<Rewrite<BookLogic, ()>> {
 /// Saturate `input` against `make_rewrites()` and extract the
 /// cost-minimal canonical form via `AstSize`. `budget_nodes` caps the
 /// runner's `with_node_limit` so divergent rewrite sets terminate.
-pub fn canonicalize(input: &str, budget_nodes: usize) -> RecExpr<BookLogic> {
-    let expr: RecExpr<BookLogic> = input.parse().expect("parse RecExpr");
+pub fn canonicalize(input: &str, budget_nodes: usize) -> Result<RecExpr<BookLogic>, String> {
+    let expr: RecExpr<BookLogic> = input
+        .parse()
+        .map_err(|e| format!("parse RecExpr: {e}"))?;
     let runner = Runner::default()
         .with_node_limit(budget_nodes)
         .with_expr(&expr)
         .run(&make_rewrites());
     let extractor = Extractor::new(&runner.egraph, AstSize);
     let (_cost, best) = extractor.find_best(runner.roots[0]);
-    best
+    Ok(best)
 }
 
 /// Result of an `:egg`-backed equivalence proof. `Proved` means egg
@@ -109,7 +111,7 @@ pub fn saturate(terms_edn: &str, _rules_edn: &str) -> Result<String, String> {
     // The legacy shim takes an EDN string; for v0.4 we parse it as a
     // single RecExpr in s-expression form and surface the canonical
     // form. EDN-to-s-expression translation is a Phase-I concern.
-    let best = canonicalize(terms_edn, budget_from_env());
+    let best = canonicalize(terms_edn, budget_from_env())?;
     Ok(format!(
         "{{\"cost\":{},\"form\":\"{}\"}}",
         best.as_ref().len(),

@@ -1,14 +1,12 @@
 //! REQ-EQSAT-040, 042: canonicalisation smoke test.
 //!
 //! Verifies that `eqsat::canonicalize` returns a stable representative
-//! for a commutative add expression. The exact form (`(+ a b)` vs
-//! `(+ b a)`) is implementation-defined; what matters is that the
-//! e-graph runs, extracts a single cost-minimal form, and the call
-//! does not panic.
+//! for a commutative add expression and propagates a parse error as
+//! `Err` instead of panicking across the napi FFI boundary.
 
 #![cfg(feature = "eqsat")]
 
-use osmotic_pressure_verifier::eqsat::{canonicalize, saturate};
+use bermuda_verifier::eqsat::{canonicalize, saturate};
 
 #[test]
 fn commutative_add_canonicalises() {

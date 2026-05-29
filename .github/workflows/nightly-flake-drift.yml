@@ -11,9 +11,9 @@ jobs:
   drift-check:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - name: flake check
         run: nix flake check --no-build-output
       - name: build preflight package
@@ -47,7 +47,7 @@ jobs:
           - skill: neurosym-forge
             extra: dev,semantic
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
@@ -55,7 +55,7 @@ jobs:
           extra: ${{ matrix.extra || 'ci' }}
       - name: symlink siblings
         if: matrix.siblings != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');

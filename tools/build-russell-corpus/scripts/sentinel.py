@@ -72,10 +72,16 @@ def run_sentinel(
         return SentinelOutcome("reject", "locator-not-found", {"locator": content_locator(candidate["paragraph_text"])})
     corrected = found_line if abs(found_line - candidate["line_hint"]) > 50 else None
 
-    # Check 4: dedup against existing index and batch
+    # Check 4: dedup against existing index and batch.
+    # Both sides key on the canonical locator = content_locator(paragraph_text). Index
+    # entries persist that exact key under "content_locator" (see append_to_index), so we
+    # compare against it directly with NO re-derivation and NO fallback to rhetorical_move
+    # (a lesson string is not a paragraph prefix and would never match — it only produced
+    # phantom keys that defeated cross-index dedup). Seed entries that predate the locator
+    # field simply carry no key here and are not dedup-protected until backfilled.
     idx = read_index(existing_index_path)
     existing_locators = {
-        content_locator(e.get("content_locator") or e.get("rhetorical_move", "")) for e in idx["paragraphs"]
+        e["content_locator"] for e in idx["paragraphs"] if e.get("content_locator")
     }
     cand_locator = content_locator(candidate["paragraph_text"])
     if cand_locator in existing_locators or cand_locator in batch_seen_locators:

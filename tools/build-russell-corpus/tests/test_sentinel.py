@@ -87,6 +87,39 @@ def test_sentinel_rejects_duplicate_in_batch(tmp_path: Path) -> None:
     assert outcome.reason == "duplicate"
 
 
+def test_sentinel_rejects_duplicate_appended_by_prior_run(tmp_path: Path) -> None:
+    """A paragraph already committed to the index by a prior pipeline run (i.e. via
+    append_to_index, which stores the LLM's short content_locator snippet) must be
+    rejected as a duplicate on re-extraction. The dedup key must be derived
+    consistently on both sides — finding sentinel-cross-index-dedup-broken."""
+    from scripts.append_to_index import _project_candidate_to_index_entry
+
+    candidate = json.loads((CANDIDATES / "good.json").read_text())
+    # Simulate the index entry exactly as a prior run would have written it.
+    prior_entry = _project_candidate_to_index_entry({
+        **candidate,
+        "candidate_id": "problems-001",
+    })
+    index = tmp_path / "index.json"
+    index.write_text(json.dumps({
+        "version": "0.1.0",
+        "paragraph_count": 1,
+        "sources": {"problems": {"title": "x", "url": "u", "copyright_status": "public_domain_us", "mode": ["m"]}},
+        "paragraphs": [prior_entry],
+    }), encoding="utf-8")
+    outcome = run_sentinel(
+        candidate=candidate,
+        source_path=SOURCE_CACHE / "problems_subset.html",
+        allow_list_path=_patched_allow_list_for_tests(tmp_path),
+        vocabulary_path=VOCABULARY,
+        generic_phrases_path=GENERIC_PHRASES,
+        existing_index_path=index,
+        batch_seen_locators=set(),
+    )
+    assert outcome.status == "reject"
+    assert outcome.reason == "duplicate"
+
+
 def test_sentinel_defers_novel_tag(tmp_path: Path) -> None:
     candidate = json.loads((CANDIDATES / "novel_tag.json").read_text())
     outcome = run_sentinel(

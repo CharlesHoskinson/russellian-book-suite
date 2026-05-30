@@ -458,7 +458,7 @@ python scripts/lint_supports.py my-workspace v0.1
 <details>
 <summary><strong>paragraph-weaver</strong> — thread loose paragraphs toward a goal (argument | emotion | narrative)</summary>
 
-**What it does.** It threads a collection of existing paragraphs toward a typed goal — `argument`, `emotion`, or `narrative` — by reordering them, writing bridges between them, and lightly editing seams. Paragraph bodies stay immutable. The skill seam-edits only a paragraph's first or last sentence, and it inserts new bridge text between paragraphs. A deterministic Python substrate does the structural work: a graph model with content hashing, an entity proxy, Tarjan cycle detection, feasibility refusal, precedence-constrained ordering, closed-vocabulary bridge and seam validation, and gate scoring. The agent supplies judgment on top of that substrate — the same agent-in-the-loop pattern as `russellian-style`. The substrate is stdlib-only and opens no network socket. Non-determinism lives only in artefact *production*. The gate runs on the artefacts after a hash freezes them, so a given input produces the verdict those bytes determine, and no other. The Target interface is pluggable: v1 ships one deep target (`argument`, which fills dispositio slots and sequences over `book-thesis` structure) and two honestly-labelled shallow stubs (`emotion`, `narrative`) that prove the interface but carry trivial objectives in v1.
+**What it does.** It threads a collection of existing paragraphs toward a typed goal — `argument`, `emotion`, or `narrative` — by reordering them, writing bridges between them, and lightly editing seams. Paragraph bodies stay immutable. The skill seam-edits only a paragraph's first or last sentence, and it inserts new bridge text between paragraphs. A deterministic Python substrate does the structural work: a graph model with content hashing, an entity proxy, Tarjan cycle detection, feasibility refusal, precedence-constrained ordering, closed-vocabulary bridge and seam validation, and gate scoring. The agent supplies judgment on top of that substrate — the same agent-in-the-loop pattern as `russellian-style`. The substrate is stdlib-only and opens no network socket. Non-determinism lives only in artefact *production*. The gate runs on the artefacts after a hash freezes them, so a given input produces the verdict those bytes determine, and no other. The Target interface is pluggable: v1 ships one deep target (`argument`, which fills dispositio slots and sequences over `book-thesis` structure) and two shallow stubs (`emotion`, `narrative`) that prove the interface but carry trivial objectives in v1.
 
 **Inputs / outputs.** The skill takes a paragraph collection and a one-line goal, plus the agent's judged inputs at each stage — a target choice, role tags, precedence edges, bridges, and seam edits. It carries one hard ordering constraint: acyclic precedence. The skill reports cycles instead of dying on them — it demotes the weakest edge in a cycle to a note. Slot-order and edge-loading stay soft penalties. Bridges draw on a closed connective vocabulary and name only entities the two flanking paragraphs already contain (an entity-subset guard, not raw NLI); a bridge that fails `validate_bridge` earns a rewrite or a structural GAP. The skill refuses bad inputs: `check_feasibility` stops and returns a diagnosis when required slots sit empty, too many paragraphs fall off-goal, or the entity graph splits apart. Output defaults to a provenance-marked render distinguishing source, seam-edit, and bridge text. The public surface is `skill_api.py`, `API_VERSION = (0, 1)`.
 
@@ -831,7 +831,7 @@ undergo a transformative intellectual journey.
 
 The Russell version has zero hedges, zero promotional adjectives, an active verb in each clause, and a closing turn no reader anticipated. The AI version has three of the suite's hard-blocked patterns in one sentence: AI vocabulary (*leverage*, *navigate*, *transformative*), a superficial -ing analysis (*ensuring readers undergo...*), and a paragraph that does not earn its place.
 
-The linters do not stop at description; they kill the sentence in place. Point `lint_hedges` at a hedged draft line and it names the offending token and the discipline it violates:
+The linters enforce the discipline, not only describe it. Point `lint_hedges` at a hedged draft line and it names the offending token and the rule it breaks:
 
 ```text
 $ python -m lint_hedges draft.md
@@ -841,7 +841,7 @@ draft.md:1  no-hedging  hedge token "might" — replace with a falsifiable thres
   after:   The script fails when server CPU utilization exceeds 90 percent.
 ```
 
-The rewrite is not softer; it is testable. That is the whole discipline in one line — a sentence a reader can check displaces a sentence a reader must take on faith.
+The rewrite is not softer; it is testable — a sentence a reader can check displaces a sentence a reader must take on faith.
 
 | Linter | What it catches |
 |---|---|
@@ -1418,11 +1418,11 @@ The qualification matters. Charles is looking at proof that the gates fire — n
 
 Open `manuscript.md` and read Chapter 1. The first paragraph puts the reader on Nonsuch Island at dusk in late October — fifteen acres of limestone, salt and dry-grass smell off Castle Harbour, a Bermuda petrel returning from sixty days at sea, dropping into a concrete burrow as no light shows. This prose is the suite's output. A drafting agent wrote it against the chapter contract; the persona panel reviewed it; the linters fired against the prose during drafting and again at release; the QA swarm read every paragraph for claim-coverage, rebuttal-coverage, counter-claim treatment. Earlier versions failed the gates. Version six cleared them.
 
-Here is a paragraph that release shipped, further into Chapter 1 — the suite's own output, not a description of it:
+Here is a paragraph that release shipped, from Chapter 1:
 
 > *In 1962 Wingate took up residence on Nonsuch Island, a stripped fifteen-acre limestone block in Castle Harbour, and began to replant it. He planted Bermuda cedar from seed. He planted palmetto. He cleared casuarina and pepper by hand. […] Over the next forty years the cahow population rose from eighteen breeding pairs to over a hundred. The project ran on one man and a typewriter.*
 
-On those same fifteen acres, Wingate brought back a bird the colony had given up for dead three centuries earlier. No hedges, no promotional adjectives, one number that carries a story — eighteen breeding pairs to over a hundred. Every prose linter fired against that paragraph; the persona panel read it for the pleasure of reading; the QA swarm checked every claim it makes. It cleared the gates the earlier drafts failed.
+On those same fifteen acres, Wingate brought back a bird the colony had given up for dead three centuries earlier. Every linter fired against that paragraph during drafting and at release; the persona panel reviewed it; the QA swarm checked every claim it makes. It cleared the gates the earlier drafts failed.
 
 Open `claims-bibliography.jsonl`. Each line carries one claim cited in the manuscript, with its canonical text, its posterior probability, its source spans, its counter-claim ids, and its supports_chapters array. The bibliography projects the ledger down to exactly the claims the release cites. Every footnote in the manuscript that points to a claim id resolves here; every claim here turns up at least once in the manuscript. By construction the mapping is bijective, and the release-builder refuses to ship if it isn't.
 

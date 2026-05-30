@@ -44,6 +44,7 @@ jobs:
           - russellian-style
           - review-conductor
           - neurosym-forge
+          - paragraph-weaver
         include:
           # book-compose needs sibling skills symlinked under ~/.claude/skills/
           - skill: book-compose

@@ -1926,12 +1926,15 @@ import skill_api as api
 
 
 def _build_graph():
+    # The spine word "snail" recurs in every paragraph so the entity graph is
+    # connected (check_feasibility requires it). NOTE: write "snail", not
+    # "snail's" — the entity proxy keeps the apostrophe, so "snail's" != "snail".
     paras = [
         ("p_thesis", "The snail rewards exact attention.", "claim", "thesis"),
-        ("p_shell", "Its shell is a logarithmic spiral set by a single gene.", "premise", "evidence"),
-        ("p_mucus", "Its slime is glue and lubricant at once, and costly to make.", "premise", "evidence"),
+        ("p_shell", "The snail shell is a logarithmic spiral set by a single gene.", "premise", "evidence"),
+        ("p_mucus", "The snail slime is glue and lubricant at once, and costly to make.", "premise", "evidence"),
         ("p_concession", "The snail looks simple and slow.", "rebuttal", "concession"),
-        ("p_close", "Nothing in nature is humble except our knowledge of it.", "conclusion", "conclusion"),
+        ("p_close", "Nothing in nature is humble except our knowledge of the snail.", "conclusion", "conclusion"),
     ]
     nodes = [
         api.Node(id=i, text=t, entities=api.extract_entities(t), role=r, bound_slot=s)
@@ -1969,11 +1972,13 @@ def test_pipeline_threads_all_paragraphs_and_passes_gate():
     # 4. One validated bridge between thesis and the first evidence paragraph.
     left = graph.node(order[0])
     right = graph.node(order[1])
-    bridge_text = "This attention is what the shell repays."
+    # Reuses only flanking vocabulary: "snail" is in every paragraph;
+    # "rewards"/"attention" are in the thesis.
+    bridge_text = "This snail rewards attention."
+    assert set(api.extract_entities(bridge_text)) <= set(left.entities) | set(right.entities)
     bridge = api.validate_bridge(
         bridge_text, left.entities, right.entities, relation="evidence-of"
     )
-    # Bridge reuses only flanking vocabulary; "attention"/"shell" appear in neighbours.
     assert bridge.ok, bridge.reasons
 
     # 5. Assemble segments in order, inserting the bridge after the thesis.
@@ -2002,9 +2007,9 @@ def test_pipeline_threads_all_paragraphs_and_passes_gate():
 - [ ] **Step 2: Run test to verify it fails (then passes)**
 
 Run: `pytest skills/paragraph-weaver/tests/test_end_to_end.py -v`
-Expected: With Tasks 1–14 complete, this PASSES on first run. If any sub-assertion fails (e.g. the bridge reuses a non-flanking word), adjust ONLY the fixture bridge text to reuse flanking vocabulary — do not change engine code to make the demo pass.
+Expected: With Tasks 1–14 complete, this PASSES. Do not change engine code to make the demo pass — only the fixture (paragraph texts / bridge text) may be tuned.
 
-> Note on the bridge fixture: `validate_bridge` rejects any content word absent from the two flanking paragraphs. `"This attention is what the shell repays."` uses `attention` (from the thesis) and `shell` (from the evidence); `repays` is a new content word and WILL be flagged. **Before running, set the bridge text to reuse only flanking words**, e.g. `"This attention the shell rewards."` (all of `attention`, `shell`, `rewards` appear in the thesis/evidence paragraphs). Confirm with a quick check that `extract_entities(bridge_text)` ⊆ `left.entities | right.entities`.
+> Two fixture gotchas, already handled above. (1) `check_feasibility` requires the entity graph to be **connected** via shared entities, so every paragraph repeats the spine word `snail`. (2) The entity proxy keeps apostrophes, so `snail's` is a different entity from `snail` — write the bare noun. (3) `validate_bridge` rejects any content word absent from the two flanking paragraphs; `"This snail rewards attention."` uses only `snail` (in every paragraph) and `rewards`/`attention` (in the thesis), so it is subset-valid regardless of which evidence paragraph lands at `order[1]`.
 
 - [ ] **Step 3: Run the full suite**
 

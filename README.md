@@ -21,7 +21,7 @@ This repository is the answer to that compression problem, but not the answer mo
 
 The prose discipline is Bertrand Russell's. Russell wrote five thousand essays and seventy books across philosophy, mathematics, politics, education, and popular science. The corpus that survives him is a working museum of how a careful writer separates an argument from its decoration. Atomic sentences. Sourced claims. Paragraphs that earn their last sentence by changing the question's pressure. The suite enforces a weaker version of the same standard, and the seventeen prose linters that gate the chapter pipeline are the mechanical residue of that enforcement.
 
-What sits in this repository, named at the level a contributor needs: seven core skills (`book-knowledge` for claim ingestion, `book-thesis` for argument-spine consistency, `book-compose` for chapter orchestration, `russellian-style` for prose discipline, `book-review` for the seven-persona panel, `review-conductor` for verdict aggregation, `book-qa` for the release gate); one optional verifier scaffolder (`neurosym-forge`) for logical consistency over claim sets; two operator-driven tools under `tools/` (`build-russell-corpus` for corpus growth from public-domain Russell texts, `russellian-style-audit` for end-to-end suite validation); and an audit-bundle pattern under `docs/audits/` that records what the suite finds when it lints itself.
+What sits in this repository, named at the level a contributor needs: eight core skills (`book-knowledge` for claim ingestion, `book-thesis` for argument-spine consistency, `book-compose` for chapter orchestration, `russellian-style` for prose discipline, `book-review` for the seven-persona panel, `review-conductor` for verdict aggregation, `book-qa` for the release gate, `paragraph-weaver` for threading loose paragraphs toward a goal); one optional verifier scaffolder (`neurosym-forge`) for logical consistency over claim sets; two operator-driven tools under `tools/` (`build-russell-corpus` for corpus growth from public-domain Russell texts, `russellian-style-audit` for end-to-end suite validation); and an audit-bundle pattern under `docs/audits/` that records what the suite finds when it lints itself.
 
 Roughly eighty distinct checks across those skills enforce the contract. The full taxonomy lives in The QA grammar; the per-skill detail in The skills; the audit's own findings in Auditing the suite. The book-qa skill alone runs twenty-eight checks at release time: eight deterministic structural lints, four thesis-derived defects from book-thesis, fifteen chapter-swarm editorial dimensions, and one optional logical-satisfiability check from the neurosym-forge verifier. Each check is its own scrutiny. A configuration flag silences none of them.
 
@@ -155,6 +155,7 @@ graph LR
         B3 --> B4[russellian-style + humanizer]
         B4 --> B5[book-review + review-conductor]
         B5 --> B6[book-qa]
+        B3 -. optional reorder + bridge .-> BPW[paragraph-weaver<br/>optional · standalone]
     end
     subgraph T3["Tier 3 — Optional verification"]
         C1[neurosym-forge]
@@ -169,7 +170,7 @@ Acquisition determines what the pipeline can later claim. Two skills share the t
 
 ### Tier 2 — Drafting pipeline
 
-A chapter contract enters; a gated release leaves. Seven skills carry a chapter from the claim ledger that Tier 1 produced to a manuscript ready for publication. `book-knowledge` owns the first step: it extracts and verifies every assertion, writing PROV-O provenance records so that each claim traces to a fetched source by URI and page. `book-thesis` runs next, confirming through an entailment loop that each drafted paragraph advances a named sub-argument — paragraphs that drift are rejected before assembly; `book-compose` then drafts and assembles the text, calling `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review — seven reader personas dispatched in parallel by `book-review`, severity aggregated by `review-conductor` — precedes the tier's closing gate: `book-qa`, whose D1-D12 deterministic and thesis-derived checks, plus the C1-C15 per-chapter agent swarm, produce the defect report that decides whether the chapter ships. Tier 2 exists as a distinct layer because every skill in it presupposes the world model; none can run correctly against raw sources.
+A chapter contract enters; a gated release leaves. Seven skills carry a chapter from the claim ledger that Tier 1 produced to a manuscript ready for publication. `book-knowledge` owns the first step: it extracts and verifies every assertion, writing PROV-O provenance records so that each claim traces to a fetched source by URI and page. `book-thesis` runs next, confirming through an entailment loop that each drafted paragraph advances a named sub-argument — paragraphs that drift are rejected before assembly; `book-compose` then drafts and assembles the text, calling `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review — seven reader personas dispatched in parallel by `book-review`, severity aggregated by `review-conductor` — precedes the tier's closing gate: `book-qa`, whose D1-D12 deterministic and thesis-derived checks, plus the C1-C15 per-chapter agent swarm, produce the defect report that decides whether the chapter ships. Tier 2 exists as a distinct layer because every skill in it presupposes the world model; none can run correctly against raw sources. `paragraph-weaver` is the eighth Tier-2 skill, and it stands beside the mandatory chain instead of inside it. It threads a loose collection of paragraphs toward a goal — argument, emotion, or narrative. It reorders the paragraphs, writes bridges where a link would otherwise vanish, and edits the seams. An author runs it on any paragraph set, inside a workspace or outside one.
 
 ### Tier 3 — Optional verification
 
@@ -452,6 +453,50 @@ python scripts/lint_supports.py my-workspace v0.1
 - `skills/book-compose/SKILL.md`
 - `skills/book-compose/skill_api.py` — IF-BC-1 (`read_lens`)
 - `skills/book-compose/tests/`
+
+</details>
+<details>
+<summary><strong>paragraph-weaver</strong> — thread loose paragraphs toward a goal (argument | emotion | narrative)</summary>
+
+**What it does.** It threads a collection of existing paragraphs toward a typed goal — `argument`, `emotion`, or `narrative` — by reordering them, writing bridges between them, and lightly editing seams. Paragraph bodies stay immutable. The skill seam-edits only a paragraph's first or last sentence, and it inserts new bridge text between paragraphs. A deterministic Python substrate does the structural work: a graph model with content hashing, an entity proxy, Tarjan cycle detection, feasibility refusal, precedence-constrained ordering, closed-vocabulary bridge and seam validation, and gate scoring. The agent supplies judgment on top of that substrate — the same agent-in-the-loop pattern as `russellian-style`. The substrate is stdlib-only and opens no network socket. Non-determinism lives only in artefact *production*. The gate runs on the artefacts after a hash freezes them, so a given input produces the verdict those bytes determine, and no other. The Target interface is pluggable: v1 ships one deep target (`argument`, which fills dispositio slots and sequences over `book-thesis` structure) and two honestly-labelled shallow stubs (`emotion`, `narrative`) that prove the interface but carry trivial objectives in v1.
+
+**Inputs / outputs.** The skill takes a paragraph collection and a one-line goal, plus the agent's judged inputs at each stage — a target choice, role tags, precedence edges, bridges, and seam edits. It carries one hard ordering constraint: acyclic precedence. The skill reports cycles instead of dying on them — it demotes the weakest edge in a cycle to a note. Slot-order and edge-loading stay soft penalties. Bridges draw on a closed connective vocabulary and name only entities the two flanking paragraphs already contain (an entity-subset guard, not raw NLI); a bridge that fails `validate_bridge` earns a rewrite or a structural GAP. The skill refuses bad inputs: `check_feasibility` stops and returns a diagnosis when required slots sit empty, too many paragraphs fall off-goal, or the entity graph splits apart. Output defaults to a provenance-marked render distinguishing source, seam-edit, and bridge text. The public surface is `skill_api.py`, `API_VERSION = (0, 1)`.
+
+**When to invoke.** Use this skill when the user already holds paragraphs and a goal and wants you to assemble them into one coherent whole. The skill reorders the paragraphs, bridges the gaps a reader would otherwise trip on, and edits the joins. In a book workspace, the `argument` target sequences over `book-thesis`'s structure and does not recompute contradictions — `book-thesis` owns those; standalone, the target extracts its own thesis. The `argument` target hands its prose to `russellian-style` at the end.
+
+**When NOT to invoke.** Do not use it to draft from scratch — it threads existing paragraphs and writes nothing but bridges and seam edits. For sentence-grain prose discipline, use `russellian-style`. For thesis and consistency checking, use `book-thesis`. Do not expect deep work from the `emotion` or `narrative` targets in v1; their objectives are trivial and their gates emit a not-yet-deep warning. Those two targets carry `prose_policy` `none` and do not route to `russellian-style`, which refuses their persuasive and story genres. `book-review` personas can feed the revise stage, but only as advisory input.
+
+**Trigger phrases.** "thread these paragraphs", "weave these paragraphs into an argument", "order these paragraphs toward a thesis", "write bridges between these paragraphs", "assemble these paragraphs into a coherent whole".
+
+**Example walkthrough.** Thread a paragraph set toward an argument, then gate the frozen artefacts:
+
+```python
+import skill_api as pw
+
+target = pw.get_target("argument")              # deep target, dispositio slots
+slots = target.plan_template(goal)              # thesis -> evidence -> ... -> conclusion
+graph = pw.WeaveGraph(nodes, edges)             # paragraphs + precedence edges
+assert pw.find_cycles(graph) == []              # cycles reported, never fatal
+
+feasible = pw.check_feasibility(graph, slots)   # refuse instead of threading off-goal
+if not feasible.ok:
+    raise SystemExit(feasible.reasons)
+
+order = pw.order_paragraphs(
+    graph, lambda seq: target.order_objective(seq, graph, goal))
+result = target.gate_hook(artifacts)            # pure over frozen, hashed artefacts
+print(pw.render_provenance(segments))           # source / seam / bridge marked
+```
+
+`order_paragraphs` honours the one hard constraint — acyclic precedence — and minimises the target's soft penalty; `score_gate` returns the same verdict for the same frozen inputs on every run.
+
+**Where to dive deeper.**
+- `skills/paragraph-weaver/SKILL.md` — operating doctrine, the six-stage pipeline, degenerate-input handling.
+- `skills/paragraph-weaver/skill_api.py` — the `API_VERSION = (0, 1)` public surface.
+- `skills/paragraph-weaver/references/engine-doctrine.md` — the deterministic substrate, and why production, not the gate, owns non-determinism.
+- `skills/paragraph-weaver/references/target-authoring.md` — the pluggable Target interface and how to add a deep target.
+- `skills/paragraph-weaver/tests/test_end_to_end.py` — the snail-paragraphs-to-argument acceptance demo.
+- `docs/superpowers/specs/2026-05-30-paragraph-weaver-design.md` — design spec and v1 scope.
 
 </details>
 <details>
@@ -785,6 +830,18 @@ undergo a transformative intellectual journey.
 ```
 
 The Russell version has zero hedges, zero promotional adjectives, an active verb in each clause, and a closing turn no reader anticipated. The AI version has three of the suite's hard-blocked patterns in one sentence: AI vocabulary (*leverage*, *navigate*, *transformative*), a superficial -ing analysis (*ensuring readers undergo...*), and a paragraph that does not earn its place.
+
+The linters do not stop at description; they kill the sentence in place. Point `lint_hedges` at a hedged draft line and it names the offending token and the discipline it violates:
+
+```text
+$ python -m lint_hedges draft.md
+draft.md:1  no-hedging  hedge token "might" — replace with a falsifiable threshold
+
+  before:  The script might fail if the server is under heavy load.
+  after:   The script fails when server CPU utilization exceeds 90 percent.
+```
+
+The rewrite is not softer; it is testable. That is the whole discipline in one line — a sentence a reader can check displaces a sentence a reader must take on faith.
 
 | Linter | What it catches |
 |---|---|
@@ -1208,7 +1265,7 @@ git clone https://github.com/CharlesHoskinson/russellian-book-suite.git
 cd russellian-book-suite
 ```
 
-2. **Install the skills into Claude Code.** Copy one skill at a time or run the batch loop for all seven core skills. `neurosym-forge` is optional; omit it unless you need the verifier track.
+2. **Install the skills into Claude Code.** Copy one skill at a time or run the batch loop for all eight core skills. `neurosym-forge` is optional; omit it unless you need the verifier track.
 
 ```bash
 # single skill
@@ -1217,13 +1274,13 @@ cd ~/.claude/skills/book-qa
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"
 
-# all seven core skills (bash)
-for skill in russellian-style book-knowledge book-compose book-review review-conductor book-qa book-thesis; do
+# all eight core skills (bash)
+for skill in russellian-style book-knowledge book-compose book-review review-conductor book-qa book-thesis paragraph-weaver; do
   cp -r skills/$skill ~/.claude/skills/$skill
 done
 
 # PowerShell equivalent
-foreach ($skill in 'russellian-style','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis') {
+foreach ($skill in 'russellian-style','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis','paragraph-weaver') {
   Copy-Item -Recurse "skills\$skill" "$env:USERPROFILE\.claude\skills\$skill"
 }
 ```
@@ -1361,6 +1418,12 @@ The qualification matters. Charles is looking at proof that the gates fire — n
 
 Open `manuscript.md` and read Chapter 1. The first paragraph puts the reader on Nonsuch Island at dusk in late October — fifteen acres of limestone, salt and dry-grass smell off Castle Harbour, a Bermuda petrel returning from sixty days at sea, dropping into a concrete burrow as no light shows. This prose is the suite's output. A drafting agent wrote it against the chapter contract; the persona panel reviewed it; the linters fired against the prose during drafting and again at release; the QA swarm read every paragraph for claim-coverage, rebuttal-coverage, counter-claim treatment. Earlier versions failed the gates. Version six cleared them.
 
+Here is a paragraph that release shipped, further into Chapter 1 — the suite's own output, not a description of it:
+
+> *In 1962 Wingate took up residence on Nonsuch Island, a stripped fifteen-acre limestone block in Castle Harbour, and began to replant it. He planted Bermuda cedar from seed. He planted palmetto. He cleared casuarina and pepper by hand. […] Over the next forty years the cahow population rose from eighteen breeding pairs to over a hundred. The project ran on one man and a typewriter.*
+
+On those same fifteen acres, Wingate brought back a bird the colony had given up for dead three centuries earlier. No hedges, no promotional adjectives, one number that carries a story — eighteen breeding pairs to over a hundred. Every prose linter fired against that paragraph; the persona panel read it for the pleasure of reading; the QA swarm checked every claim it makes. It cleared the gates the earlier drafts failed.
+
 Open `claims-bibliography.jsonl`. Each line carries one claim cited in the manuscript, with its canonical text, its posterior probability, its source spans, its counter-claim ids, and its supports_chapters array. The bibliography projects the ledger down to exactly the claims the release cites. Every footnote in the manuscript that points to a claim id resolves here; every claim here turns up at least once in the manuscript. By construction the mapping is bijective, and the release-builder refuses to ship if it isn't.
 
 The workspace tree carries the rest of the story. `chapters/contracts/` holds the ten chapter contracts. `graph/dataset.trig` holds the projected RDF graph that the SHACL validator chewed through. `graph/reports/competency-*.md` holds the eight competency-query result tables, each with a zero-row body. `qa/` holds the swarm findings and the per-chapter tickets the earlier release iterations closed. `book/releases/` holds 3.0.0 alongside 6.0.0 — three release attempts the gates rejected, and the one they accepted. The history sits on disk; Charles can scroll through every version that did not ship.
@@ -1486,6 +1549,7 @@ russellian-book-suite/
 │   ├── book-review/
 │   ├── book-thesis/
 │   ├── neurosym-forge/
+│   ├── paragraph-weaver/          # NEW — thread paragraphs toward a goal
 │   ├── review-conductor/
 │   ├── russellian-style/
 │   ├── scrapling-fetch/          # NEW — Tier 1

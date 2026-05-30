@@ -841,7 +841,7 @@ draft.md:1  no-hedging  hedge token "might" — replace with a falsifiable thres
   after:   The script fails when server CPU utilization exceeds 90 percent.
 ```
 
-The rewrite is not softer; it is testable — a sentence a reader can check displaces a sentence a reader must take on faith.
+The rewrite is testable: it names a threshold the reader can check.
 
 | Linter | What it catches |
 |---|---|
@@ -943,7 +943,7 @@ After a chapter passes Russellian linting, seven editorial personas read it. Eac
 
 `review-conductor` distinguishes gating personas from advisory ones: a single `critical` finding from any gating persona returns the chapter for redraft; criticals from advisory personas surface in the report but do not block. The shipped `chapter-default.yaml` makes Gottlieb, Domain Expert, Copyeditor, and AI-Slop Detector gating; the other three advisory.
 
-The personas do not rewrite. They flag. Revisions return to `book-compose` for the writer — human or agent — to apply. The conductor also injects Outcomes exemplars into each persona's prompt as few-shot context: seven exemplars drawn from a real seven-persona review run on an earlier draft of this README, each persona seeing one representative finding from its own rubric before reading the new chapter.
+The personas do not rewrite. They flag. Revisions return to `book-compose` for the writer — human or agent — to apply. The conductor also injects Outcomes exemplars into each persona's prompt as few-shot context: one representative finding per persona rubric, so each persona sees an example from its own lens before reading the new chapter.
 
 ### The defect taxonomy
 
@@ -1416,13 +1416,13 @@ One further line in the manifest deserves the operator's careful attention. `sou
 
 The qualification matters. Charles is looking at proof that the gates fire — not proof that the gates fire on a workspace whose ingest the suite has never seen before. His ledger carries the shape of a real ledger: ten claims, posterior probabilities, counter-claim arrays, status enums, source spans. His chapter contracts carry the shape of real contracts: section headings, abstract seeds, word-count targets, supports_chapters arrays. Downstream of the ledger, nothing in the pipeline can tell that the source was synthetic; every stage processes the data as if a Tier 1 acquisition produced it. So what Charles sees here is the Tier 2 plus Tier 3 chain under genuine load — the gates exercised end-to-end against a ledger that obeys every contract a real ingest would have to obey.
 
-Open `manuscript.md` and read Chapter 1. The first paragraph puts the reader on Nonsuch Island at dusk in late October — fifteen acres of limestone, salt and dry-grass smell off Castle Harbour, a Bermuda petrel returning from sixty days at sea, dropping into a concrete burrow as no light shows. This prose is the suite's output. A drafting agent wrote it against the chapter contract; the persona panel reviewed it; the linters fired against the prose during drafting and again at release; the QA swarm read every paragraph for claim-coverage, rebuttal-coverage, counter-claim treatment. Earlier versions failed the gates. Version six cleared them.
+Open `manuscript.md` and read Chapter 1. The first paragraph puts the reader on Nonsuch Island at dusk in late October — fifteen acres of limestone, salt and dry-grass smell off Castle Harbour, a Bermuda petrel returning from sixty days at sea, dropping into a concrete burrow as no light shows. A drafting agent wrote it against the chapter contract; the persona panel reviewed it; the linters fired against the prose during drafting and again at release; the QA swarm read every paragraph for claim-coverage, rebuttal-coverage, counter-claim treatment. Earlier versions failed the gates. Version six cleared them.
 
 Here is a paragraph that release shipped, from Chapter 1:
 
 > *In 1962 Wingate took up residence on Nonsuch Island, a stripped fifteen-acre limestone block in Castle Harbour, and began to replant it. He planted Bermuda cedar from seed. He planted palmetto. He cleared casuarina and pepper by hand. […] Over the next forty years the cahow population rose from eighteen breeding pairs to over a hundred. The project ran on one man and a typewriter.*
 
-On those same fifteen acres, Wingate brought back a bird the colony had given up for dead three centuries earlier. Every linter fired against that paragraph during drafting and at release; the persona panel reviewed it; the QA swarm checked every claim it makes. It cleared the gates the earlier drafts failed.
+On those same fifteen acres, Wingate brought back a bird the colony had given up for dead three centuries earlier.
 
 Open `claims-bibliography.jsonl`. Each line carries one claim cited in the manuscript, with its canonical text, its posterior probability, its source spans, its counter-claim ids, and its supports_chapters array. The bibliography projects the ledger down to exactly the claims the release cites. Every footnote in the manuscript that points to a claim id resolves here; every claim here turns up at least once in the manuscript. By construction the mapping is bijective, and the release-builder refuses to ship if it isn't.
 
@@ -1435,8 +1435,6 @@ What the Bermuda manual proves is bounded and exact. It proves the SHACL shapes 
 <!-- voice: mixed -->
 
 This suite lints other people's prose. The section below records what it found when it linted itself. Two bugs surfaced in the first audit pass — a `sys.modules` namespace collision that silently returned zero issues to any cross-tool caller, and an operator-gate contract mismatch that would have crashed the audit after spending live API credits. Eight recommendations followed; the table below carries each one with its current status. None are closed by this rewrite.
-
-The temptation, after finding bugs in a linter, is to conclude that the linter does not work. That conclusion earns nothing. A self-audit earns a ranked list, a status column, and no remaining illusions about which of the listed items are finished.
 
 ### The audit-bundle pattern
 
@@ -1564,23 +1562,6 @@ russellian-book-suite/
 
 Read-only boundaries between skills are strict. The metabook accesses scrapling-fetch through `sibling_skills.load_skill_api`, not by direct import; it reads, never writes, the fetch skill's surface. `book-compose` reads only the chapter-lens files that the metabook deposits under `syntopical/lenses/`; the metabook's internals are opaque to it. The workspace directories `raw/`, `claims/`, `wiki/`, and `graph/` are open to every skill for reading, but `book-knowledge` alone writes them.
 
-## Deep QA: how this README was made
-
-<!-- voice: narrative-editorial -->
-<!-- lint-disable: staccato-paragraph-run reason=narrative pacing -->
-
-The previous README had drifted. Function names had moved since the last rewrite. Two tools — shipped in PR #121 and PR #122 — appeared nowhere in the documentation. The audit-bundle pattern under `docs/audits/` existed on disk but not on the page. A fresh-cloned operator reading that README would have grasped the suite's intent and lost the thread the moment they touched actual files.
-
-The fix started with a spec. `docs/specs/2026-05-22-readme-rewrite-design.md` fixed the voice contracts, the section order, and the gating rule: no section passes with more than two gating violations. `docs/plans/2026-05-22-readme-rewrite.md` broke the work into nineteen commits on `feat/readme-rewrite`, one commit per section, each commit message naming the section explicitly. The lint runner at `tools/readme-lint/` shipped as Task 1, before a single prose section was touched — every subsequent section wrote itself against a gate that already existed.
-
-The gate earned its keep. The first draft of §13 Auditing the suite landed with ten gating violations: six passive-voice constructions, four hedge words. Active voice and stripped hedges fixed it. The first draft of §11 Quickstart triggered `rhythm-repeated-opening` when three consecutive paragraphs opened with "The." The fix was to vary the openers. No section passed by exemption. Every section passed by revision.
-
-But the audit caught two bugs that had nothing to do with prose. The `sys.modules` namespace collision: the lint runner from another tool's venv was silently returning zero issues on every input, making the gate meaningless. Fixed in commit `af72f17` before this rewrite started. The audit-sample contract mismatch: operator-gate vocabulary and `audit-sample.md` token vocabulary had diverged, so sections that passed the gate still used terms the auditor would reject. Fixed in commit `9a680c0`. Both surfaced because the suite was made to lint itself, not to generate and walk away.
-
-The previous README's audit trail described how Russell discipline shaped prose. This README's audit trail describes how the suite's own gates shaped its own documentation. Run `make readme-lint`. Watch every section pass through the same registry the manuscripts pass through.
-
-
-
 ## Documentation
 
 <!-- voice: technical-exposition -->
@@ -1591,9 +1572,9 @@ The repo's prose documentation lives in three places. Conceptual docs at `docs/c
 - `docs/operations/2026-05-12-bundle-c-runbook.md` — Phase-4 operator runbook for Bundle C end-to-end
 - `docs/operations/codex-review-protocol.md` — autonomous whole-repo review protocol for Codex-style agents
 - `docs/operations/neurosym-forge-runbook.md` — operator workflow for the verifier side-channel
-- `docs/qa/` — README QA reports (generated at Stage 5 of the README refactor)
+- `docs/qa/` — README QA reports
 - `docs/specs/2026-05-22-readme-rewrite-design.md` — the spec for this README rewrite
-- `docs/plans/2026-05-22-readme-rewrite.md` — the 19-task implementation plan
+- `docs/plans/2026-05-22-readme-rewrite.md` — the README rewrite implementation plan
 - `docs/audits/<date>-<topic>/` — audit bundles (see §13)
 
 ## Contributing

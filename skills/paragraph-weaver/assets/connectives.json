@@ -1,0 +1,12 @@
+{
+  "relations": [
+    "contrast",
+    "elaboration",
+    "sequence",
+    "concession",
+    "evidence-of",
+    "cause",
+    "result",
+    "restatement"
+  ]
+}

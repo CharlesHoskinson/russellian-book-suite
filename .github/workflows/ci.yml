@@ -137,6 +137,7 @@ jobs:
           - russellian-style
           - review-conductor
           - neurosym-forge
+          - paragraph-weaver
         include:
           # book-qa is the P2-pip-lockfiles pilot: its install is pinned with a
           # committed constraints.txt for byte-identical transitive versions.

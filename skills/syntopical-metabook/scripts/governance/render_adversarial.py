@@ -9,6 +9,7 @@ from pathlib import Path
 from ._positions_io import Position, read_positions
 from ._config import GovernanceConfig, load_or_create_config
 from ._stance import Stance
+from .._staleness import check_positions_fresh
 
 
 def _render(positions: list[Position], cfg: GovernanceConfig) -> str:
@@ -65,6 +66,7 @@ def _render(positions: list[Position], cfg: GovernanceConfig) -> str:
 
 def render_adversarial(positions_path: Path, out_path: Path,
                        config: GovernanceConfig) -> Path:
+    check_positions_fresh(positions_path)
     positions = read_positions(positions_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(_render(positions, config), encoding="utf-8", newline="\n")

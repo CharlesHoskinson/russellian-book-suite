@@ -23,3 +23,15 @@ def check_not_stale(artifact: Path, sources: list[Path]) -> None:
                 f"{artifact.name} is stale relative to {src.name}; "
                 f"run `forge govern build` first."
             )
+
+
+def check_positions_fresh(positions_path: Path) -> None:
+    """Refuse a positions.edn older than any governance source ledger it
+    derives from (claim ledger, induced-theory sidecar, constraints)."""
+    positions_path = Path(positions_path)
+    ws = positions_path.parents[1]
+    check_not_stale(positions_path, [
+        ws / "knowledge" / "claims" / "ledger.jsonl",
+        ws / "rules" / "booklogic" / "induced-theory.prov.edn",
+        ws / "rules" / "constraints.edn",
+    ])

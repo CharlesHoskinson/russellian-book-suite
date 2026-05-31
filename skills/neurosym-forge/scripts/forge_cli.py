@@ -1338,6 +1338,93 @@ def govern_quarantine(workspace: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# `forge meta` group — wraps syntopical-metabook curation sub-workflows
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def meta() -> None:
+    """syntopical-metabook curation: acquire, synthesize, lens, gap."""
+
+
+def _import_metabook(attr: str):
+    """Lazy-import a syntopical-metabook entry point; clean error if absent."""
+    import importlib
+    mod_map = {
+        "run_acquire": "scripts.acquire.pipeline",
+        "run_synthesize": "scripts.synthesize.run_synthesize",
+        "project_lens": "scripts.lens.project_lens",
+        "build_coverage_report": "scripts.gap.coverage_report",
+    }
+    try:
+        module = importlib.import_module(mod_map[attr])
+        return getattr(module, attr)
+    except ImportError as e:
+        raise click.ClickException(
+            "syntopical-metabook skill not on sys.path. Install both skills in "
+            "the same venv, or run from a workspace with PYTHONPATH set."
+        ) from e
+
+
+@meta.command("acquire")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id (for thesis-tree veto).")
+@click.option("--seed", "seeds", multiple=True, help="Seed paper id (repeatable).")
+@click.option("--query", "query_text", default="", help="Query text for ranking.")
+@click.option("--depth", default=2, type=int, help="Citation-graph traversal depth.")
+@_handle
+def meta_acquire(workspace: Path, chapter_id: str, seeds, query_text: str, depth: int) -> None:
+    """Acquire and ingest sources by citation-graph traversal."""
+    run_acquire = _import_metabook("run_acquire")
+    try:
+        out = run_acquire(workspace.resolve(), chapter_id=chapter_id,
+                          seeds=list(seeds), query_text=query_text, depth=depth)
+    except ImportError as e:
+        raise click.ClickException(
+            "acquire ranking needs the ML extras (torch, sentence-transformers). "
+            "Install them or run the lighter sub-steps directly."
+        ) from e
+    click.echo(f"ingested {len(out['ingested'])} source(s)")
+
+
+@meta.command("synthesize")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id for the topic map.")
+@_handle
+def meta_synthesize(workspace: Path, chapter_id: str) -> None:
+    """Build topic map, disputed questions, and concept reconciliation."""
+    run_synthesize = _import_metabook("run_synthesize")
+    out = run_synthesize(workspace.resolve(), chapter_id)
+    click.echo(f"topic map: {out['topic_map']}; "
+               f"{len(out['disputed'])} dispute file(s); "
+               f"{len(out['concepts'])} concept file(s)")
+
+
+@meta.command("lens")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id to project.")
+@_handle
+def meta_lens(workspace: Path, chapter_id: str) -> None:
+    """Project a per-chapter lens that book-compose reads."""
+    project_lens = _import_metabook("project_lens")
+    out = project_lens(workspace.resolve(), chapter_id)
+    click.echo(f"wrote {out}")
+
+
+@meta.command("gap")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id to score.")
+@click.option("--required-per-node", default=3, type=int, help="Claims needed per node for full coverage.")
+@_handle
+def meta_gap(workspace: Path, chapter_id: str, required_per_node: int) -> None:
+    """Score thesis-node coverage and write a gap report."""
+    build_coverage_report = _import_metabook("build_coverage_report")
+    out = build_coverage_report(workspace.resolve(), chapter_id,
+                                required_per_node=required_per_node)
+    click.echo(f"wrote {out}")
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 

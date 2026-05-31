@@ -29,3 +29,45 @@ def test_load_skill_api_missing_file(tmp_path, monkeypatch):
     monkeypatch.setenv("SIBLING_SKILLS_ROOT", str(tmp_path))
     with pytest.raises(FileNotFoundError):
         load_skill_api("nonexistent-skill")
+
+
+def _fake_skill_with_scripts(root, name, version=(0, 1)):
+    skill = root / name
+    (skill / "scripts").mkdir(parents=True)
+    (skill / "scripts" / "__init__.py").write_text("", encoding="utf-8")
+    (skill / "scripts" / "thing.py").write_text("VALUE = 42\n", encoding="utf-8")
+    (skill / "skill_api.py").write_text(
+        "from __future__ import annotations\n"
+        "from dataclasses import dataclass\n"
+        "from scripts.thing import VALUE\n"
+        f"API_VERSION = {version}\n"
+        "@dataclass\n"
+        "class Result:\n    n: int\n"
+        "def at_import_value():\n    return VALUE\n"
+        "def deferred_value():\n    from scripts.thing import VALUE as v\n    return v\n",
+        encoding="utf-8",
+    )
+    return skill
+
+
+def test_load_skill_api_resolves_scripts_collision(tmp_path, monkeypatch):
+    """A sibling whose skill_api uses absolute `from scripts.X` (import-time and
+    deferred) and a dataclass must load and call correctly."""
+    monkeypatch.setenv("SIBLING_SKILLS_ROOT", str(tmp_path))
+    _fake_skill_with_scripts(tmp_path, "scripted-skill")
+    api = load_skill_api("scripted-skill", expected_major=0)
+    assert api.at_import_value() == 42      # import-time `from scripts.thing`
+    assert api.deferred_value() == 42       # call-time `from scripts.thing` via the swap
+    assert api.Result(n=3).n == 3           # dataclass loaded (module registered pre-exec)
+
+
+def test_load_skill_api_no_scripts_leakage(tmp_path, monkeypatch):
+    import sys, types
+    monkeypatch.setenv("SIBLING_SKILLS_ROOT", str(tmp_path))
+    _fake_skill_with_scripts(tmp_path, "scripted-skill")
+    sentinel = types.ModuleType("scripts")
+    sentinel.__marker__ = "caller-owned"
+    monkeypatch.setitem(sys.modules, "scripts", sentinel)
+    api = load_skill_api("scripted-skill", expected_major=0)
+    api.deferred_value()  # triggers a swap+restore
+    assert sys.modules.get("scripts") is sentinel

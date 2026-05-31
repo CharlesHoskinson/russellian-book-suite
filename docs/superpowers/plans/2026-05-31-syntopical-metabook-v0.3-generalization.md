@@ -1085,12 +1085,12 @@ git commit -m "synthesize: run_synthesize orchestrator"
 - Create: `SM/scripts/acquire/pipeline.py`
 - Test: `SM/tests/integration/test_acquire_orchestrator.py`
 
-**Before writing:** re-read `tests/integration/test_acquire_e2e.py` (97 lines) — it composes `rank → triage → apply_veto → download_and_ingest` with stubs and is the source of truth for the call sequence and the stub shapes. The orchestrator below lifts that sequence and adds `expand_seeds` at the front. Confirm these signatures by re-reading the modules:
-- `expand_seeds(seeds: list[str], depth: int = 2) -> list[PaperRef]` (`PaperRef(doc_id, title, source, cited_by_count, year)`)
-- `Candidate(doc_id, title, abstract, year)`; `rank(query_text: str, candidates: list[Candidate]) -> list[ScoredCandidate]`
-- `triage(scored, cfg: TriageConfig, workspace_root: Path, run_id: str) -> TriageResult`
-- `apply_veto(tr: TriageResult, thesis_tree, candidate_lookup: dict, manifest_path: Path) -> TriageResult`
-- `download_and_ingest(candidates: list[ScoredCandidate], workspace_root: Path) -> list[IngestOutcome]`
+**Before writing:** re-read `tests/integration/test_end_to_end.py` (157 lines) and `test_acquire_e2e.py` (110 lines) — together they are the source of truth for the call sequence and the exact field names. The signatures below are confirmed against current source (the earlier audit's field names were wrong — there is **no** `doc_id`; do not reintroduce it):
+- `expand_seeds(seeds: list[str], depth: int = 2) -> list[PaperRef]`. `PaperRef` fields: `title, year, citation_count, arxiv_id, doi, ss_id, openalex_id, external_ids`. The module also exports `_dedup_key(p) -> str` (returns `arxiv_id or doi or openalex_id or ss_id or title`).
+- `Candidate(id, title, abstract)` and `ScoredCandidate(id, score)`, both in `rank_candidates`; `rank(query_text: str, candidates: list[Candidate]) -> list[ScoredCandidate]`. Importing `rank_candidates` is light (no ML at module load); only **calling** `rank()` imports torch/sentence-transformers.
+- `TriageConfig(t_high=0.75, t_low=0.55, max_auto_per_run=25)`; `triage(scored, cfg, workspace_root, run_id) -> TriageResult` with fields `run_id, auto_approve, manual_review, reject, notes`.
+- `apply_veto(tr, thesis_tree, candidate_lookup, manifest_path=...)` — mutates `tr` in place; `thesis_tree` is an object with `.chapter_id` and `.nodes`; `candidate_lookup` maps `id -> {"id":, "extracted_concepts":[], "embedding_score": float}`.
+- `download_and_ingest(candidates, workspace_root=...) -> list[IngestOutcome]`.
 
 - [ ] **Step 1: Write the failing test (orchestration order, fully stubbed)**
 
@@ -1111,10 +1111,10 @@ def test_run_acquire_orchestration_order(monkeypatch, tmp_path):
     monkeypatch.setattr(pipe, "triage",
                         lambda scored, cfg, ws, run_id: order.append("triage") or _FakeTriage())
     monkeypatch.setattr(pipe, "apply_veto",
-                        lambda tr, tree, lookup, manifest: order.append("veto") or tr)
+                        lambda tr, tree, lookup, manifest_path: order.append("veto") or tr)
     monkeypatch.setattr(pipe, "download_and_ingest",
-                        lambda cands, ws: order.append("ingest") or [])
-    monkeypatch.setattr(pipe, "_load_thesis_tree", lambda ws, ch: {"nodes": []})
+                        lambda cands, workspace_root: order.append("ingest") or [])
+    monkeypatch.setattr(pipe, "_load_thesis_tree", lambda ws, ch: None)
     out = pipe.run_acquire(tmp_path, chapter_id="ch1", seeds=["arxiv:1"],
                            query_text="q", depth=1)
     assert order == ["expand", "rank", "triage", "veto", "ingest"]
@@ -1134,22 +1134,23 @@ Expected: FAIL — `ModuleNotFoundError: scripts.acquire.pipeline`.
 
 - [ ] **Step 3: Implement**
 
-Re-read `triage.py` to confirm `TriageConfig`'s constructor and `TriageResult`'s field names (`auto_approve`/`manual_review`), and `veto.py` for `apply_veto`'s `candidate_lookup` shape. Adjust the field names below to match. The thesis-tree loader reads `chapters/<id>/thesis-tree.yaml` (same path the other sub-workflows use).
+The composition below mirrors `test_end_to_end.py` exactly (candidate construction, the `lookup` dict-of-dicts shape, in-place `apply_veto`, keyword `download_and_ingest(..., workspace_root=...)`). The thesis-tree loader reads `chapters/<id>/thesis-tree.yaml` and wraps it as the object `apply_veto` expects (`.chapter_id` + `.nodes`).
 
 ```python
 # SM/scripts/acquire/pipeline.py
 """run_acquire — sequence the acquire entry points into one pass.
 
-Composes the proven sequence from tests/integration/test_acquire_e2e.py
+Mirrors the proven composition in tests/integration/test_end_to_end.py
 (rank → triage → veto → ingest) with expand_seeds at the front. Invents no
 behavior; each step is an existing entry point.
 """
 from __future__ import annotations
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
 
-from .expand_seeds import expand_seeds, PaperRef
+from .expand_seeds import expand_seeds, PaperRef, _dedup_key
 from .rank_candidates import Candidate, rank
 from .triage import triage, TriageConfig
 from .veto import apply_veto
@@ -1159,12 +1160,14 @@ from .download_and_ingest import download_and_ingest
 def _load_thesis_tree(workspace_root: Path, chapter_id: str):
     p = Path(workspace_root) / "chapters" / chapter_id / "thesis-tree.yaml"
     if not p.exists():
-        return {"nodes": []}
-    return yaml.safe_load(p.read_text(encoding="utf-8")) or {"nodes": []}
+        return None
+    raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    nodes = [SimpleNamespace(**n) for n in raw.get("nodes", [])]
+    return SimpleNamespace(chapter_id=raw.get("chapter_id", chapter_id), nodes=nodes)
 
 
 def _to_candidate(ref: PaperRef) -> Candidate:
-    return Candidate(doc_id=ref.doc_id, title=ref.title, abstract="", year=ref.year)
+    return Candidate(id=_dedup_key(ref), title=ref.title, abstract="")
 
 
 def run_acquire(workspace_root: Path, chapter_id: str, seeds: list[str],
@@ -1173,18 +1176,17 @@ def run_acquire(workspace_root: Path, chapter_id: str, seeds: list[str],
     refs = expand_seeds(seeds, depth=depth)
     candidates = [_to_candidate(r) for r in refs]
     scored = rank(query_text, candidates)
-    cfg = TriageConfig()
-    tr = triage(scored, cfg, workspace_root, run_id)
-    thesis_tree = _load_thesis_tree(workspace_root, chapter_id)
-    lookup = {c.doc_id: c for c in scored}
+    tr = triage(scored, TriageConfig(), workspace_root, run_id)
+    tree = _load_thesis_tree(workspace_root, chapter_id)
+    lookup = {c.id: {"id": c.id, "extracted_concepts": [], "embedding_score": s.score}
+              for s, c in zip(scored, candidates)}
     manifest_path = workspace_root / "syntopical" / "acquisition" / "manifest.jsonl"
-    tr = apply_veto(tr, thesis_tree, lookup, manifest_path)
-    approved = list(getattr(tr, "auto_approve", []))
-    ingested = download_and_ingest(approved, workspace_root)
+    apply_veto(tr, tree, lookup, manifest_path=manifest_path)  # mutates tr
+    ingested = download_and_ingest(tr.auto_approve, workspace_root=workspace_root)
     return {"triage": tr, "ingested": ingested}
 ```
 
-If `TriageConfig()` requires arguments, pass the same defaults `test_acquire_e2e.py` uses. If `rank` is unavailable (optional `torch`/`sentence-transformers` absent), the call raises ImportError — that is acceptable; the CLI in Task 15 catches it and prints a clear "install acquire extras" message.
+If `rank` is unavailable (optional `torch`/`sentence-transformers` absent), the call raises ImportError — that is acceptable; the CLI in Task 15 catches it and prints a clear "install acquire extras" message.
 
 - [ ] **Step 4: Run test**
 
@@ -1655,7 +1657,7 @@ Expected: both green; 0 unexpected skips.
 
 **Type consistency:** `Position` fields match `_positions_io.py`. `RuleEvidence` constructor matches `_stance.py`. `check_not_stale(artifact, sources)` signature consistent across Tasks 1–2. `run_acquire`/`run_synthesize` return dicts with the keys the CLI (Task 15) reads (`ingested`, `topic_map`/`disputed`/`concepts`). `_import_metabook(attr)` maps every attr the CLI calls.
 
-**Known risk:** Three details depend on source the authoring session could not fully read — `TriageConfig`/`TriageResult` field names (Task 13), the exact `:derive-via` key in `constraints.edn` (Task 3), and whether `rank_candidates.py` hard-imports ML at module load (Task 14). Each has an explicit re-read/confirm step before its code is written. These are the only places the executor must reconcile against live source.
+**Known risk:** One detail remains unconfirmed against live source — the exact `:derive-via` key (and overall shape) of `rules/constraints.edn` as emitted by `forge add-constraint` (Task 3 confirms it before Task 4/5 write the reader and fixture). The acquire signatures (`PaperRef`, `Candidate`, `ScoredCandidate`, `triage`, `apply_veto`, `download_and_ingest`) and the lightness of importing `rank_candidates` are now confirmed against `test_end_to_end.py`/`triage.py`/`expand_seeds.py` and baked into Task 13. If Task 3 finds a different constraints shape, adjust the Task 4 regex, the Task 5 fixture, and the Task 6 conformance fixture together.
 
 ---
 

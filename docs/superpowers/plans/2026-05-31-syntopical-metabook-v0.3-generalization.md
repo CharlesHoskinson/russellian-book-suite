@@ -288,29 +288,33 @@ git commit -m "governance: renderers refuse stale positions.edn"
 - Read: `forge_cli.py` function `_render_constraint` (around line 134) to see exactly what `forge add-constraint` writes.
 - Read: any existing `rules/constraints.edn` in a real workspace (e.g. `/c/epochpoet/rules/constraints.edn` or `/c/epochpoet/rules/booklogic/constraints.edn`) if present.
 
-- [ ] **Step 1: Capture the format**
+- [ ] **CONFIRMED (already investigated — do not re-derive a different shape)**
 
-Run:
-```bash
-sed -n '127,170p' skills/neurosym-forge/scripts/forge_cli.py
-find /c/epochpoet -name 'constraints.edn' 2>/dev/null -exec sed -n '1,40p' {} \;
-```
+Two real on-disk shapes exist; there is **no `:derive-via` key**. The claim-link field is `:track`, and in practice it is the generic placeholder `:claim/id` (not a real claim id). Tasks 4–6 below are written to match this reality.
 
-Record the actual keys of a `defconstraint` form. The reader in Task 4 must match them. The remainder of this plan assumes each constraint is an EDN map keyed by a constraint id with a `:derive-via` vector of claim-ids, e.g.:
-
+Source shape — `<workspace>/rules/booklogic/constraints.edn` (bare-symbol id, S-expression forms):
 ```clojure
-{:version 1
- :constraints
- {":C001-method-x" {:assert "(>= bond floor)"
-                    :derive-via ["clm-2026-000001" "clm-2026-000002"]
-                    :on-unsat-defect ":D1"}}}
+{:forms
+ [(defconstraint C001-method-x
+    :backend :z3
+    :assert (= (:method-x :subj) 1)
+    :track :claim/id
+    :on-unsat {:defect :D1 :severity :critical :message "..."})]}
 ```
 
-If the real format differs (different key for the claim links, or a flat list instead of a map), adjust the regexes in Task 4 and the fixture in Task 5 to match the real shape before proceeding. Do not invent a format the toolchain does not emit.
+Compiled shape — `<workspace>/rules/constraints.edn` (a VECTOR of maps, each keyed `:id` as a string):
+```clojure
+{:version 1, :constraints
+ [{:id "C001-method-x", :backend :z3, :assert (= (:method-x :subj) 1),
+   :tolerance nil, :track :claim/id,
+   :on-unsat {:defect :D13, :severity :critical, :message "..."}}]}
+```
 
-- [ ] **Step 2: Commit (notes only, if any)**
+Consequence for governance: because `:track` rarely names a real claim id, a defconstraint's atom-inferred support set is usually empty, so its stance is **charter-driven** — a school positions a hand-written constraint by listing the constraint id in its `:canonical-asserts` / `:canonical-rejects`. This matches the v0.2 design (§2.3 charter override is primary; §6 says defconstraints fall back to charter matching). Atom inference is attempted only when `:track` resolves to a claim id present in the ledger.
 
-No code change. If you discover the format differs from the assumption above, note it in the commit body of Task 4.
+- [ ] **Step 1: Commit**
+
+No code change in this task. Proceed to Task 4.
 
 ### Task 4: Tolerant defconstraint reader
 
@@ -322,7 +326,7 @@ No code change. If you discover the format differs from the assumption above, no
 
 ```python
 # SM/tests/unit/test_constraints_reader.py
-"""Tolerant reader for rules/constraints.edn → per-rule support sets."""
+"""Tolerant reader for constraints.edn (both real on-disk shapes)."""
 from __future__ import annotations
 import textwrap
 from scripts.governance._constraints import load_constraints
@@ -334,31 +338,42 @@ def _write(p, text):
     return p
 
 
-def test_load_constraints_pulls_id_and_claims(tmp_path):
+def test_source_shape_forms(tmp_path):
     f = _write(tmp_path / "constraints.edn", """
-        {:version 1
-         :constraints
-         {":C001-method-x" {:assert "(>= bond floor)"
-                            :derive-via ["clm-2026-000001" "clm-2026-000002"]}
-          ":C002-other"    {:assert "(= a b)"
-                            :derive-via ["clm-2026-000004"]}}}
+        {:forms
+         [(defconstraint C001-method-x
+            :backend :z3
+            :assert (= (:method-x :subj) 1)
+            :track :claim/id
+            :on-unsat {:defect :D1 :severity :critical :message "x"})
+          (defconstraint C002-other
+            :backend :z3
+            :assert (= (:a :subj) (:b :subj))
+            :on-unsat {:defect :D2 :severity :critical :message "y"})]}
     """)
     out = load_constraints(f)
     assert set(out) == {":C001-method-x", ":C002-other"}
-    assert out[":C001-method-x"]["atoms"] == ["clm-2026-000001", "clm-2026-000002"]
-    assert out[":C002-other"]["atoms"] == ["clm-2026-000004"]
+    assert out[":C001-method-x"]["track"] == ":claim/id"
+    assert out[":C002-other"]["track"] is None
+
+
+def test_compiled_shape_vector_of_maps(tmp_path):
+    f = _write(tmp_path / "constraints.edn", """
+        {:version 1, :constraints
+         [{:id "C001-method-x", :backend :z3, :assert (= (:m :s) 1),
+           :tolerance nil, :track :claim/id,
+           :on-unsat {:defect :D13, :severity :critical, :message "x"}}
+          {:id "C007-tau", :backend :z3, :assert (= (:t :s) 1),
+           :tolerance nil, :track :C007-tracker,
+           :on-unsat {:defect :D13, :severity :critical, :message "y"}}]}
+    """)
+    out = load_constraints(f)
+    assert set(out) == {":C001-method-x", ":C007-tau"}
+    assert out[":C007-tau"]["track"] == ":C007-tracker"
 
 
 def test_missing_file_returns_empty(tmp_path):
     assert load_constraints(tmp_path / "absent.edn") == {}
-
-
-def test_constraint_without_derive_via_has_empty_atoms(tmp_path):
-    f = _write(tmp_path / "constraints.edn", """
-        {:version 1 :constraints {":C003" {:assert "(p)"}}}
-    """)
-    out = load_constraints(f)
-    assert out[":C003"]["atoms"] == []
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -368,38 +383,60 @@ Expected: FAIL — `ModuleNotFoundError: scripts.governance._constraints`.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Mirror the tolerant-regex style of `build_positions._load_prov_sidecar`. Adjust the `:derive-via` key here if Task 3 found a different key.
+Windowing regex: collect each id's start offset, then scan the slice up to the next id for `:track`. Handles nested `:on-unsat {...}` maps that a single-map regex cannot. Ids are normalized to a leading-colon form so they match how rule ids and school `canonical-asserts`/`canonical-rejects` are written.
 
 ```python
 # SM/scripts/governance/_constraints.py
-"""Tolerant reader for rules/constraints.edn.
+"""Tolerant reader for constraints.edn (hand-written defconstraint rules).
 
-Pulls each constraint's id and its cited claim-ids (the :derive-via links).
-Regex-based, matching the byte-shape `forge add-constraint` emits; not a
-general EDN parser. Mirrors build_positions._load_prov_sidecar in style.
+Handles both on-disk shapes the toolchain uses:
+  source   (rules/booklogic/constraints.edn):
+    {:forms [(defconstraint NAME :assert ... :track T :on-unsat {...}) ...]}
+  compiled (rules/constraints.edn):
+    {:version 1 :constraints [{:id "NAME" :assert ... :track T ...} ...]}
+
+Returns constraint-id -> {"track": <str|None>}. Ids are normalized to a
+leading-colon form (":NAME"). Regex-based; not a general EDN parser. A file is
+one shape or the other, never both, so the two passes do not double-count.
 """
 from __future__ import annotations
 import re
 from pathlib import Path
 
+_TRACK_RE = re.compile(r":track\s+(:[A-Za-z0-9/_.\-]+)")
 
-def _str_vec(s: str) -> list[str]:
-    return [m.strip('"') for m in re.findall(r'"[^"]*"', s)]
+
+def _norm_id(raw: str) -> str:
+    raw = raw.strip().strip('"')
+    return raw if raw.startswith(":") else f":{raw}"
+
+
+def _track_in(segment: str) -> str | None:
+    m = _TRACK_RE.search(segment)
+    return m.group(1) if m else None
 
 
 def load_constraints(path: Path) -> dict[str, dict]:
-    """constraint-id → {"atoms": [claim-id, ...]}. Missing file → {}."""
     path = Path(path)
     if not path.exists():
         return {}
     text = path.read_text(encoding="utf-8")
     out: dict[str, dict] = {}
-    # Each entry: "<id>" { ... :derive-via [ ... ] ... }
-    entry_re = re.compile(r'"(:[^"]+)"\s*\{(.*?)\}', re.DOTALL)
-    for m in entry_re.finditer(text):
-        cid, body = m.group(1), m.group(2)
-        derive = re.search(r":derive-via\s*\[([^\]]*)\]", body)
-        out[cid] = {"atoms": _str_vec(derive.group(1)) if derive else []}
+
+    # Compiled shape: maps each carrying :id "NAME".
+    compiled = [(m.start(), _norm_id(m.group(1)))
+                for m in re.finditer(r':id\s+"([^"]+)"', text)]
+    for i, (pos, cid) in enumerate(compiled):
+        end = compiled[i + 1][0] if i + 1 < len(compiled) else len(text)
+        out[cid] = {"track": _track_in(text[pos:end])}
+
+    # Source shape: (defconstraint NAME ...).
+    source = [(m.start(), _norm_id(m.group(1)))
+              for m in re.finditer(r"\(defconstraint\s+([A-Za-z0-9:_./\-]+)", text)]
+    for i, (pos, cid) in enumerate(source):
+        end = source[i + 1][0] if i + 1 < len(source) else len(text)
+        out.setdefault(cid, {"track": _track_in(text[pos:end])})
+
     return out
 ```
 
@@ -412,7 +449,7 @@ Expected: PASS (3 passed).
 
 ```bash
 git add SM/scripts/governance/_constraints.py SM/tests/unit/test_constraints_reader.py
-git commit -m "governance: tolerant defconstraint reader"
+git commit -m "governance: tolerant defconstraint reader (source + compiled shapes)"
 ```
 
 ### Task 5: Feed defconstraint rules into build_positions
@@ -421,15 +458,14 @@ git commit -m "governance: tolerant defconstraint reader"
 - Modify: `SM/scripts/governance/build_positions.py` (function `build_positions`)
 - Test: `SM/tests/integration/test_governance_defconstraint.py`
 
-A defconstraint's support set is its cited claims' docs. Reuse the existing `_claim_doc_index` to map claim-ids → doc-ids, build a `RuleEvidence` per constraint, and emit positions with `source="defconstraint"`. Charter override still applies (`canonical_asserts`/`canonical_rejects` matching the constraint id).
+A defconstraint's stance is charter-driven: a school declares the constraint id in `canonical_asserts`/`canonical_rejects`. Atom inference is attempted only when `:track` names a real ledger claim id (rare). build_positions reads whichever constraints file exists — preferring the compiled `rules/constraints.edn`, falling back to the source `rules/booklogic/constraints.edn`. Reuse `load_constraints` (Task 4) and `_claim_doc_index`, build a `RuleEvidence` per constraint, emit positions with `source="defconstraint"` via the shared `_emit_rows` helper.
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
 # SM/tests/integration/test_governance_defconstraint.py
-"""build_positions emits positions for defconstraint rules (no induced rules)."""
+"""build_positions emits charter-driven positions for defconstraint rules."""
 from __future__ import annotations
-import shutil
 from pathlib import Path
 from scripts.governance.build_positions import build_positions
 from scripts.governance._positions_io import read_positions
@@ -439,40 +475,48 @@ from scripts.governance._stance import Stance
 def _seed(ws: Path):
     (ws / "syntopical" / "schools").mkdir(parents=True)
     (ws / "knowledge" / "claims").mkdir(parents=True)
-    (ws / "rules").mkdir(parents=True)
+    (ws / "rules" / "booklogic").mkdir(parents=True)
+    # school-a editorially asserts the constraint; school-b is silent on it.
     (ws / "syntopical" / "schools" / "school-a.edn").write_text(
         '{:version 1 :school :school-a :name "A" :charter "-" '
-        ':members ["doc-a1" "doc-a2"] :canonical-asserts [] :canonical-rejects []}',
+        ':members ["doc-a1"] :canonical-asserts [":C001-method-x"] :canonical-rejects []}',
+        encoding="utf-8")
+    (ws / "syntopical" / "schools" / "school-b.edn").write_text(
+        '{:version 1 :school :school-b :name "B" :charter "-" '
+        ':members ["doc-b1"] :canonical-asserts [] :canonical-rejects []}',
         encoding="utf-8")
     (ws / "knowledge" / "claims" / "ledger.jsonl").write_text(
-        '{"claim_id":"clm-1","status":"verified","source_spans":[{"doc_id":"doc-a1"}]}\n'
-        '{"claim_id":"clm-2","status":"verified","source_spans":[{"doc_id":"doc-a2"}]}\n',
+        '{"claim_id":"clm-1","status":"verified","source_spans":[{"doc_id":"doc-a1"}]}\n',
         encoding="utf-8")
-    (ws / "rules" / "constraints.edn").write_text(
-        '{:version 1 :constraints '
-        '{":C001-x" {:assert "(p)" :derive-via ["clm-1" "clm-2"]}}}',
+    # source shape at rules/booklogic/constraints.edn (no compiled file present)
+    (ws / "rules" / "booklogic" / "constraints.edn").write_text(
+        '{:forms\n'
+        ' [(defconstraint C001-method-x\n'
+        '    :backend :z3\n'
+        '    :assert (= (:method-x :subj) 1)\n'
+        '    :track :claim/id\n'
+        '    :on-unsat {:defect :D1 :severity :critical :message "x"})]}\n',
         encoding="utf-8")
 
 
-def test_defconstraint_emits_positions(tmp_path):
+def test_defconstraint_charter_assert_supports(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
     _seed(ws)
     build_positions(ws, generated_at="2026-05-31T00:00:00Z")
     rows = read_positions(ws / "syntopical" / "positions.edn")
-    c = [r for r in rows if r.rule_id == ":C001-x"]
-    assert len(c) == 1
-    assert c[0].source == "defconstraint"
-    assert c[0].school == "school-a"
-    # two member docs support it → supports
-    assert c[0].stance == Stance.SUPPORTS
+    c = {r.school: r for r in rows if r.rule_id == ":C001-method-x"}
+    assert set(c) == {"school-a", "school-b"}
+    assert all(r.source == "defconstraint" for r in c.values())
+    assert c["school-a"].stance == Stance.SUPPORTS
+    assert c["school-a"].declared_by_charter is True
+    assert c["school-b"].stance == Stance.SILENT
 
 
 def test_defconstraint_and_induced_coexist(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
     _seed(ws)
-    (ws / "rules" / "booklogic").mkdir(parents=True)
     (ws / "rules" / "booklogic" / "induced-theory.prov.edn").write_text(
         '{:version 1 :rules {":induced/r-001" '
         '{:prov/derived-from-atoms ["clm-1"] '
@@ -481,14 +525,13 @@ def test_defconstraint_and_induced_coexist(tmp_path):
         encoding="utf-8")
     build_positions(ws, generated_at="2026-05-31T00:00:00Z")
     rows = read_positions(ws / "syntopical" / "positions.edn")
-    sources = {r.source for r in rows}
-    assert sources == {"defconstraint", "induced"}
+    assert {r.source for r in rows} == {"defconstraint", "induced"}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd SM && ./.venv/Scripts/python.exe -m pytest tests/integration/test_governance_defconstraint.py -v`
-Expected: FAIL — only induced rules emitted; `:C001-x` absent.
+Expected: FAIL — only induced rules emitted; `:C001-method-x` absent.
 
 - [ ] **Step 3: Implement**
 
@@ -498,11 +541,16 @@ In `build_positions.py`, add the import:
 from ._constraints import load_constraints
 ```
 
-After the existing `prov = _load_prov_sidecar(...)` line, add:
+After the existing `prov = _load_prov_sidecar(...)` line, add (prefer compiled, fall back to source):
 
 ```python
-    constraints = load_constraints(workspace / "rules" / "constraints.edn")
+    constraints_path = workspace / "rules" / "constraints.edn"
+    if not constraints_path.exists():
+        constraints_path = workspace / "rules" / "booklogic" / "constraints.edn"
+    constraints = load_constraints(constraints_path)
 ```
+
+Also extend the staleness source list so renderers see whichever constraints file is used. In `SM/scripts/_staleness.py::check_positions_fresh`, add `ws / "rules" / "booklogic" / "constraints.edn"` to the source list (the existing `ws / "rules" / "constraints.edn"` stays; missing ones are ignored).
 
 Refactor the per-rule emit into a helper so induced and defconstraint rules share it. Replace the existing `for rule_id, prov_data in prov.items():` loop body's tail (the `for school in schools:` block) by extracting this helper above `build_positions`:
 
@@ -550,14 +598,20 @@ Then in `build_positions`, the induced loop becomes:
             f"induced-theory.prov.edn#{rule_id}")
 
     for cid, cdata in constraints.items():
-        supporting_docs = list(dict.fromkeys(
-            [d for atom in cdata["atoms"] for d in claim_docs.get(atom, [])]
-        ))
+        track = cdata.get("track")
+        track_claim = track.lstrip(":") if track else None
+        # Atom inference only when :track names a real ledger claim id.
+        if track_claim and track_claim in claim_docs:
+            supporting_atoms = [track_claim]
+            supporting_docs = list(dict.fromkeys(claim_docs[track_claim]))
+        else:
+            supporting_atoms = []
+            supporting_docs = []
         evidence = RuleEvidence(
             rule_id=cid,
             supporting_docs=supporting_docs,
             contradicting_docs=[],
-            supporting_atoms=list(cdata["atoms"]),
+            supporting_atoms=supporting_atoms,
             contradicting_atoms=[],
         )
         positions += _emit_rows(
@@ -565,7 +619,7 @@ Then in `build_positions`, the induced loop becomes:
             f"constraints.edn#{cid}")
 ```
 
-Leave the `write_positions(...)` tail unchanged. Update the module docstring line 8 to drop "(Phase 4 follow-up; optional)".
+Leave the `write_positions(...)` tail unchanged. Update the module docstring (the `Reads:` block, the `rules/constraints.edn ... (Phase 4 follow-up; optional)` line) to note both constraints paths are read and drop "Phase 4 follow-up".
 
 - [ ] **Step 4: Run tests**
 
@@ -587,13 +641,13 @@ git commit -m "governance: build_positions reads rules/constraints.edn (defconst
 - Create: `SM/tests/fixtures/workspaces/neutral-conformance/syntopical/schools/self.edn`
 - Create: `SM/tests/fixtures/workspaces/neutral-conformance/knowledge/claims/ledger.jsonl`
 - Create: `SM/tests/fixtures/workspaces/neutral-conformance/rules/booklogic/induced-theory.prov.edn`
-- Create: `SM/tests/fixtures/workspaces/neutral-conformance/rules/constraints.edn`
+- Create: `SM/tests/fixtures/workspaces/neutral-conformance/rules/booklogic/constraints.edn`
 - Create: `SM/tests/conformance/test_neutral_workspace.py`
 - Delete: `SM/tests/conformance/test_epochpoet_governance.py`
 
 - [ ] **Step 1: Create the fixture files**
 
-`school-a.edn`:
+`school-a.edn` (charter-asserts both the induced rule and the hand-written constraint):
 ```clojure
 {:version 1
  :school :school-a
@@ -601,7 +655,7 @@ git commit -m "governance: build_positions reads rules/constraints.edn (defconst
  :charter "Prefers method X."
  :members ["doc-a1" "doc-a2"]
  :canonical-rejects []
- :canonical-asserts [":induced/r-001"]}
+ :canonical-asserts [":induced/r-001" ":C001-method-x"]}
 ```
 
 `school-b.edn`:
@@ -643,12 +697,14 @@ git commit -m "governance: build_positions reads rules/constraints.edn (defconst
                            :prov/status :active}}}
 ```
 
-`rules/constraints.edn`:
+`rules/booklogic/constraints.edn` (real source shape; `build_positions` reads this when no compiled `rules/constraints.edn` exists):
 ```clojure
-{:version 1
- :constraints
- {":C001-method-x" {:assert "(holds method-x)"
-                    :derive-via ["clm-1" "clm-2"]}}}
+{:forms
+ [(defconstraint C001-method-x
+    :backend :z3
+    :assert (= (:method-x :subj) 1)
+    :track :claim/id
+    :on-unsat {:defect :D1 :severity :critical :message "method-x violated"})]}
 ```
 
 - [ ] **Step 2: Write the conformance test**
@@ -685,6 +741,9 @@ def test_build_emits_both_sources(tmp_path):
     build_positions(ws, generated_at="2026-05-31T00:00:00Z")
     rows = read_positions(ws / "syntopical" / "positions.edn")
     assert {r.source for r in rows} == {"induced", "defconstraint"}
+    dc = {r.school: r for r in rows if r.rule_id == ":C001-method-x"}
+    assert dc["school-a"].stance == Stance.SUPPORTS        # charter assert
+    assert dc["school-a"].declared_by_charter is True
 
 
 def test_charter_override_and_atom_inference(tmp_path):
@@ -1657,7 +1716,7 @@ Expected: both green; 0 unexpected skips.
 
 **Type consistency:** `Position` fields match `_positions_io.py`. `RuleEvidence` constructor matches `_stance.py`. `check_not_stale(artifact, sources)` signature consistent across Tasks 1–2. `run_acquire`/`run_synthesize` return dicts with the keys the CLI (Task 15) reads (`ingested`, `topic_map`/`disputed`/`concepts`). `_import_metabook(attr)` maps every attr the CLI calls.
 
-**Known risk:** One detail remains unconfirmed against live source — the exact `:derive-via` key (and overall shape) of `rules/constraints.edn` as emitted by `forge add-constraint` (Task 3 confirms it before Task 4/5 write the reader and fixture). The acquire signatures (`PaperRef`, `Candidate`, `ScoredCandidate`, `triage`, `apply_veto`, `download_and_ingest`) and the lightness of importing `rank_candidates` are now confirmed against `test_end_to_end.py`/`triage.py`/`expand_seeds.py` and baked into Task 13. If Task 3 finds a different constraints shape, adjust the Task 4 regex, the Task 5 fixture, and the Task 6 conformance fixture together.
+**Resolved during execution:** The `constraints.edn` shape is now confirmed (Task 3 investigation): two real shapes (source `{:forms [(defconstraint NAME ... :track T ...)]}` and compiled `{:version 1 :constraints [{:id "NAME" ... :track T}]}`), **no `:derive-via`**, claim-link is `:track` (usually the generic `:claim/id`). Tasks 4–6 were rewritten accordingly: defconstraint stance is charter-driven, with atom inference only when `:track` resolves to a real ledger claim id. The acquire signatures (`PaperRef`, `Candidate`, `ScoredCandidate`, `triage`, `apply_veto`, `download_and_ingest`) and the lightness of importing `rank_candidates` are confirmed against `test_end_to_end.py`/`triage.py`/`expand_seeds.py` and baked into Task 13. No open source-reconciliation risks remain.
 
 ---
 

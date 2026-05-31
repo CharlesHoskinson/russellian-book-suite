@@ -11,6 +11,7 @@ import pdfplumber
 
 from .ledger import read_claims, transition_status, LedgerError
 from .source_manifest import load_manifest
+from .source_substance import body_chars, MIN_SOURCE_BODY_CHARS
 from .workspace import WorkspaceLayout
 
 
@@ -20,6 +21,7 @@ class VerificationResult:
     ok: bool
     new_status: str
     reason: str = ""
+    warnings: tuple[str, ...] = ()
 
 
 def _normalize(text: str) -> str:
@@ -54,6 +56,7 @@ def verify_claim(layout: WorkspaceLayout, claim_id: str) -> VerificationResult:
     if claim is None:
         raise LedgerError(f"unknown claim_id={claim_id}")
 
+    warnings: list[str] = []
     for span in claim["source_spans"]:
         source_text = _load_source_text(layout, span["doc_id"])
         if _normalize(span["locator_text"]) not in _normalize(source_text):
@@ -61,10 +64,16 @@ def verify_claim(layout: WorkspaceLayout, claim_id: str) -> VerificationResult:
                 claim_id=claim_id, ok=False, new_status=claim["status"],
                 reason=f"locator_text not found in {span['doc_id']}",
             )
+        # A locator can match in a stub's frontmatter while the source has no body.
+        # Surface that: the claim still verifies, but the source is too thin to trust.
+        n = body_chars(source_text)
+        if n < MIN_SOURCE_BODY_CHARS:
+            warnings.append(f"thin source {span['doc_id']} ({n} body chars)")
 
     if claim["status"] == "proposed":
         transition_status(layout, claim_id, "verified", note="locator-text confirmed")
-    return VerificationResult(claim_id=claim_id, ok=True, new_status="verified")
+    return VerificationResult(claim_id=claim_id, ok=True, new_status="verified",
+                              warnings=tuple(warnings))
 
 
 def verify_all_proposed(layout: WorkspaceLayout) -> list[VerificationResult]:
@@ -99,6 +108,12 @@ def _main(argv: list[str]) -> int:
     for r in results:
         if not r.ok:
             print(f"  FAIL {r.claim_id}: {r.reason}", file=sys.stderr)
+    thin = [r for r in results if r.warnings]
+    if thin:
+        print(f"  {len(thin)} promoted against a thin source (verify by hand):", file=sys.stderr)
+        for r in thin:
+            for w in r.warnings:
+                print(f"    WARN {r.claim_id}: {w}", file=sys.stderr)
     return 1 if failed else 0
 
 

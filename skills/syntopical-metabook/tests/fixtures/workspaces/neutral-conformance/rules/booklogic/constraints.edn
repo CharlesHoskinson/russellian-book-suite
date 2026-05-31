@@ -1,0 +1,6 @@
+{:forms
+ [(defconstraint C001-method-x
+    :backend :z3
+    :assert (= (:method-x :subj) 1)
+    :track :claim/id
+    :on-unsat {:defect :D1 :severity :critical :message "method-x violated"})]}

@@ -1,0 +1,4 @@
+{"claim_id":"clm-1","canonical_text":"method X holds","status":"verified","source_spans":[{"doc_id":"doc-a1"}],"created_at":"2026-01-01T00:00:00+00:00"}
+{"claim_id":"clm-2","canonical_text":"method X holds","status":"verified","source_spans":[{"doc_id":"doc-a2"}],"created_at":"2026-01-01T00:00:00+00:00"}
+{"claim_id":"clm-3","canonical_text":"method X holds in own work","status":"verified","source_spans":[{"doc_id":"self-work"}],"created_at":"2026-01-01T00:00:00+00:00"}
+{"claim_id":"clm-4","canonical_text":"method Y preferred","status":"verified","source_spans":[{"doc_id":"doc-b1"}],"created_at":"2026-01-01T00:00:00+00:00"}

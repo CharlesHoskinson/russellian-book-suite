@@ -1,7 +1,7 @@
 {:version 1
  :school :my-own-work
- :name "My own work"
- :charter "Work by the paper's author."
- :members ["my-v2-spec"]
+ :name "Own work"
+ :charter "Work by this book's author."
+ :members ["self-work"]
  :canonical-rejects []
  :canonical-asserts []}

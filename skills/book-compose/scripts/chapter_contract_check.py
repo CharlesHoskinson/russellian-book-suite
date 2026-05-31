@@ -139,6 +139,7 @@ def _compute_metrics(draft_path: Path) -> dict:
     lint_parallel = load_russellian_style_module("lint_parallel_structure")
     lint_listicle = load_russellian_style_module("lint_listicle_abstract")
     lint_rhythm = load_russellian_style_module("lint_sentence_rhythm")
+    lint_footnotes = load_russellian_style_module("lint_footnotes")
 
     text = lint_common.load_markdown(draft_path)
     sentences = list(lint_common.iter_sentences(text))
@@ -149,6 +150,7 @@ def _compute_metrics(draft_path: Path) -> dict:
     parallel = lint_parallel.lint_parallel_structure(draft_path)
     listicle = lint_listicle.lint_listicle_abstract(draft_path)
     rhythm = lint_rhythm.lint_sentence_rhythm(draft_path)
+    footnotes = lint_footnotes.lint_footnotes(draft_path)
     citation_tokens = len(_CITATION_PATTERN.findall(text))
     hr = _assess_humanizer(draft_path)
     metrics = {
@@ -158,6 +160,7 @@ def _compute_metrics(draft_path: Path) -> dict:
         "parallel_structure_violations": len(parallel),
         "listicle_abstract_count":      len(listicle),
         "rhythm_violations":            len(rhythm),
+        "footnote_orphan_count":        len(footnotes),
         "sentence_count":               sentence_count,
         "citation_token_count":         citation_tokens,
         "ai_vocab_count":               hr.ai_vocab_count,

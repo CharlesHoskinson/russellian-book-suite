@@ -59,6 +59,8 @@ def lint_hedges(path: Path) -> list[dict]:
                 and _is_proper_noun(sentence.text, match.start(), matched_token)
             ):
                 continue  # capitalized modal parsed as a proper noun (month/surname)
+            if lower == "rather" and "than" in sentence.text[match.end():].lower():
+                continue  # "rather ... than" is contrastive/preference, not a hedge
             line, col = _match_line_col(sentence.line, sentence.col, sentence.text, match.start())
             findings.append({
                 "rule": "no-hedging",

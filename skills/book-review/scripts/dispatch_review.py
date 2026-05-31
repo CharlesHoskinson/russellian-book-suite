@@ -82,6 +82,25 @@ def _parse_findings_section(body: str, header: str) -> list[Finding]:
     return out
 
 
+def _reconcile_to_declared(findings: list, declared) -> list:
+    """Cap parsed findings at the persona's declared frontmatter count.
+
+    The frontmatter `<sev>_count` is the persona's explicit, schema-validated
+    self-assessment. A persona may write explanatory prose under a severity heading
+    (e.g. "None." followed by a "for the record" list of claims that *check out*);
+    those non-findings must not inflate the gating count above what was declared.
+    """
+    if declared is None:
+        return findings
+    try:
+        n = int(declared)
+    except (TypeError, ValueError):
+        return findings
+    if n <= 0:
+        return []
+    return findings[:n]
+
+
 def _schema_serializable(meta: dict) -> dict:
     """Coerce YAML-native scalars to JSON-Schema-comparable forms.
 
@@ -118,9 +137,9 @@ def parse_review_report(path: Path) -> ReviewResult:
     except jsonschema.ValidationError as exc:
         raise ValueError(f"invalid review report {path}: {exc.message}") from exc
 
-    critical = _parse_findings_section(body, "Critical")
-    important = _parse_findings_section(body, "Important")
-    minor = _parse_findings_section(body, "Minor")
+    critical = _reconcile_to_declared(_parse_findings_section(body, "Critical"), meta.get("critical_count"))
+    important = _reconcile_to_declared(_parse_findings_section(body, "Important"), meta.get("important_count"))
+    minor = _reconcile_to_declared(_parse_findings_section(body, "Minor"), meta.get("minor_count"))
     voice_headers = [m for m in _SECTION.finditer(body) if "voice" in m.group(1).lower() or "cadence" in m.group(1).lower()]
     voice_notes = ""
     if voice_headers:

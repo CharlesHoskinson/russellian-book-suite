@@ -2,7 +2,7 @@
 import pytest
 pytestmark = pytest.mark.windows_canary
 from scripts.build_delta_profile import build_profile
-from scripts.score_russell_delta import score, _verdict
+from scripts.score_russell_delta import score, diagnose, _verdict
 
 
 def _spacy_model_available():
@@ -59,6 +59,26 @@ def test_outside_verdict_when_far_from_profile():
     r = score("and and and and and", STUB, min_words=1)
     assert r["delta"] > STUB["centroid_delta"]["p90"]
     assert r["verdict"] == "outside Russell's range"
+
+def test_diagnose_ranks_divergent_words_with_direction():
+    # All weight on 'and': 'and' is the top over-used lever; 'the'/'of' under-used.
+    r = diagnose("and and and and and", STUB, top=3)
+    assert r["metric"] == "russell-burrows-delta-diagnosis"
+    assert r["top_divergent"][0]["word"] == "and"
+    assert r["top_divergent"][0]["direction"] == "over-used"
+    assert all(row["direction"] == "under-used" for row in r["top_divergent"] if row["word"] in ("the", "of"))
+    assert {row["word"] for row in r["top_divergent"]} == {"the", "of", "and"}
+
+
+def test_diagnose_delta_matches_scorer():
+    text = "the the the of of and and and and the"
+    assert diagnose(text, STUB)["delta"] == score(text, STUB, min_words=1)["delta"]
+
+
+def test_diagnose_top_limit():
+    r = diagnose("and the of and the", STUB, top=2)
+    assert len(r["top_divergent"]) == 2
+
 
 def test_min_length_guard_sets_reliable_false(fixture_profile):
     r = score("the of and the", fixture_profile, min_words=1000)

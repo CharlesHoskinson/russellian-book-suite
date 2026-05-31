@@ -36,6 +36,24 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 - `scripts/lint_parallel_structure.py` — grammatical-opening parity across bullet lists.
 - `scripts/lint_sentence_rhythm.py` — sentence-length variance and cadence defects.
 - `scripts/lint_listicle_abstract.py` — abstract-noun listicles masquerading as content.
+- `scripts/lint_ai_staccato.py` — the negation-affirmation wall ("X is not Y. X is Z.") and "This is …" stacking. The highest-signal AI tell; passes every other linter while reading as machine prose.
+- `scripts/lint_burstiness.py`, `scripts/lint_sentence_rhythm.py` — uniform sentence length / repeated openings.
+- `scripts/lint_ai_vocabulary.py`, `scripts/lint_concrete_instance_density.py`, `scripts/lint_epistemic_precision.py`, `scripts/lint_paragraph_motion.py` — vitality linters (absence-of-the-positive-move detectors).
+
+## Delta calibration
+
+- `scripts/score_russell_delta.py <file>` — Burrows Delta vs the 50-paragraph Russell profile; verdict "within / at the edge of / outside Russell's range". Advisory.
+- `scripts/score_russell_delta.py --diagnose <file>` — the **calibration levers**: the most-frequent words ranked by divergence (z-score) and direction. Over-used emphatic absolutes ("never", "cannot", "no") and bare "it"/"and" drive Delta up; under-used subordinators ("of", "which", "but", "if") drive it down. Calibrate by *prose moves* (more subordination, fewer absolutes, named subjects), never by hunting single words — cutting one under-used word can raise the Delta. See the vitality guide.
+
+## Acceptance-threshold guidance (for chapter contracts)
+
+The linters are candidate-detectors; a chapter contract that gates them all at `== 0`
+will fail on genuine analytic prose. Calibrate the contract, not the prose:
+
+- `hedge_count` counts deontic permission ("the model **may** reason") and counterfactual/possibility "could" as candidates, which the no-VAGUE-hedging policy permits. Gate a small budget, not `== 0`. (Deontic/epistemic modality is not separable by a clean rule.)
+- `passive_voice_ratio` uses the precise true-passive detector; good analytic prose runs ~0.10–0.13 (legitimate "are performed", "is owed"). Gate `< 0.15`, not `< 0.10`.
+- `modifier_budget_violations` flags precise paired adjectives ("private and lossy"). Allow a small budget.
+- Keep the anti-slop / correctness gates strict at `0`: `ai_fingerprint_total`, `listicle_abstract_count`, `rhythm_violations`, `citation_token_count`.
 
 ## Style guide
 

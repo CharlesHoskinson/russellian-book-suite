@@ -18,6 +18,20 @@ def test_lint_hedges_detects_known_terms():
     assert "generally" in terms
 
 
+def test_lint_hedges_skips_contrastive_rather_than(tmp_path):
+    # "rather than" is contrastive and must not count as a hedge; a bare
+    # adverbial "rather" still does.
+    md = tmp_path / "rather.md"
+    md.write_text(
+        "The reasons are structural rather than incidental.\n\n"
+        "I would rather under-claim than feed either.\n\n"
+        "This proof is rather involved.\n",
+        encoding="utf-8",
+    )
+    terms = [f["term"] for f in lint_hedges(md)]
+    assert terms.count("rather") == 1  # only the bare adverbial one; both "... than" forms skipped
+
+
 def test_lint_hedges_records_line_numbers():
     findings = lint_hedges(Path("tests/fixtures/hedged_sample.md"))
     assert all(f["line"] >= 1 for f in findings)

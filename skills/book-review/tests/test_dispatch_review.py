@@ -14,6 +14,29 @@ SAMPLE_PERSONA = Persona(
 )
 
 
+def test_declared_count_caps_parsed_findings(tmp_path):
+    # BUG-7: a persona declares critical_count 0 but writes "None." plus an
+    # explanatory bulleted list under the Critical heading. Those non-findings
+    # must not inflate the gating count above the declared 0.
+    report = (
+        "---\npersona: domain-expert\nchapter_id: ch-01\n"
+        "verdict: APPROVED_WITH_NOTES\n"
+        "critical_count: 0\nimportant_count: 1\nminor_count: 0\n"
+        "reviewed_at: 2026-05-31T00:00:00Z\n---\n\n"
+        "## Critical findings (gating)\nNone. The sources support the claims.\n\n"
+        "For the record, the claims most likely to be inflated all check out:\n"
+        "- Line 23: the hidden-message result matches source 017.\n"
+        "- Line 29: AgentCity is a blueprint, not a polity.\n\n"
+        "## Important findings\n- One genuine important note.\n\n"
+        "## Minor findings\nNone.\n"
+    )
+    path = tmp_path / "domain-expert.md"
+    path.write_text(report, encoding="utf-8")
+    result = parse_review_report(path)
+    assert len(result.critical) == 0
+    assert len(result.important) == 1
+
+
 def test_render_prompt_inlines_persona_and_draft(tmp_path):
     draft = tmp_path / "draft.md"
     draft.write_text("# Sample\n\nThe manual rests on six premises:\n", encoding="utf-8")

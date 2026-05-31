@@ -50,6 +50,42 @@ def score(text: str, profile: dict, min_words: int = MIN_WORDS) -> dict:
     }
 
 
+def diagnose(text: str, profile: dict, top: int = 15) -> dict:
+    """Per-word Burrows-Delta contributions: the calibration levers.
+
+    Returns the most-frequent words ranked by how far the target's usage diverges
+    from Russell's, with direction. A large positive z means the word is *over-used*
+    relative to Russell (e.g. emphatic absolutes like "never"/"cannot"); a large
+    negative z means *under-used* (Russell's subordinators "of"/"which"/"but").
+
+    Calibrate by prose moves — more subordination, fewer emphatic absolutes, named
+    subjects in place of bare "it" — not by hunting single words. Single-word edits
+    can raise the Delta (e.g. cutting an under-used "of"). See the vitality guide.
+    """
+    tokens = tokenize(text)
+    mfw, mean, stdev = profile["mfw"], profile["mean"], profile["stdev"]
+    freqs = relative_frequencies(tokens, mfw)
+    z = zscore(freqs, mean, stdev)
+    rows = [
+        {
+            "word": w,
+            "target_freq": round(f, 5),
+            "russell_freq": round(m, 5),
+            "z": round(zz, 3),
+            "direction": "over-used" if zz > 0 else "under-used",
+        }
+        for w, f, m, zz in zip(mfw, freqs, mean, z)
+    ]
+    rows.sort(key=lambda r: abs(r["z"]), reverse=True)
+    return {
+        "metric": "russell-burrows-delta-diagnosis",
+        "delta": round(manhattan_delta(z), 6),
+        "n_words": len(tokens),
+        "reliable": len(tokens) >= MIN_WORDS,
+        "top_divergent": rows[:top],
+    }
+
+
 def score_file(path, profile_path: Path = PROFILE_PATH) -> dict:
     # Lazy import: lint_common does `import spacy` at module load, which fails in
     # environments without spaCy's deps; keep this module import-safe without it.
@@ -57,11 +93,21 @@ def score_file(path, profile_path: Path = PROFILE_PATH) -> dict:
     return score(load_markdown(Path(path)), load_profile(profile_path))
 
 
+def diagnose_file(path, profile_path: Path = PROFILE_PATH, top: int = 15) -> dict:
+    from scripts.lint_common import load_markdown
+    return diagnose(load_markdown(Path(path)), load_profile(profile_path), top=top)
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) < 2:
-        print("usage: score_russell_delta.py <markdown-file>", file=sys.stderr)
+    args = list(argv[1:])
+    diag = False
+    if args and args[0] == "--diagnose":
+        diag, args = True, args[1:]
+    if not args:
+        print("usage: score_russell_delta.py [--diagnose] <markdown-file>", file=sys.stderr)
         return 2
-    print(json.dumps(score_file(argv[1]), indent=2))
+    result = diagnose_file(args[0]) if diag else score_file(args[0])
+    print(json.dumps(result, indent=2))
     return 0
 
 

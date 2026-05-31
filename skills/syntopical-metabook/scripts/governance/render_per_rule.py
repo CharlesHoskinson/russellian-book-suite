@@ -6,7 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from ._positions_io import Position, read_positions
 from ._stance import Stance
-from .._staleness import check_not_stale
+from .._staleness import check_positions_fresh
 
 
 _STANCE_GLYPH = {
@@ -70,13 +70,7 @@ def _render_one(rule_id: str, rows: list[Position]) -> str:
 
 
 def render_per_rule(positions_path: Path, out_dir: Path) -> int:
-    positions_path = Path(positions_path)
-    ws = positions_path.parents[1]
-    check_not_stale(positions_path, [
-        ws / "knowledge" / "claims" / "ledger.jsonl",
-        ws / "rules" / "booklogic" / "induced-theory.prov.edn",
-        ws / "rules" / "constraints.edn",
-    ])
+    check_positions_fresh(positions_path)
     rows = read_positions(positions_path)
     grouped: dict[str, list[Position]] = defaultdict(list)
     for p in rows:

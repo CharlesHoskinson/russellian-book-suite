@@ -38,3 +38,19 @@ def test_missing_artifact_raises(tmp_path):
     art = tmp_path / "positions.edn"
     with pytest.raises(StaleArtifactError, match="does not exist"):
         check_not_stale(art, [])
+
+
+def test_check_positions_fresh_uses_governance_sources(tmp_path):
+    import os
+    from scripts._staleness import check_positions_fresh, StaleArtifactError
+    ws = tmp_path / "ws"
+    (ws / "syntopical").mkdir(parents=True)
+    (ws / "rules" / "booklogic").mkdir(parents=True)
+    positions = ws / "syntopical" / "positions.edn"
+    positions.write_text("{}", encoding="utf-8")
+    prov = ws / "rules" / "booklogic" / "induced-theory.prov.edn"
+    prov.write_text("{}", encoding="utf-8")
+    os.utime(positions, (1000, 1000))
+    os.utime(prov, (2000, 2000))
+    with pytest.raises(StaleArtifactError):
+        check_positions_fresh(positions)

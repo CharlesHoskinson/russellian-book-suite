@@ -34,4 +34,5 @@ def check_positions_fresh(positions_path: Path) -> None:
         ws / "knowledge" / "claims" / "ledger.jsonl",
         ws / "rules" / "booklogic" / "induced-theory.prov.edn",
         ws / "rules" / "constraints.edn",
+        ws / "rules" / "booklogic" / "constraints.edn",
     ])

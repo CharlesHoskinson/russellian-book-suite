@@ -1,6 +1,6 @@
 # Skill Capability Protocol Design
 
-Date: 2026-06-01. Status: proposed extension-plane design for review.
+Date: 2026-06-01. Status: accepted extension-plane design, promoted into the core v2 architecture and ASCII protocol.
 
 Related documents:
 
@@ -642,7 +642,7 @@ The pipeline can still have optimized built-in stage handlers for core services,
 
 ## 23. Architecture Changes Required
 
-The current v2 architecture should be updated to add:
+The current v2 architecture has been updated to add:
 
 - `rbs-capability-registry-svc` as a platform service.
 - `rbs-capability-sdk` as an optional helper crate.
@@ -666,4 +666,3 @@ The current v2 architecture should be updated to add:
 [ ] Legacy sidecars are possible but disabled by default.
 [ ] A future marketplace is not required but not blocked.
 ```
-

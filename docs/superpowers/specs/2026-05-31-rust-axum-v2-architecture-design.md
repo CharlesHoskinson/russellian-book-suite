@@ -6,7 +6,7 @@ Date: 2026-05-31. Updated: 2026-06-01. Status: revised for full microservices, a
 
 Replace the Python-based Russellian Book Suite with a Rust microservice architecture. The target system is a distributed suite of independently deployable services that communicate through versioned gRPC contracts, expose an operator-facing REST API through an Axum gateway, and preserve the current skill suite's behavioral contracts and artifact semantics.
 
-The first implementation plan should build a thin but real vertical slice across the MSA stack: gateway, workspace service, artifact service, pipeline service, fetch service, one domain gate service, gRPC contracts, SQLx persistence, tracing/OpenTelemetry, and contract tests. The system must be testable without live network, live LLM calls, or hidden global state.
+The first implementation plan should build a thin but real vertical slice across the MSA stack: gateway, workspace service, artifact service, capability registry, pipeline service, fetch service, one domain gate service, gRPC contracts, SQLx persistence, tracing/OpenTelemetry, and contract tests. The system must be testable without live network, live LLM calls, or hidden global state.
 
 ## 2. Standard platform stack
 
@@ -30,6 +30,7 @@ SQLx is chosen over SeaORM because the metadata and ledger models need explicit 
 - Do not put book-domain logic in the Axum gateway.
 - Do not permit outbound HTTP outside `rbs-fetch-svc`.
 - Do not allow cross-service database reads. Services communicate through Tonic or artifact references, not direct SQL into another service's store.
+- Do not hot-load arbitrary code into the gateway or pipeline. New skills run as services or adapters behind explicit capability manifests.
 - Do not retire a Python skill until its Rust service replacement passes golden compatibility tests for the accepted fixture set.
 - Do not introduce a message broker in milestone 1. The first pipeline service uses SQLx-backed durable jobs and gRPC calls. A broker can be added later if load or workflow fan-out justifies it.
 
@@ -58,7 +59,8 @@ The v2 MSA fixes these by replacing path-based imports with gRPC contracts, repl
 8. **Core fetch service.** `scrapling-fetch` becomes `rbs-fetch-svc`, the only outbound network service.
 9. **Milestone-1 fetch modes.** `Plain` mode is implemented first. `Stealth` and `Dynamic` remain in the protobuf/API model but return typed `UnsupportedMode` errors until a Rust-native browser strategy is selected.
 10. **Review unification.** `book-review` and `review-conductor` merge into one `rbs-review-svc` with persona and panel modules.
-11. **Wiki-backed architecture memory.** Architecture lessons and decisions are recorded in `C:\Users\charl\russellian-book-suite-v2-wiki`.
+11. **Capability extension plane.** Arbitrary future skills are added through manifests, `rbs-capability-registry-svc`, generic `CapabilityExecutor` contracts, permission declarations, schema validation, and pipeline capability stages.
+12. **Wiki-backed architecture memory.** Architecture lessons and decisions are recorded in `C:\Users\charl\russellian-book-suite-v2-wiki`.
 
 ## 6. Service topology
 
@@ -69,7 +71,9 @@ flowchart TD
     Gateway --> Workspace["rbs-workspace-svc<br/>Tonic"]
     Gateway --> Pipeline["rbs-pipeline-svc<br/>Tonic"]
     Gateway --> Artifact["rbs-artifact-svc<br/>Tonic"]
+    Gateway --> Registry["rbs-capability-registry-svc<br/>Tonic"]
 
+    Pipeline --> Registry
     Pipeline --> Fetch["rbs-fetch-svc"]
     Pipeline --> Knowledge["rbs-knowledge-svc"]
     Pipeline --> Thesis["rbs-thesis-svc"]
@@ -86,6 +90,7 @@ flowchart TD
 
     Workspace --> WorkspaceDb[("workspace DB")]
     Pipeline --> PipelineDb[("pipeline DB")]
+    Registry --> RegistryDb[("capability registry DB")]
     Artifact --> ArtifactDb[("artifact index DB")]
     Artifact --> BlobStore[("artifact blob store")]
     Knowledge --> KnowledgeDb[("knowledge DB")]
@@ -93,7 +98,7 @@ flowchart TD
     Review --> ReviewDb[("review DB")]
 ```
 
-The gateway is thin. It validates REST requests, starts jobs, reads status, and returns typed responses. It does not import domain service internals. Service composition happens through Tonic clients and the pipeline service.
+The gateway is thin. It validates REST requests, starts jobs, reads status, exposes capability discovery/admin endpoints, and returns typed responses. It does not import domain service internals. Service composition happens through Tonic clients and the pipeline service. Capability resolution happens through `rbs-capability-registry-svc`, not hard-coded gateway or pipeline branches.
 
 ## 7. Repository layout
 
@@ -106,10 +111,12 @@ russellian-book-suite/
     rbs-telemetry/         # tracing/OpenTelemetry setup
     rbs-config/            # env/config loading
     rbs-policy/            # shared policy decisions and test helpers
+    rbs-capability-sdk/    # helpers for external capability services
     rbs-gateway/           # Axum REST gateway
     rbs-api-client/        # REST client for tests/future CLI
     rbs-workspace-svc/
     rbs-artifact-svc/
+    rbs-capability-registry-svc/
     rbs-pipeline-svc/
     rbs-fetch-svc/
     rbs-agent-svc/
@@ -124,6 +131,10 @@ russellian-book-suite/
     rbs-weaver-svc/
   proto/
     rbs/v1/*.proto
+  capabilities/
+    *.yaml
+  schemas/
+    capabilities/*.schema.json
   migrations/
     <service-name>/*.sql
   tests/
@@ -142,6 +153,7 @@ russellian-book-suite/
 - `rbs-proto` depends on Tonic/prost and shared core conversions only.
 - `rbs-telemetry` is shared by all service binaries.
 - `rbs-config` is shared by all service binaries.
+- `rbs-capability-sdk` may depend on `rbs-core`, `rbs-proto`, `rbs-config`, and `rbs-telemetry`; it does not depend on the gateway or concrete domain services.
 - `rbs-gateway` is the only crate that depends on Axum.
 - Service crates may depend on their own domain modules, `rbs-core`, `rbs-proto`, `rbs-config`, `rbs-telemetry`, `rbs-policy`, SQLx, Tokio, tracing, and Tonic.
 - Service crates must not depend on each other directly. Calls cross service boundaries through generated Tonic clients.
@@ -169,6 +181,8 @@ Owns protobuf files and generated code for:
 - workspace service
 - artifact service
 - pipeline service
+- capability registry service
+- generic capability executor service
 - fetch service
 - agent service
 - knowledge service
@@ -221,6 +235,10 @@ Owns reusable policy types and tests:
 
 Runtime enforcement lives in the owning service; policy tests verify the shared rule set.
 
+### 9.6 `rbs-capability-sdk`
+
+Optional helper crate for external capability services. Owns manifest parsing helpers, executor request/response helpers, schema validation helpers, fixture helpers, and trace propagation helpers. It is not required for non-Rust services, which can implement the protobuf contracts directly.
+
 ## 10. Service responsibilities
 
 ### 10.1 `rbs-gateway`
@@ -232,6 +250,7 @@ Public Axum REST API. Responsibilities:
 - Rate limiting for operator-facing endpoints.
 - OpenAPI snapshots.
 - Tonic clients to backend services.
+- Capability discovery and admin route wiring.
 - Trace creation and propagation.
 
 The gateway does not execute domain logic and does not write workspace artifacts directly.
@@ -246,7 +265,7 @@ Owns artifact indexing, atomic artifact writes, checksums, provenance metadata, 
 
 ### 10.4 `rbs-pipeline-svc`
 
-Owns long-running jobs, DAG execution, cancellation, retries, staleness checks, and job events. It orchestrates services over Tonic and persists durable job state with SQLx.
+Owns long-running jobs, DAG execution, cancellation, retries, staleness checks, and job events. It orchestrates services over Tonic and persists durable job state with SQLx. Generic skill stages are scheduled by resolving `capability_id`, `operation_id`, and version constraints through `rbs-capability-registry-svc`.
 
 Job statuses:
 
@@ -257,7 +276,31 @@ Job statuses:
 - `Failed`
 - `Cancelled`
 
-### 10.5 `rbs-fetch-svc`
+### 10.5 `rbs-capability-registry-svc`
+
+Owns capability manifests, capability versions, operation metadata, permissions, schema references, maturity state, endpoint resolution, and capability health state. It validates manifests, rejects forbidden permission requests, exposes discovery to the gateway, and provides scheduling metadata to `rbs-pipeline-svc`.
+
+Capability states:
+
+- `Draft`
+- `Registered`
+- `TestPending`
+- `Enabled`
+- `Deprecated`
+- `Disabled`
+- `Rejected`
+- `Quarantined`
+
+Capability maturity levels:
+
+- `Experimental`
+- `Beta`
+- `Stable`
+- `Core`
+- `Deprecated`
+- `Disabled`
+
+### 10.6 `rbs-fetch-svc`
 
 Ports `scrapling-fetch`. It is the only service with outbound network access.
 
@@ -277,11 +320,11 @@ Milestone 1 behavior:
 - streaming PDF download
 - HTML-to-Markdown and Markdown-to-paragraph extraction
 
-### 10.6 `rbs-agent-svc`
+### 10.7 `rbs-agent-svc`
 
 Owns all non-deterministic LLM, subagent, reviewer, entailment, and healer calls. Domain services build packets and parse structured outputs; they do not call external LLM providers directly.
 
-### 10.7 Domain services
+### 10.8 Domain services
 
 | Service | Ports | Owns |
 |---|---|---|
@@ -305,6 +348,11 @@ System:
 - `GET /ready`
 - `GET /version`
 - `GET /capabilities`
+- `GET /capabilities/:capability_id`
+- `GET /capabilities/:capability_id/operations`
+- `POST /capabilities/register`
+- `POST /capabilities/:capability_id/enable`
+- `POST /capabilities/:capability_id/disable`
 
 Workspaces:
 
@@ -358,6 +406,12 @@ Contract examples:
 - `PipelineService.StreamJobEvents`
 - `ArtifactService.WriteArtifact`
 - `ArtifactService.ReadArtifact`
+- `CapabilityRegistryService.RegisterCapability`
+- `CapabilityRegistryService.ResolveCapability`
+- `CapabilityRegistryService.EnableCapability`
+- `CapabilityRegistryService.DisableCapability`
+- `CapabilityExecutor.Describe`
+- `CapabilityExecutor.Execute`
 - `FetchService.FetchPage`
 - `FetchService.DownloadPdf`
 - `QaService.LintArtifact`
@@ -397,6 +451,7 @@ Storage boundaries:
 
 - `rbs-workspace-svc`: workspace registry and workspace metadata.
 - `rbs-artifact-svc`: artifact index plus blob-store metadata.
+- `rbs-capability-registry-svc`: manifests, operation versions, endpoint refs, permission declarations, schema refs, maturity state, health status.
 - `rbs-pipeline-svc`: jobs, job events, retries, orchestration state.
 - `rbs-fetch-svc`: fetch cache metadata and fetch audit records.
 - Domain services: only their domain-specific indexes and reports.
@@ -411,6 +466,7 @@ Milestone 1 ships a local distributed dev topology:
 - Docker Compose for service startup
 - service-owned databases/schemas
 - gateway plus gRPC backend services
+- capability manifests loaded into `rbs-capability-registry-svc`
 - OpenTelemetry collector
 - structured logs
 - health/readiness endpoints
@@ -425,16 +481,17 @@ Kubernetes manifests live under `deploy/k8s/` after Docker Compose is stable.
 1. Unit tests per crate.
 2. Property tests for IDs, path guards, artifact round trips, DAG invariants, parser behavior, and service request validation.
 3. Protobuf contract tests for backward compatibility.
-4. OpenAPI snapshot tests for gateway REST.
-5. Tonic service tests with in-process clients.
-6. Axum handler tests using `tower::ServiceExt::oneshot`.
-7. Component tests per service with test databases.
-8. Docker Compose integration tests across gateway + selected services.
-9. End-to-end API tests booting the local MSA stack.
-10. Golden regression tests comparing Rust outputs to approved v1 fixture outputs.
-11. Security and policy tests for traversal, no-shadow-writes, network boundary, malformed payloads, and cross-service DB isolation.
-12. Observability tests proving trace propagation across REST to gRPC to job execution.
-13. Performance tests using Criterion plus API/gRPC load smoke tests.
+4. Capability manifest schema tests and permission policy tests.
+5. OpenAPI snapshot tests for gateway REST.
+6. Tonic service tests with in-process clients.
+7. Axum handler tests using `tower::ServiceExt::oneshot`.
+8. Component tests per service with test databases.
+9. Docker Compose integration tests across gateway + selected services.
+10. End-to-end API tests booting the local MSA stack.
+11. Golden regression tests comparing Rust outputs to approved v1 fixture outputs.
+12. Security and policy tests for traversal, no-shadow-writes, network boundary, malformed payloads, cross-service DB isolation, and forbidden capability permissions.
+13. Observability tests proving trace propagation across REST to gRPC to job execution and generic capability execution.
+14. Performance tests using Criterion plus API/gRPC load smoke tests.
 
 ### 16.2 `rbs-fetch-svc` tests
 
@@ -453,8 +510,11 @@ Kubernetes manifests live under `deploy/k8s/` after Docker Compose is stable.
 - `cargo test --workspace`
 - SQLx migration checks.
 - protobuf generation and compatibility checks.
+- capability manifest validation.
+- capability permission lint.
 - OpenAPI snapshot checks.
 - Tonic contract tests.
+- generic `CapabilityExecutor` contract tests.
 - Golden artifact compatibility checks.
 - dependency-policy check: no outbound HTTP client or browser automation crates outside `rbs-fetch-svc`.
 - workspace-policy check: no direct writes outside owner boundaries in integration tests.
@@ -470,12 +530,14 @@ Live network tests run only behind an explicit `live` feature in scheduled or ma
 2. `rbs-proto`
 3. `rbs-telemetry`
 4. `rbs-config`
-5. `rbs-gateway`
-6. `rbs-workspace-svc`
-7. `rbs-artifact-svc`
-8. `rbs-pipeline-svc`
-9. `rbs-fetch-svc`
-10. `rbs-agent-svc`
+5. `rbs-capability-sdk`
+6. `rbs-gateway`
+7. `rbs-workspace-svc`
+8. `rbs-artifact-svc`
+9. `rbs-capability-registry-svc`
+10. `rbs-pipeline-svc`
+11. `rbs-fetch-svc`
+12. `rbs-agent-svc`
 
 ### 17.2 Domain service order
 
@@ -496,6 +558,8 @@ Rationale: `rbs-qa-svc` has clear inputs and outputs, `rbs-review-svc` removes a
 | Risk | Mitigation |
 |---|---|
 | Distributed complexity slows early delivery | First milestone is a thin vertical slice with only required services active |
+| Capability registry becomes a second gateway | Registry owns metadata and policy only; execution remains in services and orchestration remains in pipeline |
+| Arbitrary skills bypass platform boundaries | Manifest permissions, executor contracts, and policy CI deny direct artifact, network, provider, and cross-service DB access |
 | Service boundaries become chatty | Pipeline service orchestrates coarse-grained jobs; services exchange artifact IDs, not large inline payloads |
 | Gateway accumulates domain logic | Gateway tests assert wiring only; service tests assert behavior |
 | Cross-service DB coupling appears | CI dependency/schema lints forbid direct DB access outside owner service |
@@ -511,3 +575,4 @@ Rationale: `rbs-qa-svc` has clear inputs and outputs, `rbs-review-svc` removes a
 - The architecture matches the user decisions: Rust, Tokio, Axum, Tonic, Serde, SQLx, tracing, OpenTelemetry, full microservices, native fetch boundary, comprehensive tests, wiki-backed memory.
 - Known unresolved topics are deferred explicitly or represented as typed unsupported capabilities.
 - Every current skill maps to one service or an intentional merged service.
+- Arbitrary future skills have a registry, manifest, permission, schema, and generic executor path.

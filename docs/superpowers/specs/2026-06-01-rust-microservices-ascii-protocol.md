@@ -22,7 +22,7 @@ The protocol does not define implementation internals. A service can change its 
 
 ## 2. Global Topology
 
-All operator traffic enters through `rbs-gateway`. All internal traffic uses Tonic/gRPC. Domain services do not call each other directly unless a later protocol revision explicitly permits it. Workflow composition belongs to `rbs-pipeline-svc`.
+All operator traffic enters through `rbs-gateway`. All internal traffic uses Tonic/gRPC. Domain services do not call each other directly unless a later protocol revision explicitly permits it. Workflow composition belongs to `rbs-pipeline-svc`. Capability discovery, version resolution, permission declarations, and external skill endpoint resolution belong to `rbs-capability-registry-svc`.
 
 ```text
                                      PUBLIC REST
@@ -35,10 +35,10 @@ All operator traffic enters through `rbs-gateway`. All internal traffic uses Ton
                                              |
                                              | Tonic / protobuf
                                              v
-        +--------------------+     +--------------------+
-        | rbs-workspace-svc  | <-- | rbs-pipeline-svc   |
-        +--------------------+     +----------+---------+
-                                               |
+        +--------------------+     +--------------------+     +--------------------+
+        | rbs-workspace-svc  | <-- | rbs-pipeline-svc   | --> | rbs-capability    |
+        +--------------------+     +----------+---------+     | -registry-svc     |
+                                               |              +----------+---------+
                     +--------------------------+--------------------------+
                     |                          |                          |
                     v                          v                          v
@@ -59,6 +59,11 @@ All operator traffic enters through `rbs-gateway`. All internal traffic uses Ton
         | rbs-style-svc         rbs-review-svc      rbs-qa-svc         |
         | rbs-compose-svc       rbs-forge-svc       rbs-weaver-svc     |
         +--------------------------------------------------------------+
+
+        +--------------------------------------------------------------+
+        | External skill services                                      |
+        | CapabilityExecutor + manifest + scoped permissions           |
+        +--------------------------------------------------------------+
 ```
 
 ## 3. Layer Protocol
@@ -71,13 +76,13 @@ The architecture is layered by protocol, not by source folders.
 |     REST endpoints, OpenAPI snapshots, stable error envelope          |
 +-----------------------------------------------------------------------+
 | L4  Workflow orchestration                                             |
-|     Jobs, DAG stages, retries, cancellation, event streams            |
+|     Jobs, DAG stages, capability stages, retries, cancellation, events |
 +-----------------------------------------------------------------------+
 | L3  Domain services                                                    |
 |     Knowledge, thesis, syntopical, style, review, QA, compose, etc.    |
 +-----------------------------------------------------------------------+
 | L2  Core infrastructure services                                       |
-|     Workspace, artifact, fetch, agent                                  |
+|     Workspace, artifact, capability registry, fetch, agent             |
 +-----------------------------------------------------------------------+
 | L1  Shared platform                                                    |
 |     rbs-core, rbs-proto, rbs-config, rbs-telemetry, rbs-policy         |
@@ -91,6 +96,7 @@ Layer rules:
 
 - L5 may call L4 and selected L2 services through Tonic clients.
 - L4 may call L2 and L3 services through Tonic clients.
+- L4 resolves generic capability stages through `rbs-capability-registry-svc`.
 - L3 services may call L2 services through Tonic clients.
 - L3 services must not call each other directly in milestone 1.
 - L2 services must not call L3 services.
@@ -102,23 +108,25 @@ Layer rules:
 Service names are stable API names. Crate names, binary names, proto package names, database schema names, and deployment names should be mechanically related.
 
 ```text
-Logical service       Crate / binary        Proto service             DB/schema
-------------------    ------------------    ----------------------    -----------------
-rbs-gateway           rbs-gateway           none for server API       none or gateway_db
-rbs-workspace-svc     rbs-workspace-svc     WorkspaceService         workspace_db
-rbs-artifact-svc      rbs-artifact-svc      ArtifactService          artifact_db
-rbs-pipeline-svc      rbs-pipeline-svc      PipelineService          pipeline_db
-rbs-fetch-svc         rbs-fetch-svc         FetchService             fetch_db
-rbs-agent-svc         rbs-agent-svc         AgentService             agent_db
-rbs-knowledge-svc     rbs-knowledge-svc     KnowledgeService         knowledge_db
-rbs-thesis-svc        rbs-thesis-svc        ThesisService            thesis_db
-rbs-syntopical-svc    rbs-syntopical-svc    SyntopicalService        syntopical_db
-rbs-style-svc         rbs-style-svc         StyleService             style_db
-rbs-review-svc        rbs-review-svc        ReviewService            review_db
-rbs-qa-svc            rbs-qa-svc            QaService                qa_db
-rbs-compose-svc       rbs-compose-svc       ComposeService           compose_db
-rbs-forge-svc         rbs-forge-svc         ForgeService             forge_db
-rbs-weaver-svc        rbs-weaver-svc        WeaverService            weaver_db
+Logical service               Crate / binary                Proto service               DB/schema
+--------------------------    --------------------------    -----------------------     ----------------
+rbs-gateway                   rbs-gateway                   none for server API         none or gateway_db
+rbs-workspace-svc             rbs-workspace-svc             WorkspaceService           workspace_db
+rbs-artifact-svc              rbs-artifact-svc              ArtifactService            artifact_db
+rbs-capability-registry-svc   rbs-capability-registry-svc   CapabilityRegistryService  cap_registry_db
+rbs-pipeline-svc              rbs-pipeline-svc              PipelineService            pipeline_db
+rbs-fetch-svc                 rbs-fetch-svc                 FetchService               fetch_db
+rbs-agent-svc                 rbs-agent-svc                 AgentService               agent_db
+rbs-knowledge-svc             rbs-knowledge-svc             KnowledgeService           knowledge_db
+rbs-thesis-svc                rbs-thesis-svc                ThesisService              thesis_db
+rbs-syntopical-svc            rbs-syntopical-svc            SyntopicalService          syntopical_db
+rbs-style-svc                 rbs-style-svc                 StyleService               style_db
+rbs-review-svc                rbs-review-svc                ReviewService              review_db
+rbs-qa-svc                    rbs-qa-svc                    QaService                  qa_db
+rbs-compose-svc               rbs-compose-svc               ComposeService             compose_db
+rbs-forge-svc                 rbs-forge-svc                 ForgeService               forge_db
+rbs-weaver-svc                rbs-weaver-svc                WeaverService              weaver_db
+external skill svc            external deployable           CapabilityExecutor         owned by skill
 ```
 
 Protocol rule: a service name ending in `-svc` means it is independently deployable and reachable by gRPC. The gateway is independently deployable but does not expose a gRPC server in milestone 1.
@@ -130,24 +138,29 @@ Legend:
 ```text
 Y  = allowed in milestone 1
 N  = forbidden
+C  = conditionally allowed by capability manifest permissions
 P  = allowed only through rbs-pipeline-svc orchestration
 I  = internal implementation detail, not a network call
 ```
 
 ```text
-Caller \ Callee       gateway workspace artifact pipeline fetch agent domain
--------------------   ------- --------- -------- -------- ----- ----- ------
-operator/client       Y       N         N        N        N     N     N
-rbs-gateway           I       Y         Y        Y        N     N     N
-rbs-workspace-svc     N       I         N        N        N     N     N
-rbs-artifact-svc      N       N         I        N        N     N     N
-rbs-pipeline-svc      N       Y         Y        I        Y     Y     Y
-rbs-fetch-svc         N       N         Y        N        I     N     N
-rbs-agent-svc         N       N         Y        N        N     I     N
-domain service        N       Y         Y        N        N     Y     I
+Caller \ Callee       gateway work artifact registry pipeline fetch agent domain external
+-------------------   ------- ---- -------- -------- -------- ----- ----- ------ --------
+operator/client       Y       N    N        N        N        N     N     N      N
+rbs-gateway           I       Y    Y        Y        Y        N     N     N      N
+rbs-workspace-svc     N       I    N        N        N        N     N     N      N
+rbs-artifact-svc      N       N    I        N        N        N     N     N      N
+rbs-cap-registry-svc  N       N    N        I        N        N     N     N      C
+rbs-pipeline-svc      N       Y    Y        Y        I        Y     Y     Y      C
+rbs-fetch-svc         N       N    Y        N        N        I     N     N      N
+rbs-agent-svc         N       N    Y        N        N        N     I     N      N
+domain service        N       Y    Y        N        N        N     Y     I      N
+external skill svc    N       C    C        N        N        C     C     N      I
 ```
 
 Domain-to-domain calls are `P`: they are represented as pipeline stages, not direct service calls. Example: compose needs QA; compose submits or participates in a pipeline that invokes QA, then consumes QA artifacts by ID.
+
+External skill calls are `C`: they are allowed only when declared in the capability manifest, approved by registry policy, and scoped in the execution request.
 
 ## 6. Shared Request Context Protocol
 
@@ -254,6 +267,7 @@ REST route classes:
 
 ```text
 /health, /ready, /version, /capabilities
+/capabilities/*
 /workspaces/*
 /jobs/*
 /artifacts/*
@@ -274,6 +288,26 @@ service <Name>Service
   rpc Health(HealthRequest) returns HealthResponse
   rpc Ready(ReadyRequest) returns ReadyResponse
   rpc <Capability>(<Capability>Request) returns <Capability>Response
+```
+
+Capability extension services add:
+
+```text
+service CapabilityRegistryService
+  rpc RegisterCapability(RegisterCapabilityRequest) returns RegisterCapabilityResponse
+  rpc ValidateManifest(ValidateManifestRequest) returns ValidateManifestResponse
+  rpc ListCapabilities(ListCapabilitiesRequest) returns ListCapabilitiesResponse
+  rpc ResolveCapability(ResolveCapabilityRequest) returns ResolveCapabilityResponse
+  rpc EnableCapability(EnableCapabilityRequest) returns EnableCapabilityResponse
+  rpc DisableCapability(DisableCapabilityRequest) returns DisableCapabilityResponse
+
+service CapabilityExecutor
+  rpc Describe(DescribeRequest) returns DescribeResponse
+  rpc Validate(ValidateCapabilityRequest) returns ValidateCapabilityResponse
+  rpc DryRun(DryRunCapabilityRequest) returns DryRunCapabilityResponse
+  rpc Execute(ExecuteCapabilityRequest) returns ExecuteCapabilityResponse
+  rpc Health(HealthRequest) returns HealthResponse
+  rpc Ready(ReadyRequest) returns ReadyResponse
 ```
 
 Every mutating request contains:
@@ -461,6 +495,10 @@ Each service owns its database or schema. Cross-service SQL is forbidden. A serv
 | rbs-artifact-svc  | -------------> | artifact_db       |
 +-------------------+                +-------------------+
 
++-----------------------+  owns      +--------------------------+
+| rbs-cap-registry-svc  | ---------> | capability_registry_db   |
++-----------------------+            +--------------------------+
+
 +-------------------+      owns      +-------------------+
 | rbs-pipeline-svc  | -------------> | pipeline_db       |
 +-------------------+                +-------------------+
@@ -480,6 +518,7 @@ Migration protocol:
 migrations/
   rbs-workspace-svc/
   rbs-artifact-svc/
+  rbs-capability-registry-svc/
   rbs-pipeline-svc/
   rbs-fetch-svc/
   rbs-agent-svc/
@@ -493,6 +532,68 @@ CI must fail when:
 - a service opens another service's database URL
 - a test relies on cross-service table reads
 - a protobuf response exposes private SQL row shape
+- a capability manifest grants access to another service's private tables
+
+### 11.1 Capability Extension Protocol
+
+New skills are registered through manifests and executed through service boundaries. The registry controls discovery and scheduling metadata; it does not execute skills.
+
+```text
+capability manifest
+      |
+      | RegisterCapability / ValidateManifest
+      v
+rbs-capability-registry-svc
+      |
+      | ResolveCapability
+      v
+rbs-pipeline-svc
+      |
+      | CapabilityExecutor.Execute
+      v
+external or core skill service
+      |
+      +--> rbs-artifact-svc for durable outputs
+      +--> rbs-fetch-svc only when manifest permits fetch.request
+      +--> rbs-agent-svc only when manifest permits agent.run
+```
+
+Manifest contract:
+
+```text
+capability.id
+capability.version
+capability.runtime
+operation.id
+operation.kind
+input_artifacts[]
+output_artifacts[]
+params_schema_ref
+result_schema_ref
+permissions[]
+policy
+tests
+```
+
+Capability states:
+
+```text
+draft -> registered -> test_pending -> enabled -> deprecated -> disabled
+             |              |
+             v              v
+          rejected       quarantined
+```
+
+Runtime types:
+
+```text
+core_service
+external_tonic
+adapter_sidecar
+wasm_sandbox
+```
+
+Milestone 1 implements `core_service` and `external_tonic`. `adapter_sidecar` is represented but disabled by default. `wasm_sandbox` is deferred.
 
 ## 12. Fetch Protocol
 
@@ -769,6 +870,10 @@ artifact.not_found
 artifact.version_conflict
 pipeline.job_not_found
 pipeline.job_cancelled
+capability.unknown
+capability.disabled
+capability.permission_denied
+capability.schema_invalid
 fetch.unsupported_mode
 fetch.rate_limited
 fetch.robots_denied
@@ -856,6 +961,10 @@ rbs.service
 rbs.operation
 rbs.artifact_id
 rbs.error_code
+rbs.capability_id
+rbs.operation_id
+rbs.capability_version
+rbs.capability_runtime
 ```
 
 Required metrics:
@@ -873,6 +982,8 @@ fetch_requests_total
 fetch_cache_hits_total
 agent_calls_total
 policy_denials_total
+capability_executions_total
+capability_failures_total
 ```
 
 Protocol rule: no workflow is accepted as production-ready until a trace can be followed from REST entry to final artifact or error.
@@ -911,6 +1022,7 @@ Policy rules:
 - Services reject requests missing caller identity.
 - Services reject workspace paths that escape owned roots.
 - Services reject writes to artifacts they do not own.
+- Capability manifests are denied if they request undeclared, forbidden, or boundary-breaking permissions.
 - Only `rbs-fetch-svc` performs outbound HTTP/browser automation.
 - Only `rbs-agent-svc` performs LLM/provider calls.
 - Secrets are supplied through `rbs-config`; they are never stored in artifacts or traces.
@@ -924,12 +1036,14 @@ Local MSA startup under Docker Compose:
 2. run migrations per service
 3. start rbs-workspace-svc
 4. start rbs-artifact-svc
-5. start rbs-fetch-svc
-6. start rbs-agent-svc
-7. start domain services
-8. start rbs-pipeline-svc
-9. start rbs-gateway
-10. run readiness probes
+5. start rbs-capability-registry-svc
+6. load enabled capability manifests
+7. start rbs-fetch-svc
+8. start rbs-agent-svc
+9. start domain services and external skill services
+10. start rbs-pipeline-svc
+11. start rbs-gateway
+12. run readiness probes
 ```
 
 Readiness protocol:
@@ -939,6 +1053,7 @@ rbs-gateway /ready
       |
       +--> WorkspaceService.Ready
       +--> ArtifactService.Ready
+      +--> CapabilityRegistryService.Ready
       +--> PipelineService.Ready
       +--> FetchService.Ready
       +--> AgentService.Ready
@@ -969,6 +1084,8 @@ Tests prove the protocol, not just implementation details.
 | unit                     | local invariants and pure logic          |
 | property                 | IDs, paths, artifact refs, DAG rules     |
 | protobuf contract        | gRPC compatibility                       |
+| capability manifest      | skill registration and permissions       |
+| executor contract        | generic skill execution compatibility    |
 | OpenAPI snapshot         | public REST compatibility                |
 | Tonic service            | service handler behavior                 |
 | Axum handler             | gateway routing and mapping              |
@@ -990,6 +1107,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 protobuf generation check
 protobuf compatibility check
+capability manifest validation
+capability permission lint
+CapabilityExecutor contract test
 OpenAPI snapshot check
 SQLx migration check
 golden fixture check
@@ -1068,9 +1188,11 @@ rbs-proto
 rbs-config
 rbs-telemetry
 rbs-policy
+rbs-capability-sdk
 rbs-gateway
 rbs-workspace-svc
 rbs-artifact-svc
+rbs-capability-registry-svc
 rbs-pipeline-svc
 rbs-fetch-svc
 rbs-qa-svc
@@ -1080,14 +1202,17 @@ Milestone 1 success criteria:
 
 ```text
 1. create workspace through REST
-2. submit fetch job through REST
-3. fetch Plain mode from local mock server
-4. write fetched artifact through artifact service
-5. submit QA job over fetched or fixture artifact
-6. write QA report artifact
-7. stream job events
-8. inspect trace from gateway to service to artifact write
-9. pass contract, policy, and golden smoke tests
+2. list registered capabilities through REST
+3. resolve enabled QA capability through registry
+4. submit fetch job through REST
+5. fetch Plain mode from local mock server
+6. write fetched artifact through artifact service
+7. submit QA job over fetched or fixture artifact
+8. execute QA through a capability stage
+9. write QA report artifact
+10. stream job events
+11. inspect trace from gateway to registry to service to artifact write
+12. pass contract, policy, manifest, executor, and golden smoke tests
 ```
 
 ## 24. Evolution Protocol
@@ -1131,6 +1256,7 @@ Before implementation planning, verify:
 [ ] Every service has one owner and one protocol role.
 [ ] Gateway contains no domain logic.
 [ ] Pipeline owns orchestration.
+[ ] Capability registry owns capability metadata, not execution.
 [ ] Domain services do not call each other directly.
 [ ] Artifact outputs are handles, not paths.
 [ ] Only fetch service has outbound network capability.
@@ -1140,4 +1266,5 @@ Before implementation planning, verify:
 [ ] Every service owns its persistence.
 [ ] Every Python skill maps to a Rust service or merged service.
 [ ] Every replacement has a golden compatibility rule.
+[ ] Arbitrary future skills have manifest, permission, schema, registry, and executor paths.
 ```

@@ -81,13 +81,29 @@ rewrite itself.
 V3 replaces the V2 "domain services do not call each other directly" rule with a
 query/command split.
 
+This rule governs domain-to-domain service edges and operation ownership. Calls
+from a domain service to platform services (`rbs-artifact-svc`,
+`rbs-fetch-svc`, `rbs-agent-svc`, `rbs-workspace-svc`, and
+`rbs-capability-registry-svc`) are allowed inside a domain operation when the
+callee platform service's boundary rules, manifest permissions, and trace
+requirements are satisfied. A domain command does not need to split every
+artifact, fetch, or agent sub-call into a separate pipeline stage.
+
+By default, bounded internal loops such as QA healer iteration or review persona
+fan-out execute inside one domain command. The command emits child spans,
+service-local audit records, and job events for operator visibility. Pipeline
+unrolls the loop into separate stages only when the loop needs operator
+approval, independent retry/cancellation, fan-out across service commands, or a
+long-running checkpoint boundary.
+
 ### 4.1 Query Calls
 
 A domain service may call another domain service directly over Tonic only when
 all of the following are true:
 
 - the callee RPC is declared as `operation_class = query`;
-- the RPC is side-effect free except for logs, traces, metrics, and read audit;
+- the RPC is side-effect free except for logs, traces, metrics, and callee-local
+  read audit in the callee's own store;
 - the caller/callee edge is listed in the service contract catalog;
 - the request uses `RequestContext`;
 - the response returns typed values or `ArtifactRef`, never private SQL rows or
@@ -110,9 +126,14 @@ rbs-weaver-svc       -> ThesisService.GetThesisStructure
 Cross-domain commands are not direct calls. They are pipeline stages.
 
 An RPC is a command when it mutates durable state, writes canonical artifacts,
-launches long-running work, invokes non-deterministic model work, needs retry or
+launches long-running work, coordinates non-deterministic model work, needs retry or
 cancellation, can block on operator approval, or changes another service's
 state.
+
+Model-backed sub-calls themselves route through `rbs-agent-svc` under the
+platform-service rule above. The enclosing domain operation is a command when it
+owns the business loop, parses the structured result, writes canonical
+artifacts, or gates downstream workflow.
 
 Examples:
 
@@ -122,6 +143,8 @@ Compose review stage     -> pipeline stage -> ReviewService.RunPanel
 Compose QA stage         -> pipeline stage -> QaService.Sentinel
 Thesis entailment run    -> pipeline stage -> AgentService.RunPacket
 Forge verifier run       -> pipeline stage -> ForgeService.RunVerifier
+Review persona fan-out   -> one ReviewService.RunPanel command -> AgentService child calls
+QA healer loop           -> one QaService.Heal command -> bounded AgentService child calls
 ```
 
 ### 4.3 Forbidden Calls
@@ -174,12 +197,23 @@ The QA layer reads:
 - `contracts/artifacts/*.yaml`;
 - `contracts/workflows/*.yaml`;
 - `contracts/heavy-deps/*.yaml`;
+- `contracts/dossier-requirements/*.yaml`;
 - `proto/rbs/v1/*.proto`;
 - `capabilities/*.yaml`;
 - `schemas/**/*.schema.json`;
 - `tests/golden/**`;
-- migration dossiers in the wiki;
 - architecture decision log pending/accepted decisions.
+
+The personal wiki remains the human narrative and working memory for migration
+dossiers. CI must not depend on `C:\Users\charl\russellian-book-suite-v2-wiki`
+or any other out-of-repo mutable directory. The in-repo
+`contracts/dossier-requirements/*.yaml` files are the version-controlled source
+that `dossier_coverage` reads. They are generated from, or manually synchronized
+with, the V3 dossier addenda during architecture work.
+
+The `proto/rbs/v1/*.proto` path is a wire-contract package version, not the
+architecture generation number. V3 can still produce `rbs.v1` protobufs until a
+breaking wire change requires a protobuf package version bump.
 
 ### 5.2 Conformance Checks
 
@@ -199,7 +233,11 @@ Required checks:
 | `heavy_dep_decision` | Operations depending on unresolved heavy deps are blocked or typed unsupported. |
 | `golden_fixture_gate` | No skill can retire until required golden fixtures are registered. |
 | `trace_context_gate` | Every RPC and job stage carries `RequestContext` and emits trace attributes. |
-| `dossier_coverage` | Every requirement ID from migration dossiers maps to a proto, type, artifact, workflow, test, or explicit unsupported decision. |
+| `dossier_coverage` | Every requirement ID from in-repo dossier requirement records maps to a proto, type, artifact, workflow, test, or explicit unsupported decision. |
+
+Golden fixtures must be captured by running the v1 Python skills or accepted v1
+fixture harnesses. Hand-written expected outputs are allowed only as supplement
+fixtures; they are not sufficient to retire a Python skill.
 
 ### 5.3 Conformance Verdicts
 

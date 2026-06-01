@@ -87,9 +87,17 @@ V3 adds these foundation tasks before domain service ports:
 | `contracts/artifacts/*.yaml` | Artifact kinds, schemas, provenance, owner, version policy. |
 | `contracts/workflows/*.yaml` | Pipeline DAG templates and command-stage edges. |
 | `contracts/heavy-deps/*.yaml` | Heavy dependency dispositions and ADR blockers. |
+| `contracts/dossier-requirements/*.yaml` | In-repo requirement records exported from the wiki dossier addenda for CI. |
 | `rbs-conformance` | CI/CLI compliance checks over contracts, protos, manifests, schemas, dossiers, fixtures. |
 | `rbs-agent-svc` V3 packet kinds | Adds embeddings/ranking and deterministic stubs. |
 | `rbs-core` domain type catalog | Promotes shared semantic types before services fork their own strings. |
+
+The foundation is incremental. Milestone 1 must include the contract directory
+schema, conformance crate, and enough catalog entries to support the first
+vertical slice. It does not require authoring every domain service catalog
+before `rbs-gateway`, `rbs-fetch-svc`, or the first QA slice can land. Each
+service adds its own catalog, artifact, workflow, heavy-dependency, and dossier
+requirement records before that service becomes `ImplementationReady`.
 
 ## 5. Service Migration Plans
 
@@ -449,8 +457,13 @@ Each migration dossier should gain a V3 addendum with this structure:
 ```
 
 The addendum is the bridge between the wiki dossier and the repo-side
-`contracts/` files. `rbs-conformance` should fail if a dossier lists a required
-operation that has no catalog/proto/manifest representation.
+`contracts/` files. The wiki dossier remains the human narrative, not a CI
+input. For each service, the addendum must be copied or generated into
+one YAML file under `contracts/dossier-requirements/`, for example
+`contracts/dossier-requirements/rbs-qa-svc.yaml`, and `rbs-conformance` reads
+that in-repo YAML. `rbs-conformance` should fail if an in-repo dossier
+requirement lists a required operation that has no catalog/proto/manifest
+representation.
 
 ## 7. Revised Retirement Rule
 
@@ -464,10 +477,15 @@ A Python skill can be retired only when:
 5. all heavy dependency decisions are resolved or typed unsupported;
 6. policy checks pass for network, agent, artifact, DB, and subprocess use;
 7. trace/context checks pass;
-8. golden fixtures pass for preserved behavior;
+8. golden fixtures captured from runnable v1 behavior pass for preserved behavior;
 9. accepted deviations are documented in the dossier addendum;
 10. rbs-conformance reports PASS for the service retirement gate.
 ```
+
+The v1 Python skill and its fixture harness must stay runnable until the
+corresponding Rust service reaches `GoldenReady`. Golden output may be approved
+and checked in, but it must originate from observed v1 behavior or from an
+explicitly accepted deviation.
 
 ## 8. Migration Review Checklist
 

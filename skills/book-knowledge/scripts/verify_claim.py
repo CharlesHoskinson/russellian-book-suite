@@ -28,19 +28,73 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
-def _load_source_text(layout: WorkspaceLayout, doc_id: str) -> str:
+# Per-document extraction cache, keyed by doc_id. A single verify run reads each
+# source file once, regardless of how many claims or spans reference it. Holds the
+# raw first-variant text (for the thin-source body check) and the normalized
+# extraction variants used for locator matching.
+_SOURCE_CACHE: dict[str, "_SourceText"] = {}
+
+
+@dataclass(frozen=True)
+class _SourceText:
+    raw_first: str
+    norm_variants: tuple[str, ...]
+
+
+def _pdf_variants(path) -> list[str]:
+    """Full-text extractions for a PDF, cheapest and most-conventional first.
+
+    The default ``extract_text`` output comes first so that locators chosen
+    against it (every previously verified claim) keep matching unchanged. A
+    word-box reconstruction follows: multi-column and tight-kerned academic PDFs
+    often drop inter-word spaces in ``extract_text`` ("Thesameproblem"), because
+    the default 3-unit word tolerance treats their narrow inter-word gaps as
+    intra-word. Re-clustering ``extract_words`` at ``x_tolerance=1`` splits on
+    those narrow gaps and recovers the spacing ("the same problem").
+    """
+    with pdfplumber.open(str(path)) as pdf:
+        pages = list(pdf.pages)
+        variants = ["\n".join((p.extract_text() or "") for p in pages)]
+        try:
+            variants.append(
+                "\n".join(
+                    " ".join(w["text"] for w in p.extract_words(x_tolerance=1))
+                    for p in pages
+                )
+            )
+        except Exception:
+            # Word-box extraction is a best-effort repair; never let it break
+            # verification that the default extraction could satisfy.
+            pass
+    return variants
+
+
+def _source_text(layout: WorkspaceLayout, doc_id: str) -> _SourceText:
+    cached = _SOURCE_CACHE.get(doc_id)
+    if cached is not None:
+        return cached
     manifest_path = layout.manifests / f"{doc_id}.json"
     if not manifest_path.exists():
         raise FileNotFoundError(f"no manifest for doc_id={doc_id}")
     manifest = load_manifest(manifest_path)
     if manifest["source_kind"] == "markdown":
         path = layout.raw_markdown / manifest["doc_name"]
-        return path.read_text(encoding="utf-8")
-    if manifest["source_kind"] == "pdf":
-        path = layout.raw_pdf / manifest["doc_name"]
-        with pdfplumber.open(str(path)) as pdf:
-            return "\n".join((p.extract_text() or "") for p in pdf.pages)
-    raise ValueError(f"unknown source_kind={manifest['source_kind']}")
+        variants = [path.read_text(encoding="utf-8")]
+    elif manifest["source_kind"] == "pdf":
+        variants = _pdf_variants(layout.raw_pdf / manifest["doc_name"])
+    else:
+        raise ValueError(f"unknown source_kind={manifest['source_kind']}")
+    result = _SourceText(
+        raw_first=variants[0],
+        norm_variants=tuple(_normalize(v) for v in variants),
+    )
+    _SOURCE_CACHE[doc_id] = result
+    return result
+
+
+def _load_source_text(layout: WorkspaceLayout, doc_id: str) -> str:
+    """Default extraction of a source's full text (first variant)."""
+    return _source_text(layout, doc_id).raw_first
 
 
 def _find_claim(layout: WorkspaceLayout, claim_id: str) -> dict | None:
@@ -58,15 +112,16 @@ def verify_claim(layout: WorkspaceLayout, claim_id: str) -> VerificationResult:
 
     warnings: list[str] = []
     for span in claim["source_spans"]:
-        source_text = _load_source_text(layout, span["doc_id"])
-        if _normalize(span["locator_text"]) not in _normalize(source_text):
+        source = _source_text(layout, span["doc_id"])
+        needle = _normalize(span["locator_text"])
+        if not any(needle in variant for variant in source.norm_variants):
             return VerificationResult(
                 claim_id=claim_id, ok=False, new_status=claim["status"],
                 reason=f"locator_text not found in {span['doc_id']}",
             )
         # A locator can match in a stub's frontmatter while the source has no body.
         # Surface that: the claim still verifies, but the source is too thin to trust.
-        n = body_chars(source_text)
+        n = body_chars(source.raw_first)
         if n < MIN_SOURCE_BODY_CHARS:
             warnings.append(f"thin source {span['doc_id']} ({n} body chars)")
 

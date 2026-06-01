@@ -1,6 +1,16 @@
 # Russellian Book Suite v2 — Rust Microservices Architecture Design
 
-Date: 2026-05-31. Updated: 2026-06-01. Status: revised for full microservices, awaiting user review.
+Date: 2026-05-31. Updated: 2026-06-01. Status: superseded in part by the V3 conformance architecture.
+
+V3 supersession note: `docs/superpowers/specs/2026-06-01-rbs-v3-architecture-design.md`
+and `docs/superpowers/specs/2026-06-01-rbs-v3-skill-migration-plan-design.md`
+supersede this document wherever service-call ownership, query/command
+classification, contract catalogs, dossier coverage, or architecture
+conformance gates are concerned. In particular, V3 replaces any implied
+"domain services only interact through pipeline" rule with the query/command
+split: cross-domain commands are pipeline stages; explicitly allowlisted
+cross-domain queries may use direct Tonic calls; domain-to-platform calls follow
+platform-service boundary rules.
 
 ## 1. Goal
 
@@ -61,6 +71,7 @@ The v2 MSA fixes these by replacing path-based imports with gRPC contracts, repl
 10. **Review unification.** `book-review` and `review-conductor` merge into one `rbs-review-svc` with persona and panel modules.
 11. **Capability extension plane.** Arbitrary future skills are added through manifests, `rbs-capability-registry-svc`, generic `CapabilityExecutor` contracts, permission declarations, schema validation, and pipeline capability stages.
 12. **Wiki-backed architecture memory.** Architecture lessons and decisions are recorded in `C:\Users\charl\russellian-book-suite-v2-wiki`.
+13. **Superseded by V3 query/command call ownership.** The command-orchestration topology in this V2 document is retained as historical context, but V3 is authoritative for cross-domain queries, cross-domain commands, domain-to-platform calls, contract catalogs, and conformance checks.
 
 ## 6. Service topology
 
@@ -99,6 +110,12 @@ flowchart TD
 ```
 
 The gateway is thin. It validates REST requests, starts jobs, reads status, exposes capability discovery/admin endpoints, and returns typed responses. It does not import domain service internals. Service composition happens through Tonic clients and the pipeline service. Capability resolution happens through `rbs-capability-registry-svc`, not hard-coded gateway or pipeline branches.
+
+V3 clarification: the topology above shows command orchestration. It does not
+forbid direct cross-domain query RPCs. V3's service contract catalog decides
+which operations are `query` versus `command`, which cross-domain query callers
+are allowlisted, and which cross-domain commands must be represented as
+pipeline stages.
 
 ## 7. Repository layout
 

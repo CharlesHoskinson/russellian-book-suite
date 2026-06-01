@@ -1,8 +1,15 @@
 # Russellian Book Suite v2 - ASCII Microservices Protocol
 
-Date: 2026-06-01. Status: companion protocol for the v2 Rust microservices architecture.
+Date: 2026-06-01. Status: reconciled with the V3 conformance architecture.
 
 Source spec: `docs/superpowers/specs/2026-05-31-rust-axum-v2-architecture-design.md`
+
+V3 reconciliation note: `docs/superpowers/specs/2026-06-01-rbs-v3-architecture-design.md`
+supersedes this protocol wherever service-call ownership is concerned. This
+document has been updated to match V3's query/command split: cross-domain
+commands are pipeline stages; explicitly allowlisted cross-domain queries may
+use direct Tonic calls; domain-to-platform calls follow platform-service
+boundary rules.
 
 This document is the operational protocol for the v2 architecture. It uses plain ASCII diagrams so the service boundaries, request paths, data ownership rules, and test obligations remain readable in terminals, logs, reviews, and generated documentation.
 
@@ -22,7 +29,17 @@ The protocol does not define implementation internals. A service can change its 
 
 ## 2. Global Topology
 
-All operator traffic enters through `rbs-gateway`. All internal traffic uses Tonic/gRPC. Domain services do not call each other directly unless a later protocol revision explicitly permits it. Workflow composition belongs to `rbs-pipeline-svc`. Capability discovery, version resolution, permission declarations, and external skill endpoint resolution belong to `rbs-capability-registry-svc`.
+All operator traffic enters through `rbs-gateway`. All internal traffic uses
+Tonic/gRPC. Workflow commands belong to `rbs-pipeline-svc`. Domain services may
+make direct cross-domain Tonic calls only for operations classified as
+allowlisted `query` operations in the V3 service contract catalog.
+Cross-domain `command` operations are represented as pipeline stages.
+Domain-to-platform calls to artifact, fetch, agent, workspace, and capability
+registry services are allowed inside a domain operation when the platform
+service boundary rules, manifest permissions, and trace requirements are
+satisfied. Capability discovery, version resolution, permission declarations,
+and external skill endpoint resolution belong to
+`rbs-capability-registry-svc`.
 
 ```text
                                      PUBLIC REST
@@ -53,7 +70,8 @@ All operator traffic enters through `rbs-gateway`. All internal traffic uses Ton
         +--------------------+     +--------------------+     +--------------------+
 
         +--------------------------------------------------------------+
-        | Domain services orchestrated by rbs-pipeline-svc             |
+        | Domain services: commands orchestrated by rbs-pipeline-svc;  |
+        | allowlisted query RPCs may cross domain service boundaries   |
         |                                                              |
         | rbs-knowledge-svc     rbs-thesis-svc      rbs-syntopical-svc |
         | rbs-style-svc         rbs-review-svc      rbs-qa-svc         |
@@ -97,8 +115,11 @@ Layer rules:
 - L5 may call L4 and selected L2 services through Tonic clients.
 - L4 may call L2 and L3 services through Tonic clients.
 - L4 resolves generic capability stages through `rbs-capability-registry-svc`.
-- L3 services may call L2 services through Tonic clients.
-- L3 services must not call each other directly in milestone 1.
+- L3 services may call L2 services through Tonic clients under platform
+  boundary rules.
+- L3 services may call other L3 services directly only for allowlisted
+  `query` operations in the V3 service contract catalog.
+- L3-to-L3 `command` operations run as `rbs-pipeline-svc` workflow stages.
 - L2 services must not call L3 services.
 - L1 crates must not depend on service crates.
 - L0 is accessed only through the owning service or shared platform crate.
@@ -140,6 +161,8 @@ Y  = allowed in milestone 1
 N  = forbidden
 C  = conditionally allowed by capability manifest permissions
 P  = allowed only through rbs-pipeline-svc orchestration
+Q  = allowed only for V3 allowlisted query operations
+Q/P = query direct if allowlisted; command via pipeline
 I  = internal implementation detail, not a network call
 ```
 
@@ -154,11 +177,24 @@ rbs-cap-registry-svc  N       N    N        I        N        N     N     N     
 rbs-pipeline-svc      N       Y    Y        Y        I        Y     Y     Y      C
 rbs-fetch-svc         N       N    Y        N        N        I     N     N      N
 rbs-agent-svc         N       N    Y        N        N        N     I     N      N
-domain service        N       Y    Y        N        N        N     Y     I      N
+domain service        N       Y    Y        C        N        Y     Y     Q/P    N
 external skill svc    N       C    C        N        N        C     C     N      I
 ```
 
-Domain-to-domain calls are `P`: they are represented as pipeline stages, not direct service calls. Example: compose needs QA; compose submits or participates in a pipeline that invokes QA, then consumes QA artifacts by ID.
+Domain-to-domain calls are `Q/P`: read-only query operations may be direct Tonic
+calls only when they are classified as `query` and allowlisted in the V3 service
+contract catalog. Cross-domain commands are represented as pipeline stages, not
+direct service calls. Example: compose may query syntopical through
+`SyntopicalService.ReadLens`, but compose review and QA stages are pipeline
+stages that invoke `ReviewService.RunPanel` and `QaService.Sentinel`.
+
+Domain-to-platform calls are allowed inside domain operations under platform
+rules. A domain command may call `rbs-artifact-svc`, `rbs-fetch-svc`, and
+`rbs-agent-svc` as child calls without splitting every child call into its own
+pipeline stage. Bounded loops such as review persona fan-out and QA healer
+iteration run inside one domain command by default; pipeline unrolls them only
+when operator approval, independent retry/cancellation, or checkpointing is
+required.
 
 External skill calls are `C`: they are allowed only when declared in the capability manifest, approved by registry policy, and scoped in the execution request.
 
@@ -1257,7 +1293,8 @@ Before implementation planning, verify:
 [ ] Gateway contains no domain logic.
 [ ] Pipeline owns orchestration.
 [ ] Capability registry owns capability metadata, not execution.
-[ ] Domain services do not call each other directly.
+[ ] Cross-domain queries are direct only when allowlisted by the V3 service contract catalog.
+[ ] Cross-domain commands are represented as pipeline workflow stages.
 [ ] Artifact outputs are handles, not paths.
 [ ] Only fetch service has outbound network capability.
 [ ] Only agent service has provider/LLM capability.

@@ -1,22 +1,39 @@
-# Russellian Book Suite v2 — Rust/Axum Architecture Design
+# Russellian Book Suite v2 — Rust Microservices Architecture Design
 
-Date: 2026-05-31. Status: written spec, awaiting user review.
+Date: 2026-05-31. Updated: 2026-06-01. Status: revised for full microservices, awaiting user review.
 
 ## 1. Goal
 
-Replace the Python-based Russellian Book Suite with an API-first Rust system built on Axum. The target architecture is a modular monolith: one deployable API server, one Cargo workspace, and separate crates with explicit capability contracts. The rewrite preserves the suite's behavioral contracts and artifact semantics; it does not preserve the current Python module layout.
+Replace the Python-based Russellian Book Suite with a Rust microservice architecture. The target system is a distributed suite of independently deployable services that communicate through versioned gRPC contracts, expose an operator-facing REST API through an Axum gateway, and preserve the current skill suite's behavioral contracts and artifact semantics.
 
-The first implementation plan should build a thin but real vertical slice: API server, workspace registry, job runner, policy guards, artifact store, native fetch boundary, and one migrated domain gate. The system must be testable without live network, live LLM calls, or mutable global state.
+The first implementation plan should build a thin but real vertical slice across the MSA stack: gateway, workspace service, artifact service, pipeline service, fetch service, one domain gate service, gRPC contracts, SQLx persistence, tracing/OpenTelemetry, and contract tests. The system must be testable without live network, live LLM calls, or hidden global state.
 
-## 2. Non-goals
+## 2. Standard platform stack
 
-- Do not build a microservice system in v2.0. The operational complexity is not justified before the domain crates stabilize.
-- Do not keep Python as the default runtime path. Temporary compatibility shims are allowed only as migration aids.
-- Do not put book-domain logic in Axum handlers.
-- Do not make direct outbound HTTP possible outside the fetch boundary.
-- Do not retire a Python skill until its Rust replacement passes golden compatibility tests for the accepted fixture set.
+The v2 platform stack is:
 
-## 3. Current-state accounting
+| Layer | Standard choice | Use in v2 |
+|---|---|---|
+| Async runtime | Tokio | Runtime for every service, background task, cancellation path, and graceful shutdown path |
+| Public REST API | Axum | `rbs-gateway`, health/readiness endpoints, operator API, OpenAPI snapshots |
+| Service-to-service RPC | Tonic | gRPC contracts between services; all service calls go through protobuf APIs |
+| Serialization | Serde + prost | Serde for REST JSON, artifacts, config, and golden fixtures; prost/protobuf for Tonic |
+| Database access | SQLx | Compile-checked SQL, migrations, and service-owned databases/schemas |
+| Tracing/logs | tracing + OpenTelemetry | Required distributed traces across REST, gRPC, jobs, fetches, and artifact writes |
+
+SQLx is chosen over SeaORM because the metadata and ledger models need explicit schemas, migrations, and predictable SQL. SeaORM remains out of scope for v2 unless a later service proves it needs ORM-style entity modeling.
+
+## 3. Non-goals
+
+- Do not preserve the current Python module layout.
+- Do not use Python as a default runtime path. Temporary compatibility shims are allowed only as migration aids.
+- Do not put book-domain logic in the Axum gateway.
+- Do not permit outbound HTTP outside `rbs-fetch-svc`.
+- Do not allow cross-service database reads. Services communicate through Tonic or artifact references, not direct SQL into another service's store.
+- Do not retire a Python skill until its Rust service replacement passes golden compatibility tests for the accepted fixture set.
+- Do not introduce a message broker in milestone 1. The first pipeline service uses SQLx-backed durable jobs and gRPC calls. A broker can be added later if load or workflow fan-out justifies it.
+
+## 4. Current-state accounting
 
 The audit found these v1 architecture pressure points:
 
@@ -25,97 +42,119 @@ The audit found these v1 architecture pressure points:
 - Public API surfaces are inconsistent: some skills expose `skill_api.py`, others are CLI-only or script imports.
 - Runtime and tested copies can diverge, creating stale sibling-loading failures.
 - Per-skill virtual environments are not a reproducible platform boundary.
-- The network boundary exists conceptually in `scrapling-fetch`, but v2 needs it as enforceable core infrastructure.
+- The network boundary exists conceptually in `scrapling-fetch`, but v2 needs it as an enforceable service boundary.
 
-The v2 design fixes these by moving from path-based imports to typed Rust traits, from skill-local scripts to crate-level service APIs, and from per-skill runtime environments to a single workspace build.
+The v2 MSA fixes these by replacing path-based imports with gRPC contracts, replacing skill-local scripts with service APIs, replacing per-skill virtualenvs with one Rust workspace, and making outbound network access a single deployed service.
 
-## 4. Accepted decisions
+## 5. Accepted decisions
 
-1. **Rust + Axum.** v2 targets Rust, with Axum as the primary API framework.
-2. **API-first.** The API server is the main operator surface. A CLI can be added later as a client over the API.
-3. **Modular monolith.** One service process, many crates. No microservices in the first architecture.
-4. **Core fetch boundary.** `scrapling-fetch` becomes `rbs-fetch`, a Rust-native core crate and the only outbound network boundary.
-5. **Milestone-1 fetch modes.** `Plain` mode is implemented first. `Stealth` and `Dynamic` are present in the type system but return a typed `UnsupportedMode` error until a Rust-native browser strategy is selected.
-6. **Review unification.** `book-review` and `review-conductor` merge into one `rbs-review` crate with `persona` and `panel` modules.
-7. **Wiki-backed architecture memory.** Architecture lessons and decisions are recorded in `C:\Users\charl\russellian-book-suite-v2-wiki`.
+1. **Rust + Tokio.** Every service uses Tokio.
+2. **Public REST via Axum.** Operators and future CLIs talk to the suite through an Axum gateway.
+3. **Full microservices.** v2 targets independently deployable services, not a modular monolith.
+4. **Service-to-service gRPC via Tonic.** Internal calls use Tonic/protobuf contracts.
+5. **Serialization split.** Serde owns REST JSON, artifacts, config, and golden tests; prost/protobuf owns gRPC wire contracts.
+6. **SQLx persistence.** Services use SQLx with service-owned databases or schemas. No cross-service SQL.
+7. **Observability required.** `tracing` and OpenTelemetry are part of milestone 1, not a later add-on.
+8. **Core fetch service.** `scrapling-fetch` becomes `rbs-fetch-svc`, the only outbound network service.
+9. **Milestone-1 fetch modes.** `Plain` mode is implemented first. `Stealth` and `Dynamic` remain in the protobuf/API model but return typed `UnsupportedMode` errors until a Rust-native browser strategy is selected.
+10. **Review unification.** `book-review` and `review-conductor` merge into one `rbs-review-svc` with persona and panel modules.
+11. **Wiki-backed architecture memory.** Architecture lessons and decisions are recorded in `C:\Users\charl\russellian-book-suite-v2-wiki`.
 
-## 5. High-level architecture
+## 6. Service topology
 
 ```mermaid
 flowchart TD
-    Client["Operator / Future CLI / Tests"] --> Api["rbs-api (Axum)"]
-    Api --> Jobs["rbs-pipeline"]
-    Api --> Artifacts["rbs-artifacts"]
-    Api --> Registry["rbs-registry"]
+    Client["Operator / Future CLI / Tests"] --> Gateway["rbs-gateway<br/>Axum REST"]
 
-    Jobs --> Policy["rbs-policy"]
-    Jobs --> Agent["rbs-agent"]
-    Jobs --> Fetch["rbs-fetch"]
-    Jobs --> Knowledge["rbs-knowledge"]
-    Jobs --> Thesis["rbs-thesis"]
-    Jobs --> Syntopical["rbs-syntopical"]
-    Jobs --> Style["rbs-style"]
-    Jobs --> Review["rbs-review"]
-    Jobs --> QA["rbs-qa"]
-    Jobs --> Compose["rbs-compose"]
-    Jobs --> Forge["rbs-forge"]
-    Jobs --> Weaver["rbs-weaver"]
+    Gateway --> Workspace["rbs-workspace-svc<br/>Tonic"]
+    Gateway --> Pipeline["rbs-pipeline-svc<br/>Tonic"]
+    Gateway --> Artifact["rbs-artifact-svc<br/>Tonic"]
 
-    Fetch --> Net["Network"]
-    Policy -. "allows only rbs-fetch network" .-> Fetch
-    Policy -. "workspace write guards" .-> Artifacts
+    Pipeline --> Fetch["rbs-fetch-svc"]
+    Pipeline --> Knowledge["rbs-knowledge-svc"]
+    Pipeline --> Thesis["rbs-thesis-svc"]
+    Pipeline --> Syntopical["rbs-syntopical-svc"]
+    Pipeline --> Style["rbs-style-svc"]
+    Pipeline --> Review["rbs-review-svc"]
+    Pipeline --> QA["rbs-qa-svc"]
+    Pipeline --> Compose["rbs-compose-svc"]
+    Pipeline --> Forge["rbs-forge-svc"]
+    Pipeline --> Weaver["rbs-weaver-svc"]
+    Pipeline --> Agent["rbs-agent-svc"]
+
+    Fetch --> Internet["Outbound Internet"]
+
+    Workspace --> WorkspaceDb[("workspace DB")]
+    Pipeline --> PipelineDb[("pipeline DB")]
+    Artifact --> ArtifactDb[("artifact index DB")]
+    Artifact --> BlobStore[("artifact blob store")]
+    Knowledge --> KnowledgeDb[("knowledge DB")]
+    QA --> QaDb[("qa DB")]
+    Review --> ReviewDb[("review DB")]
 ```
 
-Axum is an adapter over services. Request handlers validate inputs, call application services, and return typed responses. Long-running actions return jobs rather than blocking request threads.
+The gateway is thin. It validates REST requests, starts jobs, reads status, and returns typed responses. It does not import domain service internals. Service composition happens through Tonic clients and the pipeline service.
 
-## 6. Cargo workspace layout
+## 7. Repository layout
 
 ```text
 russellian-book-suite/
   Cargo.toml
   crates/
-    rbs-core/
-    rbs-policy/
-    rbs-artifacts/
-    rbs-registry/
-    rbs-pipeline/
-    rbs-fetch/
-    rbs-agent/
-    rbs-api/
-    rbs-api-client/
-    rbs-knowledge/
-    rbs-thesis/
-    rbs-syntopical/
-    rbs-style/
-    rbs-review/
-    rbs-qa/
-    rbs-compose/
-    rbs-forge/
-    rbs-weaver/
+    rbs-core/              # shared IDs, errors, value objects
+    rbs-proto/             # protobuf source + generated tonic/prost code
+    rbs-telemetry/         # tracing/OpenTelemetry setup
+    rbs-config/            # env/config loading
+    rbs-policy/            # shared policy decisions and test helpers
+    rbs-gateway/           # Axum REST gateway
+    rbs-api-client/        # REST client for tests/future CLI
+    rbs-workspace-svc/
+    rbs-artifact-svc/
+    rbs-pipeline-svc/
+    rbs-fetch-svc/
+    rbs-agent-svc/
+    rbs-knowledge-svc/
+    rbs-thesis-svc/
+    rbs-syntopical-svc/
+    rbs-style-svc/
+    rbs-review-svc/
+    rbs-qa-svc/
+    rbs-compose-svc/
+    rbs-forge-svc/
+    rbs-weaver-svc/
+  proto/
+    rbs/v1/*.proto
+  migrations/
+    <service-name>/*.sql
   tests/
     fixtures/
     golden/
+    contract/
     e2e/
+  deploy/
+    docker-compose.yml
+    k8s/
 ```
 
-### Dependency rules
+## 8. Dependency rules
 
 - `rbs-core` depends on no suite crate.
-- `rbs-policy`, `rbs-artifacts`, `rbs-registry`, and `rbs-pipeline` may depend on `rbs-core`.
-- Domain crates depend on `rbs-core`, `rbs-artifacts`, and narrow traits from infrastructure crates.
-- `rbs-api` depends on service traits and composition modules; handlers do not depend on concrete internals.
-- Only `rbs-fetch` may depend on outbound HTTP client or browser automation crates.
-- Only `rbs-api` depends on Axum.
+- `rbs-proto` depends on Tonic/prost and shared core conversions only.
+- `rbs-telemetry` is shared by all service binaries.
+- `rbs-config` is shared by all service binaries.
+- `rbs-gateway` is the only crate that depends on Axum.
+- Service crates may depend on their own domain modules, `rbs-core`, `rbs-proto`, `rbs-config`, `rbs-telemetry`, `rbs-policy`, SQLx, Tokio, tracing, and Tonic.
+- Service crates must not depend on each other directly. Calls cross service boundaries through generated Tonic clients.
+- Only `rbs-fetch-svc` may depend on outbound HTTP client or browser automation crates.
+- Each service owns its database migrations. No service reads another service's tables directly.
 
-## 7. Core crates
+## 9. Core shared crates
 
-### 7.1 `rbs-core`
+### 9.1 `rbs-core`
 
-Purpose: shared types and invariants.
+Shared domain-neutral types:
 
-Owns:
-
-- IDs: `WorkspaceId`, `ChapterId`, `ClaimId`, `ArtifactId`, `JobId`, `CapabilityId`, `SourceId`.
+- IDs: `WorkspaceId`, `ChapterId`, `ClaimId`, `ArtifactId`, `JobId`, `CapabilityId`, `SourceId`, `TraceId`.
 - Newtyped paths: `WorkspaceRoot`, `OwnedPath`, `ArtifactPath`.
 - Common enums: `Severity`, `GateVerdict`, `IssueKind`, `JobStatus`.
 - Error types: `SuiteError`, `ValidationError`, `PolicyError`, `ArtifactError`, `CapabilityError`.
@@ -123,89 +162,91 @@ Owns:
 
 Rule: semantic strings become newtypes when they carry invariants.
 
-### 7.2 `rbs-policy`
+### 9.2 `rbs-proto`
 
-Purpose: make suite invariants executable.
+Owns protobuf files and generated code for:
 
-Owns:
+- workspace service
+- artifact service
+- pipeline service
+- fetch service
+- agent service
+- knowledge service
+- thesis service
+- syntopical service
+- style service
+- review service
+- QA service
+- compose service
+- forge service
+- weaver service
 
-- Workspace write ownership.
-- Path traversal rejection.
-- Network permission policy.
-- Capability allow/deny checks.
-- Test helpers for proving policy behavior.
+Every protobuf service gets compatibility tests. Breaking protobuf changes require an explicit version bump.
 
-Initial workspace ownership:
-
-| Owner | Writable subtrees |
-|---|---|
-| `rbs-knowledge` | `raw/`, `wiki/`, `claims/`, `graph/` |
-| `rbs-thesis` | `thesis/`, thesis-derived `qa/` inputs |
-| `rbs-syntopical` | `syntopical/` |
-| `rbs-compose` | `chapters/`, `book/releases/` |
-| `rbs-review` | review artifacts under `chapters/drafts/<chapter_id>/` |
-| `rbs-qa` | `qa/`, `claims/proposed-transitions.jsonl` |
-| `rbs-forge` | verifier project roots and verifier output artifacts |
-| `rbs-weaver` | explicit weave output directories |
-
-### 7.3 `rbs-artifacts`
-
-Purpose: typed artifact storage over the filesystem.
+### 9.3 `rbs-telemetry`
 
 Owns:
 
-- JSON, YAML, Markdown, binary, and JSONL artifact read/write helpers.
-- Checksums and provenance metadata.
-- Atomic writes.
-- Golden-test helpers.
-- Artifact manifests.
+- tracing subscriber setup
+- OpenTelemetry exporter setup
+- trace propagation between Axum and Tonic
+- request/job/span naming conventions
+- redaction rules for prompt and source content
 
-Trait:
+Every REST request, gRPC request, job execution, artifact write, fetch call, and agent call must carry a trace context.
 
-```rust
-trait ArtifactStore {
-    fn read_json<T>(&self, id: ArtifactId) -> Result<T, ArtifactError>;
-    fn write_json<T>(&self, owner: CapabilityId, path: ArtifactPath, value: &T) -> Result<ArtifactId, ArtifactError>;
-    fn read_text(&self, id: ArtifactId) -> Result<String, ArtifactError>;
-    fn write_text(&self, owner: CapabilityId, path: ArtifactPath, value: &str) -> Result<ArtifactId, ArtifactError>;
-}
-```
+### 9.4 `rbs-config`
 
-The trait shape is illustrative; the implementation plan may split sync and async versions if needed.
+Owns 12-factor configuration:
 
-### 7.4 `rbs-registry`
+- bind addresses
+- database URLs
+- service endpoint URLs
+- auth tokens/secrets
+- telemetry exporter endpoint
+- fetch policy
+- feature flags
 
-Purpose: replace `skill_api.py` and `sibling_skills.py` with versioned Rust capability contracts.
+No service hardcodes environment-specific paths or endpoints.
 
-Owns:
+### 9.5 `rbs-policy`
 
-- `CapabilityDescriptor`.
-- Semantic version and compatibility checks.
-- Capability registry.
-- Compile-time and runtime discovery for API exposure.
+Owns reusable policy types and tests:
 
-Trait:
+- workspace write ownership rules
+- path traversal rejection
+- outbound-network boundary rules
+- capability allow/deny checks
+- service dependency lint helpers
 
-```rust
-trait Capability {
-    const ID: &'static str;
-    const VERSION: semver::Version;
-    fn descriptor(&self) -> CapabilityDescriptor;
-}
-```
+Runtime enforcement lives in the owning service; policy tests verify the shared rule set.
 
-### 7.5 `rbs-pipeline`
+## 10. Service responsibilities
 
-Purpose: long-running execution.
+### 10.1 `rbs-gateway`
 
-Owns:
+Public Axum REST API. Responsibilities:
 
-- Job lifecycle.
-- DAG stage execution.
-- Cancellation.
-- Staleness checks.
-- Retry policy.
-- Structured job events.
+- REST DTO validation.
+- Auth.
+- Rate limiting for operator-facing endpoints.
+- OpenAPI snapshots.
+- Tonic clients to backend services.
+- Trace creation and propagation.
+
+The gateway does not execute domain logic and does not write workspace artifacts directly.
+
+### 10.2 `rbs-workspace-svc`
+
+Owns workspace registry, workspace lifecycle, workspace manifests, and workspace-level policy metadata.
+
+### 10.3 `rbs-artifact-svc`
+
+Owns artifact indexing, atomic artifact writes, checksums, provenance metadata, and blob storage abstraction. Milestone 1 can use filesystem or MinIO-compatible storage behind the service boundary, but callers only receive artifact IDs and handles.
+
+### 10.4 `rbs-pipeline-svc`
+
+Owns long-running jobs, DAG execution, cancellation, retries, staleness checks, and job events. It orchestrates services over Tonic and persists durable job state with SQLx.
 
 Job statuses:
 
@@ -216,157 +257,52 @@ Job statuses:
 - `Failed`
 - `Cancelled`
 
-Jobs emit append-only event streams. The event stream is the operator-facing truth for progress, not logs scraped from stdout.
+### 10.5 `rbs-fetch-svc`
 
-### 7.6 `rbs-agent`
+Ports `scrapling-fetch`. It is the only service with outbound network access.
 
-Purpose: all non-deterministic LLM, subagent, reviewer, entailment, and healer calls.
+Milestone 1 behavior:
 
-Owns:
+- `Plain` mode implemented.
+- `Stealth` and `Dynamic` return `UnsupportedMode`.
+- per-host rate limiting
+- robots.txt policy
+- suite User-Agent
+- disk/object TTL cache
+- offline mode
+- arXiv adapter
+- OpenAlex adapter
+- Semantic Scholar adapter
+- DOI resolver
+- streaming PDF download
+- HTML-to-Markdown and Markdown-to-paragraph extraction
 
-- Prompt packets.
-- Agent dispatch abstraction.
-- Stubbed test implementation.
-- Response parsing boundaries.
-- Optional provider adapters.
+### 10.6 `rbs-agent-svc`
 
-Rule: domain crates build packets and parse responses; they do not call external LLM services directly.
+Owns all non-deterministic LLM, subagent, reviewer, entailment, and healer calls. Domain services build packets and parse structured outputs; they do not call external LLM providers directly.
 
-## 8. `rbs-fetch`
+### 10.7 Domain services
 
-`rbs-fetch` is core infrastructure, not a domain skill. It preserves the current `scrapling-fetch` contract natively in Rust.
+| Service | Ports | Owns |
+|---|---|---|
+| `rbs-knowledge-svc` | `book-knowledge` | source manifests, claim ledger, verification state, conflicts, writeback, wiki/graph reports |
+| `rbs-thesis-svc` | `book-thesis` | thesis tree, supports links, entailment packets, contradiction checks, D9-D12 artifacts |
+| `rbs-syntopical-svc` | `syntopical-metabook` | acquisition manifests, topic maps, disputed questions, concept reconciliation, lenses, gaps, governance reports |
+| `rbs-style-svc` | `russellian-style` | deterministic style linters, rule registry, style reports, refusal scope |
+| `rbs-review-svc` | `book-review` + `review-conductor` | personas, panel configs, dispatch packets, severity parsing, fail-closed verdict aggregation |
+| `rbs-qa-svc` | `book-qa` | D1-D13/C1-C15 defects, sentinel, healer packets, waivers, writeback proposals |
+| `rbs-compose-svc` | `book-compose` | chapter contracts, drafts, release bundles, book releases |
+| `rbs-forge-svc` | `neurosym-forge` | verifier scaffolding and D13 verifier integration |
+| `rbs-weaver-svc` | `paragraph-weaver` | paragraph threading, immutable-body enforcement, bridges, seam edits, provenance render |
 
-### 8.1 Public model
+## 11. Public REST API
 
-```rust
-enum FetchMode {
-    Plain,
-    Stealth,
-    Dynamic,
-}
-
-enum FetchError {
-    FetchFailed { url: String, reason: String },
-    RateLimitExceeded { url: String },
-    BlockedRequest { url: String },
-    NotPdf { url: String, content_type: String },
-    OfflineMiss { url: String },
-    ArxivIdNotFound { arxiv_id: String },
-    UnsupportedMode { mode: FetchMode },
-}
-```
-
-Milestone 1 implements `Plain`. `Stealth` and `Dynamic` return `UnsupportedMode` from the runtime fetcher. Their enum variants exist from the start so API clients and job specs do not need a breaking change later.
-
-### 8.2 Required behavior
-
-- Per-host rate limiting.
-- Robots.txt policy.
-- Suite User-Agent.
-- Disk TTL cache.
-- Offline mode.
-- arXiv adapter.
-- OpenAlex adapter.
-- Semantic Scholar adapter.
-- DOI resolver.
-- Streaming PDF download with content-type check, partial-file cleanup, byte count, and sha256.
-- HTML-to-Markdown and Markdown-to-paragraph extraction.
-
-### 8.3 API exposure
-
-Fetch work is job-based:
-
-- `POST /fetch/pages`
-- `POST /fetch/papers/arxiv`
-- `POST /fetch/papers/openalex`
-- `POST /fetch/papers/doi`
-- `POST /fetch/pdf`
-- `POST /fetch/extract`
-
-These endpoints enqueue jobs. They do not perform network work on the request path.
-
-## 9. Domain crates
-
-### 9.1 `rbs-knowledge`
-
-Ports `book-knowledge`.
-
-Owns source manifests, claim ledger, verification state, conflicts, writeback, wiki synthesis artifacts, and graph validation reports. It performs no direct network access. Source acquisition goes through `rbs-fetch`; ingestion receives local artifacts.
-
-### 9.2 `rbs-thesis`
-
-Ports `book-thesis`.
-
-Owns thesis tree, paragraph support links, entailment packet generation, contradiction checks, and D9-D12 defect artifacts. Entailment dispatch goes through `rbs-agent`.
-
-### 9.3 `rbs-syntopical`
-
-Ports `syntopical-metabook`.
-
-Reads canonical knowledge and chapter artifacts. Writes only `syntopical/`. Acquires papers only through `rbs-fetch`. Produces acquisition manifests, topic maps, disputed questions, concept reconciliation, lenses, gap reports, and governance reports.
-
-### 9.4 `rbs-style`
-
-Ports `russellian-style`.
-
-Owns deterministic prose lints, rule registry, style reports, gating/advisory distinction, and refusal scope. The passive-voice rule receives a Rust-native implementation or an explicit reduced-precision rule with golden tests documenting the changed behavior.
-
-### 9.5 `rbs-review`
-
-Ports and merges `book-review` and `review-conductor`.
-
-Modules:
-
-- `persona`: persona definitions, packet construction, review parsing.
-- `panel`: panel config, gating/advisory semantics, fail-closed aggregation.
-- `outcomes`: exemplar loading and selection.
-
-Actual review dispatch goes through `rbs-agent`.
-
-### 9.6 `rbs-qa`
-
-Ports `book-qa`.
-
-Owns D1-D13 and C1-C15 defect models, deterministic linting, sentinel aggregation, healer packets, waiver evaluation, and writeback proposals. It is the first recommended domain port after core infrastructure.
-
-### 9.7 `rbs-compose`
-
-Ports `book-compose`.
-
-Owns chapter contracts, drafts, release bundles, and book releases. It orchestrates other services through `rbs-pipeline`; it does not own their internals. It should be ported late because it depends on most other crates.
-
-### 9.8 `rbs-forge`
-
-Ports `neurosym-forge`.
-
-Owns verifier scaffolding and optional D13 integration. Verifier execution is behind a `VerifierClient` trait.
-
-### 9.9 `rbs-weaver`
-
-Ports `paragraph-weaver`.
-
-Owns paragraph threading, immutable-body enforcement, seam edits, bridges, feasibility gates, and provenance render.
-
-## 10. Axum API design
-
-### 10.1 App state
-
-`AppState` contains trait objects or generic service handles for:
-
-- workspace service
-- artifact service
-- job service
-- fetch service
-- domain capability registry
-- auth/session policy
-
-Shared state uses `Arc<T>`. Mutable shared state is isolated inside repositories or job queues, not scattered through handlers.
-
-### 10.2 Initial routes
+The gateway exposes operator-friendly REST:
 
 System:
 
 - `GET /health`
+- `GET /ready`
 - `GET /version`
 - `GET /capabilities`
 
@@ -406,9 +342,30 @@ Book workflow:
 - `GET /syntopical/topics`
 - `GET /syntopical/gaps`
 
-### 10.3 Error envelope
+## 12. Internal gRPC contracts
 
-Every API error returns:
+Every service has:
+
+- `Health` RPC or readiness method.
+- request messages with explicit `workspace_id`, `trace_id`, and caller metadata where relevant.
+- response messages that return artifact IDs instead of raw file paths for durable outputs.
+- typed error mapping to gateway error codes.
+
+Contract examples:
+
+- `PipelineService.SubmitJob`
+- `PipelineService.GetJob`
+- `PipelineService.StreamJobEvents`
+- `ArtifactService.WriteArtifact`
+- `ArtifactService.ReadArtifact`
+- `FetchService.FetchPage`
+- `FetchService.DownloadPdf`
+- `QaService.LintArtifact`
+- `ReviewService.RunPanel`
+
+## 13. Error model
+
+The gateway REST error envelope remains:
 
 ```json
 {
@@ -421,108 +378,136 @@ Every API error returns:
 }
 ```
 
-Status policy:
+Service errors are represented in protobuf as structured status details and mapped to:
 
-- `400` for malformed requests.
-- `401` for missing/invalid auth when auth is enabled.
-- `403` for policy violations.
-- `404` for unknown workspace/job/artifact resources.
-- `409` for state conflicts or stale artifacts.
-- `422` for semantically valid requests that fail domain validation.
-- `500` for internal failures.
-- `503` for unavailable external capability, including disabled fetch mode.
+- `400` malformed REST request
+- `401` missing/invalid auth
+- `403` policy violation
+- `404` unknown workspace/job/artifact
+- `409` state conflict or stale artifact
+- `422` domain validation failure
+- `500` internal failure
+- `503` unavailable service or unsupported capability
 
-### 10.4 Milestone-1 auth
+## 14. Storage
 
-Milestone 1 binds to `127.0.0.1` by default. A bearer token is required when `RBS_API_TOKEN` is set or when the bind address is not loopback. This keeps local development simple while preventing accidental unauthenticated network exposure.
+Each service owns its persistent state. Milestone 1 uses SQLx migrations and Postgres-compatible schemas for service metadata. SQLite may be used only for hermetic unit tests where SQLx supports the same behavior.
 
-## 11. Storage
+Storage boundaries:
 
-Milestone 1 uses the filesystem as the canonical artifact store and SQLite for API metadata:
+- `rbs-workspace-svc`: workspace registry and workspace metadata.
+- `rbs-artifact-svc`: artifact index plus blob-store metadata.
+- `rbs-pipeline-svc`: jobs, job events, retries, orchestration state.
+- `rbs-fetch-svc`: fetch cache metadata and fetch audit records.
+- Domain services: only their domain-specific indexes and reports.
 
-- Filesystem: book workspace artifacts, source files, release bundles, generated reports.
-- SQLite: workspace registry, job metadata, job event index, artifact index, capability run records.
+Artifact bytes live behind `rbs-artifact-svc`. Milestone 1 may use local filesystem or MinIO-compatible storage, but direct file access is not exposed across services.
 
-Rationale: the existing suite is file-artifact centered; SQLite gives robust queryable state for API operations without requiring an external database.
+## 15. Deployment model
 
-## 12. Testing strategy
+Milestone 1 ships a local distributed dev topology:
 
-### 12.1 Test pyramid
+- one binary per service
+- Docker Compose for service startup
+- service-owned databases/schemas
+- gateway plus gRPC backend services
+- OpenTelemetry collector
+- structured logs
+- health/readiness endpoints
+- graceful shutdown for every service
+
+Kubernetes manifests live under `deploy/k8s/` after Docker Compose is stable.
+
+## 16. Testing strategy
+
+### 16.1 Test pyramid
 
 1. Unit tests per crate.
-2. Property tests for IDs, path guards, artifact round trips, DAG invariants, and parser behavior.
-3. Contract tests for OpenAPI snapshots, schema compatibility, capability descriptors, and error envelopes.
-4. Axum handler tests using `tower::ServiceExt::oneshot`.
-5. Integration tests over temporary filesystem workspaces.
-6. End-to-end API tests booting Axum on an ephemeral port.
-7. Golden regression tests comparing Rust outputs to approved v1 fixture outputs.
-8. Security and policy tests for traversal, no-shadow-writes, network boundary, and malformed payloads.
-9. Performance tests using Criterion plus API load smoke tests.
+2. Property tests for IDs, path guards, artifact round trips, DAG invariants, parser behavior, and service request validation.
+3. Protobuf contract tests for backward compatibility.
+4. OpenAPI snapshot tests for gateway REST.
+5. Tonic service tests with in-process clients.
+6. Axum handler tests using `tower::ServiceExt::oneshot`.
+7. Component tests per service with test databases.
+8. Docker Compose integration tests across gateway + selected services.
+9. End-to-end API tests booting the local MSA stack.
+10. Golden regression tests comparing Rust outputs to approved v1 fixture outputs.
+11. Security and policy tests for traversal, no-shadow-writes, network boundary, malformed payloads, and cross-service DB isolation.
+12. Observability tests proving trace propagation across REST to gRPC to job execution.
+13. Performance tests using Criterion plus API/gRPC load smoke tests.
 
-### 12.2 `rbs-fetch` tests
+### 16.2 `rbs-fetch-svc` tests
 
-- Typed error tests for all `FetchError` variants.
+- Typed error tests for all fetch error variants.
 - Adapter fixture tests for arXiv, OpenAlex, Semantic Scholar, and DOI.
 - Cache tests: write, read, TTL expiry, cache key normalization, offline hit, offline miss.
 - Local mock server tests for robots and rate limiting.
-- PDF streaming tests: valid PDF writes checksum; non-PDF removes partial file.
+- PDF streaming tests: valid PDF writes checksum; non-PDF removes partial blobs.
 - Extraction tests for HTML-to-Markdown and Markdown-to-paragraph behavior.
-- Dependency-policy tests proving only `rbs-fetch` uses outbound HTTP client or browser automation crates.
+- Dependency-policy tests proving only `rbs-fetch-svc` uses outbound HTTP client or browser automation crates.
 
-### 12.3 CI gates
+### 16.3 CI gates
 
 - `cargo fmt --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
-- OpenAPI snapshot check.
-- Golden artifact compatibility check.
-- Dependency-policy check: no outbound HTTP client or browser automation crates outside `rbs-fetch`.
-- Workspace-policy check: no direct writes outside owner subtrees in integration tests.
+- SQLx migration checks.
+- protobuf generation and compatibility checks.
+- OpenAPI snapshot checks.
+- Tonic contract tests.
+- Golden artifact compatibility checks.
+- dependency-policy check: no outbound HTTP client or browser automation crates outside `rbs-fetch-svc`.
+- workspace-policy check: no direct writes outside owner boundaries in integration tests.
+- trace propagation smoke test.
 
 Live network tests run only behind an explicit `live` feature in scheduled or manually triggered jobs.
 
-## 13. Migration plan
+## 17. Migration plan
 
-### 13.1 Core order
+### 17.1 Platform order
 
 1. `rbs-core`
-2. `rbs-api`
-3. `rbs-policy`
-4. `rbs-artifacts`
-5. `rbs-fetch`
-6. `rbs-pipeline`
-7. `rbs-registry`
-8. `rbs-agent`
+2. `rbs-proto`
+3. `rbs-telemetry`
+4. `rbs-config`
+5. `rbs-gateway`
+6. `rbs-workspace-svc`
+7. `rbs-artifact-svc`
+8. `rbs-pipeline-svc`
+9. `rbs-fetch-svc`
+10. `rbs-agent-svc`
 
-### 13.2 Domain order
+### 17.2 Domain service order
 
-1. `rbs-qa`
-2. `rbs-review`
-3. `rbs-style`
-4. `rbs-knowledge`
-5. `rbs-thesis`
-6. `rbs-syntopical`
-7. `rbs-weaver`
-8. `rbs-compose`
-9. `rbs-forge`
+1. `rbs-qa-svc`
+2. `rbs-review-svc`
+3. `rbs-style-svc`
+4. `rbs-knowledge-svc`
+5. `rbs-thesis-svc`
+6. `rbs-syntopical-svc`
+7. `rbs-weaver-svc`
+8. `rbs-compose-svc`
+9. `rbs-forge-svc`
 
-Rationale: `rbs-qa` has clear inputs and outputs, `rbs-review` removes a known split boundary, and `rbs-compose` should wait until its dependencies have stable contracts.
+Rationale: `rbs-qa-svc` has clear inputs and outputs, `rbs-review-svc` removes a known split boundary, and `rbs-compose-svc` should wait until its dependencies have stable contracts.
 
-## 14. Risks and mitigations
+## 18. Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
-| Rewrite becomes line-by-line translation | Port by capability contracts and golden behavior, not file structure |
-| Axum handlers accumulate logic | Handler tests assert wiring; service tests assert behavior |
-| Fetch boundary leaks | Dependency-policy lint plus `rbs-policy` runtime checks |
+| Distributed complexity slows early delivery | First milestone is a thin vertical slice with only required services active |
+| Service boundaries become chatty | Pipeline service orchestrates coarse-grained jobs; services exchange artifact IDs, not large inline payloads |
+| Gateway accumulates domain logic | Gateway tests assert wiring only; service tests assert behavior |
+| Cross-service DB coupling appears | CI dependency/schema lints forbid direct DB access outside owner service |
+| Fetch boundary leaks | Dependency-policy lint plus runtime service isolation |
+| Traces are missing when needed | OpenTelemetry is required in milestone 1; trace propagation test is a CI gate |
 | Stealth/Dynamic fetch complexity stalls core | `Plain` ships first; unsupported modes are typed and explicit |
 | Current QA semantics get flattened | Typed defect enums and golden tests for every D/C class |
 | Artifact compatibility is lost | Golden fixtures must pass before retiring each Python skill |
-| API state becomes inconsistent with files | SQLite indexes derived artifact records and stores checksums |
 
-## 15. Spec review checklist
+## 19. Spec review checklist
 
 - No placeholder sections remain.
-- All milestone-1 decisions needed for planning are explicit.
-- Known unresolved topics are either deferred by design or represented as typed unsupported capabilities.
-- The architecture matches the user decisions: Rust, Axum, API-first, native fetch boundary, comprehensive tests, wiki-backed memory.
+- The architecture matches the user decisions: Rust, Tokio, Axum, Tonic, Serde, SQLx, tracing, OpenTelemetry, full microservices, native fetch boundary, comprehensive tests, wiki-backed memory.
+- Known unresolved topics are deferred explicitly or represented as typed unsupported capabilities.
+- Every current skill maps to one service or an intentional merged service.

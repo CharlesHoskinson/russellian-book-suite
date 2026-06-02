@@ -6,15 +6,25 @@ from scripts.aggregate_halmos import aggregate_halmos, rollup
 
 
 def test_rollup_dedupes_and_counts():
-    linkage = {"flags": [{"check": "forward-reference", "severity": "critical", "concept": "bounded-polis", "detail": "x"}]}
+    linkage = {"flags": [{"check": "orphan-reference", "severity": "critical", "concept": "bounded-polis", "detail": "x"}]}
     agent = {"spiral_coherence": "loose", "findings": [
-        {"check": "forward-reference", "severity": "critical", "prior_chapter": None, "concept": "bounded-polis", "detail": "dup"},
+        {"check": "orphan-reference", "severity": "critical", "prior_chapter": None, "concept": "bounded-polis", "detail": "dup"},
         {"check": "missed-recall", "severity": "important", "prior_chapter": "ch-06", "detail": "y", "fix": "recall it"},
     ], "per_prior_chapter": {}}
     merged = rollup(linkage, agent)
-    assert merged["halmos_critical_count"] == 1
+    assert merged["halmos_critical_count"] == 1   # the same-concept orphan-reference dedupes
     assert merged["important_count"] == 1
     assert merged["spiral_coherence"] == "loose"
+
+
+def test_rollup_keeps_distinct_targetless_findings():
+    # Two continuity-gaps with no concept and no prior_chapter must NOT collapse.
+    agent = {"spiral_coherence": "loose", "findings": [
+        {"check": "continuity-gap", "severity": "critical", "prior_chapter": None, "detail": "skips the settlement rung"},
+        {"check": "continuity-gap", "severity": "critical", "prior_chapter": None, "detail": "assumes standing not yet built"},
+    ], "per_prior_chapter": {}}
+    merged = rollup({"flags": []}, agent)
+    assert merged["halmos_critical_count"] == 2
 
 
 def test_aggregate_writes_verdict_and_report(tmp_path):

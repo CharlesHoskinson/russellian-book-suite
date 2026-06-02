@@ -5,7 +5,10 @@ from pathlib import Path
 
 
 def _key(f: dict) -> tuple:
-    return (f.get("check"), f.get("concept") or f.get("prior_chapter") or "")
+    # Dedup by (check, target). When a finding has no concept and no prior_chapter,
+    # fall back to its detail text so two distinct target-less findings of the same
+    # check (e.g. two continuity-gaps with prior_chapter=null) are not collapsed.
+    return (f.get("check"), f.get("concept") or f.get("prior_chapter") or f.get("detail") or "")
 
 
 def rollup(linkage: dict, agent_findings: dict) -> dict:

@@ -122,6 +122,19 @@ def _compute_persona_metrics(draft_path: Path) -> dict:
     }
 
 
+def _read_halmos_critical(draft_path: Path) -> int:
+    """halmos_critical_count from the chapter's halmos-verdict.json. Absent/stale -> 999
+    (a sentinel that cannot satisfy `== 0`), mirroring the persona-not-run behavior."""
+    verdict = draft_path.parent / "halmos-verdict.json"
+    if not verdict.is_file() or verdict.stat().st_mtime < draft_path.stat().st_mtime:
+        return 999
+    try:
+        data = json.loads(verdict.read_text(encoding="utf-8"))
+        return int(data.get("halmos_critical_count", 999))
+    except (ValueError, OSError):
+        return 999
+
+
 def _compute_metrics(draft_path: Path) -> dict:
     # Workspace-level style overrides: if the draft sits inside a workspace
     # whose root contains style-overrides.json, expose it to russellian-style
@@ -170,6 +183,7 @@ def _compute_metrics(draft_path: Path) -> dict:
         "em_dash_count":                hr.em_dash_count,
     }
     metrics.update(_compute_persona_metrics(draft_path))
+    metrics["halmos_critical_count"] = _read_halmos_critical(draft_path)
     return metrics
 
 

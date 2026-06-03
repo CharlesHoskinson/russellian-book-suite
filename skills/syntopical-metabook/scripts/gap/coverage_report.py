@@ -2,15 +2,16 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
-from sibling_skills import load_skill_api
 from scripts.provenance import provenance_footer
 
 
 def _load_book_knowledge():
+    from sibling_skills import load_skill_api
     return load_skill_api("book-knowledge", expected_major=0)
 
 
 def _load_book_thesis():
+    from sibling_skills import load_skill_api
     return load_skill_api("book-thesis", expected_major=0)
 
 

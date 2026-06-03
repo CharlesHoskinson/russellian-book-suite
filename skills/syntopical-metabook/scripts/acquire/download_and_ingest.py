@@ -8,8 +8,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-from sibling_skills import load_skill_api
 from scripts.acquire.rank_candidates import ScoredCandidate
+
+
+def _load_scrapling_fetch():
+    from sibling_skills import load_skill_api
+    return load_skill_api("scrapling-fetch", expected_major=0)
+
+
+def _load_book_knowledge():
+    from sibling_skills import load_skill_api
+    return load_skill_api("book-knowledge", expected_major=0)
+
 
 @dataclass
 class IngestOutcome:
@@ -29,15 +39,15 @@ def _resolve_pdf_url(cand_id: str) -> str:
     return cand_id  # assume already a URL
 
 def _download_pdf(url: str, dest: Path):
-    sf = load_skill_api("scrapling-fetch", expected_major=0)
+    sf = _load_scrapling_fetch()
     return sf.download_pdf(url, dest)
 
 def _is_source_ingested(sha256: str, workspace_root: Path) -> bool:
-    bk = load_skill_api("book-knowledge", expected_major=0)
+    bk = _load_book_knowledge()
     return bk.is_source_ingested(sha256, workspace_root)
 
 def _ingest_pdf(source_path: Path, workspace_root: Path):
-    bk = load_skill_api("book-knowledge", expected_major=0)
+    bk = _load_book_knowledge()
     return bk.ingest_pdf(source_path, workspace_root)
 
 def download_and_ingest(candidates: list[ScoredCandidate],

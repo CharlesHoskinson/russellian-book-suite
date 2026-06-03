@@ -1,6 +1,9 @@
 # tests/test_cycles.py
 from __future__ import annotations
 
+import pytest
+pytestmark = pytest.mark.windows_canary
+
 from engine.graph import Node, Edge, WeaveGraph
 from engine.cycles import find_cycles
 

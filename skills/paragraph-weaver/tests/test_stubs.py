@@ -1,6 +1,9 @@
 # tests/test_stubs.py
 from __future__ import annotations
 
+import pytest
+pytestmark = pytest.mark.windows_canary
+
 from engine.graph import WeaveGraph
 from targets.emotion import EmotionTarget
 from targets.narrative import NarrativeTarget

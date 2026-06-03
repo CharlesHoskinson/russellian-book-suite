@@ -11,17 +11,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 SKILL_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_skill_api_imports_without_sibling_skills():
-    env = {**os.environ, "PYTHONPATH": ""}
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
     probe = subprocess.run(
         [sys.executable, "-c", "import sibling_skills"],
         cwd=SKILL_ROOT, env=env, capture_output=True, text=True,
     )
     if probe.returncode == 0:
-        import pytest
         pytest.skip("sibling_skills importable in this interpreter; simulation vacuous")
     result = subprocess.run(
         [sys.executable, "-c", "import skill_api; print(skill_api.API_VERSION)"],

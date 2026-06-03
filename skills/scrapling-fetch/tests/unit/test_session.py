@@ -9,22 +9,6 @@ from scripts.session import (
 )
 
 
-def _browser_deps_available() -> bool:
-    """Stealth/Dynamic modes require patchright + msgspec (optional browser deps)."""
-    try:
-        import patchright  # noqa: F401
-        import msgspec  # noqa: F401
-        return True
-    except ImportError:
-        return False
-
-
-_skip_browser = pytest.mark.skipif(
-    not _browser_deps_available(),
-    reason="patchright/msgspec not installed; skipping browser-mode session tests",
-)
-
-
 def test_build_session_plain_returns_rate_limited_fetcher():
     s = build_session(SessionMode.PLAIN)
     assert isinstance(s, _RateLimitedSession)
@@ -99,15 +83,52 @@ def test_rate_limited_session_get_invokes_throttle(monkeypatch):
     assert len(sleeps) == 1
 
 
-@_skip_browser
-def test_build_session_stealth_returns_stealthy():
+class _SpyFetcher:
+    """Stands in for a Scrapling one-shot browser fetcher class."""
+    calls: list = []
+
+    @classmethod
+    def fetch(cls, url, **kwargs):
+        cls.calls.append((url, kwargs))
+        return ("response", url)
+
+
+def test_build_session_stealth_get_delegates_to_fetcher(monkeypatch):
+    """STEALTH mode must expose a working .get that drives StealthyFetcher.fetch
+    with solve_cloudflare, and convert the seconds timeout to milliseconds.
+    Regression: the prior wiring returned a session with no .get at all."""
+    import scrapling.fetchers as fetchers
+    _SpyFetcher.calls = []
+    monkeypatch.setattr(fetchers, "StealthyFetcher", _SpyFetcher)
+
     s = build_session(SessionMode.STEALTH)
-    inner = s._inner if isinstance(s, _RateLimitedSession) else s
-    assert "Stealth" in inner.__class__.__name__
+    assert isinstance(s, _RateLimitedSession)
+    assert callable(s.get)
+    s.get("https://example.org/a", timeout=20)
+
+    assert len(_SpyFetcher.calls) == 1
+    url, kwargs = _SpyFetcher.calls[0]
+    assert url == "https://example.org/a"
+    assert kwargs["solve_cloudflare"] is True
+    assert kwargs["headless"] is True
+    assert kwargs["network_idle"] is True
+    assert kwargs["timeout"] == 20000  # seconds -> milliseconds
 
 
-@_skip_browser
-def test_build_session_dynamic_returns_dynamic():
+def test_build_session_dynamic_get_delegates_to_fetcher(monkeypatch):
+    """DYNAMIC mode delegates to DynamicFetcher.fetch (no cloudflare solving)."""
+    import scrapling.fetchers as fetchers
+    _SpyFetcher.calls = []
+    monkeypatch.setattr(fetchers, "DynamicFetcher", _SpyFetcher)
+
     s = build_session(SessionMode.DYNAMIC)
-    inner = s._inner if isinstance(s, _RateLimitedSession) else s
-    assert "Dynamic" in inner.__class__.__name__
+    assert callable(s.get)
+    s.get("https://example.org/b", timeout=30)
+
+    assert len(_SpyFetcher.calls) == 1
+    url, kwargs = _SpyFetcher.calls[0]
+    assert url == "https://example.org/b"
+    assert kwargs["headless"] is True
+    assert kwargs["network_idle"] is True
+    assert "solve_cloudflare" not in kwargs
+    assert kwargs["timeout"] == 30000

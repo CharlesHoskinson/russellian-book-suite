@@ -1,6 +1,7 @@
 """Deterministic cross-chapter linkage for one chapter: references, seam, broken-seam flag."""
 from __future__ import annotations
-import json, re
+import json
+import re
 from pathlib import Path
 
 from scripts.ids import chapter_n

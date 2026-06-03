@@ -1,6 +1,8 @@
 import pytest
 pytestmark = pytest.mark.windows_canary
-import json, os, time
+import json
+import os
+import time
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

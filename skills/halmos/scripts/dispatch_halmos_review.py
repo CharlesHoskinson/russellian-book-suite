@@ -1,6 +1,7 @@
 """Assemble the Halmos-reviewer payload and dispatch one subagent (caller-provided dispatcher)."""
 from __future__ import annotations
-import json, re
+import json
+import re
 from pathlib import Path
 from typing import Callable, Optional
 

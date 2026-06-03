@@ -81,7 +81,7 @@ def test_aggregate_writes_verdict_and_report(tmp_path):
     (ws / "chapters" / "drafts" / "ch-09" / "draft.md").write_text("# C9\n", encoding="utf-8")
     linkage = {"chapter_id": "ch-09", "flags": [], "seam": {"status": "clean", "overlap": ["x"]}}
     agent = {"spiral_coherence": "tight", "findings": [], "per_prior_chapter": {"ch-08": "clean handoff"}}
-    out = aggregate_halmos(ws, "ch-09", agent, linkage)
+    aggregate_halmos(ws, "ch-09", agent, linkage)
     v = json.loads((ws / "chapters" / "drafts" / "ch-09" / "halmos-verdict.json").read_text(encoding="utf-8"))
     assert v["halmos_critical_count"] == 0 and v["reviews_complete"] is True
     assert (ws / "chapters" / "drafts" / "ch-09" / "halmos-review.md").exists()

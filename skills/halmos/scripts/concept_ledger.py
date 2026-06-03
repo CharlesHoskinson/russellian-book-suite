@@ -1,6 +1,7 @@
 """Build halmos/concepts.jsonl: book concepts with the earliest chapter that introduces them."""
 from __future__ import annotations
-import json, re
+import json
+import re
 from pathlib import Path
 
 from scripts.ids import chapter_n

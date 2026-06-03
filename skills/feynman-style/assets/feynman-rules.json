@@ -1,0 +1,48 @@
+{
+  "version": "0.1.0",
+  "budgets": {
+    "reading-grade": 12,
+    "conversational-cold": 0,
+    "latinate-diction": 2,
+    "analogy-absent": 0,
+    "abstraction-heavy": 0,
+    "curiosity-absent": 2,
+    "ai-vocabulary": 0
+  },
+  "max_sentence_word_count": 35,
+  "min_length_variance": 4.0,
+  "abstract_ratio_budget": 0.18,
+  "linter_class": {
+    "reading-grade": "surface",
+    "conversational-cold": "surface",
+    "latinate-diction": "surface",
+    "analogy-absent": "surface",
+    "abstraction-heavy": "surface",
+    "curiosity-absent": "surface",
+    "rhythm-uniform-length": "surface",
+    "rhythm-repeated-opening": "surface",
+    "no-hedging": "surface",
+    "signal-density": "surface",
+    "staccato-paragraph-run": "surface",
+    "ai-vocabulary": "integrity",
+    "active-voice": "integrity",
+    "parallel-structure": "integrity",
+    "footnote-orphan": "integrity",
+    "preserve-argument": "integrity"
+  },
+  "latinate_substitutions": {
+    "utilize": "use", "utilizes": "uses", "utilized": "used",
+    "facilitate": "help", "demonstrate": "show", "demonstration": "demo",
+    "endeavor": "try", "commence": "start", "terminate": "end",
+    "subsequent": "later", "approximately": "about", "sufficient": "enough",
+    "additional": "more", "methodology": "method", "functionality": "feature",
+    "leverage": "use", "ascertain": "find out", "necessitate": "need",
+    "fundamental": "basic",
+    "prior to": "before", "in order to": "to"
+  },
+  "negative_trigger_keywords": [
+    "formal proof", "theorem", "lemma", "specification", "RFC", "legal",
+    "contract clause", "API reference", "function signature", "bureaucratic",
+    "abstract", "academic abstract", "boilerplate"
+  ]
+}

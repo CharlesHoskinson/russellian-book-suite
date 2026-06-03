@@ -4,116 +4,65 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions-all:
+        patterns:
+          - "*"
 
-  # --- pip: one entry per skill with a pyproject.toml (all 13 skills) ---
-  - package-ecosystem: pip
-    directory: /skills/book-compose
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/book-knowledge
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/book-qa
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/book-review
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/book-thesis
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/feynman-style
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/halmos
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/neurosym-forge
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/paragraph-weaver
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/review-conductor
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /skills/russellian-style
-    schedule:
-      interval: weekly
-
+  # --- pip: one multi-directory entry covering every skill with a pyproject.toml.
+  # Grouped so a weekly cycle produces one PR (one CI run) instead of one per bump.
   # scrapling-fetch pins scrapling==0.4.8 and pulls in trafilatura/playwright —
-  # the highest-risk supply-chain surface in the repo; keep it watched.
+  # the highest-risk supply-chain surface in the repo; it stays watched here,
+  # review its bumps within the grouped PR with extra care.
   - package-ecosystem: pip
-    directory: /skills/scrapling-fetch
+    directories:
+      - /skills/book-compose
+      - /skills/book-knowledge
+      - /skills/book-qa
+      - /skills/book-review
+      - /skills/book-thesis
+      - /skills/feynman-style
+      - /skills/halmos
+      - /skills/neurosym-forge
+      - /skills/paragraph-weaver
+      - /skills/review-conductor
+      - /skills/russellian-style
+      - /skills/scrapling-fetch
+      - /skills/syntopical-metabook
     schedule:
       interval: weekly
+    groups:
+      pip-all:
+        patterns:
+          - "*"
 
-  - package-ecosystem: pip
-    directory: /skills/syntopical-metabook
-    schedule:
-      interval: weekly
-
-  # --- cargo: one entry per verifier rust-verifier crate ---
+  # --- cargo: one multi-directory entry per verifier rust-verifier crate ---
   - package-ecosystem: cargo
-    directory: /verifiers/adsc-clinical/rust-verifier
+    directories:
+      - /verifiers/adsc-clinical/rust-verifier
+      - /verifiers/bermuda/rust-verifier
+      - /verifiers/epidemiology/rust-verifier
+      - /verifiers/osmotic_pressure/rust-verifier
     schedule:
       interval: weekly
+    groups:
+      cargo-all:
+        patterns:
+          - "*"
 
-  - package-ecosystem: cargo
-    directory: /verifiers/bermuda/rust-verifier
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: cargo
-    directory: /verifiers/epidemiology/rust-verifier
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: cargo
-    directory: /verifiers/osmotic_pressure/rust-verifier
-    schedule:
-      interval: weekly
-
-  # --- npm: one entry per verifier package.json ---
+  # --- npm: one multi-directory entry per verifier package.json ---
   - package-ecosystem: npm
-    directory: /verifiers/adsc-clinical
+    directories:
+      - /verifiers/adsc-clinical
+      - /verifiers/bermuda
+      - /verifiers/epidemiology
+      - /verifiers/osmotic_pressure
     schedule:
       interval: weekly
-
-  - package-ecosystem: npm
-    directory: /verifiers/bermuda
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: npm
-    directory: /verifiers/epidemiology
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: npm
-    directory: /verifiers/osmotic_pressure
-    schedule:
-      interval: weekly
+    groups:
+      npm-all:
+        patterns:
+          - "*"
 
 # NOTE: Clojure (deps.edn) dependencies in all four verifiers have NO native
 # Dependabot ecosystem. They must be reviewed manually or scanned with a tool

@@ -1,0 +1,5 @@
+{:version 1
+ :rules {":induced/r-001" {:prov/derived-from-atoms ["clm-1" "clm-2" "clm-3"]
+                           :prov/source-documents ["doc-a1" "doc-a2" "self-work"]
+                           :prov/contradiction-atoms ["clm-4"]
+                           :prov/status :active}}}

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 pytestmark = pytest.mark.windows_canary
 
 from engine.gate import no_silent_drops, bridge_load_ratio, score_gate

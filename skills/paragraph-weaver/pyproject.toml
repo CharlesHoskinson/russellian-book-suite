@@ -17,6 +17,9 @@ packages = ["engine", "targets", "scripts"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q"
+markers = [
+    "windows_canary: test exercises platform-sensitive behaviour and must run on Windows",
+]
 
 [build-system]
 requires = ["setuptools>=61"]

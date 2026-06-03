@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 import os
-from sibling_skills import load_skill_api
 
 @dataclass(frozen=True)
 class PaperRef:
@@ -27,6 +26,7 @@ def _dedup_key(p: PaperRef) -> str:
 def _fetch_neighbors(seed: str, depth: int) -> list[PaperRef]:
     """Fetch the citation neighbors of one seed. Real implementation hits scrapling-fetch.
     Unit tests monkeypatch this function so they don't touch the network."""
+    from sibling_skills import load_skill_api
     skills_root = os.environ.get("SIBLING_SKILLS_ROOT")
     if not skills_root:
         pass

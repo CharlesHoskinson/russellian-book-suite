@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from collections import defaultdict
-from sibling_skills import load_skill_api
 from scripts.booklogic_adapter import disputed_questions as _booklogic_disputed_questions
 from scripts.provenance import provenance_footer
 
@@ -12,6 +11,7 @@ _LEGACY_BANNER = "> Legacy mode — booklogic disabled"
 
 
 def _load_book_knowledge():
+    from sibling_skills import load_skill_api
     return load_skill_api("book-knowledge", expected_major=0)
 
 

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pytest
+pytestmark = pytest.mark.windows_canary
+
 from engine.weave import validate_bridge, validate_seam_edit, load_relations
 
 

@@ -1,6 +1,10 @@
 # tests/test_report.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from engine.report import Segment, render_provenance, render_clean
 
 

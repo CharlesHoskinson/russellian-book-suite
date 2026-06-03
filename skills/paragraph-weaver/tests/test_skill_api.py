@@ -1,6 +1,10 @@
 # tests/test_skill_api.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import skill_api
 
 

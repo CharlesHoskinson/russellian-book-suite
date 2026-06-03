@@ -1,6 +1,10 @@
 # tests/test_skill_doc.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 DOC = Path(__file__).resolve().parents[1] / "SKILL.md"

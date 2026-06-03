@@ -1,6 +1,10 @@
 # tests/test_features.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from scripts.features import extract_entities
 
 

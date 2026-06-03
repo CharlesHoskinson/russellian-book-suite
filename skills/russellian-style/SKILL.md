@@ -36,7 +36,8 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 - `scripts/lint_parallel_structure.py` — grammatical-opening parity across bullet lists.
 - `scripts/lint_sentence_rhythm.py` — sentence-length variance and cadence defects.
 - `scripts/lint_listicle_abstract.py` — abstract-noun listicles masquerading as content.
-- `scripts/lint_ai_staccato.py` — the negation-affirmation wall ("X is not Y. X is Z.") and "This is …" stacking. The highest-signal AI tell; passes every other linter while reading as machine prose.
+- `scripts/lint_ai_staccato.py` — the negation-affirmation wall ("X is not Y. X is Z.") and "This is …" stacking. the highest-signal AI tell; passes every other linter while reading as machine prose. Also flags antithesis-as-default-closer and a repeated antithesis signature phrase (the negation/contrast tic the persona panel kept catching above the sentence).
+- `scripts/lint_footnotes.py` — orphaned footnotes: an inline `[^x]` marker with no `[^x]:` definition, or a definition no inline marker references. Deterministic and invisible to the prose linters; a draft can carry every footnote definition and none of the inline citations and still pass every style gate. Wired into `chapter_contract_check` as `footnote_orphan_count` (gated at 0).
 - `scripts/lint_burstiness.py`, `scripts/lint_sentence_rhythm.py` — uniform sentence length / repeated openings.
 - `scripts/lint_ai_vocabulary.py`, `scripts/lint_concrete_instance_density.py`, `scripts/lint_epistemic_precision.py`, `scripts/lint_paragraph_motion.py` — vitality linters (absence-of-the-positive-move detectors).
 

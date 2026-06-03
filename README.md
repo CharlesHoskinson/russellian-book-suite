@@ -21,9 +21,9 @@ This repository is the answer to that compression problem, but not the answer mo
 
 The prose discipline is Bertrand Russell's. Russell wrote five thousand essays and seventy books across philosophy, mathematics, politics, education, and popular science. The corpus that survives him is a working museum of how a careful writer separates an argument from its decoration. Atomic sentences. Sourced claims. Paragraphs that earn their last sentence by changing the question's pressure. The suite enforces a weaker version of the same standard, and the seventeen prose linters that gate the chapter pipeline are the mechanical residue of that enforcement.
 
-What sits in this repository, named at the level a contributor needs: eight core skills (`book-knowledge` for claim ingestion, `book-thesis` for argument-spine consistency, `book-compose` for chapter orchestration, `russellian-style` for prose discipline, `book-review` for the seven-persona panel, `review-conductor` for verdict aggregation, `book-qa` for the release gate, `paragraph-weaver` for threading loose paragraphs toward a goal); one optional verifier scaffolder (`neurosym-forge`) for logical consistency over claim sets; two operator-driven tools under `tools/` (`build-russell-corpus` for corpus growth from public-domain Russell texts, `russellian-style-audit` for end-to-end suite validation); and an audit-bundle pattern under `docs/audits/` that records what the suite finds when it lints itself.
+What sits in this repository, named at the level a contributor needs: ten core skills (`book-knowledge` for claim ingestion, `book-thesis` for argument-spine consistency, `book-compose` for chapter orchestration, `russellian-style` for prose discipline, `feynman-style` for a second prose pass warming Russellized text into Feynman's voice, `halmos` for sequential cross-chapter linkage review, `book-review` for the seven-persona panel, `review-conductor` for verdict aggregation, `book-qa` for the release gate, `paragraph-weaver` for threading loose paragraphs toward a goal); one optional verifier scaffolder (`neurosym-forge`) for logical consistency over claim sets; two operator-driven tools under `tools/` (`build-russell-corpus` for corpus growth from public-domain Russell texts, `russellian-style-audit` for end-to-end suite validation); and an audit-bundle pattern under `docs/audits/` that records what the suite finds when it lints itself.
 
-Roughly eighty distinct checks across those skills enforce the contract. The full taxonomy lives in The QA grammar; the per-skill detail in The skills; the audit's own findings in Auditing the suite. The book-qa skill alone runs twenty-eight checks at release time: eight deterministic structural lints, four thesis-derived defects from book-thesis, fifteen chapter-swarm editorial dimensions, and one optional logical-satisfiability check from the neurosym-forge verifier. Each check is its own scrutiny. A configuration flag silences none of them.
+Roughly ninety distinct checks across those skills enforce the contract. The full taxonomy lives in The QA grammar; the per-skill detail in The skills; the audit's own findings in Auditing the suite. The book-qa skill alone runs twenty-eight checks at release time: eight deterministic structural lints, four thesis-derived defects from book-thesis, fifteen chapter-swarm editorial dimensions, and one optional logical-satisfiability check from the neurosym-forge verifier. Each check is its own scrutiny. A configuration flag silences none of them.
 
 The suite is not a content engine. It does not invent topics. It does not decide what a book should be about. It does not replace the human editor who looks at a finished chapter and asks whether anyone outside the author's head will care. It refuses to ship prose that misses its own gates. It does not promise that prose passing every gate will be worth reading. That promise sits with the author and the editor; the suite's promise is narrower and more honest — the artefact will not carry the fingerprint that closed the manuscript on Tuesday morning.
 
@@ -74,7 +74,7 @@ Authors want a working book, not an architecture tour. If that's you, read [Quic
 
 Engineers who want to understand how the skills compose, what the dependency contract between them is, or how to add a linter or persona should start at [The pipeline](#the-pipeline) for the sequencing diagram, then [Repository layout](#repository-layout) for the source tree. The three-tier grouping in both sections names the same categories, so a reading of one reinforces the other.
 
-Operators running the tools or auditing the suite should start at [Tools](#tools) for the one-shot CLI entry points (`build-russell-corpus`, `russellian-style-audit`, `readme-lint`), [The QA grammar](#the-qa-grammar) for the 80+ check taxonomy across five skills plus the humanizer sibling, and [Auditing the suite](#auditing-the-suite) for the audit-bundle pattern and the eight ranked architectural follow-ups. The most recent audit bundle at `docs/audits/2026-05-21-russellian-style/` is the canonical example of what an audit produces.
+Operators running the tools or auditing the suite should start at [Tools](#tools) for the one-shot CLI entry points (`build-russell-corpus`, `russellian-style-audit`, `readme-lint`), [The QA grammar](#the-qa-grammar) for the 90+ check taxonomy across six skills plus the humanizer sibling, and [Auditing the suite](#auditing-the-suite) for the audit-bundle pattern and the eight ranked architectural follow-ups. The most recent audit bundle at `docs/audits/2026-05-21-russellian-style/` is the canonical example of what an audit produces.
 
 ## Reader questions
 
@@ -155,6 +155,8 @@ graph LR
         B3 --> B4[russellian-style + humanizer]
         B4 --> B5[book-review + review-conductor]
         B5 --> B6[book-qa]
+        B4 -. stage=feynman-final .-> B4F[feynman-style<br/>conditional pass]
+        B3 -. opt-in soft-gate .-> B4H[halmos<br/>cross-chapter linkage]
         B3 -. optional reorder + bridge .-> BPW[paragraph-weaver<br/>optional · standalone]
     end
     subgraph T3["Tier 3 — Optional verification"]
@@ -170,7 +172,9 @@ Acquisition determines what the pipeline can later claim. Two skills share the t
 
 ### Tier 2 — Drafting pipeline
 
-A chapter contract enters; a gated release leaves. Seven skills carry a chapter from the claim ledger that Tier 1 produced to a manuscript ready for publication. `book-knowledge` owns the first step: it extracts and verifies every assertion, writing PROV-O provenance records so that each claim traces to a fetched source by URI and page. `book-thesis` runs next, confirming through an entailment loop that each drafted paragraph advances a named sub-argument — paragraphs that drift are rejected before assembly; `book-compose` then drafts and assembles the text, calling `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review — seven reader personas dispatched in parallel by `book-review`, severity aggregated by `review-conductor` — precedes the tier's closing gate: `book-qa`, whose D1-D12 deterministic and thesis-derived checks, plus the C1-C15 per-chapter agent swarm, produce the defect report that decides whether the chapter ships. Tier 2 exists as a distinct layer because every skill in it presupposes the world model; none can run correctly against raw sources. `paragraph-weaver` is the eighth Tier-2 skill, and it stands beside the mandatory chain instead of inside it. It threads a loose collection of paragraphs toward a goal — argument, emotion, or narrative. It reorders the paragraphs, writes bridges where a link would otherwise vanish, and edits the seams. An author runs it on any paragraph set, inside a workspace or outside one.
+A chapter contract enters; a gated release leaves. Seven skills carry a chapter from the claim ledger that Tier 1 produced to a manuscript ready for publication. `book-knowledge` owns the first step: it extracts and verifies every assertion, writing PROV-O provenance records so that each claim traces to a fetched source by URI and page. `book-thesis` runs next, confirming through an entailment loop that each drafted paragraph advances a named sub-argument — paragraphs that drift are rejected before assembly; `book-compose` then drafts and assembles the text, calling `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review — seven reader personas dispatched in parallel by `book-review`, severity aggregated by `review-conductor` — precedes the tier's closing gate: `book-qa`, whose D1-D12 deterministic and thesis-derived checks, plus the C1-C15 per-chapter agent swarm, produce the defect report that decides whether the chapter ships. Tier 2 exists as a distinct layer because every skill in it presupposes the world model; none can run correctly against raw sources.
+
+Three further Tier-2 skills stand beside the mandatory chain rather than inside it, bringing the tier's total to ten. None runs unconditionally in the default pipeline. `feynman-style` is a conditional second prose pass: it runs only when a chapter contract sets `stage: feynman-final`, warming Russellized prose into Feynman's voice — concrete analogy, plain diction, honest curiosity — without altering the argument. `halmos` is an opt-in soft-gate: it audits a chapter against all prior chapters for concept linkage, seam continuity, and spiral coherence, and it gates only when a contract adds `halmos_critical_count == 0` to its `acceptance_tests`. `paragraph-weaver` threads a loose collection of paragraphs toward a goal — argument, emotion, or narrative — reordering them, writing bridges where a link would otherwise vanish, and editing the seams; an author runs it on any paragraph set, inside a workspace or outside one.
 
 ### Tier 3 — Optional verification
 
@@ -533,6 +537,43 @@ The first draft triggers `active-voice` on the passive construction; the rewrite
 - `skills/russellian-style/assets/system-prompts/` — three mode-keyed generation contracts
 - `skills/russellian-style/assets/russell-corpus/` — 50-paragraph Russell corpus index
 - `skills/russellian-style/tests/`
+
+</details>
+<details>
+<summary><strong>feynman-style</strong> — second prose pass: Russellized text → Feynman voice</summary>
+
+**What it does.** `feynman-style` runs after `russellian-style` has cleared the mandatory prose gates. It warms Russellized prose into Feynman's voice — concrete analogy, conversational directness, honest curiosity, plain diction — without changing the argument. Its `preserve_argument` check is a hard gate that enforces that claims and logical structure survive the pass; it requires both the pre-Feynman (Russell) text and the post-Feynman text, so it runs through the skill's own `skill_api`, not inside `book-compose`'s flat-file flow. The skill owns a split linter partition: Surface linters (which catch Russellian surface violations) are omitted from acceptance tests on Feynman-final prose; Integrity linters (which verify the argument structure is intact) remain. The stylometric scorer measures closeness to the Feynman corpus using a relative-frequency L1 distance over a closed, offline local-drop corpus — no network calls, no external corpus fetch.
+
+**Inputs / outputs.** Through its `skill_api`, the skill takes a prose fragment that has already passed `russellian-style` (and, for `preserve_argument`, the pre-Feynman text alongside it) and returns the rewritten fragment plus a verdict carrying `preserve_argument_pass` (boolean), the L1 stylometric score, and any integrity-linter findings. When `preserve_argument_pass` is false, the pass is a hard gate failure and the fragment returns to the author unchanged.
+
+**When to invoke.** Use after `russellian-style` has cleared its ten gating rules on a section or chapter draft. The trigger is "feynman pass", "warm this prose into Feynman's voice", or "add analogy and directness without changing the argument". When a chapter contract sets `stage: feynman-final`, `book-compose` computes the Feynman surface metrics and exposes them for gating through the contract's `acceptance_tests` (with surface-class Russell thresholds legitimately omitted); `preserve_argument` is enforced separately via the `skill_api`, not in that compose pass, because the flat-file flow retains only the final draft.
+
+**When NOT to invoke.** Do not run `feynman-style` before `russellian-style` — the argument structure it gates on must already be clean. Do not use it for source ingestion, claim ledger writes, or chapter orchestration. Do not use it on prose genres where Russell's analytic precision is the contract (technical reference, legal writing): the Feynman warmth it adds would break the genre.
+
+**Trigger phrases.** `"feynman pass on this draft"`, `"warm this prose into Feynman's voice"`, `"add analogy and directness without changing the argument"`, `"feynman-style pass"`.
+
+**Where to dive deeper.**
+- `skills/feynman-style/SKILL.md`
+- `skills/feynman-style/tests/`
+
+</details>
+<details>
+<summary><strong>halmos</strong> — cross-chapter linkage review: spiral coherence, seam continuity, concept consistency</summary>
+
+**What it does.** Named for Paul Halmos, whose *How to Write Mathematics* prescribes the spiral method: each new part recalls and refines what came before. `halmos` enforces that discipline across chapters by auditing chapter N against chapters 1..N-1 for concept linkage, handoff seams, and spiral coherence. It runs four stages: `build_concept_ledger` builds a running inventory of introduced concepts; `build_linkage` detects broken seams (the N-1 close shares no salient term with the N open) and orphan references (a concept appears in N before it is introduced); `dispatch_halmos_review` dispatches a Halmos-reviewer subagent against the references/halmos-doctrine.md for continuity-gap, missed-recall, spiral-stall, terminology-drift, premature-definition, and `spiral_coherence` verdict; `aggregate_halmos` writes `halmos-review.md` and `halmos-verdict.json` for the chapter. The skill soft-gates: `halmos_critical_count == 0` in a chapter contract's `acceptance_tests` blocks `book-compose.chapter_contract_check` from advancing the chapter when critical linkage failures remain. It composes with `book-compose` (which reads `halmos_critical_count`) and `review-conductor`. No network calls; all evaluation is local.
+
+**Inputs / outputs.** Reads `chapters/drafts/`, `chapters/contracts/`, `claims/`, and `thesis/`. Writes `halmos/concepts.jsonl`, `halmos/linkage/ch-NN.json`, and per-chapter `chapters/drafts/<id>/halmos-review.md` and `chapters/drafts/<id>/halmos-verdict.json`. The `dispatcher` is caller-provided; in production it issues a Task-tool call against `references/halmos-doctrine.md`; in tests it returns a canned findings dict.
+
+**When to invoke.** Use after drafting chapter N and before the editorial persona panel. The natural triggers are "halmos review for chapter N", "check chapter N against prior chapters", "audit spiral coherence for ch-NN", or "validate cross-chapter linkage". Also fires automatically from `book-compose` when `halmos_critical_count` is listed in the chapter contract's `acceptance_tests`.
+
+**When NOT to invoke.** Skip `halmos` for logical entailment checking — that is `book-thesis`. Skip it for persona-based editorial review — that is `review-conductor`. Skip it on chapter 1, which has no prior chapters to link against (no-op by contract). Do not use it as a prose linter; it checks structural linkage, not sentence-grain style.
+
+**Trigger phrases.** `"halmos review for chapter N"`, `"check cross-chapter linkage"`, `"audit spiral coherence"`, `"validate chapter handoffs"`, `"check concept continuity across chapters"`.
+
+**Where to dive deeper.**
+- `skills/halmos/SKILL.md` — doctrine, four-stage pipeline, gate configuration.
+- `skills/halmos/references/halmos-doctrine.md` — the review rubric dispatched to the subagent.
+- `skills/halmos/tests/`
 
 </details>
 <details>
@@ -1098,7 +1139,7 @@ The Bundle C runbook (`docs/operations/2026-05-12-bundle-c-runbook.md`) walks th
 
 <!-- voice: technical-exposition -->
 
-Roughly eighty distinct checks enforce the suite's quality contract, distributed across five skills plus a sibling. The distribution is not arbitrary: each skill owns the defect family it knows best. `russellian-style` owns sentence- and paragraph-level prose discipline; `book-qa` owns release-gate structural defects; `book-thesis` owns argument-spine consistency; `book-knowledge` owns claim-shape and provenance integrity; `humanizer` (loaded as a sibling, not embedded here) owns the AI-prose-fingerprint catalog. Ai-vocabulary detection recurs across three of those five layers — the suite-wide audit (§13) flags that overlap as drift worth consolidating.
+Roughly ninety distinct checks enforce the suite's quality contract, distributed across six skills plus a sibling. The distribution is not arbitrary: each skill owns the defect family it knows best. `russellian-style` owns sentence- and paragraph-level prose discipline; `feynman-style` owns the prose-integrity and stylometric gates on the second pass; `halmos` owns cross-chapter linkage, seam continuity, and spiral-coherence; `book-qa` owns release-gate structural defects; `book-thesis` owns argument-spine consistency; `book-knowledge` owns claim-shape and provenance integrity; `humanizer` (loaded as a sibling, not embedded here) owns the AI-prose-fingerprint catalog. Ai-vocabulary detection recurs across three of those layers — the suite-wide audit (§13) flags that overlap as drift worth consolidating.
 
 The master inventory lives at `docs/audits/2026-05-21-suite-wide-linter-review.md`. This section surfaces the shape of each linter surface — counts, severity tiers, and the most diagnostic examples — so that a reader who understands the pipeline can locate where any given defect class fires and how serious a hit is.
 
@@ -1134,6 +1175,35 @@ Advisory rules hide behind paragraph scope; chapter context reveals their signal
 | `concrete-instance-density` | Low ratio of named entities to abstract claims | spaCy |
 | `epistemic-precision` | Vague epistemic phrases lacking quantification | — |
 | `paragraph-motion` | Chapter never shifts rhetorical mode | — |
+
+### feynman-style — 2 gate classes (Surface + Integrity)
+
+`feynman-style` partitions its acceptance tests into two linter classes. Surface linters check whether prose has Russellian surface violations; on Feynman-final prose, these are omitted from acceptance tests (the second pass deliberately softens some surface patterns). Integrity linters verify that the argument structure — claims, logical connectives, and evidence references — survived the Feynman rewrite intact. The `preserve_argument` hard gate aggregates the Integrity class: a `false` result returns the fragment to the author without writing changes.
+
+| Class | What it enforces | Gate |
+| --- | --- | --- |
+| Integrity — `preserve_argument` | Claims, logical connectives, and evidence references match the pre-pass input | hard gate (blocks write) |
+| Integrity — stylometric score | L1 distance between fragment and Feynman corpus stays within threshold | advisory on first pass; configurable to gating |
+| Surface | Russellian surface linters (omitted from acceptance tests on Feynman-final prose) | omitted on Feynman-final; run on pre-pass for baseline |
+
+The stylometric scorer uses a relative-frequency L1 distance over a closed, offline local-drop corpus. No network calls.
+
+### halmos — 2 check layers (deterministic + agent)
+
+`halmos` instruments cross-chapter structural coherence. The deterministic layer runs `broken-seam` detection: it flags when the N-1 chapter close shares no salient term with the N chapter open. The agent layer dispatches a Halmos-reviewer subagent against `references/halmos-doctrine.md`, which checks seven named patterns: orphan-reference, continuity-gap, missed-recall, spiral-stall, terminology-drift, premature-definition, and a `spiral_coherence` verdict.
+
+| Check | Layer | Severity |
+| --- | --- | --- |
+| `broken-seam` | deterministic | critical (blocks chapter advance when `halmos_critical_count > 0`) |
+| `orphan-reference` | agent | critical |
+| `continuity-gap` | agent | critical |
+| `missed-recall` | agent | important |
+| `spiral-stall` | agent | important |
+| `terminology-drift` | agent | important |
+| `premature-definition` | agent | important |
+| `spiral_coherence` verdict | agent | informational (pass/fail narrative) |
+
+`book-compose.chapter_contract_check` reads `halmos-verdict.json` and blocks chapter advance when `halmos_critical_count > 0`. The deterministic layer cannot detect reference-before-introduction (by construction, `intro_n <= N`); the agent owns that check using the references/introduces inventory.
 
 ### book-qa — 28 release-gate checks
 
@@ -1212,6 +1282,14 @@ graph LR
         rsg[10 gating]
         rsa[7 advisory]
     end
+    subgraph fs[feynman-style — 2 gate classes]
+        fsi[Integrity: preserve_argument<br/>+ stylometric score]
+        fss[Surface: omitted on Feynman-final]
+    end
+    subgraph hl[halmos — 2 check layers]
+        hld[deterministic: broken-seam]
+        hla[agent: 7 doctrine checks]
+    end
     subgraph qa[book-qa — 28 checks]
         qad[D1-D8 deterministic]
         qadt[D9-D12 thesis-derived]
@@ -1234,6 +1312,8 @@ graph LR
     bt --> qadt
     bkb -.-> bkq
     rs <-.-> hm
+    rs --> fs
+    hl -. halmos_critical_count .-> qa
 ```
 
 ### Known fragmentation
@@ -1265,7 +1345,7 @@ git clone https://github.com/CharlesHoskinson/russellian-book-suite.git
 cd russellian-book-suite
 ```
 
-2. **Install the skills into Claude Code.** Copy one skill at a time or run the batch loop for all eight core skills. `neurosym-forge` is optional; omit it unless you need the verifier track.
+2. **Install the skills into Claude Code.** Copy one skill at a time or run the batch loop for all ten core skills. `neurosym-forge` is optional; omit it unless you need the verifier track.
 
 ```bash
 # single skill
@@ -1274,13 +1354,13 @@ cd ~/.claude/skills/book-qa
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"
 
-# all eight core skills (bash)
-for skill in russellian-style book-knowledge book-compose book-review review-conductor book-qa book-thesis paragraph-weaver; do
+# all ten core skills (bash)
+for skill in russellian-style feynman-style halmos book-knowledge book-compose book-review review-conductor book-qa book-thesis paragraph-weaver; do
   cp -r skills/$skill ~/.claude/skills/$skill
 done
 
 # PowerShell equivalent
-foreach ($skill in 'russellian-style','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis','paragraph-weaver') {
+foreach ($skill in 'russellian-style','feynman-style','halmos','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis','paragraph-weaver') {
   Copy-Item -Recurse "skills\$skill" "$env:USERPROFILE\.claude\skills\$skill"
 }
 ```
@@ -1546,6 +1626,8 @@ russellian-book-suite/
 │   ├── book-qa/
 │   ├── book-review/
 │   ├── book-thesis/
+│   ├── feynman-style/             # second prose pass: Russell → Feynman voice
+│   ├── halmos/                    # cross-chapter linkage + spiral-coherence review
 │   ├── neurosym-forge/
 │   ├── paragraph-weaver/          # NEW — thread paragraphs toward a goal
 │   ├── review-conductor/

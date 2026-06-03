@@ -135,6 +135,8 @@ jobs:
           - book-review
           - book-compose
           - russellian-style
+          - feynman-style
+          - halmos
           - review-conductor
           - neurosym-forge
           - paragraph-weaver
@@ -206,7 +208,8 @@ jobs:
       # conftest would skip the entire linter suite (and now hard-errors in CI).
       # book-compose symlinks russellian-style as a sibling and has its own
       # spaCy-dependent tests, so it needs the model too (else those tests
-      # silently drop from collection). Install the model wheel directly with
+      # silently drop from collection). feynman-style's lint_common is a copy
+      # of russellian-style's and carries the same conftest hard-error gate. Install the model wheel directly with
       # --no-deps so the click/typer-free [ci] extra is not disturbed (the
       # `spacy download` CLI needs click/typer). `click` is added back because
       # spaCy's top-level __init__ eagerly imports spacy.cli, which imports
@@ -217,13 +220,13 @@ jobs:
       # re-fetched from GitHub releases on every run. The download step below
       # uses the cached wheel when present and only hits the network on a miss.
       - name: cache spaCy model wheel
-        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose' || matrix.skill == 'feynman-style'
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: spacy-wheel
           key: spacy-model-en_core_web_sm-3.8.0
-      - name: install spaCy model (russellian-style / book-compose)
-        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
+      - name: install spaCy model (russellian-style / book-compose / feynman-style)
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose' || matrix.skill == 'feynman-style'
         shell: bash
         # Single-shot network steps are wrapped in a 3-try backoff so a
         # transient registry/GitHub-release blip retries rather than reddening

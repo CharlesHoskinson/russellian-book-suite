@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "halmos"
+version = "0.1.0"
+description = "Sequential cross-chapter linkage review: concept recall, handoff seams, and spiral coherence."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+ci = ["pytest>=8.0,<9.0"]
+dev = ["pytest>=8.0,<9.0"]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.pytest.ini_options]
+markers = ["windows_canary: cross-platform deterministic tests"]

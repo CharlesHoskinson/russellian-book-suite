@@ -4,6 +4,15 @@ You are auditing ONE chapter of a non-fiction book on Bermuda for editorial defe
 
 Run each of these checks. For each, return tickets ONLY for defects you find.
 
+> **Stage note.** If the dispatch payload's `meta.relax_register_checks` is `true`
+> (the chapter's contract declares `stage: "feynman-final"` — a deliberate
+> Feynman-register rewrite), DO NOT file C10 or C11 tickets for register choices
+> that are intrinsic to that style: short and highly varied paragraph lengths,
+> contractions, rhetorical questions, direct address ("you"), sentence fragments,
+> and em-dashes used conversationally. These are intended, not defects. Still file
+> C10 only for a genuine run-on (a single paragraph > 200 words) and keep ALL
+> other checks (C1-C9, C12-C15) fully enforced — they are integrity, not register.
+
 ## C1. Heading hierarchy
 - The chapter must have exactly one `# Chapter N: Title` (h1).
 - Every `### subsection` must be preceded somewhere in the chapter by a `## section` (h2).

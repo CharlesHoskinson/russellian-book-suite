@@ -1,0 +1,11 @@
+# Curated book devices. Format: Canonical Term | alias | alias
+Authority Airgap | the airgap | authority airgap
+Bounded Polis | the polis
+Sovereign Horizon | the horizon
+Logic Monopoly | logic monopoly
+Agentic Civilization Scale | the scale | ACS
+Settlement | settled transfer
+Chorus
+Agora
+Brake Stack | the brake stack | brakes
+Counterparty Risk

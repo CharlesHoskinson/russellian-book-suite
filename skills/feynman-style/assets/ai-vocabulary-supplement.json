@@ -1,0 +1,25 @@
+{
+  "patterns": [
+    {
+      "id": "false_certainty",
+      "description": "Words that assert obviousness instead of proving it.",
+      "phrases": ["clearly", "obviously", "of course", "it is self-evident that", "needless to say"]
+    },
+    {
+      "id": "magic_adverb",
+      "description": "Soft adverb performing the descriptive heavy lifting that a precise verb should.",
+      "words": ["quietly", "deeply", "profoundly", "seamlessly", "intricately", "fundamentally"]
+    },
+    {
+      "id": "sweeping_abstraction_subject",
+      "description": "Abstract noun used as primary subject without a concrete actor.",
+      "head_nouns": ["system", "framework", "landscape", "tapestry", "ecosystem", "paradigm"],
+      "exemption": "concrete_actor_present"
+    },
+    {
+      "id": "transition_adverb_starter",
+      "description": "Transition adverbs used to begin a sentence; AI's primary syntactic crutch.",
+      "phrases": ["moreover", "furthermore", "additionally", "consequently", "subsequently", "notably", "importantly"]
+    }
+  ]
+}

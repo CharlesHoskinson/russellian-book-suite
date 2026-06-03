@@ -5,7 +5,7 @@ updates:
     schedule:
       interval: weekly
 
-  # --- pip: one entry per skill with a pyproject.toml (all 10 skills) ---
+  # --- pip: one entry per skill with a pyproject.toml (all 13 skills) ---
   - package-ecosystem: pip
     directory: /skills/book-compose
     schedule:
@@ -32,7 +32,22 @@ updates:
       interval: weekly
 
   - package-ecosystem: pip
+    directory: /skills/feynman-style
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/halmos
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
     directory: /skills/neurosym-forge
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /skills/paragraph-weaver
     schedule:
       interval: weekly
 

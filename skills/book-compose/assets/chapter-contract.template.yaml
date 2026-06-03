@@ -28,6 +28,7 @@ acceptance_tests:
   - ai_fingerprint_total == 0
   - listicle_abstract_count == 0
   - rhythm_violations == 0
+  - footnote_orphan_count == 0
   - persona_critical_count == 0
   - persona_reviews_complete == True
 style:

@@ -266,7 +266,7 @@ dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ordered-float 4.6.0",
+ "ordered-float 5.3.0",
  "rayon",
  "serde",
  "serde_json",

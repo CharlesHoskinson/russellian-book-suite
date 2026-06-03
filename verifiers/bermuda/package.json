@@ -10,8 +10,8 @@
     "booklogic-compile": "nbb -m bermuda.booklogic ."
   },
   "devDependencies": {
-    "shadow-cljs":  "^2.28.20",
-    "@napi-rs/cli": "^3.0.0",
+    "shadow-cljs":  "^3.4.11",
+    "@napi-rs/cli": "^3.7.0",
     "nbb":          "^1.4.0"
   }
 }

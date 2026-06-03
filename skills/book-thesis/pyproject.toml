@@ -15,9 +15,9 @@ ci = [
     "pyyaml>=6.0,<7.0",
     "rdflib>=7.0,<9.0",
     "pyDatalog>=0.17,<1.0",
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
-dev = ["pytest>=8.0,<9.0"]
+dev = ["pytest>=8.0,<10.0"]
 
 [tool.setuptools]
 packages = ["scripts"]

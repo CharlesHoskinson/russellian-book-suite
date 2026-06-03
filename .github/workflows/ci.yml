@@ -135,6 +135,8 @@ jobs:
           - book-review
           - book-compose
           - russellian-style
+          - feynman-style
+          - halmos
           - review-conductor
           - neurosym-forge
           - paragraph-weaver

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pytest
+pytestmark = pytest.mark.windows_canary
+
 from engine.graph import Node, WeaveGraph
 from engine.feasibility import check_feasibility
 from targets.base import Slot

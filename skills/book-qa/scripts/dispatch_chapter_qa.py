@@ -36,6 +36,15 @@ HOUSE_STYLE_PATH = SKILL_ROOT / "checklists" / "house-style.yaml"
 
 CH_ID_RE = re.compile(r"^ch-\d{2}$")
 
+# Contract stage marker (set by book-compose's terminal Feynman pass). A chapter
+# whose contract declares stage == "feynman-final" was deliberately rewritten in
+# Feynman's conversational register: short, varied paragraphs, direct address,
+# rhetorical questions, contractions. The register-sensitive Stage-2 checklist
+# items C10 (paragraph-length variance) and C11 (Russell-style discipline) would
+# otherwise penalise that style, so the agent must relax them. The contract is
+# read inline (no book-compose import) to keep book-qa standalone.
+FEYNMAN_FINAL_STAGE = "feynman-final"
+
 
 @dataclass
 class ChapterQAPayload:
@@ -60,6 +69,27 @@ def _load_house_style() -> dict[str, Any]:
 def _load_checklist() -> str:
     """Return the raw 15-item editorial checklist markdown."""
     return CHECKLIST_PATH.read_text(encoding="utf-8")
+
+
+def _read_chapter_stage(workspace: Path, chapter_id: str) -> str | None:
+    """Return the contract ``stage`` for one chapter, or None.
+
+    Reads ``<workspace>/chapters/contracts/<ch-NN>.yaml`` inline (no
+    book-compose import) so book-qa stays standalone. A missing contract,
+    unreadable file, or absent ``stage`` field all yield None — the default
+    (Russell) gating regime. Only a string ``stage`` is returned.
+    """
+    contract_path = workspace / "chapters" / "contracts" / f"{chapter_id}.yaml"
+    if not contract_path.exists():
+        return None
+    try:
+        record = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    if not isinstance(record, dict):
+        return None
+    stage = record.get("stage")
+    return stage if isinstance(stage, str) else None
 
 
 def _discover_chapters(workspace: Path) -> list[str]:
@@ -91,6 +121,18 @@ def prepare_chapter_payload(workspace: Path,
         raise FileNotFoundError(draft)
     out_dir = workspace / "qa" / "chapter-tickets"
     out_dir.mkdir(parents=True, exist_ok=True)
+    # "stage" here is the QA pipeline stage (2); the contract's editorial stage
+    # is threaded under a distinct key so the two never collide.
+    meta: dict[str, Any] = {"stage": 2, "checklist_items": 15}
+    chapter_stage = _read_chapter_stage(workspace, chapter_id)
+    if chapter_stage is not None:
+        meta["chapter_stage"] = chapter_stage
+        if chapter_stage == FEYNMAN_FINAL_STAGE:
+            # Signal the Stage-2 agent to relax the register-sensitive checks
+            # (C10 paragraph-length variance, C11 Russell-style discipline) that
+            # a Feynman-final chapter legitimately violates. Integrity checks
+            # (C1-C9, C12-C15) stay fully enforced.
+            meta["relax_register_checks"] = True
     return ChapterQAPayload(
         chapter_id=chapter_id,
         chapter_path=str(draft),
@@ -98,7 +140,7 @@ def prepare_chapter_payload(workspace: Path,
         checklist_text=checklist_text if checklist_text is not None else _load_checklist(),
         house_style=house_style if house_style is not None else _load_house_style(),
         output_path=str(out_dir / f"{chapter_id}.json"),
-        meta={"stage": 2, "checklist_items": 15},
+        meta=meta,
     )
 
 

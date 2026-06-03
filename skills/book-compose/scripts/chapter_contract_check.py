@@ -14,7 +14,27 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .humanizer_pass import assess_draft as _assess_humanizer
-from .sibling_skills import load_russellian_style_module
+from .sibling_skills import (
+    SiblingNotFoundError,
+    load_feynman_style_module,
+    load_russellian_style_module,
+)
+
+# Stage marker carried on the contract dict. When a contract declares
+# stage == FEYNMAN_FINAL_STAGE, the chapter is a Feynman-final chapter:
+# its Feynman metrics are computed and exposed for gating, and surface-class
+# Russell thresholds are expected to be ABSENT from acceptance_tests (a
+# feynman-final contract legitimately overrides those surface checks). All
+# gating in book-compose is driven by the contract's acceptance_tests; there
+# is no hardcoded surface hard-fail, so suppression is automatic — omitting a
+# surface Russell threshold from acceptance_tests is sufficient.
+#
+# NOTE: preserve_argument is NOT wired here. It requires BOTH the pre-Feynman
+# (Russell) text and the post-Feynman text, and book-compose's flat-file flow
+# retains only the final draft. preserve_argument is enforced separately: it is
+# available via feynman-style's skill_api for callers that hold both texts, and
+# is tested directly in feynman-style's integration test.
+FEYNMAN_FINAL_STAGE = "feynman-final"
 
 
 _CITATION_PATTERN = re.compile(r"\[clm-\d{4}-\d{6}\]")
@@ -122,7 +142,72 @@ def _compute_persona_metrics(draft_path: Path) -> dict:
     }
 
 
-def _compute_metrics(draft_path: Path) -> dict:
+def _read_halmos_critical(draft_path: Path) -> int:
+    """halmos_critical_count from the chapter's halmos-verdict.json. Absent/stale -> 999
+    (a sentinel that cannot satisfy `== 0`), mirroring the persona-not-run behavior."""
+    verdict = draft_path.parent / "halmos-verdict.json"
+    if not verdict.is_file() or verdict.stat().st_mtime < draft_path.stat().st_mtime:
+        return 999
+    try:
+        data = json.loads(verdict.read_text(encoding="utf-8"))
+        return int(data.get("halmos_critical_count", 999))
+    except (ValueError, OSError):
+        return 999
+
+
+def _read_halmos_reviews_complete(draft_path: Path) -> bool:
+    """True only when the halmos verdict exists, is fresh (mtime >= draft mtime),
+    parses as JSON, and has reviews_complete is True; otherwise False. Mirrors
+    persona_reviews_complete."""
+    verdict = draft_path.parent / "halmos-verdict.json"
+    if not verdict.is_file() or verdict.stat().st_mtime < draft_path.stat().st_mtime:
+        return False
+    try:
+        data = json.loads(verdict.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return False
+    return data.get("reviews_complete") is True
+
+
+def _compute_feynman_metrics(draft_path: Path) -> dict:
+    """Compute Feynman-style metrics for a Feynman-final chapter.
+
+    Loads feynman-style's linters via load_feynman_style_module (mirroring the
+    Russell loader) and counts violations per rule. Exposes counts keyed so a
+    feynman-final contract's acceptance_tests can gate on them. If feynman-style
+    is not installed, returns an empty dict (gating on absent metrics is skipped
+    by _evaluate_test, which treats unknown metrics as pass).
+    """
+    try:
+        lint_reading_grade = load_feynman_style_module("lint_reading_grade")
+        lint_conversational = load_feynman_style_module("lint_conversational")
+        lint_latinate = load_feynman_style_module("lint_latinate_diction")
+        lint_concreteness = load_feynman_style_module("lint_concreteness")
+        lint_curiosity = load_feynman_style_module("lint_curiosity_markers")
+    except SiblingNotFoundError:
+        return {}
+
+    reading = lint_reading_grade.lint_reading_grade(draft_path)
+    conversational = lint_conversational.lint_conversational(draft_path)
+    latinate = lint_latinate.lint_latinate_diction(draft_path)
+    concreteness = lint_concreteness.lint_concreteness(draft_path)
+    curiosity = lint_curiosity.lint_curiosity_markers(draft_path)
+
+    # lint_concreteness emits both analogy-absent and abstraction-heavy rules.
+    analogy_absent = sum(1 for d in concreteness if d.get("rule") == "analogy-absent")
+    abstraction_heavy = sum(1 for d in concreteness if d.get("rule") == "abstraction-heavy")
+
+    return {
+        "reading_grade_violations":   len(reading),
+        "conversational_cold_count":  len(conversational),
+        "latinate_diction_count":     len(latinate),
+        "analogy_absent_count":       analogy_absent,
+        "abstraction_heavy_count":    abstraction_heavy,
+        "curiosity_absent_count":     len(curiosity),
+    }
+
+
+def _compute_metrics(draft_path: Path, stage: str | None = None) -> dict:
     # Workspace-level style overrides: if the draft sits inside a workspace
     # whose root contains style-overrides.json, expose it to russellian-style
     # via the RUSSELLIAN_OVERRIDES env var before invoking its linters.
@@ -167,6 +252,15 @@ def _compute_metrics(draft_path: Path) -> dict:
         "em_dash_count":                hr.em_dash_count,
     }
     metrics.update(_compute_persona_metrics(draft_path))
+    metrics["halmos_critical_count"] = _read_halmos_critical(draft_path)
+    metrics["halmos_reviews_complete"] = _read_halmos_reviews_complete(draft_path)
+    # For a Feynman-final chapter, ALSO compute Feynman metrics so the
+    # contract's acceptance_tests can gate on Feynman budgets. The Russell
+    # surface metrics above remain in the dict but are only gated if the
+    # contract lists them — a feynman-final contract legitimately omits them.
+    # Integrity metrics (footnotes, citations) keep running regardless.
+    if stage == FEYNMAN_FINAL_STAGE:
+        metrics.update(_compute_feynman_metrics(draft_path))
     return metrics
 
 
@@ -204,7 +298,12 @@ def _evaluate_test(expr: str, metrics: dict) -> bool:
 
 
 def check_draft(draft_path: Path, contract: dict) -> ContractCheckResult:
-    metrics = _compute_metrics(Path(draft_path))
+    # The optional `stage` field on the contract selects the gating regime.
+    # stage == "feynman-final" computes Feynman metrics in addition to the
+    # Russell/humanizer/persona metrics. Absent or any other stage leaves
+    # behavior unchanged (Feynman metrics are not computed).
+    stage = contract.get("stage")
+    metrics = _compute_metrics(Path(draft_path), stage=stage)
     failed: list[str] = []
     for test in contract.get("acceptance_tests", []):
         if not _evaluate_test(test, metrics):

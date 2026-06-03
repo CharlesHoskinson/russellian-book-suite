@@ -268,6 +268,15 @@ def lint_d5_count_contracts(md: str,
 def lint_d6_paragraph_variance(md: str,
                                 cv_band: tuple[float, float] = (0.4, 1.2),
                                 mean_band: tuple[int, int] = (35, 130)) -> list[Defect]:
+    # NOTE (stage-awareness): D6 is the one mechanical defect whose bands are
+    # register-sensitive — a Feynman-final chapter's short, punchy, highly
+    # varied paragraphs can fall outside the cv/mean bands. D6 is therefore NOT
+    # made stage-conditional here: it only ever emits MINOR severity, so it is
+    # never in sentinel's hard-fail set and cannot false-fail a release. The
+    # register-sensitive checks that CAN hard-fail (C10/C11) live in the Stage-2
+    # checklist and are relaxed via the payload's relax_register_checks flag
+    # (see dispatch_chapter_qa). All other D-classes are integrity-only and
+    # register-neutral, so no suppression is needed for them.
     out: list[Defect] = []
     for num, title, body in _chapter_bodies(md):
         paras = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()

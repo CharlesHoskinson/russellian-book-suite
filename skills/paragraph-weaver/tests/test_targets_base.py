@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+pytestmark = pytest.mark.windows_canary
 
 from targets.base import Slot, GateResult, Target, register, get_target, REGISTRY
 

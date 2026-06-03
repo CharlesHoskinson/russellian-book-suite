@@ -24,7 +24,7 @@ ordered-float = "4"
 # Cap rayon to the last 1.10.x — rayon 1.11+ changed Box<[T]>::into_par_iter()
 # to yield T (was &T), which breaks graph_builder 0.4.1 (pulled transitively
 # by cozo "0.7"). Lift this cap when cozo upgrades graph_builder.
-rayon         = "~1.10"
+rayon         = "~1.12"
 
 z3            = { version = "0.20", optional = true }
 egg           = { version = "0.10", optional = true }

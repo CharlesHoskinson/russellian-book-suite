@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# cancel-in-progress protects RUNNING main builds, but GitHub keeps at most
+# one QUEUED run per concurrency group: rapid sequential merges supersede
+# queued main runs, which then show as 'cancelled'. That is by design — the
+# newest run validates the cumulative tree. Expect cancelled main runs after
+# merge bursts; only the latest one needs to be green.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}

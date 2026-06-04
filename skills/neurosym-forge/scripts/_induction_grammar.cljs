@@ -46,7 +46,7 @@
    single block so the regex in the lint stays simple."
   #{'= '~= 'approx=
     '< '<= '> '>=
-    '+ '- '* '/
+    '+ '- '* '/ 'mod
     'and 'or 'not '=> 'ite
     'sum 'count 'in 'select
     'forall 'exists})

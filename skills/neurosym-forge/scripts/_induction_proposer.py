@@ -49,7 +49,7 @@ from scripts._llm_lift import (
 _OPERATOR_BNF_DISPLAY = [
     "=", "~=", "approx=",
     "<", "<=", ">", ">=",
-    "+", "-", "*", "/",
+    "+", "-", "*", "/", "mod",
     "and", "or", "not", "=>", "ite",
     "sum", "count", "in", "select",
     "forall", "exists",

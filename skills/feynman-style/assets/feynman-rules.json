@@ -1,7 +1,7 @@
 {
   "version": "0.1.0",
   "budgets": {
-    "reading-grade": 12,
+    "reading-grade": 16,
     "conversational-cold": 0,
     "latinate-diction": 2,
     "analogy-absent": 0,

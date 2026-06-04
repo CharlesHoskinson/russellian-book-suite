@@ -10,7 +10,10 @@ from .lint_common import load_markdown, _split_paragraphs, _is_code_block, _is_h
 
 _ANALOGY = re.compile(
     r"\b(like|as if|as though|imagine|picture|think of|similar to|"
-    r"the way|just as|kind of like|sort of like|as when)\b",
+    r"the way|just as|kind of like|sort of like|as when|"
+    # predicate metaphor and explicit comparison, which carry an analogy without a
+    # simile keyword ("noise wearing a tie", "better than a coin flip", "a force in disguise")
+    r"wearing|wears|dressed up|in disguise|no better than|better than a|worse than a)\b",
     re.IGNORECASE,
 )
 _ABSTRACT_SUFFIX = re.compile(

@@ -33,3 +33,22 @@ def test_reordered_claim_fails():
     report = preserve_argument(before, after)
     assert not report.ok
     assert any(v["kind"] == "reordered-claim" for v in report.violations)
+
+
+def test_sentence_split_and_synonym_warming_passes():
+    # A Russell sentence split into Feynman fragments, plus a synonym swap, must
+    # not read as a dropped claim (regression: README Feynman pass false positives).
+    before = ("These clusters are treated as provisional hypotheses, never as an alphabet. "
+              "A claim of decipherment is permitted only when stable glyphs and stable tokenization hold.")
+    after = ("Treat these as guesses, never as an alphabet. "
+             "You may claim a decipherment only when two things hold. Stable glyphs. Stable tokenization.")
+    report = preserve_argument(before, after)
+    assert report.ok, report.violations
+
+
+def test_local_flow_reorder_does_not_trip():
+    # Swapping one adjacent pair in a longer passage is a legitimate flow move.
+    before = "A is one. B is two. C is three. D is four. E is five."
+    after = "A is one. C is three. B is two. D is four. E is five."
+    report = preserve_argument(before, after)
+    assert not any(v["kind"] == "reordered-claim" for v in report.violations), report.violations

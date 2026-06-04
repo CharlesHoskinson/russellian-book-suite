@@ -249,6 +249,40 @@ jobs:
           fi
           retry python -m pip install click
           python -m pip install --no-deps "$WHEEL"
+      # neurosym-forge's semantic-index tests load the all-MiniLM-L6-v2
+      # sentence-transformers model. Without a persisted cache every xdist
+      # worker revalidates per-file metadata against huggingface.co (HEAD
+      # requests); parallel workers trip HF Hub's 429 rate limit and the
+      # semantic tests fail or hang (#192/#194/#197/#203, all 2026-06-03).
+      # Cache the model keyed on its pinned name, warm it once per run on a
+      # miss, then run pytest with HF_HUB_OFFLINE=1 so no leg touches the
+      # network for the model. Key is OS-scoped: the HF cache uses symlinks
+      # on Linux/macOS but copies on Windows.
+      - name: cache HF model (all-MiniLM-L6-v2)
+        if: matrix.skill == 'neurosym-forge'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: hf-cache
+          key: hf-model-all-MiniLM-L6-v2-${{ runner.os }}-v1
+      - name: warm HF model cache (neurosym-forge)
+        if: matrix.skill == 'neurosym-forge'
+        shell: bash
+        env:
+          HF_HOME: ${{ github.workspace }}/hf-cache
+        run: |
+          retry() {
+            for i in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $i failed; retrying in $((i * 5))s" >&2
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          if [ ! -d "$HF_HOME/hub/models--sentence-transformers--all-MiniLM-L6-v2" ]; then
+            retry python -c "from huggingface_hub import snapshot_download; snapshot_download('sentence-transformers/all-MiniLM-L6-v2')"
+          else
+            echo "HF model cache hit; skipping warmup"
+          fi
       # Install + import smoke for the coverage-gap skills (P2-matrix-coverage-gaps).
       # The setup-book-python step above already installed the base package;
       # importing skill_api proves the dependency pins resolve and the public
@@ -262,6 +296,10 @@ jobs:
         if: matrix.smoke != 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
+        env:
+          # neurosym-forge only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.skill == 'neurosym-forge' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.skill == 'neurosym-forge' && '1' || '0' }}
         run: |
           marker_filter=""
           if [ "${{ runner.os }}" = "Windows" ]; then

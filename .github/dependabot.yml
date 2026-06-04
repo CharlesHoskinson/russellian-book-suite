@@ -49,6 +49,12 @@ updates:
       cargo-all:
         patterns:
           - "*"
+    # rayon >=1.11 breaks graph_builder 0.4.1 (E0271/E0308 in its edgelist.rs:
+    # EdgeIter relies on rayon's pre-1.11 IntoParallelIterator impl for &Vec).
+    # Drop this ignore once graph_builder ships a rayon-1.11+ compatible release.
+    ignore:
+      - dependency-name: rayon
+        versions: [">=1.11"]
 
   # --- npm: one multi-directory entry per verifier package.json ---
   - package-ecosystem: npm

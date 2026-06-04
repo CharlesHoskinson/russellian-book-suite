@@ -40,9 +40,10 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
       - name: make lint (ruff + clj-kondo + nixpkgs-fmt + cargo-fmt)
         run: nix develop -c make lint
-      - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, ci tests)
+      - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, windows-canary guard, ci tests)
         run: |
           nix develop -c python -m ci.lint_no_direct_http
+          nix develop -c python -m ci.check_windows_canary
           nix develop -c python -m pytest ci/ -q
       - name: required-check name drift (ci.yml job name == ruleset context)
         run: nix develop -c bash scripts/check-required-name.sh

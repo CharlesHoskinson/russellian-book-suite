@@ -6,6 +6,10 @@ missing dep) is exercised in ``test_build_semantic_index_no_model.py``.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import os
 from pathlib import Path
 

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "readme-lint"
+version = "0.1.0"
+description = "Per-section Russell-style lint gate for the top-level README.md. Parses the README at H2 boundaries, reads per-section voice-mode declarations, runs the russellian-style 17-rule registry against each section."
+requires-python = ">=3.11"
+dependencies = [
+    "spacy>=3.7,<4.0",
+    "markdown-it-py>=3.0,<4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --import-mode=importlib"

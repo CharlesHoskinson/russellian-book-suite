@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from scripts.workspace import init_workspace, find_workspace_root, WorkspaceLayout
 
 

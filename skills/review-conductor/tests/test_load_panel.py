@@ -1,4 +1,8 @@
 """Schema validation tests for panel-config.schema.json + verdict.schema.json + load_panel."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from pathlib import Path
 

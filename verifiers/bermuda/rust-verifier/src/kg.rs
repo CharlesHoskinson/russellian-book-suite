@@ -172,14 +172,41 @@ fn build_db(claims: &[Claim]) -> Result<DbInstance, Error> {
         cozo::ScriptMutability::Mutable,
     )
     .map_err(|e| Error::Kg(format!("cozo create: {e}")))?;
+    // Declare `claim_load_bearing` (value column typed Bool); referenced by a generated defquery but
+    // not yet populated from the claim model. Created empty so the query
+    // returns zero rows rather than erroring on an unknown relation.
+    db.run_script(
+        ":create claim_load_bearing {id: String => value: Bool}",
+        Default::default(),
+        cozo::ScriptMutability::Mutable,
+    )
+    .map_err(|e| Error::Kg(format!("cozo create claim_load_bearing: {e}")))?;
+    // Declare `claim_posterior` (value column typed Float); referenced by a generated defquery but
+    // not yet populated from the claim model. Created empty so the query
+    // returns zero rows rather than erroring on an unknown relation.
+    db.run_script(
+        ":create claim_posterior {id: String => value: Float}",
+        Default::default(),
+        cozo::ScriptMutability::Mutable,
+    )
+    .map_err(|e| Error::Kg(format!("cozo create claim_posterior: {e}")))?;
+    // Use Cozo parameterised inputs ($id / $source) rather than string
+    // interpolation so claim ids/sources containing backslashes, quotes,
+    // or other Cozo-special characters cannot break the script or alter
+    // the inserted data (no manual escaping, no injection surface).
     for c in claims {
-        let script = format!(
-            "?[id, source] <- [['{}', '{}']] :put claim {{id, source}}",
-            c.id.replace("'", "\\'"),
-            c.source.replace("'", "\\'"),
+        let mut params = std::collections::BTreeMap::new();
+        params.insert("id".to_string(), DataValue::Str(c.id.as_str().into()));
+        params.insert(
+            "source".to_string(),
+            DataValue::Str(c.source.as_str().into()),
         );
-        db.run_script(&script, Default::default(), cozo::ScriptMutability::Mutable)
-            .map_err(|e| Error::Kg(format!("cozo insert: {e}")))?;
+        db.run_script(
+            "?[id, source] <- [[$id, $source]] :put claim {id, source}",
+            params,
+            cozo::ScriptMutability::Mutable,
+        )
+        .map_err(|e| Error::Kg(format!("cozo insert: {e}")))?;
     }
     Ok(db)
 }
@@ -190,7 +217,8 @@ pub fn ingest_and_summarize(claims: &[Claim]) -> Result<GraphSummary, Error> {
     let mut contradictions: Vec<(String, String)> = Vec::new();
     // dispatch: "Q001-low-confidence-load-bearing"
     {
-        let script = r#"?[?claim] := claim/load-bearing[?claim, true], claim/posterior[?claim, ?p], <[?p, 0.8]"#;
+        let script =
+            r#"?[claim] := *claim_load_bearing[claim, true], *claim_posterior[claim, p], p < 0.8"#;
         let result: NamedRows = db
             .run_script(
                 script,

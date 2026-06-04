@@ -1,7 +1,7 @@
 """Aggregate per-persona review reports into chapters/drafts/<chapter>/persona-review.md."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,36 +17,58 @@ class AggregatedReview:
     important: list
     minor: list
     report_path: Path
+    failed_personas: list = field(default_factory=list)
 
 
-def _gather_reviews(workspace: Path, chapter_id: str) -> list[ReviewResult]:
+def _gather_reviews(workspace: Path, chapter_id: str) -> tuple[list[ReviewResult], list[tuple[str, str]]]:
+    """Parse every review report, returning (parsed, failures).
+
+    failures is a list of (filename, reason) for reports that could not be
+    parsed (missing frontmatter, schema-invalid). These are surfaced rather
+    than silently dropped, so a broken/missing review does not invisibly
+    shrink the gate's evidence base.
+    """
     reviews_dir = Path(workspace) / "chapters" / "drafts" / chapter_id / "reviews"
     if not reviews_dir.is_dir():
-        return []
+        return [], []
     out: list[ReviewResult] = []
+    failures: list[tuple[str, str]] = []
     for path in sorted(reviews_dir.glob("*.md")):
         try:
             out.append(parse_review_report(path))
-        except (ValueError, KeyError):
-            continue
-    return out
+        except (ValueError, KeyError) as exc:
+            failures.append((path.name, str(exc)))
+    return out, failures
 
 
 def _dedup_findings(findings: list[tuple[str, str]]) -> list[dict]:
+    """Collapse findings only on exact normalized equality.
+
+    Bare substring containment is never used to drop a finding: a short generic
+    finding must not swallow a longer, more-specific one. Exact (case/whitespace-
+    insensitive) duplicates across personas are merged into a single entry whose
+    persona attribution lists every persona that raised it, in encounter order.
+    """
     out: list[dict] = []
-    seen: list[str] = []
+    by_norm: dict[str, dict] = {}
     for persona_id, text in findings:
         norm = text.lower().strip()
-        is_dup = any(norm in s or s in norm for s in seen) if norm else False
-        if not is_dup:
-            out.append({"persona": persona_id, "text": text})
-            seen.append(norm)
+        existing = by_norm.get(norm)
+        if existing is None:
+            entry = {"persona": persona_id, "_personas": [persona_id], "text": text}
+            by_norm[norm] = entry
+            out.append(entry)
+        elif persona_id not in existing["_personas"]:
+            existing["_personas"].append(persona_id)
+            existing["persona"] = ", ".join(existing["_personas"])
+    for entry in out:
+        entry.pop("_personas", None)
     return out
 
 
 def aggregate_reviews(workspace: Path, chapter_id: str) -> AggregatedReview:
     workspace = Path(workspace).resolve()
-    reviews = _gather_reviews(workspace, chapter_id)
+    reviews, failed = _gather_reviews(workspace, chapter_id)
 
     crit_pairs = [(r.persona_id, f.text) for r in reviews for f in r.critical]
     imp_pairs = [(r.persona_id, f.text) for r in reviews for f in r.important]
@@ -56,10 +78,27 @@ def aggregate_reviews(workspace: Path, chapter_id: str) -> AggregatedReview:
     important = _dedup_findings(imp_pairs)
     minor = _dedup_findings(min_pairs)
 
+    # Gating counts are the RAW per-persona sums, never the deduplicated
+    # display-list lengths. Dedup collapses cross-persona repeats for
+    # presentation; using it for the gate would let a chapter that should
+    # block (multiple personas flag the same critical issue) slip through.
+    #
+    # The persona-supplied frontmatter *_count fields are authoritative when
+    # they exceed the parsed body count: a brittle body parse that drops a
+    # finding must not be allowed to undercount the gate. Take the larger of
+    # (parsed body total, declared frontmatter total) per severity.
+    def _declared_total(field: str) -> int:
+        total = 0
+        for r in reviews:
+            val = r.raw_metadata.get(field)
+            if isinstance(val, int) and val > 0:
+                total += val
+        return total
+
     severity_counts = {
-        "critical": len(critical),
-        "important": len(important),
-        "minor": len(minor),
+        "critical": max(len(crit_pairs), _declared_total("critical_count")),
+        "important": max(len(imp_pairs), _declared_total("important_count")),
+        "minor": max(len(min_pairs), _declared_total("minor_count")),
     }
 
     per_persona = {r.persona_id: r.verdict for r in reviews}
@@ -116,6 +155,16 @@ def aggregate_reviews(workspace: Path, chapter_id: str) -> AggregatedReview:
     if not minor:
         lines.append("_(none)_")
 
+    if failed:
+        lines += ["", "## Failed personas", ""]
+        lines.append(
+            "_These reports could not be parsed and are NOT reflected in the "
+            "counts above. The panel's evidence base is incomplete._"
+        )
+        lines.append("")
+        for name, reason in failed:
+            lines.append(f"- `{name}`: {reason}")
+
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
     return AggregatedReview(
@@ -126,4 +175,5 @@ def aggregate_reviews(workspace: Path, chapter_id: str) -> AggregatedReview:
         important=important,
         minor=minor,
         report_path=out_path,
+        failed_personas=failed,
     )

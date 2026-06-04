@@ -6,17 +6,201 @@ on:
 
 permissions:
   contents: read
+  issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
 
 jobs:
   drift-check:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
       - name: flake check
-        run: nix flake check --no-build-output
+        run: nix flake check
       - name: build preflight package
         run: nix build .#preflight
       - name: run preflight in fresh shell
         run: nix develop -c make preflight
+
+  # Run the full Windows test suite (no -m filter) once daily. Catches
+  # under-tagging of the windows_canary marker within 24h. The PR-time
+  # CI matrix only runs marker-tagged tests on Windows; this nightly job
+  # is the safety net.
+  windows-full-canary:
+    name: windows full suite (catches under-tagging)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        skill:
+          - book-qa
+          - book-thesis
+          - book-knowledge
+          - book-review
+          - book-compose
+          - russellian-style
+          - review-conductor
+          - neurosym-forge
+        include:
+          - skill: book-compose
+            siblings: book-knowledge russellian-style book-review review-conductor
+            pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
+          - skill: neurosym-forge
+            extra: dev,semantic
+          # P2-matrix-coverage-gaps: install + import smoke on Windows too, so a
+          # bump that only breaks the Windows install is caught nightly. Full
+          # pytest is intentionally not run (heavy/risky deps, red-prone suites).
+          - skill: scrapling-fetch
+            extra: none
+            smoke: import
+          - skill: syntopical-metabook
+            extra: none
+            smoke: import
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: "3.13"
+          skill-path: skills/${{ matrix.skill }}
+          extra: ${{ matrix.extra || 'ci' }}
+      - name: symlink siblings
+        if: matrix.siblings != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
+            const { join } = require('path');
+            const home = process.env.HOME || process.env.USERPROFILE;
+            const target = join(home, '.claude', 'skills');
+            mkdirSync(target, { recursive: true });
+            const cwd = process.cwd();
+            const raw = `${{ matrix.siblings }}`;
+            for (const s of raw.split(/\s+/).filter(Boolean)) {
+              const link = join(target, s);
+              if (existsSync(link)) rmSync(link, { recursive: true, force: true });
+              symlinkSync(join(cwd, 'skills', s), link, 'dir');
+            }
+      # russellian-style's conftest hard-errors in CI when the spaCy English
+      # model is missing, and book-compose's sibling-loaded linters need
+      # `import spacy` to work, which needs click (spaCy's __init__ eagerly
+      # imports spacy.cli). Mirror ci.yml: install the model wheel with
+      # --no-deps plus click. Without these steps the unfiltered Windows legs
+      # red on environment, not on under-tagging — the drift this job exists
+      # to catch.
+      - name: cache spaCy model wheel
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: spacy-wheel
+          key: spacy-model-en_core_web_sm-3.8.0
+      - name: install spaCy model (russellian-style / book-compose)
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
+        shell: bash
+        run: |
+          retry() {
+            for i in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $i failed; retrying in $((i * 5))s" >&2
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          WHEEL_URL="https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+          WHEEL="spacy-wheel/en_core_web_sm-3.8.0-py3-none-any.whl"
+          mkdir -p spacy-wheel
+          if [ ! -f "$WHEEL" ]; then
+            retry curl -fsSL "$WHEEL_URL" -o "$WHEEL"
+          fi
+          retry python -m pip install click
+          python -m pip install --no-deps "$WHEEL"
+      - name: import smoke
+        if: matrix.smoke == 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
+      # neurosym-forge's semantic-index tests load the all-MiniLM-L6-v2
+      # sentence-transformers model. Without a persisted cache every xdist
+      # worker revalidates per-file metadata against huggingface.co (HEAD
+      # requests); parallel workers trip HF Hub's 429 rate limit and the
+      # semantic tests fail or hang (#192/#194/#197/#203, all 2026-06-03).
+      # Cache the model keyed on its pinned name, warm it once per run on a
+      # miss, then run pytest with HF_HUB_OFFLINE=1 so no leg touches the
+      # network for the model. Key is OS-scoped: the HF cache uses symlinks
+      # on Linux/macOS but copies on Windows.
+      - name: cache HF model (all-MiniLM-L6-v2)
+        if: matrix.skill == 'neurosym-forge'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: hf-cache
+          key: hf-model-all-MiniLM-L6-v2-${{ runner.os }}-v1
+      - name: warm HF model cache (neurosym-forge)
+        if: matrix.skill == 'neurosym-forge'
+        shell: bash
+        env:
+          HF_HOME: ${{ github.workspace }}/hf-cache
+        run: |
+          retry() {
+            for i in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $i failed; retrying in $((i * 5))s" >&2
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          if [ ! -d "$HF_HOME/hub/models--sentence-transformers--all-MiniLM-L6-v2" ]; then
+            retry python -c "from huggingface_hub import snapshot_download; snapshot_download('sentence-transformers/all-MiniLM-L6-v2')"
+          else
+            echo "HF model cache hit; skipping warmup"
+          fi
+      - name: pytest (unfiltered)
+        if: matrix.smoke != 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        env:
+          # neurosym-forge only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.skill == 'neurosym-forge' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.skill == 'neurosym-forge' && '1' || '0' }}
+        run: python -m pytest tests/ -q --tb=short ${{ matrix.pytest-deselect }}
+
+  # P2-nightly-alerting-and-drift: a red scheduled run used to fail silently.
+  # On failure, open (or update) a single dedup-by-title tracking issue so the
+  # regression is actionable. Runs only on schedule (not on manual dispatch or
+  # self-edit pushes) to avoid issue spam during workflow iteration.
+  alert-on-failure:
+    needs: [drift-check, windows-full-canary]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const title = 'nightly-flake-drift failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled \`nightly-flake-drift\` run failed.`,
+              ``,
+              `- Run: ${runUrl}`,
+              `- Triggered: ${context.eventName} @ ${new Date().toISOString()}`,
+              ``,
+              `Investigate the failing job (flake check / preflight / windows canary)`,
+              `and close this issue once green. This issue is updated, not`,
+              `duplicated, on subsequent failures.`,
+            ].join('\n');
+            const existing = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
+            });
+            const hit = existing.data.items.find((i) => i.title === title);
+            if (hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: hit.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['ci-failure'],
+              });
+            }

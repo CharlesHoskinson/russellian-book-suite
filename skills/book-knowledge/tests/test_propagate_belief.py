@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import math
 from scripts.belief_graph import BeliefGraph, BeliefNode
 from scripts.propagate_belief import propagate, COUNTER_OPEN_DAMP, COUNTER_ADDRESSED_DAMP
@@ -67,6 +71,46 @@ def test_addressed_counter_claim_damps_more_than_open():
     assert posts_addr["clm-x"] < posts_open["clm-x"]
     assert math.isclose(posts_addr["clm-x"] / posts_open["clm-x"],
                         COUNTER_ADDRESSED_DAMP / COUNTER_OPEN_DAMP, rel_tol=1e-6)
+
+
+def test_derived_claim_inherits_weakest_parent():
+    """A derived child cannot be believed more strongly than its weakest parent.
+    The child's local evidence is damped by the minimum parent posterior, and
+    that influence propagates along derivation_edges."""
+    g = BeliefGraph()
+    g.nodes["parent"] = BeliefNode(claim_id="parent", status="disputed", sources=["s1"])
+    g.nodes["child"] = BeliefNode(claim_id="child", status="verified", sources=["s2"])
+    g.derivation_edges.add(("parent", "child"))
+    trust = {"s1": 1.0, "s2": 1.0}
+    posts = propagate(g, trust, counter_claims=[])
+    # parent: disputed -> prior 0.20, single source -> 0.20
+    assert math.isclose(posts["parent"], 0.20, rel_tol=1e-6)
+    # child local evidence = 0.70, damped by weakest parent (0.20) -> 0.14
+    assert math.isclose(posts["child"], 0.70 * 0.20, rel_tol=1e-6)
+
+
+def test_derivation_influence_propagates_along_chain():
+    """grandparent -> parent -> child: the grandparent's low belief must reach
+    the child through the parent, which requires more than one iteration pass."""
+    g = BeliefGraph()
+    g.nodes["gp"] = BeliefNode(claim_id="gp", status="disputed", sources=["s"])
+    g.nodes["p"] = BeliefNode(claim_id="p", status="verified", sources=["s"])
+    g.nodes["c"] = BeliefNode(claim_id="c", status="verified", sources=["s"])
+    g.derivation_edges.add(("gp", "p"))
+    g.derivation_edges.add(("p", "c"))
+    trust = {"s": 1.0}
+    posts = propagate(g, trust, counter_claims=[])
+    # gp: 0.20; p: 0.70 * 0.20 = 0.14; c: 0.70 * 0.14 = 0.098 (floored at 0.05)
+    assert math.isclose(posts["gp"], 0.20, rel_tol=1e-6)
+    assert math.isclose(posts["p"], 0.70 * 0.20, rel_tol=1e-6)
+    assert math.isclose(posts["c"], 0.70 * (0.70 * 0.20), rel_tol=1e-6)
+
+
+def test_root_claim_unaffected_by_derivation_logic():
+    """A claim with no parents behaves exactly as before."""
+    g = _g_single(status="verified", sources=["src1"])
+    posts = propagate(g, {"src1": 1.0}, counter_claims=[])
+    assert math.isclose(posts["clm-x"], 0.70, rel_tol=1e-6)
 
 
 import json

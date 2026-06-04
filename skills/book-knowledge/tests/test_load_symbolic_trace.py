@@ -1,6 +1,10 @@
 # skills/book-knowledge/tests/test_load_symbolic_trace.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import datetime as dt
 from pathlib import Path
 

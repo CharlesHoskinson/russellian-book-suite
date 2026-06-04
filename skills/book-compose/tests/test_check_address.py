@@ -28,6 +28,25 @@ def test_llm_verifier_path(tmp_path):
     assert result["mechanism"] == "llm"
 
 
+def test_cache_hit_returns_normalized_fixed_keys(tmp_path):
+    chapter = "Yet the ferry network has consolidated."
+    rival = {"id": "cc-1", "text": "rival text that is not verbatim present"}
+
+    def leaky_verifier(chap, txt):
+        # Returns extra keys and a non-bool 'addressed', as a real LLM verifier might.
+        return {"addressed": 1, "supporting_paragraph": "para",
+                "confidence": 0.7, "reasoning": "because"}
+
+    first = check_address(chapter, rival, verifier=leaky_verifier, cache_dir=tmp_path)
+    second = check_address(chapter, rival, verifier=leaky_verifier, cache_dir=tmp_path)
+
+    # Cache-hit result must have the exact documented key set, no leaked keys.
+    assert set(second) == {"addressed", "mechanism", "supporting_paragraph"}
+    # addressed must be normalized to bool on the cache-hit path, matching fresh.
+    assert second["addressed"] is True
+    assert second == first
+
+
 def test_cache_avoids_verifier_recall(tmp_path):
     chapter = "Yet the ferry network has consolidated — schedules dropped by half."
     rival = {"id": "cc-1", "text": "Bermuda's ferry network has consolidated rather than expanded."}

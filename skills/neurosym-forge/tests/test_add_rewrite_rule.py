@@ -1,6 +1,10 @@
 # skills/neurosym-forge/tests/test_add_rewrite_rule.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 import pytest

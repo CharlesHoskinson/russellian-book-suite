@@ -5,6 +5,9 @@ Four-phase pipeline: Claude → ClojureScript (rewrite) → Rust (verify) → Cl
 
 ## Build
 
+Requires a Rust toolchain of **1.85 or newer** (the verifier crate uses
+edition 2024, stabilised in Rust 1.85). Update with `rustup update stable`.
+
 ```bash
 npm install
 npm run build

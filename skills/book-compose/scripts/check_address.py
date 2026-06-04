@@ -31,7 +31,9 @@ def check_address(chapter_text: str, rival: dict,
     cache_file = cache_dir / f"{key}.json"
     if cache_file.exists():
         cached = json.loads(cache_file.read_text(encoding="utf-8"))
-        return {**cached, "mechanism": "llm"}
+        return {"addressed": bool(cached["addressed"]),
+                "mechanism": "llm",
+                "supporting_paragraph": cached.get("supporting_paragraph")}
     verdict = verifier(chapter_text, rival_text)
     cache_file.write_text(json.dumps(verdict), encoding="utf-8")
     return {"addressed": bool(verdict["addressed"]),

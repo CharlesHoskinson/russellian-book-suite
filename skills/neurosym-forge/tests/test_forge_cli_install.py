@@ -8,6 +8,10 @@ on each supported Python).
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import importlib.metadata as md
 from pathlib import Path
 

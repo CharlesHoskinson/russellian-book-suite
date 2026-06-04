@@ -1,6 +1,10 @@
 # skills/book-knowledge/tests/test_export_symbolic_trace.py
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import datetime as dt
 import json
 from pathlib import Path
@@ -18,10 +22,13 @@ def _seed_workspace(root: Path) -> Path:
     (workspace / "raw" / "manifests").mkdir(parents=True)
     (workspace / "claims").mkdir()
     (workspace / "raw" / "manifests" / "alpha.json").write_text(json.dumps({
+        "doc_name": "alpha.pdf",
         "doc_id": "alpha",
+        "source_kind": "pdf",
+        "sha256": "a" * 64,
+        "byte_size": 123,
         "ingested_at": "2026-05-12T16:13:51.630442Z",
-        "path": "raw/alpha.pdf",
-        "title": "Alpha source",
+        "node_count": 3,
         "trust": 0.95,
     }), encoding="utf-8")
     (workspace / "claims" / "ledger.jsonl").write_text(
@@ -45,6 +52,21 @@ def test_manifest_event_shape(tmp_path: Path) -> None:
     assert head == Symbol("ingested", namespace="source")
     assert payload[Keyword("doc/id")] == "alpha"
     assert isinstance(payload[Keyword("ingested-at")], dt.datetime)
+    # kind is derived from the manifest's authoritative source_kind field,
+    # not from an absent path key (which the manifest schema forbids).
+    assert payload[Keyword("kind")] == Keyword("pdf")
+
+
+def test_markdown_manifest_infers_markdown_kind() -> None:
+    head, payload = _manifest_to_event({
+        "doc_name": "beta.md",
+        "doc_id": "beta",
+        "source_kind": "markdown",
+        "sha256": "b" * 64,
+        "ingested_at": "2026-05-12T16:13:51Z",
+        "node_count": 1,
+    })
+    assert payload[Keyword("kind")] == Keyword("markdown")
 
 
 def test_claim_event_shape() -> None:

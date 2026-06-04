@@ -467,6 +467,7 @@
    Mapping:
      (parse-int ?n)   → :int
      (parse-float ?x) → :real
+     (parse-bool ?v)  → :bool
      true / false     → :bool
      anything else    → :string  (best-effort default)"
   [emit-form]
@@ -475,6 +476,7 @@
       (cond
         (and (sequential? body) (= (first body) 'parse-int))   :int
         (and (sequential? body) (= (first body) 'parse-float)) :real
+        (and (sequential? body) (= (first body) 'parse-bool))  :bool
         (boolean? body)                                        :bool
         :else                                                  :string))))
 
@@ -488,9 +490,25 @@
            :word-to-int (or (:word-to-int lift) {})}]))
 
 (defn- emit-predicates-edn-string
-  "Build the EDN string for rules/predicates.edn from the lift rules."
+  "Build the EDN string for rules/predicates.edn from the lift rules.
+   Multiple lifts for the same predicate are merged: their :patterns lists
+   are concatenated; the last lift's subject/value-kind/word-to-int win."
   [{:keys [lift-rules]}]
-  (let [entries (into {} (map lift-to-predicate-entry lift-rules))]
+  (let [entries
+        (reduce
+         (fn [acc lift]
+           (let [pred (emit-target-predicate (:emit lift))]
+             (if (contains? acc pred)
+               ;; Merge: append the new pattern to the existing patterns list.
+               (update-in acc [pred :patterns] conj (:pattern lift))
+               ;; First lift for this predicate: create the entry.
+               (assoc acc pred {:patterns    [(:pattern lift)]
+                                :predicate   pred
+                                :subject     (infer-subject (:emit lift))
+                                :value-kind  (infer-value-kind (:emit lift))
+                                :word-to-int (or (:word-to-int lift) {})}))))
+         {}
+         lift-rules)]
     (pr-str {:version 1 :predicates entries})))
 
 (defn emit-predicates-edn

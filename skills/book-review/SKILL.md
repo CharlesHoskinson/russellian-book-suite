@@ -64,7 +64,7 @@ The aggregator takes severity at face value. See `references/severity-rubric.md`
 
 ## Usage
 
-- "Review chapter X with personas" — full five-persona pass.
+- "Review chapter X with personas" — full seven-persona pass.
 - "Gottlieb pass on this chapter" — single-persona dispatch.
 - "Is chapter X ready for review?" — preflight check.
 

@@ -1,4 +1,8 @@
 """dispatch_panel builds dispatch packets via book-review with optional few-shot context."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "synthetic_outcomes" / "sample-pass-1"

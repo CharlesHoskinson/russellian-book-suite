@@ -25,10 +25,10 @@ ci = [
     "rdflib>=7.0,<9.0",
     "pyshacl>=0.26,<1.0",
     "spacy>=3.7,<4.0",
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
 dev = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
 
 [tool.setuptools]
@@ -36,6 +36,9 @@ packages = ["scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "windows_canary: test exercises platform-sensitive behaviour and must run on Windows",
+]
 addopts = "-v"
 filterwarnings = [
     "ignore::DeprecationWarning:rdflib.*",

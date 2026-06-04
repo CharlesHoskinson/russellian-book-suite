@@ -1,4 +1,8 @@
 """End-to-end conductor: build packets, run stubbed dispatcher writes synthetic reviews, aggregate."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

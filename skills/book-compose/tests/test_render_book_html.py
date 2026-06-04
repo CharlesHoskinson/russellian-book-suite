@@ -1,5 +1,5 @@
 
-from scripts.render_book_html import write_html_skeleton, INSERTION_MARKER
+from scripts.render_book_html import write_html_skeleton, INSERTION_MARKER, _escape_for_script_block
 
 
 def test_skeleton_contains_book_title(tmp_path):
@@ -34,6 +34,15 @@ def test_skeleton_inlines_manuscript_markdown(tmp_path):
     text = out.read_text(encoding="utf-8")
     assert 'id="book-manuscript"' in text
     assert "Full text." in text
+
+
+def test_escape_for_script_block_is_case_insensitive():
+    # HTML end-tags are matched case-insensitively by the tokenizer, so a
+    # mixed-case </SCRIPT must be neutralised too, not just lowercase.
+    for variant in ("</script", "</SCRIPT", "</Script", "</ScRiPt"):
+        escaped = _escape_for_script_block(f"prefix {variant}> suffix")
+        assert "</" not in escaped.replace("<\\/", "")
+        assert variant not in escaped
 
 
 def test_skeleton_html_parses(tmp_path):

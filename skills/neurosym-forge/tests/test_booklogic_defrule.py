@@ -6,6 +6,10 @@ REQ-DSL-010: defrule expander.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import shutil
 import subprocess
 from pathlib import Path

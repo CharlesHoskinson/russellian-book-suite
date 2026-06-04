@@ -107,14 +107,15 @@
 
         # Flake-level check: assert the makefile preflight target's step list
         # matches scripts/ci-steps.txt. Detects drift between CI YAML and
-        # local Makefile.
+        # local Makefile. `make -n` prints recipe lines without their leading
+        # tab, so the dry-run output (with directory chatter suppressed) IS
+        # the step list — no grep/sed extraction.
         checks.flake-drift = pkgs.runCommand "flake-drift-check"
           {
             buildInputs = [ pkgs.gnumake pkgs.coreutils ];
           } ''
-          if ! diff -q ${./scripts/ci-steps.txt} <(make -C ${./.} -n preflight | grep -E '^\t' | sed 's/^\t//') >/dev/null 2>&1; then
+          if ! diff ${./scripts/ci-steps.txt} <(make -C ${./.} --no-print-directory -n preflight); then
             echo "DRIFT: scripts/ci-steps.txt diverges from Makefile preflight"
-            diff ${./scripts/ci-steps.txt} <(make -C ${./.} -n preflight | grep -E '^\t' | sed 's/^\t//') || true
             exit 1
           fi
           touch $out

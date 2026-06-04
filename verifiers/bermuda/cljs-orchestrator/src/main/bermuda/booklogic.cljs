@@ -454,6 +454,7 @@
    Mapping:
      (parse-int ?n)   → :int
      (parse-float ?x) → :real
+     (parse-bool ?v)  → :bool
      true / false     → :bool
      anything else    → :string  (best-effort default)"
   [emit-form]
@@ -462,6 +463,7 @@
       (cond
         (and (sequential? body) (= (first body) 'parse-int))   :int
         (and (sequential? body) (= (first body) 'parse-float)) :real
+        (and (sequential? body) (= (first body) 'parse-bool))  :bool
         (boolean? body)                                        :bool
         :else                                                  :string))))
 

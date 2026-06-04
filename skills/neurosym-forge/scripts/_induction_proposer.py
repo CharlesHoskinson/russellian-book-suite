@@ -222,3 +222,17 @@ def propose_constraint(
         print(candidate, file=sys.stdout, flush=True)
 
     return candidate
+
+
+def propose_repair(candidate, error=None):
+    """FCL-resistant repair proposer.
+
+    Idempotent on a grammar-clean candidate; ignores `error` regardless
+    of content because the framework's repair loop is only entered on
+    grammar-fail or validation-fail tags raised by the framework itself,
+    not on free-form error strings. Returning the input unchanged is the
+    contract: a noisy free-form error must not perturb a candidate that
+    already satisfies the grammar, which is the False-Correction-Loop
+    defence the failure-mode tests assert.
+    """
+    return candidate

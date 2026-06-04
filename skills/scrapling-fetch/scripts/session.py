@@ -59,6 +59,35 @@ def _enforce_per_host_delay(url: str, min_delay_s: float = PER_HOST_MIN_DELAY_S)
         _last_request_by_host[host] = now
 
 
+class _BrowserFetcherAdapter:
+    """Exposes ``.get(url, timeout=...)`` over a one-shot Scrapling browser fetcher.
+
+    Scrapling's ``StealthyFetcher`` and ``DynamicFetcher`` are one-shot
+    ``.fetch(url, **kwargs)`` entry points returning a ``Response``; unlike the
+    static ``FetcherSession`` they expose no session ``.get``. Wrapping them here
+    lets the browser modes share the exact call surface ``fetch()`` already drives
+    for plain mode. Scrapling's browser fetchers take ``timeout`` in milliseconds,
+    so the seconds the caller passes are converted.
+    """
+
+    def __init__(self, fetcher, **fetch_kwargs):
+        self._fetcher = fetcher
+        self._fetch_kwargs = fetch_kwargs
+
+    def get(self, url: str, *args, timeout: float | None = None, **kwargs):
+        call_kwargs = dict(self._fetch_kwargs)
+        if timeout is not None:
+            call_kwargs["timeout"] = int(timeout * 1000)
+        call_kwargs.update(kwargs)
+        return self._fetcher.fetch(url, **call_kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
 class _RateLimitedSession:
     """Wraps a Scrapling session so each `.get(url, ...)` enforces a per-host delay.
 
@@ -104,9 +133,13 @@ def build_session(mode: SessionMode):
         )
         return _RateLimitedSession(sess)
     if mode == SessionMode.STEALTH:
-        from scrapling.engines._browsers._stealth import StealthySession
-        return _RateLimitedSession(StealthySession(headless=True))
+        # solve_cloudflare drives the stealth browser through the "checking your
+        # browser" interstitial that plain mode cannot pass.
+        from scrapling.fetchers import StealthyFetcher
+        return _RateLimitedSession(_BrowserFetcherAdapter(
+            StealthyFetcher, headless=True, network_idle=True, solve_cloudflare=True))
     if mode == SessionMode.DYNAMIC:
-        from scrapling.engines._browsers._controllers import DynamicSession
-        return _RateLimitedSession(DynamicSession(headless=True))
+        from scrapling.fetchers import DynamicFetcher
+        return _RateLimitedSession(_BrowserFetcherAdapter(
+            DynamicFetcher, headless=True, network_idle=True))
     raise ValueError(mode)

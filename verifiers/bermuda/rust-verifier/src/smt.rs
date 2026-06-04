@@ -359,10 +359,25 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
             crate::axioms::predicate_is_vector,
         )?;
 
+        // Bind the value in the same Z3 sort the codegen-emitted axiom
+        // uses for this symbol. A predicate the codegen promoted to
+        // Real (because a float literal appears in its constraint
+        // subtree) must have its integer-valued atoms bound as Real
+        // too; otherwise the Int const and the Real axiom const are
+        // distinct Z3 symbols and the binding never constrains the
+        // axiom (a silent false-sat).
+        let want_real = crate::axioms::predicate_is_real(var_name.as_str());
         let assertion: Bool = match value {
             Edn::Int(n) => {
-                let z3_var = Int::new_const(var_name.as_str());
-                z3_var.eq(&Int::from_i64(*n))
+                if want_real {
+                    let z3_var = Real::new_const(var_name.as_str());
+                    let lit = Real::from_rational_str(&n.to_string(), "1")
+                        .ok_or_else(|| Error::Smt(format!("from_rational_str({n}, 1) failed")))?;
+                    z3_var.eq(&lit)
+                } else {
+                    let z3_var = Int::new_const(var_name.as_str());
+                    z3_var.eq(&Int::from_i64(*n))
+                }
             }
             // edn-rs renders bare non-negative integers as `Edn::UInt`
             // rather than `Edn::Int`. Treat them identically so corpus-scope
@@ -372,14 +387,42 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
                 let n_i64: i64 = (*n)
                     .try_into()
                     .map_err(|_| Error::Smt(format!("value too large to bind as Int: {n}")))?;
-                let z3_var = Int::new_const(var_name.as_str());
-                z3_var.eq(&Int::from_i64(n_i64))
+                if want_real {
+                    let z3_var = Real::new_const(var_name.as_str());
+                    let lit =
+                        Real::from_rational_str(&n_i64.to_string(), "1").ok_or_else(|| {
+                            Error::Smt(format!("from_rational_str({n_i64}, 1) failed"))
+                        })?;
+                    z3_var.eq(&lit)
+                } else {
+                    let z3_var = Int::new_const(var_name.as_str());
+                    z3_var.eq(&Int::from_i64(n_i64))
+                }
             }
+            // Encode the double as the exact rational `round(v * 1e6) / 1e6`.
+            // The fixed 1e6 scale is a known soundness limitation: values
+            // with more than ~6 fractional digits are rounded, so two
+            // doubles closer than 1e-6 collide. Overflow of the scaled
+            // numerator past i64 is rejected (rather than letting an
+            // `as i64` cast saturate to i64::MAX and silently corrupt the
+            // encoded value).
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);
                 let z3_var = Real::new_const(var_name.as_str());
-                let numerator = (v * 1_000_000.0) as i64;
-                z3_var.eq(&Real::from_rational(numerator, 1_000_000))
+                let scale: i64 = 1_000_000;
+                let scaled = (v * scale as f64).round();
+                if !scaled.is_finite() || scaled > i64::MAX as f64 || scaled < i64::MIN as f64 {
+                    return Err(Error::Smt(format!(
+                        "double value {v} out of range for the fixed 1e6-scale \
+                         rational encoding (scaled numerator overflows i64)"
+                    )));
+                }
+                let numerator = scaled as i64;
+                let lit = Real::from_rational_str(&numerator.to_string(), &scale.to_string())
+                    .ok_or_else(|| {
+                        Error::Smt(format!("from_rational_str({numerator}, {scale}) failed"))
+                    })?;
+                z3_var.eq(&lit)
             }
             Edn::Str(s) => {
                 let z3_var = Z3String::new_const(var_name.as_str());

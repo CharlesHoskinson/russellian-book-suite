@@ -4,6 +4,10 @@ Wiring added in Task 3.7: aggregate() accepts an optional ``version``
 kwarg; when supplied it calls propose_writeback so writeback artifacts
 land alongside QA outputs.
 """
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from pathlib import Path
 

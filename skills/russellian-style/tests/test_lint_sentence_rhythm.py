@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from scripts.lint_sentence_rhythm import lint_sentence_rhythm
 
 

@@ -2,14 +2,15 @@
 
 Claims are the typed, verifiable units of knowledge in the workspace. Every fact the book asserts traces back, through one or more claim records, to source spans in raw documents.
 
-## The four states
+## The five states
 
-Every claim is in exactly one of four states:
+Every claim is in exactly one of five states:
 
 - `proposed` — entered the ledger; not yet checked against sources.
 - `verified` — locator text confirmed against the cited source.
 - `disputed` — another verified claim explicitly contradicts it.
 - `superseded` — a newer claim has replaced it.
+- `refuted` — disproved; will not be re-verified. Terminal.
 
 ## Allowed transitions
 
@@ -18,11 +19,12 @@ State transitions form a directed graph:
 ```
 proposed   → verified | disputed | superseded
 verified   → disputed | superseded
-disputed   → verified | superseded
+disputed   → verified | superseded | refuted
 superseded → (terminal)
+refuted    → (terminal)
 ```
 
-`scripts.claim_validator.assert_transition_allowed` enforces this. Any attempt to invent another transition (e.g., `verified → proposed`) raises `ClaimValidationError`. The state machine is intentionally narrow: you re-verify by superseding, not by demoting.
+`scripts.claim_validator.VALID_TRANSITIONS` enforces this. Any attempt to invent another transition (e.g., `verified → proposed`) raises `ClaimValidationError`. The state machine is intentionally narrow: you re-verify by superseding, not by demoting. Both `superseded` and `refuted` are terminal.
 
 ## Claim record schema
 
@@ -30,7 +32,7 @@ Validated against `assets/claim-record.schema.json`. Required fields:
 
 - `claim_id` — pattern `clm-YYYY-NNNNNN`. Year is UTC; sequence is per-year and monotonic.
 - `canonical_text` — the claim itself, ≥ 4 chars. Should read as a standalone declarative sentence.
-- `status` — one of `proposed`, `verified`, `disputed`, `superseded`.
+- `status` — one of `proposed`, `verified`, `disputed`, `superseded`, `refuted`.
 - `claim_type` — one of `fact`, `definition`, `design_decision`, `method`, `result`, `open_question`.
 - `confidence` — float in [0, 1].
 - `source_spans` — array, ≥ 1 entry. Each span has at minimum `doc_id` and `locator_text`.
@@ -65,7 +67,7 @@ Each entry in `source_spans` is a minimal pointer back into `raw/`:
 `scripts/verify_claim.py`:
 
 1. Loads the claim record.
-2. For each `source_span`, opens the cited `wiki/sources/<doc_id>.md`.
+2. For each `source_span`, loads the cited source manifest and reads the raw ingested file — `raw/markdown/<doc_name>` for markdown sources, or `raw/pdf/<doc_name>` re-extracted via pdfplumber for PDFs. It does NOT read the `wiki/sources/<doc_id>.md` summary page.
 3. Searches for `locator_text` exactly (after whitespace normalization).
 4. If every locator matches: calls `transition_status(claim_id, "verified", note="locator-text confirmed")`.
 5. If any locator misses: claim stays `proposed`. The reason is recorded in a per-claim verification report under `claims/verification/<claim_id>.md` listing which spans failed.

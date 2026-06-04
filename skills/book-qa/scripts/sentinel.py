@@ -7,7 +7,7 @@ Rolls up Stage-1 ``defects.json`` (mechanical D1-D8 from
 
 Hard-fail rules (release blocked):
 
-* Any critical D1-D8 mechanical defect.
+* Any critical D1-D8 mechanical defect or critical D9-D13 reasoning defect.
 * Any C2 (cross-references) or C13 (closing strength) ticket from Stage 2.
 * Any Stage-2 ticket with severity ``critical``.
 
@@ -27,7 +27,10 @@ from pathlib import Path
 from typing import Any
 
 HARD_FAIL_CHECKS = {"C2", "C13"}
-HARD_FAIL_D_CLASSES = {"D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8"}
+HARD_FAIL_D_CLASSES = {
+    "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8",
+    "D9", "D10", "D11", "D13",
+}
 
 
 @dataclass

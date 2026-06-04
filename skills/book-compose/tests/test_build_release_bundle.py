@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from datetime import datetime, timezone
 from pathlib import Path
 import shutil
@@ -50,3 +54,29 @@ def test_release_bundle_manifest_schema_valid(tmp_path):
     schema = json.loads((Path(__file__).resolve().parent.parent / "assets" / "release-manifest.schema.json").read_text(encoding="utf-8"))
     manifest = yaml.safe_load((bundle / "manifest.yaml").read_text(encoding="utf-8"))
     jsonschema.validate(manifest, schema)
+
+
+def test_release_bundle_records_conforming_workspace(tmp_path):
+    import yaml
+    workspace = _seed(tmp_path)
+    bundle = build_release_bundle(workspace, "ch-03", version="0.1.0", formats=["markdown"])
+    manifest = yaml.safe_load((bundle / "manifest.yaml").read_text(encoding="utf-8"))
+    assert manifest["shacl_conforms"] is True
+    assert manifest["competency_clean"] is True
+
+
+def test_release_bundle_records_non_conforming_workspace(tmp_path):
+    import yaml
+    workspace_mod = load_book_knowledge_module("workspace")
+    workspace = _seed(tmp_path)
+    layout = workspace_mod.WorkspaceLayout(workspace)
+    # Inject a verified claim with no provenance into the graph: SHACL must fail.
+    bk = book_knowledge_root()
+    bad = (bk / "tests" / "fixtures" / "ontology_violations"
+           / "unsupported_verified.trig").read_text(encoding="utf-8")
+    layout.dataset.write_text(bad, encoding="utf-8")
+
+    bundle = build_release_bundle(workspace, "ch-03", version="0.2.0", formats=["markdown"])
+    manifest = yaml.safe_load((bundle / "manifest.yaml").read_text(encoding="utf-8"))
+    # The bundle must record the workspace's real non-conforming state, not a hardcoded True.
+    assert manifest["shacl_conforms"] is False

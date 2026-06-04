@@ -3,11 +3,16 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
-  pull-requests: write   # for the ci-budget job to comment
 
+# cancel-in-progress protects RUNNING main builds, but GitHub keeps at most
+# one QUEUED run per concurrency group: rapid sequential merges supersede
+# queued main runs, which then show as 'cancelled'. That is by design — the
+# newest run validates the cumulative tree. Expect cancelled main runs after
+# merge bursts; only the latest one needs to be green.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -20,6 +25,103 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Always-run lint gate (no rust gate, no `needs`). Pure-Python PRs skip the
+  # rust-gated `preflight` job, so without this job ruff/clj-kondo/fmt would
+  # never run at PR time on a pure-Python change (the root cause of the
+  # red-since-PR-122 incident). Reuses the proven `nix develop -c make lint`
+  # command set (identical toolchain to preflight) so it is green by
+  # construction. `make preflight` still chains `lint` too; the double-run only
+  # happens when preflight actually runs (push to main, or a rust-touching PR),
+  # which is an acceptable cost for keeping the Makefile/flake-drift contract
+  # intact. Also wires the NFR-4/NFR-5 invariant linters and ci/ tests that no
+  # gate previously executed.
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+      - name: make lint (ruff + clj-kondo + nixpkgs-fmt + cargo-fmt)
+        run: nix develop -c make lint
+      - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, windows-canary guard, ci tests)
+        run: |
+          nix develop -c python -m ci.lint_no_direct_http
+          nix develop -c python -m ci.check_windows_canary
+          nix develop -c python -m pytest ci/ -q
+      - name: required-check name drift (ci.yml job name == ruleset context)
+        run: nix develop -c bash scripts/check-required-name.sh
+
+  # Always-run actionlint on every PR/push (P2-actionlint-and-legacy). Workflow
+  # YAML errors used to be caught only when ci-legacy edited itself (its
+  # paths-filter is self-referential); now any change to .github/workflows is
+  # linted at PR time and feeds the ci-required aggregator. Uses the same
+  # pinned-tarball + SHA-verification install as ci-legacy's lint-workflow job.
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: install actionlint (pinned tarball + SHA verification)
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+        run: |
+          BASE="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          TARBALL="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          for i in 1 2 3; do
+            curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}" \
+              && curl -fsSL "${BASE}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o checksums.txt \
+              && break
+            echo "download attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+          grep "${TARBALL}" checksums.txt | sha256sum -c -
+          tar -xzf "${TARBALL}" actionlint
+          mv actionlint /usr/local/bin/
+      - name: run actionlint (.github/workflows/**)
+        run: actionlint -color
+
+  # Detect whether the PR diff touches anything that could affect the Rust
+  # verifiers / Nix preflight (rust output) or the python-skill matrix
+  # (python output). Pure-Python PRs skip the rust-gated jobs; verifier-only
+  # and docs-only PRs skip the python matrix. Pushes to main always run them.
+  changes:
+    name: detect rust/nix changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            # rust gates cargo-test (verifier crate compilation only). The old
+            # filter included skills/** and interpreted-language globs, which
+            # made every python PR pay 4 cargo jobs for crates it cannot affect.
+            rust:
+              - 'verifiers/**'
+              - '**/*.rs'
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
+              - 'flake.nix'
+              - 'flake.lock'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+            # python gates the 35-job python-skill matrix. Verifier-only and
+            # docs-only PRs skip it (the 2026-06-03 dependabot flood queued
+            # ~12h of matrix runs for one-line verifier bumps).
+            python:
+              - 'skills/**'
+              - 'sibling_skills/**'
+              - 'ci/**'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/setup-book-python/**'
+
   # Python-only skills don't need Nix — they run under standard setup-python.
   # The setup-book-python composite action handles pip + venv per skill; the
   # matrix.include lines override `extra` and add sibling-skill symlinks /
@@ -31,10 +133,13 @@ jobs:
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.python == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-2022]
+        os: [ubuntu-24.04, macos-15, windows-2022]
         skill:
           - book-qa
           - book-thesis
@@ -42,29 +147,61 @@ jobs:
           - book-review
           - book-compose
           - russellian-style
+          - feynman-style
+          - halmos
           - review-conductor
           - neurosym-forge
+          - paragraph-weaver
         include:
+          # book-qa is the P2-pip-lockfiles pilot: its install is pinned with a
+          # committed constraints.txt for byte-identical transitive versions.
+          - skill: book-qa
+            constraints: skills/book-qa/constraints.txt
           # book-compose needs sibling skills symlinked under ~/.claude/skills/
           - skill: book-compose
             siblings: book-knowledge russellian-style book-review review-conductor
             pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
-          # neurosym-forge only ships a [dev] extras section, not [ci]
+          # neurosym-forge needs both [dev] (pytest + z3-solver + numpy + xdist) and
+          # [semantic] (sentence-transformers) to cover the full test surface
+          # including the semantic-index tests. xdist parallelisation cuts the
+          # Windows wall-time roughly in half.
           - skill: neurosym-forge
             extra: dev,semantic
+            pytest-workers: auto
+          # P2-matrix-coverage-gaps: scrapling-fetch (highest supply-chain risk
+          # per dependabot.yml) and syntopical-metabook had ZERO CI signal — a
+          # Dependabot bump could land unverified. They carry heavy/risky
+          # transitive deps (scrapling/trafilatura; torch/sentence-transformers)
+          # and large suites with live-network and integration tests, so a full
+          # pytest leg is not reliably green under the no-extra base install.
+          # Add them as Linux-only install + import-smoke legs (smoke: import):
+          # the base package installs and `import skill_api` succeeds, which
+          # catches a broken dependency pin or a top-level import regression
+          # without committing to the full (red-prone) suite. These are
+          # include-only rows (not in the `skill` axis) so they create exactly
+          # one row each, pinned to ubuntu-24.04.
+          - skill: scrapling-fetch
+            os: ubuntu-24.04
+            extra: none
+            smoke: import
+          - skill: syntopical-metabook
+            os: ubuntu-24.04
+            extra: none
+            smoke: import
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
           skill-path: skills/${{ matrix.skill }}
           extra: ${{ matrix.extra || 'ci' }}
+          constraints: ${{ matrix.constraints || '' }}
       # Portable symlink: `ln -sfn` requires Developer Mode (or admin) on
       # Windows. The Node `fs.symlinkSync` path works uniformly across
       # ubuntu/macos/windows runners.
       - name: symlink siblings
         if: matrix.siblings != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
@@ -79,10 +216,116 @@ jobs:
               if (existsSync(link)) rmSync(link, { recursive: true, force: true });
               symlinkSync(join(cwd, 'skills', s), link, 'dir');
             }
-      - name: pytest
+      # russellian-style's linters require the spaCy English model. Without it
+      # conftest would skip the entire linter suite (and now hard-errors in CI).
+      # book-compose symlinks russellian-style as a sibling and has its own
+      # spaCy-dependent tests, so it needs the model too (else those tests
+      # silently drop from collection). feynman-style's lint_common is a copy
+      # of russellian-style's and carries the same conftest hard-error gate. Install the model wheel directly with
+      # --no-deps so the click/typer-free [ci] extra is not disturbed (the
+      # `spacy download` CLI needs click/typer). `click` is added back because
+      # spaCy's top-level __init__ eagerly imports spacy.cli, which imports
+      # click; without it `import spacy` (and thus `spacy.load`) raises
+      # ModuleNotFoundError and the conftest still hard-errors in CI. Pin to
+      # the spaCy 3.8.x model that matches `spacy>=3.7,<4.0` in [ci].
+      # Cache the spaCy model wheel keyed on its pinned version so it is not
+      # re-fetched from GitHub releases on every run. The download step below
+      # uses the cached wheel when present and only hits the network on a miss.
+      - name: cache spaCy model wheel
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose' || matrix.skill == 'feynman-style'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: spacy-wheel
+          key: spacy-model-en_core_web_sm-3.8.0
+      - name: install spaCy model (russellian-style / book-compose / feynman-style)
+        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose' || matrix.skill == 'feynman-style'
+        shell: bash
+        # Single-shot network steps are wrapped in a 3-try backoff so a
+        # transient registry/GitHub-release blip retries rather than reddening
+        # the required check (P2-network-retries).
+        run: |
+          retry() {
+            for i in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $i failed; retrying in $((i * 5))s" >&2
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          WHEEL_URL="https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+          WHEEL="spacy-wheel/en_core_web_sm-3.8.0-py3-none-any.whl"
+          mkdir -p spacy-wheel
+          if [ ! -f "$WHEEL" ]; then
+            retry curl -fsSL "$WHEEL_URL" -o "$WHEEL"
+          fi
+          retry python -m pip install click
+          python -m pip install --no-deps "$WHEEL"
+      # neurosym-forge's semantic-index tests load the all-MiniLM-L6-v2
+      # sentence-transformers model. Without a persisted cache every xdist
+      # worker revalidates per-file metadata against huggingface.co (HEAD
+      # requests); parallel workers trip HF Hub's 429 rate limit and the
+      # semantic tests fail or hang (#192/#194/#197/#203, all 2026-06-03).
+      # Cache the model keyed on its pinned name, warm it once per run on a
+      # miss, then run pytest with HF_HUB_OFFLINE=1 so no leg touches the
+      # network for the model. Key is OS-scoped: the HF cache uses symlinks
+      # on Linux/macOS but copies on Windows.
+      - name: cache HF model (all-MiniLM-L6-v2)
+        if: matrix.skill == 'neurosym-forge'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: hf-cache
+          key: hf-model-all-MiniLM-L6-v2-${{ runner.os }}-v1
+      - name: warm HF model cache (neurosym-forge)
+        if: matrix.skill == 'neurosym-forge'
+        shell: bash
+        env:
+          HF_HOME: ${{ github.workspace }}/hf-cache
+        run: |
+          retry() {
+            for i in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $i failed; retrying in $((i * 5))s" >&2
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          if [ ! -d "$HF_HOME/hub/models--sentence-transformers--all-MiniLM-L6-v2" ]; then
+            retry python -c "from huggingface_hub import snapshot_download; snapshot_download('sentence-transformers/all-MiniLM-L6-v2')"
+          else
+            echo "HF model cache hit; skipping warmup"
+          fi
+      # Install + import smoke for the coverage-gap skills (P2-matrix-coverage-gaps).
+      # The setup-book-python step above already installed the base package;
+      # importing skill_api proves the dependency pins resolve and the public
+      # surface imports cleanly. A broken Dependabot bump now reddens this leg.
+      - name: import smoke
+        if: matrix.smoke == 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
-        run: python -m pytest tests/ -v ${{ matrix.pytest-deselect }}
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
+      - name: pytest
+        if: matrix.smoke != 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        env:
+          # neurosym-forge only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.skill == 'neurosym-forge' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.skill == 'neurosym-forge' && '1' || '0' }}
+        run: |
+          marker_filter=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            marker_filter="-m windows_canary"
+          fi
+          # $marker_filter and the deselect/workers expansions are deliberately
+          # unquoted: each must word-split into separate argv tokens (e.g.
+          # `-m windows_canary`, `--deselect <id>`). Empty values expand to no
+          # args. SC2086 is intentional here.
+          # shellcheck disable=SC2086
+          if [ -n "${{ matrix.pytest-workers }}" ]; then
+            python -m pytest tests/ -q --tb=short $marker_filter -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
+          else
+            python -m pytest tests/ -q --tb=short $marker_filter ${{ matrix.pytest-deselect }}
+          fi
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally
   # split into 5 jobs (lint, scaffold-bake, regression, verifier-bermuda,
@@ -92,12 +335,15 @@ jobs:
   # Make's preflight target chains the sub-steps in dependency order.
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: |
             verifiers/bermuda/rust-verifier
@@ -112,22 +358,37 @@ jobs:
   # Windows contributors who need cargo signal locally.
   cargo-test:
     name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest]
+        os: [ubuntu-24.04, macos-15]
         verifier: [bermuda, osmotic_pressure]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: install libz3 (linux)
         if: matrix.os == 'ubuntu-24.04'
-        run: sudo apt-get update && sudo apt-get install -y libz3-dev
+        # 3-try backoff around the apt mirror (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y libz3-dev && break
+            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
       - name: install libz3 (macos)
-        if: matrix.os == 'macos-latest'
-        run: brew install z3
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+        if: matrix.os == 'macos-15'
+        # 3-try backoff around the brew formula download (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            brew install z3 && break
+            echo "brew attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/${{ matrix.verifier }}/rust-verifier
       - name: cargo test
@@ -135,48 +396,47 @@ jobs:
 
   # Divergence summary (REQ-CI-042). Runs regardless of upstream status so
   # the summary is published even on red runs. Emits a markdown table to
-  # $GITHUB_STEP_SUMMARY naming each matrix job's aggregate result and
-  # calling out per-OS divergence visible from the PR's checks page
-  # without expanding any per-job logs.
+  # $GITHUB_STEP_SUMMARY with each matrix job's *aggregate* result. The
+  # `needs.<job>.result` value is a single matrix-wide scalar — GitHub does
+  # not expose per-OS leg results to a downstream job — so the table is
+  # deliberately NOT broken out by OS (that would fan one scalar into three
+  # identical columns and misreport which leg actually broke). When the
+  # aggregate is `failure`, expand the run page to see which leg is red.
   ci-divergence-summary:
     name: ci divergence summary
     needs:
       - python-skill-matrix
       - cargo-test
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: always()
     steps:
-      - uses: actions/checkout@v4
-      - name: emit per-OS divergence table
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: emit matrix-aggregate result table
         env:
           PYTHON_SKILL_RESULT: ${{ needs.python-skill-matrix.result }}
           CARGO_TEST_RESULT: ${{ needs.cargo-test.result }}
         run: |
+          render() {
+            case "$1" in
+              success)   echo "pass" ;;
+              failure)   echo "see legs (red — expand run page)" ;;
+              skipped)   echo "skip" ;;
+              cancelled) echo "cancel" ;;
+              *)         echo "$1" ;;
+            esac
+          }
           {
-            echo "## Per-OS CI divergence"
+            echo "## CI matrix-aggregate results"
             echo
-            echo "Aggregate result per matrix job. Individual matrix legs"
-            echo "(per-OS, per-skill) are visible on the run page; this"
-            echo "table is the at-a-glance summary."
+            echo "One aggregate result per matrix job (matrix-wide, NOT"
+            echo "per-OS). Per-leg (per-OS, per-skill) status is on the run"
+            echo "page; a \`see legs\` result means at least one leg is red."
             echo
-            echo "| Job | Linux | macOS | Windows |"
-            echo "|---|---|---|---|"
-            case "$PYTHON_SKILL_RESULT" in
-              success)   ps_l="pass"; ps_m="pass"; ps_w="pass" ;;
-              failure)   ps_l="see legs"; ps_m="see legs"; ps_w="see legs" ;;
-              skipped)   ps_l="skip"; ps_m="skip"; ps_w="skip" ;;
-              cancelled) ps_l="cancel"; ps_m="cancel"; ps_w="cancel" ;;
-              *)         ps_l="$PYTHON_SKILL_RESULT"; ps_m="$PYTHON_SKILL_RESULT"; ps_w="$PYTHON_SKILL_RESULT" ;;
-            esac
-            case "$CARGO_TEST_RESULT" in
-              success)   ct_l="pass"; ct_m="pass" ;;
-              failure)   ct_l="see legs"; ct_m="see legs" ;;
-              skipped)   ct_l="skip"; ct_m="skip" ;;
-              cancelled) ct_l="cancel"; ct_m="cancel" ;;
-              *)         ct_l="$CARGO_TEST_RESULT"; ct_m="$CARGO_TEST_RESULT" ;;
-            esac
-            echo "| python-skill | $ps_l | $ps_m | $ps_w |"
-            echo "| cargo-test | $ct_l | $ct_m | n/a (REQ-CI-044: WSL fallback) |"
+            echo "| Job | OS coverage | Aggregate result |"
+            echo "|---|---|---|"
+            echo "| python-skill | Linux + macOS + Windows | $(render "$PYTHON_SKILL_RESULT") |"
+            echo "| cargo-test | Linux + macOS (Windows: WSL fallback) | $(render "$CARGO_TEST_RESULT") |"
             echo
             echo "See \`docs/operations/ci-platforms.md\` for the libz3"
             echo "matrix, the Windows-cargo skip rationale, and the"
@@ -184,19 +444,54 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   required:
-    name: ci required ✓
+    name: ci-required
     needs:
+      - lint
+      - actionlint
       - preflight
       - python-skill-matrix
       - cargo-test
       - ci-divergence-summary
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: always()
     steps:
+      # Fail-closed aggregation. Always-run jobs (lint, actionlint,
+      # ci-divergence-summary) MUST be 'success' — a 'skipped' there means the
+      # gate did not actually run and is now treated as a failure. Change-scoped
+      # jobs (preflight, cargo-test, python-skill-matrix) are legitimately
+      # 'skipped' when the PR diff does not touch their inputs, so they accept
+      # 'success' OR 'skipped' but never 'failure'/'cancelled'.
       - name: aggregate
+        env:
+          LINT: ${{ needs.lint.result }}
+          ACTIONLINT: ${{ needs.actionlint.result }}
+          PYTHON_SKILL: ${{ needs.python-skill-matrix.result }}
+          DIVERGENCE: ${{ needs.ci-divergence-summary.result }}
+          PREFLIGHT: ${{ needs.preflight.result }}
+          CARGO_TEST: ${{ needs.cargo-test.result }}
         run: |
-          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] ||
-             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
-            echo "one or more required jobs failed"
+          fail=0
+          require_success() {
+            if [ "$2" != "success" ]; then
+              echo "always-run job '$1' is '$2' (expected success)"
+              fail=1
+            fi
+          }
+          require_not_failed() {
+            if [ "$2" != "success" ] && [ "$2" != "skipped" ]; then
+              echo "change-scoped job '$1' is '$2' (expected success or skipped)"
+              fail=1
+            fi
+          }
+          require_success lint "$LINT"
+          require_success actionlint "$ACTIONLINT"
+          require_success ci-divergence-summary "$DIVERGENCE"
+          require_not_failed python-skill-matrix "$PYTHON_SKILL"
+          require_not_failed preflight "$PREFLIGHT"
+          require_not_failed cargo-test "$CARGO_TEST"
+          if [ "$fail" -ne 0 ]; then
+            echo "ci-required: one or more required jobs did not pass"
             exit 1
           fi
+          echo "ci-required: all required jobs passed"

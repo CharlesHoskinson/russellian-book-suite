@@ -490,11 +490,23 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
                     z3_var.eq(&Int::from_i64(n_i64))
                 }
             }
+            // The fixed 1e6 scale is a known soundness limitation: values
+            // with more than ~6 fractional digits are rounded. Overflow of
+            // the scaled numerator past i64 is rejected rather than letting
+            // an `as i64` cast saturate to i64::MAX and silently corrupt
+            // the encoded value.
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);
                 let z3_var = Real::new_const(var_name.as_str());
                 let scale: i64 = 1_000_000;
-                let numerator = (v * scale as f64).round() as i64;
+                let scaled = (v * scale as f64).round();
+                if !scaled.is_finite() || scaled > i64::MAX as f64 || scaled < i64::MIN as f64 {
+                    return Err(Error::Smt(format!(
+                        "double value {v} out of range for the fixed 1e6-scale \
+                         rational encoding (scaled numerator overflows i64)"
+                    )));
+                }
+                let numerator = scaled as i64;
                 let lit = Real::from_rational_str(&numerator.to_string(), &scale.to_string())
                     .ok_or_else(|| {
                         Error::Smt(format!("from_rational_str({numerator}, {scale}) failed"))

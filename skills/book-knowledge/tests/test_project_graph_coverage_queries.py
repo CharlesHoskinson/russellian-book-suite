@@ -1,4 +1,8 @@
 """Tests for C-001: chapter/wiki-page/dateCreated triples emitted by project_graph."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 
 from rdflib import Graph, Namespace, URIRef

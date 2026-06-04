@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 import yaml
 
@@ -42,13 +46,16 @@ def test_run_panel_returns_verdict_dict(tmp_path):
     from scripts.persona_review_pass import run_panel
     workspace = _seed(tmp_path)
 
-    # No dispatcher: no reviews are written, so aggregate finds no reports.
-    # The conductor still runs, the verdict is computed against zero findings
-    # which means verdict == "pass".
+    # No dispatcher: no reviews are written. The chapter-default panel has
+    # gating personas (gottlieb, domain-expert, copyeditor, ai-slop-detector);
+    # with zero reports they are all "missing gating reports", so the conductor's
+    # fail-closed completeness check returns "hard-gate-fail" rather than scoring
+    # the absent personas as zero criticals. (An empty panel does not pass — see
+    # review-conductor's test_missing_gating_report_fails_closed.)
     verdict = run_panel(workspace, "ch-01", panel_id="chapter-default", dispatcher=None)
     assert verdict["panel_id"] == "chapter-default"
     assert verdict["artifact"] == {"type": "chapter", "id": "ch-01"}
-    assert verdict["verdict"] == "pass"
+    assert verdict["verdict"] == "hard-gate-fail"
     assert verdict["gating_criticals"] == 0
 
 

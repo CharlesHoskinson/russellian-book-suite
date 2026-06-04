@@ -72,7 +72,7 @@ output:
 ## Usage
 
 ```python
-from review_conductor.conductor import run_panel
+from scripts.conductor import run_panel
 from pathlib import Path
 
 verdict = run_panel(

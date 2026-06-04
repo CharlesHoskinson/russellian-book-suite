@@ -7,6 +7,10 @@ and the round-trip mark-count invariant.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import hashlib
 import json
 import warnings

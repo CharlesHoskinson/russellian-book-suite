@@ -18,8 +18,26 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+CI_BUDGET = REPO_ROOT / ".github" / "workflows" / "ci-budget.yml"
+CI_LEGACY = REPO_ROOT / ".github" / "workflows" / "ci-legacy.yml"
+DEPENDABOT = REPO_ROOT / ".github" / "dependabot.yml"
 FLAKE = REPO_ROOT / "flake.nix"
 CI_PLATFORMS_DOC = REPO_ROOT / "docs" / "operations" / "ci-platforms.md"
+
+
+def _budget_text() -> str:
+    assert CI_BUDGET.exists(), f"ci-budget workflow not found at {CI_BUDGET}"
+    return CI_BUDGET.read_text(encoding="utf-8")
+
+
+def _legacy_text() -> str:
+    assert CI_LEGACY.exists(), f"ci-legacy workflow not found at {CI_LEGACY}"
+    return CI_LEGACY.read_text(encoding="utf-8")
+
+
+def _dependabot_text() -> str:
+    assert DEPENDABOT.exists(), f"dependabot config not found at {DEPENDABOT}"
+    return DEPENDABOT.read_text(encoding="utf-8")
 
 
 def _workflow_text() -> str:
@@ -33,7 +51,7 @@ def _workflow_text() -> str:
 def test_python_skill_matrix_has_three_oses():
     """REQ-CI-040: python-skill matrix axis enumerates all three OSes."""
     text = _workflow_text()
-    for os_label in ("ubuntu-24.04", "macos-latest", "windows-2022"):
+    for os_label in ("ubuntu-24.04", "macos-15", "windows-2022"):
         assert os_label in text, f"workflow missing OS label {os_label}"
 
 
@@ -65,6 +83,23 @@ def test_python_skill_include_overrides_are_in_skill_axis():
             f"{skill} must be in matrix.skill; otherwise its include override "
             "creates a matrix row without matrix.os"
         )
+
+
+def test_coverage_gap_skills_have_smoke_legs():
+    """P2-matrix-coverage-gaps: scrapling-fetch + syntopical-metabook are
+    covered by an install+import smoke leg (include-only rows pinned to one OS
+    with `smoke: import`), closing the zero-CI-signal gap on the highest
+    supply-chain-risk skills."""
+    text = _workflow_text()
+    include_block = text.split("        include:", 1)[1].split("\n    steps:", 1)[0]
+    for skill in ("scrapling-fetch", "syntopical-metabook"):
+        assert f"- skill: {skill}" in include_block, (
+            f"{skill} must have a matrix include row"
+        )
+    # These rows must be smoke-only (not full pytest) to stay green.
+    assert "smoke: import" in include_block, (
+        "coverage-gap skills must be added as `smoke: import` legs"
+    )
 
 
 # ---------- REQ-CI-041 ----------
@@ -203,3 +238,138 @@ def test_ci_platforms_doc_mentions_act():
     """REQ-CI-044: runbook explains local matrix testing via act."""
     text = CI_PLATFORMS_DOC.read_text(encoding="utf-8").lower()
     assert "act" in text, "runbook should mention nektos/act for local testing"
+
+
+# ---------- audit: dependabot coverage (findings #1, #3) ----------
+
+
+def test_dependabot_covers_osmotic_pressure_cargo():
+    """#1 dependabot-missing-osmotic-cargo: osmotic_pressure rust crate watched."""
+    text = _dependabot_text()
+    assert "/verifiers/osmotic_pressure/rust-verifier" in text, (
+        "dependabot must have a cargo entry for "
+        "/verifiers/osmotic_pressure/rust-verifier"
+    )
+
+
+def test_dependabot_covers_every_cargo_verifier():
+    """#1: every rust-verifier crate is watched by dependabot."""
+    text = _dependabot_text()
+    crates = sorted(
+        p.parent for p in (REPO_ROOT / "verifiers").glob("*/rust-verifier/Cargo.toml")
+    )
+    for crate in crates:
+        rel = "/" + crate.relative_to(REPO_ROOT).as_posix()
+        assert rel in text, f"dependabot missing cargo entry for {rel}"
+
+
+def test_dependabot_covers_every_pip_skill():
+    """#3 dependabot-missing-skill-pip-dirs: every skill pyproject is watched."""
+    text = _dependabot_text()
+    skills = sorted(
+        p.parent for p in (REPO_ROOT / "skills").glob("*/pyproject.toml")
+    )
+    for skill in skills:
+        rel = "/" + skill.relative_to(REPO_ROOT).as_posix()
+        assert rel in text, f"dependabot missing pip entry for {rel}"
+
+
+# ---------- audit: ci-budget workflow (findings #2, #4, #5) ----------
+
+
+def test_budget_post_step_never_consumes_missing_file():
+    """#2 budget-missing-comment-file: no-green-runs path must not break the
+    post-comment step. Either a fallback comment.md is written before the
+    early exit, or the post step is guarded by a file-existence check."""
+    text = _budget_text()
+    # The no-green-runs branch is the text from the diagnostic print up to its
+    # early exit. A fallback comment.md must be written *within* that branch
+    # (before the exit) — not in the later populated-window block.
+    no_green_branch = text.split("no green runs in window", 1)[1].split(
+        "SystemExit(0)", 1
+    )[0]
+    writes_fallback = "comment.md" in no_green_branch
+    post_guarded = "hashFiles('comment.md')" in text or "test -f comment.md" in text
+    assert writes_fallback or post_guarded, (
+        "no-green-runs branch must write a fallback comment.md (before the "
+        "early exit) OR the post step must guard on comment.md existence; "
+        "otherwise `gh pr comment --body-file comment.md` fails with no file"
+    )
+
+
+def test_budget_metric_labeled_turnaround_not_walltime():
+    """#4 ci-budget-window-conflates-queue-time: the metric is updatedAt-createdAt
+    (turnaround, includes queue wait), so it must not be labeled 'wall-time'."""
+    text = _budget_text()
+    # The duration is still derived from createdAt..updatedAt — confirm we did
+    # not silently change the data source out from under the label.
+    derives_from_created = "createdAt" in text and "updatedAt" in text
+    if derives_from_created and "run_started_at" not in text:
+        assert "wall-time" not in text and "wall time" not in text.lower(), (
+            "metric derived from updatedAt-createdAt includes queue/wait time; "
+            "do not label it 'wall-time' — call it 'turnaround time'"
+        )
+        assert "turnaround" in text.lower(), (
+            "rename the queue-inclusive metric to 'turnaround time'"
+        )
+
+
+def test_budget_enforces_or_documents_advisory():
+    """#5 budget-advisory-only: an over-budget run must either fail the job
+    (a nonzero exit gated on the budget), or the workflow must explicitly
+    document that the check is advisory-only."""
+    text = _budget_text()
+    enforces = "SystemExit(1)" in text or "sys.exit(1)" in text or "exit 1" in text
+    documents_advisory = "advisory" in text.lower()
+    assert enforces or documents_advisory, (
+        "ci-budget computes `ok` but never acts on it: add an over-budget "
+        "nonzero exit to gate, or document the check as advisory-only"
+    )
+
+
+# ---------- audit: ci-legacy bermuda-z3-verify (finding #6) ----------
+
+
+def test_legacy_bermuda_z3_job_name_not_misleading():
+    """#6 ci-legacy-advisory-d13-vacuous: the stubbed smoke job must not be
+    named to imply genuine real-Z3 end-to-end verification."""
+    text = _legacy_text()
+    # The job still runs run_verification with --stub, so its name must not
+    # claim "real Z3" end-to-end (which would mislead operators reading the
+    # green check on the PR page).
+    assert "--stub" in text, (
+        "guard assumption: this test targets the stubbed bermuda-z3 job"
+    )
+    # Find the job name line for bermuda-z3-verify.
+    name_line = next(
+        (
+            ln
+            for ln in text.splitlines()
+            if ln.strip().startswith("name:") and "bermuda end-to-end" in ln
+        ),
+        "",
+    )
+    assert "real Z3" not in name_line, (
+        "bermuda-z3-verify runs run_verification --stub and its D13 assertion "
+        "is advisory; its job name must not advertise 'real Z3' end-to-end "
+        f"verification. Got: {name_line.strip()!r}"
+    )
+
+
+# ---------- audit: ci divergence summary (finding #7) ----------
+
+
+def test_divergence_table_not_labeled_per_os():
+    """#7 divergence-summary-misreports-per-os: the result is a matrix-aggregate
+    scalar fanned identically across the OS columns, so the table must not be
+    headed with per-OS column labels that imply per-leg diagnosis."""
+    text = _workflow_text()
+    summary = text.split("ci-divergence-summary:", 1)[1].split("\n  required:", 1)[0]
+    # The python-skill / cargo-test rows derive every column from one scalar
+    # (needs.<job>.result), so a per-OS header is a false promise. After the
+    # fix the table headers must not be the bare OS triplet.
+    assert "| Linux | macOS | Windows |" not in summary, (
+        "divergence table headers `Linux | macOS | Windows` imply per-OS data, "
+        "but the values come from a single aggregate result scalar; drop the "
+        "per-OS column headers (the data is matrix-aggregate, not per-leg)"
+    )

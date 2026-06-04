@@ -149,6 +149,7 @@ jobs:
           - russellian-style
           - feynman-style
           - halmos
+          - iacr-review
           - review-conductor
           - neurosym-forge
           - paragraph-weaver

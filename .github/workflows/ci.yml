@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# cancel-in-progress protects RUNNING main builds, but GitHub keeps at most
+# one QUEUED run per concurrency group: rapid sequential merges supersede
+# queued main runs, which then show as 'cancelled'. That is by design — the
+# newest run validates the cumulative tree. Expect cancelled main runs after
+# merge bursts; only the latest one needs to be green.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -40,9 +45,10 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
       - name: make lint (ruff + clj-kondo + nixpkgs-fmt + cargo-fmt)
         run: nix develop -c make lint
-      - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, ci tests)
+      - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, windows-canary guard, ci tests)
         run: |
           nix develop -c python -m ci.lint_no_direct_http
+          nix develop -c python -m ci.check_windows_canary
           nix develop -c python -m pytest ci/ -q
       - name: required-check name drift (ci.yml job name == ruleset context)
         run: nix develop -c bash scripts/check-required-name.sh
@@ -78,37 +84,41 @@ jobs:
         run: actionlint -color
 
   # Detect whether the PR diff touches anything that could affect the Rust
-  # verifiers or the Nix preflight. Pure-Python PRs skip those jobs (they
-  # always pass on pure-Python changes). Pushes to main always run them.
+  # verifiers / Nix preflight (rust output) or the python-skill matrix
+  # (python output). Pure-Python PRs skip the rust-gated jobs; verifier-only
+  # and docs-only PRs skip the python matrix. Pushes to main always run them.
   changes:
     name: detect rust/nix changes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      python: ${{ steps.filter.outputs.python }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
+            # rust gates cargo-test (verifier crate compilation only). The old
+            # filter included skills/** and interpreted-language globs, which
+            # made every python PR pay 4 cargo jobs for crates it cannot affect.
             rust:
               - 'verifiers/**'
-              - 'skills/**'
-              - 'tools/**'
-              - 'ci/**'
               - '**/*.rs'
-              - '**/*.py'
-              - '**/*.clj'
-              - '**/*.cljs'
-              - '**/*.cljc'
-              - '**/*.edn'
-              - '**/*.nix'
               - '**/Cargo.toml'
               - '**/Cargo.lock'
               - 'flake.nix'
               - 'flake.lock'
               - 'Makefile'
+              - '.github/workflows/ci.yml'
+            # python gates the 35-job python-skill matrix. Verifier-only and
+            # docs-only PRs skip it (the 2026-06-03 dependabot flood queued
+            # ~12h of matrix runs for one-line verifier bumps).
+            python:
+              - 'skills/**'
+              - 'sibling_skills/**'
+              - 'ci/**'
               - '.github/workflows/ci.yml'
               - '.github/actions/setup-book-python/**'
 
@@ -124,6 +134,8 @@ jobs:
     name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.python == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -248,6 +260,40 @@ jobs:
           fi
           retry python -m pip install click
           python -m pip install --no-deps "$WHEEL"
+      # neurosym-forge's semantic-index tests load the all-MiniLM-L6-v2
+      # sentence-transformers model. Without a persisted cache every xdist
+      # worker revalidates per-file metadata against huggingface.co (HEAD
+      # requests); parallel workers trip HF Hub's 429 rate limit and the
+      # semantic tests fail or hang (#192/#194/#197/#203, all 2026-06-03).
+      # Cache the model keyed on its pinned name, warm it once per run on a
+      # miss, then run pytest with HF_HUB_OFFLINE=1 so no leg touches the
+      # network for the model. Key is OS-scoped: the HF cache uses symlinks
+      # on Linux/macOS but copies on Windows.
+      - name: cache HF model (all-MiniLM-L6-v2)
+        if: matrix.skill == 'neurosym-forge'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: hf-cache
+          key: hf-model-all-MiniLM-L6-v2-${{ runner.os }}-v1
+      - name: warm HF model cache (neurosym-forge)
+        if: matrix.skill == 'neurosym-forge'
+        shell: bash
+        env:
+          HF_HOME: ${{ github.workspace }}/hf-cache
+        run: |
+          retry() {
+            for i in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $i failed; retrying in $((i * 5))s" >&2
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          if [ ! -d "$HF_HOME/hub/models--sentence-transformers--all-MiniLM-L6-v2" ]; then
+            retry python -c "from huggingface_hub import snapshot_download; snapshot_download('sentence-transformers/all-MiniLM-L6-v2')"
+          else
+            echo "HF model cache hit; skipping warmup"
+          fi
       # Install + import smoke for the coverage-gap skills (P2-matrix-coverage-gaps).
       # The setup-book-python step above already installed the base package;
       # importing skill_api proves the dependency pins resolve and the public
@@ -261,6 +307,10 @@ jobs:
         if: matrix.smoke != 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
+        env:
+          # neurosym-forge only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.skill == 'neurosym-forge' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.skill == 'neurosym-forge' && '1' || '0' }}
         run: |
           marker_filter=""
           if [ "${{ runner.os }}" = "Windows" ]; then
@@ -286,7 +336,7 @@ jobs:
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
     needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -309,7 +359,7 @@ jobs:
   cargo-test:
     name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
     needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -406,11 +456,12 @@ jobs:
     timeout-minutes: 10
     if: always()
     steps:
-      # Fail-closed aggregation. Always-run jobs (lint, python-skill-matrix,
+      # Fail-closed aggregation. Always-run jobs (lint, actionlint,
       # ci-divergence-summary) MUST be 'success' — a 'skipped' there means the
       # gate did not actually run and is now treated as a failure. Change-scoped
-      # jobs (preflight, cargo-test) are legitimately 'skipped' on pure-Python
-      # PRs, so they accept 'success' OR 'skipped' but never 'failure'/'cancelled'.
+      # jobs (preflight, cargo-test, python-skill-matrix) are legitimately
+      # 'skipped' when the PR diff does not touch their inputs, so they accept
+      # 'success' OR 'skipped' but never 'failure'/'cancelled'.
       - name: aggregate
         env:
           LINT: ${{ needs.lint.result }}
@@ -435,8 +486,8 @@ jobs:
           }
           require_success lint "$LINT"
           require_success actionlint "$ACTIONLINT"
-          require_success python-skill-matrix "$PYTHON_SKILL"
           require_success ci-divergence-summary "$DIVERGENCE"
+          require_not_failed python-skill-matrix "$PYTHON_SKILL"
           require_not_failed preflight "$PREFLIGHT"
           require_not_failed cargo-test "$CARGO_TEST"
           if [ "$fail" -ne 0 ]; then

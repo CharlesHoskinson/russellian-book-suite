@@ -9,6 +9,18 @@ updates:
         patterns:
           - "*"
 
+  # Composite-action internals are not scanned by the root github-actions
+  # entry (the v5.6.0 setup-python pin went stale unnoticed); scan them
+  # explicitly.
+  - package-ecosystem: github-actions
+    directory: /.github/actions/setup-book-python
+    schedule:
+      interval: weekly
+    groups:
+      actions-composite:
+        patterns:
+          - "*"
+
   # --- pip: one multi-directory entry covering every skill with a pyproject.toml.
   # Grouped so a weekly cycle produces one PR (one CI run) instead of one per bump.
   # scrapling-fetch pins scrapling==0.4.8 and pulls in trafilatura/playwright —

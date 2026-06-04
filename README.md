@@ -21,7 +21,7 @@ This repository is the answer to that compression problem, but not the answer mo
 
 The prose discipline is Bertrand Russell's. Russell wrote five thousand essays and seventy books across philosophy, mathematics, politics, education, and popular science. The corpus that survives him is a working museum of how a careful writer separates an argument from its decoration. Atomic sentences. Sourced claims. Paragraphs that earn their last sentence by changing the question's pressure. The suite enforces a weaker version of the same standard, and the seventeen prose linters that gate the chapter pipeline are the mechanical residue of that enforcement.
 
-What sits in this repository, named at the level a contributor needs: ten core skills (`book-knowledge` for claim ingestion, `book-thesis` for argument-spine consistency, `book-compose` for chapter orchestration, `russellian-style` for prose discipline, `feynman-style` for a second prose pass warming Russellized text into Feynman's voice, `halmos` for sequential cross-chapter linkage review, `book-review` for the seven-persona panel, `review-conductor` for verdict aggregation, `book-qa` for the release gate, `paragraph-weaver` for threading loose paragraphs toward a goal); one optional verifier scaffolder (`neurosym-forge`) for logical consistency over claim sets; two operator-driven tools under `tools/` (`build-russell-corpus` for corpus growth from public-domain Russell texts, `russellian-style-audit` for end-to-end suite validation); and an audit-bundle pattern under `docs/audits/` that records what the suite finds when it lints itself.
+What sits in this repository, named at the level a contributor needs: ten core skills (`book-knowledge` for claim ingestion, `book-thesis` for argument-spine consistency, `book-compose` for chapter orchestration, `russellian-style` for prose discipline, `feynman-style` for a second prose pass warming Russellized text into Feynman's voice, `halmos` for sequential cross-chapter linkage review, `book-review` for the seven-persona panel, `review-conductor` for verdict aggregation, `book-qa` for the release gate, `paragraph-weaver` for threading loose paragraphs toward a goal); one optional verifier scaffolder (`neurosym-forge`) for logical consistency over claim sets; one standalone writing aid (`iacr-math-prose`) for notation discipline, amsthm environment usage, and proof-style templates targeting IACR-tier cryptography papers; two operator-driven tools under `tools/` (`build-russell-corpus` for corpus growth from public-domain Russell texts, `russellian-style-audit` for end-to-end suite validation); and an audit-bundle pattern under `docs/audits/` that records what the suite finds when it lints itself.
 
 Roughly ninety distinct checks across those skills enforce the contract. The full taxonomy lives in The QA grammar; the per-skill detail in The skills; the audit's own findings in Auditing the suite. The book-qa skill alone runs twenty-eight checks at release time: eight deterministic structural lints, four thesis-derived defects from book-thesis, fifteen chapter-swarm editorial dimensions, and one optional logical-satisfiability check from the neurosym-forge verifier. Each check is its own scrutiny. A configuration flag silences none of them.
 
@@ -1363,6 +1363,9 @@ done
 foreach ($skill in 'russellian-style','feynman-style','halmos','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis','paragraph-weaver') {
   Copy-Item -Recurse "skills\$skill" "$env:USERPROFILE\.claude\skills\$skill"
 }
+
+# standalone skills (install separately as needed)
+cp -r skills/iacr-math-prose ~/.claude/skills/iacr-math-prose
 ```
 
    After installing `russellian-style` and `book-compose`, download the spaCy model once — the linters won't run without it.
@@ -1628,6 +1631,7 @@ russellian-book-suite/
 │   ├── book-thesis/
 │   ├── feynman-style/             # second prose pass: Russell → Feynman voice
 │   ├── halmos/                    # cross-chapter linkage + spiral-coherence review
+│   ├── iacr-math-prose/           # standalone — IACR notation + proof-style templates
 │   ├── neurosym-forge/
 │   ├── paragraph-weaver/          # NEW — thread paragraphs toward a goal
 │   ├── review-conductor/

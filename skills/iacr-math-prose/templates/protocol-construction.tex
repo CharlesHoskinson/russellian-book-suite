@@ -1,0 +1,113 @@
+% =============================================================================
+% Template: protocol-construction.tex
+% Skill:    iacr-math-prose
+%
+% Use for: a `\begin{construction}` block describing a concrete protocol or
+%          scheme. Per-party state, phase-by-phase narrative, explicit message
+%          formats, side conditions, error handling.
+%
+% Invariants (do not delete):
+%   - The header line names the construction and gives a short label.
+%   - Every set, group, field, and hash is typed at first use.
+%   - Every hash invocation carries an explicit DST.
+%   - Sampling uses `\samples` (←$), assignment uses `\gets` (←), definition uses `:=`.
+%   - Side conditions are stated as guards preceding the guarded action.
+%   - Error handling is explicit: abort / wait / ignore — never silent.
+%   - Cross-reference via \cref{constr:<short-name>}.
+%
+% See:
+%   - references/protocol-pseudocode.md
+%   - references/ciphersuite-naming.md
+%   - references/notation-discipline.md §5 (party labels), §6 (sampling notation)
+% =============================================================================
+
+\begin{construction}[\TODO{Scheme/protocol name and short label, e.g.
+Threshold signature, $\TS_n^t$}]
+\label{constr:\TODO{short-label}}
+
+\textbf{Parameters and primitives.}
+\TODO{Declare each algebraic object and primitive at first use, e.g.:
+``Let $G$ be a cyclic group of prime order $p$ with generator $g$.
+Let $H_\textsf{chal}: \{0,1\}^* \to \Z_p$ be modelled as a random oracle with
+DST $\texttt{"PROJECT-v1-chal"}$, instantiated from SHA-256 via
+$\texttt{expand\_message\_xmd}$ (RFC 9380 §5.3).
+Let $\textsf{KES} = \textsf{Sum-KES-7(Ed25519)}$ be a key-evolving signature
+scheme.''}
+
+\medskip
+\textbf{Per-party state.}
+\TODO{For each party $P_i$, list the components of its local state, e.g.:
+\begin{itemize}
+  \item $\state_i.\textsf{round}$ — round counter, initially $0$.
+  \item $\state_i.\textsf{view}$ — multiset of received messages, initially empty.
+  \item $\state_i.\textsf{output}$ — local output, initially $\bot$.
+\end{itemize}}
+
+\medskip
+\textbf{Message format.}
+\TODO{State the wire format once, e.g.: ``Messages are tuples
+$(\textsf{tag}, \sid, \textsf{payload})$ with
+$\textsf{tag} \in \{\textsf{commit}, \textsf{open}, \textsf{vote}\}$,
+$\sid$ a 128-bit session identifier, and payloads encoded as fixed-length byte
+strings.''}
+
+\medskip
+\textbf{Setup}$(1^\secparam, \TODO{n})$:
+\begin{itemize}
+  \item \TODO{Step 1, e.g. ``run a $(t, n)$-VSS to share a uniform secret
+        $\sk \samples \Z_p$. Each $P_i$ obtains share $\sk_i$.''}
+  \item \TODO{Step 2, e.g. ``output public key $\pk \gets g^\sk$.''}
+  \item \TODO{Step 3, e.g. ``each $P_i$ stores $\sk_i$ in $\state_i$.''}
+\end{itemize}
+
+\medskip
+\textbf{Phase 1: \TODO{phase name, e.g. Commit}} (party $P_i$, on input \TODO{$m$}):
+\begin{itemize}
+  \item \TODO{Sample local randomness, e.g. ``$r_i \samples \Z_p$''.}
+  \item \TODO{Compute local message, e.g. ``$R_i \gets g^{r_i}$''.}
+  \item \TODO{Broadcast, e.g. ``broadcast $(\textsf{commit}, \sid, R_i)$ over
+        the authenticated broadcast channel $\F_\textsf{BC}$''.}
+  \item \textbf{Wait condition.} \TODO{e.g. ``wait until $\{R_j\}_{j \in S}$
+        is received for some $S \subseteq [n]$ with $|S| \geq t$.''}
+\end{itemize}
+
+\medskip
+\textbf{Phase 2: \TODO{phase name, e.g. Partial-sign}} (party $P_i$):
+\begin{itemize}
+  \item \TODO{Aggregate, e.g. ``$R \gets \prod_{j \in S} R_j$''.}
+  \item \TODO{Compute, e.g. ``$e \gets H_\textsf{chal}(R \| \pk \| m)$''.}
+  \item \TODO{Local output, e.g.
+        ``$s_i \gets r_i + e \cdot \lambda_i^S \cdot \sk_i \pmod{p}$,
+        where $\lambda_i^S$ is the Lagrange coefficient.''}
+  \item \TODO{Broadcast $s_i$.}
+\end{itemize}
+
+\medskip
+\textbf{Combine}$(\TODO{\{s_i\}_{i \in S}, R, m})$:
+\begin{itemize}
+  \item \TODO{e.g. ``$s \gets \sum_{i \in S} s_i \pmod{p}$''.}
+  \item \TODO{Output, e.g. ``$\sigma \gets (R, s)$''.}
+\end{itemize}
+
+\medskip
+\textbf{Verify}$(\TODO{\pk, m, \sigma = (R, s)})$:
+\begin{itemize}
+  \item \TODO{Recompute the challenge:
+        ``$e \gets H_\textsf{chal}(R \| \pk \| m)$''.}
+  \item \TODO{Accept iff $g^s = R \cdot \pk^e$. Otherwise output $\bot$.}
+\end{itemize}
+
+\medskip
+\textbf{Error handling.}
+\begin{itemize}
+  \item \textbf{Abort.} \TODO{State which messages cause $P_i$ to abort
+        (typically: invalid proof, invalid signature share, threshold not met
+        within a timeout).}
+  \item \textbf{Ignore.} \TODO{State which messages are silently dropped, e.g.
+        ``$P_i$ ignores any $(\textsf{commit}, \sid, \cdot)$ message after the
+        first per sender.''}
+  \item \textbf{Wait.} \TODO{State precise thresholds, e.g.
+        ``$P_i$ waits until at least $\lceil 2n/3 \rceil + 1$ distinct
+        $(\textsf{vote}, r, v)$ messages are received.''}
+\end{itemize}
+\end{construction}

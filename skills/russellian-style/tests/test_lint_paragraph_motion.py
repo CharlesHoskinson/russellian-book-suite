@@ -1,4 +1,8 @@
 """lint_paragraph_motion: per-paragraph shape rubric + flat-axiom-stack detection."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 
@@ -20,6 +24,28 @@ def test_assertion_only_paragraphs_flagged(tmp_path):
     assert any(f["rule"] == "paragraph-motion" for f in findings)
     f = [f for f in findings if f["rule"] == "paragraph-motion"][0]
     assert f["flat_proportion"] >= 0.7
+
+
+def test_headings_and_code_not_classified_as_flat(tmp_path):
+    # A document of varied prose interleaved with headings and a code fence.
+    # Headings/code must not be classified as flat assertion_only paragraphs
+    # and skew the flat_proportion gate.
+    from scripts.lint_paragraph_motion import lint_paragraph_motion
+    # Two genuinely non-flat prose paragraphs, but five structural blocks
+    # (headings + code). If structural blocks counted as flat, flat_prop would
+    # be 5/7 ~= 0.71 > 0.70 and fire falsely. After filtering it is 0/2.
+    text = (
+        "# Title\n\n"
+        "What does the ledger do? It binds every claim to its source.\n\n"
+        "## Heading two\n\n"
+        "### Heading three\n\n"
+        "```\nthe system runs.\nthe pipeline runs.\n```\n\n"
+        "#### Heading four\n\n"
+        "Consider the auditor. She opens the ledger; therefore the ledger answers.\n"
+    )
+    findings = lint_paragraph_motion(_write(tmp_path, text))
+    flat = [f for f in findings if f["rule"] == "paragraph-motion"]
+    assert flat == [], f"headings/code skewed the gate: {flat}"
 
 
 def test_concession_turn_recognised():

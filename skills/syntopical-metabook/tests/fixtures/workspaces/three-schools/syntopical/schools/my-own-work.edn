@@ -1,0 +1,7 @@
+{:version 1
+ :school :my-own-work
+ :name "Own work"
+ :charter "Work by this book's author."
+ :members ["self-work"]
+ :canonical-rejects []
+ :canonical-asserts []}

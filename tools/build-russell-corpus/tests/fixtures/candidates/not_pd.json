@@ -1,0 +1,10 @@
+{
+  "candidate_id": "marriage-001",
+  "source_id": "marriage-morals",
+  "source_url": "https://example.com/not-pd",
+  "line_hint": 1,
+  "content_locator": "Whatever may be said",
+  "paragraph_text": "Whatever may be said in favour of the institution.",
+  "rhetorical_move_tag": "concession",
+  "calibration_lesson": "The opening reframes the institution before contesting it."
+}

@@ -58,6 +58,10 @@ def _check_chapter_release(workspace: Path, chapter_id: str, version: str) -> tu
         jsonschema.validate(manifest, RELEASE_SCHEMA)
     except (jsonschema.ValidationError, yaml.YAMLError) as e:
         return False, f"manifest invalid for {chapter_id}: {e}"
+    if manifest.get("shacl_conforms") is not True:
+        return False, f"chapter bundle {chapter_id} marked shacl_conforms != true"
+    if manifest.get("competency_clean") is not True:
+        return False, f"chapter bundle {chapter_id} marked competency_clean != true"
     return True, ""
 
 

@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.project_graph import project_graph

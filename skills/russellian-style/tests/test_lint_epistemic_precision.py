@@ -1,4 +1,8 @@
 """lint_epistemic_precision: banned vague / allowed bounded / required uncertainty."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

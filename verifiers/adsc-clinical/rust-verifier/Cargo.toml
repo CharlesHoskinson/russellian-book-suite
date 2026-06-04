@@ -20,14 +20,14 @@ serde         = { version = "1", features = ["derive"] }
 serde_json    = "1"
 edn-rs        = "0.19"
 thiserror     = "2"
-ordered-float = "4"
+ordered-float = "5"
 # Cap rayon to the last 1.10.x — rayon 1.11+ changed Box<[T]>::into_par_iter()
 # to yield T (was &T), which breaks graph_builder 0.4.1 (pulled transitively
 # by cozo "0.7"). Lift this cap when cozo upgrades graph_builder.
 rayon         = "~1.10"
 
 z3            = { version = "0.20", optional = true }
-egg           = { version = "0.10", optional = true }
+egg           = { version = "0.11", optional = true }
 cozo          = { version = "0.7", default-features = false, features = ["compact"], optional = true }
 tectonic      = { version = "0.16", optional = true }
 

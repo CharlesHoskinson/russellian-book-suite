@@ -7,7 +7,7 @@ D2  raw markdown bleed inside HTML blocks   (# heading or | table inside <sectio
 D3  broken cross-references                 (figure path missing, footnote ref without def, ToC mismatch)
 D4  heading-hierarchy violations            (H3 without H2, missing H1, duplicate H1)
 D5  count-contract failures                 (chapter word/footnote/figure count out of band)
-D6  paragraph-length variance               (within-chapter cv outside [0.4, 1.1])
+D6  paragraph-length variance               (within-chapter cv outside [0.4, 1.2])
 D7  CSS reset clobber                       (Tailwind preflight + no h1 override in final HTML)
 D8  asset 404s                              (every <img src> resolves to a real file)
 
@@ -268,6 +268,15 @@ def lint_d5_count_contracts(md: str,
 def lint_d6_paragraph_variance(md: str,
                                 cv_band: tuple[float, float] = (0.4, 1.2),
                                 mean_band: tuple[int, int] = (35, 130)) -> list[Defect]:
+    # NOTE (stage-awareness): D6 is the one mechanical defect whose bands are
+    # register-sensitive — a Feynman-final chapter's short, punchy, highly
+    # varied paragraphs can fall outside the cv/mean bands. D6 is therefore NOT
+    # made stage-conditional here: it only ever emits MINOR severity, so it is
+    # never in sentinel's hard-fail set and cannot false-fail a release. The
+    # register-sensitive checks that CAN hard-fail (C10/C11) live in the Stage-2
+    # checklist and are relaxed via the payload's relax_register_checks flag
+    # (see dispatch_chapter_qa). All other D-classes are integrity-only and
+    # register-neutral, so no suppression is needed for them.
     out: list[Defect] = []
     for num, title, body in _chapter_bodies(md):
         paras = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()
@@ -434,7 +443,15 @@ def lint_d9_d12(workspace: Path) -> list[Defect]:
             "fix_hint",
             "rewrite the paragraph so it entails the declared supports-node, or repoint supports",
         )
-        out.append(Defect("D11", CRITICAL, str(where), detail, fix_hint))
+        defect = Defect("D11", CRITICAL, str(where), detail, fix_hint)
+        # The entailment producer addresses paragraphs/supports by human slugs,
+        # not clm tokens, so regex recovery in _enrich_defects cannot find a
+        # claim_id. Carry it explicitly when the entry supplies one so the
+        # D11 -> unsupported_claim writeback path has something to bind.
+        cid = entry.get("claim_id")
+        if isinstance(cid, str) and cid:
+            defect.claim_id = cid
+        out.append(defect)
 
     return out
 
@@ -528,15 +545,17 @@ def _enrich_defects(defects: list[Defect], workspace: Path) -> None:
     """Populate ``id``, ``claim_id``, ``claim_current_status`` in-place.
 
     ``id`` is a stable ``defect-<class>-<NNNN>`` per-build slug using the
-    defect's position in the emitted list. ``claim_id`` is recovered from
-    the defect's ``where``/``detail`` text via the clm regex. When a
-    claim_id is bound and the workspace ledger knows that id, the current
-    status is attached so propose_writeback can decide on a transition.
+    defect's position in the emitted list. ``claim_id`` is taken verbatim
+    when the emitter already bound one (e.g. D11 carries it from the
+    entailment entry); otherwise it is recovered from the defect's
+    ``where``/``detail`` text via the clm regex. When a claim_id is bound and
+    the workspace ledger knows that id, the current status is attached so
+    propose_writeback can decide on a transition.
     """
     statuses = _load_latest_claim_statuses(workspace)
     for i, d in enumerate(defects):
         d.id = f"defect-{d.class_}-{i:04d}"
-        cid = _extract_claim_id(d)
+        cid = d.claim_id or _extract_claim_id(d)
         if cid is None:
             continue
         d.claim_id = cid

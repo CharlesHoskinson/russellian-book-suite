@@ -7,6 +7,7 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 
+from .placeholder import is_placeholder as _is_placeholder
 from .sibling_skills import load_book_review_module
 
 
@@ -16,14 +17,6 @@ class ExemplarFinding:
     severity: str  # "critical" | "important" | "minor"
     text: str
     source_path: Path
-
-
-_PLACEHOLDER_TEXTS = {"_(none)_", "(none)", "_none_", "none"}
-
-
-def _is_placeholder(text: str) -> bool:
-    stripped = text.strip().lower().strip("_*-").strip()
-    return stripped in {"(none)", "none"} or text.strip() in _PLACEHOLDER_TEXTS
 
 
 def _parse(path: Path) -> list[ExemplarFinding]:

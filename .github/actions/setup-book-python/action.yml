@@ -12,17 +12,39 @@ inputs:
     description: Optional-dependency extra to install (default "ci")
     required: false
     default: ci
+  constraints:
+    description: >
+      Optional path to a pip constraints file (relative to repo root). When
+      set, the skill install is pinned with `-c <file>` for reproducible
+      transitive versions (P2-pip-lockfiles pilot). Empty = unconstrained.
+    required: false
+    default: ""
 
 runs:
   using: composite
   steps:
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
         python-version: ${{ inputs.python-version }}
         cache: pip
         cache-dependency-path: ${{ inputs.skill-path }}/pyproject.toml
     - name: install ${{ inputs.skill-path }}[${{ inputs.extra }}]
       shell: bash
+      # Pin pip itself so the resolver/installer behaviour is reproducible
+      # across runs (P2-pip-lockfiles). When a constraints file is provided
+      # the editable install is pinned with `-c` for byte-identical transitive
+      # versions.
       run: |
-        python -m pip install --upgrade pip
-        python -m pip install -e "${{ inputs.skill-path }}[${{ inputs.extra }}]"
+        python -m pip install --upgrade "pip==25.2"
+        # An empty `extra` installs the base package with no optional-deps
+        # bracket (some skills, e.g. the smoke-only matrix legs, have no `ci`
+        # extra). A non-empty `extra` appends the `[extra]` selector.
+        target="${{ inputs.skill-path }}"
+        if [ -n "${{ inputs.extra }}" ] && [ "${{ inputs.extra }}" != "none" ]; then
+          target="${target}[${{ inputs.extra }}]"
+        fi
+        if [ -n "${{ inputs.constraints }}" ]; then
+          python -m pip install -e "${target}" -c "${{ inputs.constraints }}"
+        else
+          python -m pip install -e "${target}"
+        fi

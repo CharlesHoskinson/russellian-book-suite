@@ -8,6 +8,10 @@ as CI).
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import shutil
 import subprocess
 import sys

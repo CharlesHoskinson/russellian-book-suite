@@ -266,7 +266,7 @@ dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ordered-float 4.6.0",
+ "ordered-float 5.3.0",
  "rayon",
  "serde",
  "serde_json",
@@ -898,9 +898,9 @@ dependencies = [
 
 [[package]]
 name = "egg"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abb749745461743bb477fba3ef87c663d5965876155c676c9489cfe0963de5ab"
+checksum = "dd40cfd4196d7a8f882ace95d623d4d6734588e502b4e188675a7c2f55eb4fb4"
 dependencies = [
  "env_logger 0.9.3",
  "hashbrown 0.15.5",
@@ -910,7 +910,6 @@ dependencies = [
  "num-traits",
  "quanta",
  "rustc-hash 2.1.2",
- "saturating",
  "smallvec",
  "symbol_table",
  "symbolic_expressions",
@@ -3577,12 +3576,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "saturating"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ece8e78b2f38ec51c51f5d475df0a7187ba5111b2a28bdc761ee05b075d40a71"
-
-[[package]]
 name = "schannel"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3696,9 +3689,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.149"
+version = "1.0.150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
+checksum = "e8014e44b4736ed0538adeecded0fce2a272f22dc9578a7eb6b2d9993c74cfb9"
 dependencies = [
  "itoa",
  "memchr",

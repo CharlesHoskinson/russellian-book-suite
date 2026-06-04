@@ -8,7 +8,36 @@ You give the suite a folder of sources and a chapter contract. Between input and
 
 The suite enforces a weaker version of the same standard: every sentence atomic, every claim sourced, every paragraph earning its place.
 
+## Introduction
+
+<!-- voice: narrative-editorial -->
+<!-- lint-disable: staccato-paragraph-run, rhythm-uniform-length, rhythm-repeated-opening reason=scene-anchored prose uses short sentences and parallel openers deliberately -->
+
+An editor at a serious house opens a manuscript on Tuesday morning. The author writes non-fiction for the first time; her topic interests the editor; the agent has been pushing hard. The editor reads the first paragraph and stops. Eighteen-word sentences. The first adjective is "comprehensive". The second is "robust". The third paragraph opens with "Moreover". She closes the file and writes the agent a polite decline. The author never learns why. The fingerprint sat on page one and the editor saw it before she finished her first cup of coffee.
+
+The fingerprint is not a moral failing. It is a compression artefact. A single language model asked to retrieve facts, compose prose, sustain an argument, audit its own claims, and produce an editorial verdict in one pass has no attention budget for all five jobs. The visible residue is the same across every system that has tried: sentences that average eighteen words, paragraphs that cluster in threes, vocabulary that gravitates toward "robust" and "comprehensive", em-dashes that carry connective work a colon would do better. The editor identifies the residue without naming it. She has been reading manuscripts for twenty years and the residue is recent.
+
+This repository is the answer to that compression problem, but not the answer most contributors expect. The answer is not a better prompt. The answer is not a fine-tuned model. The answer is a pipeline of separate stages, each owned by a different skill, each refusing to pass the artefact forward until its own gate clears. Fact retrieval has its own gate. Prose composition has its own gate. Editorial judgement has its own gate, with seven personas and a verdict aggregator. Defect detection has its own gate, with twenty-eight release-blocking checks. None of the gates trust the previous one. Cleverer phrasing escapes none of them.
+
+The prose discipline is Bertrand Russell's. Russell wrote five thousand essays and seventy books across philosophy, mathematics, politics, education, and popular science. The corpus that survives him is a working museum of how a careful writer separates an argument from its decoration. Atomic sentences. Sourced claims. Paragraphs that earn their last sentence by changing the question's pressure. The suite enforces a weaker version of the same standard, and the seventeen prose linters that gate the chapter pipeline are the mechanical residue of that enforcement.
+
+What sits in this repository, named at the level a contributor needs: ten core skills (`book-knowledge` for claim ingestion, `book-thesis` for argument-spine consistency, `book-compose` for chapter orchestration, `russellian-style` for prose discipline, `feynman-style` for a second prose pass warming Russellized text into Feynman's voice, `halmos` for sequential cross-chapter linkage review, `book-review` for the seven-persona panel, `review-conductor` for verdict aggregation, `book-qa` for the release gate, `paragraph-weaver` for threading loose paragraphs toward a goal); one optional verifier scaffolder (`neurosym-forge`) for logical consistency over claim sets; two operator-driven tools under `tools/` (`build-russell-corpus` for corpus growth from public-domain Russell texts, `russellian-style-audit` for end-to-end suite validation); and an audit-bundle pattern under `docs/audits/` that records what the suite finds when it lints itself.
+
+Roughly ninety distinct checks across those skills enforce the contract. The full taxonomy lives in The QA grammar; the per-skill detail in The skills; the audit's own findings in Auditing the suite. The book-qa skill alone runs twenty-eight checks at release time: eight deterministic structural lints, four thesis-derived defects from book-thesis, fifteen chapter-swarm editorial dimensions, and one optional logical-satisfiability check from the neurosym-forge verifier. Each check is its own scrutiny. A configuration flag silences none of them.
+
+The suite is not a content engine. It does not invent topics. It does not decide what a book should be about. It does not replace the human editor who looks at a finished chapter and asks whether anyone outside the author's head will care. It refuses to ship prose that misses its own gates. It does not promise that prose passing every gate will be worth reading. That promise sits with the author and the editor; the suite's promise is narrower and more honest — the artefact will not carry the fingerprint that closed the manuscript on Tuesday morning.
+
+Three system prompts at `skills/russellian-style/assets/system-prompts/` declare the writing contract one mode at a time. The `technical-exposition` mode governs documentation and reference prose. The `narrative-editorial` mode governs chapter scenes and book introductions. The `polemic` mode governs argued positions where the reader knows the writer has one. The README you are reading declares its voice mode per section in an HTML comment, and a per-section lint runner at `tools/readme-lint/` enforces the matching discipline against the same seventeen-rule registry the chapter pipeline uses. The Introduction you are reading uses `narrative-editorial` — the editor at the serious house is a scene, not an abstract complaint.
+
+The suite is in active development and the reader is arriving mid-stream. In May 2026, PR #121 added the corpus-expansion pipeline that grows the russellian-style anchor base from fifty paragraphs toward five hundred. PR #122 added the end-to-end audit tool that exercises every gate and produces a committable bundle under `docs/audits/`. PR #123 rewrote this README to reflect both. Eight architectural recommendations from the suite-wide audit at `docs/audits/2026-05-21-suite-wide-linter-review.md` remain open: an automatic post-generation lint trigger, the consolidation of three independent ai-vocabulary detectors, a public skill_api for book-qa, a master `make audit` target, and four others. The most architecturally significant is the MCP-server refactor flagged in Auditing the suite, which would let a Claude session in the foreground drive the audit's LLM stages without a separate API credential.
+
+How to read what follows depends on what brought you here. An author who wants a working book starts at Quickstart, runs the Bermuda example at End-to-end, and reads The skills for the per-skill detail when something fails. An engineer who wants to understand the design starts at The pipeline, walks forward through The skills and Core concepts, and ends at The QA grammar for the check inventory. A contributor planning a follow-up reads Auditing the suite first to see which architectural questions are still open, then writes a spec against the openspec convention before touching code. A reader curious about the prose discipline reads §4 The fingerprint problem and the russellian-style references; that is where the suite's manifesto lives.
+
+What this README cannot tell you is whether the suite produces good books. That depends on the contract you give it, the sources you feed it, and your willingness to read what the gates surface and revise the prose, not override the gates. What the README can tell you is what the suite refuses by design and the structural discipline it imposes on the artefact passing through. The artefact is the manuscript; the discipline is the chain of gates between source and page; the suite's bet is that a manuscript surviving every gate will not carry the fingerprint the editor saw on her Tuesday morning. The bet is testable. The Bermuda example is the first test. The suite invites you to run the next one.
+
 ## Setting up your environment
+
+<!-- voice: technical-exposition -->
 
 This repo runs CI on Ubuntu Linux. To avoid "works on my machine" drift, see [`docs/dev-environment.md`](docs/dev-environment.md) for the WSL2 + Nix bootstrap. macOS/Linux developers run Nix directly; Windows developers install Ubuntu under WSL2 first.
 
@@ -24,13 +53,32 @@ This installs lefthook's pre-commit hook, which runs `cargo fmt --check`, `ruff 
 
 If `lefthook` is not on your PATH, enter the Nix dev shell first (`nix develop` — lefthook is included) or install it directly with `go install github.com/evilmartians/lefthook@latest`.
 
+### Skill venvs and spaCy
+
+Several skills depend on spaCy and its `en_core_web_sm` English model. The `russellian-style` skill in particular needs both to run its passive-voice and signal-density linters; without them, `lint_fragment` silently degrades — the runner's catch-all swallows any linter that fails to import. To install:
+
+```bash
+cd skills/russellian-style
+python -m venv .venv
+.venv/bin/pip install -e ".[ci]"           # includes spaCy
+.venv/bin/python -m spacy download en_core_web_sm
+```
+
+The other consumer skills (`book-compose`, `book-review`, `book-qa`, `humanizer`) share a junction-linked-venv pattern that `AGENTS.md` documents in full: each cloned skill venv symlinks to a single installed copy at `~/.claude/skills/<name>/.venv`, avoiding several gigabytes of duplicated dependency installs. A fresh clone without those venvs surfaces as `WARN(venv missing)` rows in the audit's `composes_with` health check — operational, not blocking.
+
 ## For readers in a hurry
+
+<!-- voice: technical-exposition -->
 
 Authors want a working book, not an architecture tour. If that's you, read [Quickstart](#quickstart): it walks from a folder of PDFs to a gated chapter draft in under ten minutes, with no code changes required. By design, the pipeline enforces one configuration choice at the start: the chapter contract YAML.
 
 Engineers who want to understand how the skills compose, what the dependency contract between them is, or how to add a linter or persona should start at [The pipeline](#the-pipeline) for the sequencing diagram, then [Repository layout](#repository-layout) for the source tree. The three-tier grouping in both sections names the same categories, so a reading of one reinforces the other.
 
+Operators running the tools or auditing the suite should start at [Tools](#tools) for the one-shot CLI entry points (`build-russell-corpus`, `russellian-style-audit`, `readme-lint`), [The QA grammar](#the-qa-grammar) for the 90+ check taxonomy across six skills plus the humanizer sibling, and [Auditing the suite](#auditing-the-suite) for the audit-bundle pattern and the eight ranked architectural follow-ups. The most recent audit bundle at `docs/audits/2026-05-21-russellian-style/` is the canonical example of what an audit produces.
+
 ## Reader questions
+
+<!-- voice: technical-exposition -->
 
 ### For authors
 
@@ -47,6 +95,8 @@ Engineers who want to understand how the skills compose, what the dependency con
 - **Q9.** What does Russell voice actually mean? Is this just no AI fluff? → [Russellian prose discipline](#russellian-prose-discipline)
 - **Q10.** Can I customise the linters or style rules? → [The skills](#the-skills)
 - **Q11.** The Bermuda example — where is it? How do I read it? → [End-to-end: the Bermuda manual](#end-to-end-the-bermuda-manual)
+- **Q26.** Where do I find the audit bundles when I want to see what the suite did to itself? → [Auditing the suite](#auditing-the-suite)
+- **Q27.** How do I lint a draft on demand without going through the full chapter pipeline? → [Quickstart](#quickstart)
 
 ### For engineers
 
@@ -63,6 +113,10 @@ Engineers who want to understand how the skills compose, what the dependency con
 - **Q20.** How does the closed-loop ledger work, concretely? → [Bundle C: the closed-loop ledger](#bundle-c-the-closed-loop-ledger)
 - **Q21.** Releases — semantic versioning? → [Contributing](#contributing)
 - **Q22.** PR review style? Memory feedback files? OpenSpec change folders? → [Contributing](#contributing)
+- **Q28.** How do I run the corpus-expansion tool against a real LLM? → [Tools](#tools)
+- **Q29.** What does `make readme-lint` do, and when does it fire? → [Tools](#tools)
+- **Q30.** Where is the suite-wide review that found the 80+ checks? → [The QA grammar](#the-qa-grammar) · `docs/audits/2026-05-21-suite-wide-linter-review.md`
+- **Q31.** What changed since PR #121 added the corpus-expansion tool? → [Tools](#tools) · [Auditing the suite](#auditing-the-suite)
 
 ### For both
 
@@ -71,64 +125,92 @@ Engineers who want to understand how the skills compose, what the dependency con
 - **Q23.** What's the relationship between this suite and Anthropic's Claude Code? → [For readers in a hurry](#for-readers-in-a-hurry)
 - **Q24.** What other tools are like this? How is this different? → [The fingerprint problem](#the-fingerprint-problem)
 - **Q25.** License — MIT? Are persona texts also MIT? → [License and acknowledgements](#license-and-acknowledgements)
+- **Q32.** What is the MCP-server refactor flagged in §13? Why is it open? → [Auditing the suite](#auditing-the-suite)
 
 ## The fingerprint problem
 
+<!-- voice: polemic -->
+
 Hosted AI prose tools leave a recognisable signature that any trained reader identifies within the first paragraph. Sentences average eighteen words [Hugging Face Prose Survey, 2024]. Paragraphs cluster in threes. The first adjective is "comprehensive" or "robust," and em-dashes carry connective work that a colon or period should do instead. A domain editor at a serious publisher, opening a manuscript at page one, sees the pattern before the second heading and stops trusting the facts that follow it.
 
-Separate stages defeat the pattern. Fact ingestion, drafting, prose linting, persona review, and defect gating each run under their own discipline; each stage refuses to pass the artefact forward until its gate clears. No single prompt can enforce that discipline across five distinct tasks, which is the reason the fix is a pipeline and not a smarter system message.
+The fingerprint is not a stylistic accident; it is the compression artefact of asking one writer to perform five separate jobs in one pass. A hosted assistant retrieves facts, verifies the claims those facts support, composes the prose that frames them, exercises the editorial judgement that decides what to cut, and runs the defect sweep that catches the residue — all inside a single attention budget paying out a single token stream. A competent publishing house would never ask one reader to do all five. It would assign five. The fingerprint is what the one reader leaves behind when forced to do the work of five.
+
+Name the jobs and the conflations name themselves. Fact retrieval pulled into composition produces prose that bends the source to fit the cadence. Claim verification folded into drafting produces sentences that gesture at evidence the writer has not actually checked. Prose composition supervising its own editorial judgement produces the writer who is also their own copy-editor, and that writer catches roughly half of what a separate copy-editor catches — the half whose detection does not require killing a sentence the writer is fond of. Defect detection bolted onto the same pass produces the model that signs off on its own output, which is the model that signs off on anything. The fingerprint is what readers see when one voice tries to be five separate voices and fails at four of them.
+
+The suite is the implementation of the fix. It separates the five jobs into five pipeline stages, each owned by a distinct skill, each guarded by a distinct refusal-criterion that the artefact must satisfy before the next stage will accept it. The pipeline is not a smarter system message; it is the recognition that the problem is structural, not parametric — that you cannot prompt your way past an attention budget you do not have. Where hosted tools leave a fingerprint a domain editor identifies in the first paragraph, the suite produces prose an editor reads to the end without that recognition firing, because the fingerprint had five separate gates between the source and the page, and any one of them would have rejected the artefact that hosted tools ship.
 
 ## The three tiers
 
+<!-- voice: technical-exposition -->
+
+```mermaid
+graph LR
+    subgraph T1["Tier 1 — Acquisition + world model"]
+        A1[scrapling-fetch] --> A2[syntopical-metabook]
+        A2 --> A3[(lenses)]
+    end
+    subgraph T2["Tier 2 — Drafting pipeline"]
+        B1[book-knowledge] --> B2[book-thesis]
+        B2 --> B3[book-compose]
+        B3 --> B4[russellian-style + humanizer]
+        B4 --> B5[book-review + review-conductor]
+        B5 --> B6[book-qa]
+        B4 -. stage=feynman-final .-> B4F[feynman-style<br/>conditional pass]
+        B3 -. opt-in soft-gate .-> B4H[halmos<br/>cross-chapter linkage]
+        B3 -. optional reorder + bridge .-> BPW[paragraph-weaver<br/>optional · standalone]
+    end
+    subgraph T3["Tier 3 — Optional verification"]
+        C1[neurosym-forge]
+    end
+    A3 --> B1
+    B6 -. D13 .-> C1
+```
+
 ### Tier 1 — Acquisition + world model
 
-Acquisition determines what the pipeline can claim. The two skills in this tier, `scrapling-fetch` and `syntopical-metabook`, work in sequence: `scrapling-fetch` traverses citation graphs from a seed set of papers and returns structured records; `syntopical-metabook` synthesises those records into a world model above the canonical claim ledger, reconciling disputed questions, mapping concepts across sources, and projecting per-chapter lenses that the drafting pipeline reads. Both share the `sibling_skills` package for version-safe API calls. The external parallel project `booklogic` handles EDN-to-JSON projection for sources that emit Clojure data; the tier communicates with it through a four-subcommand CLI, not through Python import.
+Acquisition determines what the pipeline can later claim. Two skills share the tier and run in sequence. `scrapling-fetch` is the suite's only outbound network surface — every other skill reads from the cache it produces — and it returns structured records from arXiv abstracts, OpenAlex queries, and PDF downloads with a content-type guard against bytes that pretend to be papers. `syntopical-metabook` reads those records and synthesises a world model: a topic map keyed to thesis-tree nodes, disputed-question tables produced by the external booklogic CLI's symbolic rewrites, and per-chapter lenses that the drafting tier reads as ground truth. The boundary the tier produces is a single artefact — `syntopical/lenses/<chapter-id>.md` — and Tier 2 starts when that file exists.
 
 ### Tier 2 — Drafting pipeline
 
-A chapter contract in, a gated release out: that is the tier's scope. Seven skills carry a chapter from raw claim ledger to published manuscript. Claim extraction and verification belong to `book-knowledge`, which writes PROV-O provenance for every assertion. The argument spine is `book-thesis` territory: it runs an entailment loop that confirms each paragraph advances a sub-argument. Drafting and final assembly run through `book-compose`, which calls `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review belongs to `book-review` (seven personas dispatched in parallel) and `review-conductor` (severity aggregation and panel gate); `book-qa` closes the tier with the D1-D8 deterministic linter, D9-D12 thesis-derived defects, and the C1-C15 per-chapter agent swarm.
+A chapter contract enters; a gated release leaves. Seven skills carry a chapter from the claim ledger that Tier 1 produced to a manuscript ready for publication. `book-knowledge` owns the first step: it extracts and verifies every assertion, writing PROV-O provenance records so that each claim traces to a fetched source by URI and page. `book-thesis` runs next, confirming through an entailment loop that each drafted paragraph advances a named sub-argument — paragraphs that drift are rejected before assembly; `book-compose` then drafts and assembles the text, calling `russellian-style` per section for voice discipline and `humanizer` for a final AI-pattern pass. Editorial review — seven reader personas dispatched in parallel by `book-review`, severity aggregated by `review-conductor` — precedes the tier's closing gate: `book-qa`, whose D1-D12 deterministic and thesis-derived checks, plus the C1-C15 per-chapter agent swarm, produce the defect report that decides whether the chapter ships. Tier 2 exists as a distinct layer because every skill in it presupposes the world model; none can run correctly against raw sources.
+
+Three further Tier-2 skills stand beside the mandatory chain rather than inside it, bringing the tier's total to ten. None runs unconditionally in the default pipeline. `feynman-style` is a conditional second prose pass: it runs only when a chapter contract sets `stage: feynman-final`, warming Russellized prose into Feynman's voice — concrete analogy, plain diction, honest curiosity — without altering the argument. `halmos` is an opt-in soft-gate: it audits a chapter against all prior chapters for concept linkage, seam continuity, and spiral coherence, and it gates only when a contract adds `halmos_critical_count == 0` to its `acceptance_tests`. `paragraph-weaver` threads a loose collection of paragraphs toward a goal — argument, emotion, or narrative — reordering them, writing bridges where a link would otherwise vanish, and editing the seams; an author runs it on any paragraph set, inside a workspace or outside one.
 
 ### Tier 3 — Optional verification
 
-Logical verification sits outside the default pipeline, enabled by a single flag. The skill `neurosym-forge` scaffolds a ClojureScript-plus-Rust verifier project alongside the workspace: it emits an EDN-as-atomspace intermediate representation, an `axioms.rs` hook for Z3 hard constraints, and a per-atom walk that traces each claim to an operator-supplied assertion. When the workspace `qa-config.yaml` carries `enable_verification: true`, `book-qa` reads the verifier's output as defect class D13 (claim-set-unsatisfiable). The tier is off by default because the scaffold requires a manual domain-axiom pass before verification produces useful verdicts.
+Formal verification lives outside the default path, activated by setting `enable_verification: true` in `qa-config.yaml`. `neurosym-forge` owns the tier alone: it scaffolds a ClojureScript-plus-Rust verifier project alongside the workspace, emitting an EDN-as-atomspace intermediate representation, an `axioms.rs` hook for Z3 hard constraints, and a per-atom walk that traces each claim to an operator-supplied assertion. Setting `enable_verification: true` causes `book-qa` to ingest the verifier's output as defect class D13 (claim-set-unsatisfiable) and surface violations alongside the standard D1-D12 report. The tier sits outside Tier 2 because its correctness depends entirely on axioms the operator must supply — fold it into the default pipeline and it silently passes every chapter that ships without them.
+
+Tier 3 ships disabled in every default configuration. The verifier scaffold requires a manual domain-axiom pass before it produces verdicts worth acting on, so enabling it without that pass yields false confidence — the linter reports clean while the axiom set remains empty.
 
 ## The pipeline
 
-The pipeline is sequential within each tier: stage N reads stage N-1's outputs and writes its own, and no stage reaches backwards. Tier 1 produces the acquisition manifest and the world-model slice; Tier 2 consumes both and drives a chapter contract through claim extraction, thesis validation, drafting, persona review, and release gating; Tier 3 sits outside the default path, activated by setting `enable_verification: true` in `qa-config.yaml`.
+<!-- voice: technical-exposition -->
 
-Two side-arrows and a feed-back path close the loop. Persona findings can return a chapter to drafting before a release clears its gate. Post-build QA can write back to the claim ledger, so a defect surfaced at the release stage corrects the underlying facts for the next run. The syntopical layer has its own cycle: Gap Report appends uncovered thesis-node statements to `acquisition/pending-seeds.txt`, seeding the next Acquire run and tightening coverage before the following draft begins.
+The pipeline is sequential within each tier: stage N reads stage N-1's outputs and writes its own, and no stage reaches backwards. Tier 1 produces the acquisition manifest and the world-model slice. Tier 2 consumes both and drives a chapter contract through claim extraction, thesis validation, drafting, persona review, and release gating. Tier 3 sits outside the default path, activated by setting `enable_verification: true` in the workspace `qa-config.yaml`.
 
-```
-   sources, papers (PDFs · papers · URLs)
-        │
-        ▼
-┌────────────────────────────────────────────┐
-│   Tier 1                                   │  scrapling-fetch · syntopical-metabook
-│   acquisition + world model                │  (sibling_skills loader · booklogic veto)
-└────────┬───────────────────────────────────┘
-         │ syntopical/lenses/*.md
-         ▼
-┌────────────────────────────────────────────┐
-│   Tier 2                                   │  book-knowledge → book-thesis → book-compose
-│   drafting pipeline                        │  ↕ russellian-style · book-review · review-conductor
-│                                            │  ↓ book-qa (D1-D12 · C1-C15)
-└────────┬───────────────────────────────────┘
-         │ manuscript.md · manuscript.html · manuscript.pdf
-         ▼
-   release bundle
+```mermaid
+graph TD
+    sources[sources, papers<br/>PDFs · papers · URLs]
+    sources --> tier1[Tier 1<br/>acquisition + world model]
+    tier1 -->|syntopical/lenses/*.md| tier2[Tier 2<br/>drafting pipeline]
+    tier2 -->|manuscript.md · .html · .pdf| release[release bundle]
+    tier2 -. enable_verification=true .-> tier3[Tier 3<br/>optional verification]
+    tier3 -. D13 defects .-> tier2
 
-   ┌─ optional ─┐
-   │  Tier 3    │  neurosym-forge → verifier project → D13 defects (claim-set-unsatisfiable)
-   └────────────┘
+    bookqa[book-qa] -. proposed-transitions.jsonl .-> tier1
+    review[review-conductor] -. verdict.json .-> tier2
+    syntopical[syntopical-metabook] -. pending-seeds.txt .-> tier1
 ```
 
-```
-book-qa  ─→  proposed-transitions.jsonl  ─→  book-knowledge.apply_writeback
-review-conductor  ─→  verdict.json  ─→  book-compose (redraft if soft-gate-fail)
-syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  next Acquire run
-```
+`review-conductor` aggregates the seven-persona panel's findings into `verdict.json`. When any gating persona issues a critical finding, the verdict is `soft-gate-fail` and the chapter returns to `book-compose` for a redraft before the release stage can run. Soft-gate-fail is the suite's name for "the section linted clean but a reader who matters would not have trusted it."
+
+`book-qa` runs after `book-compose.build_book` writes the release bundle. Defects whose root cause is a claim-state error — a verified claim that a later source refutes, a counter-claim that the chapter failed to address — become rows in `claims/proposed-transitions.jsonl`. `book-knowledge.apply_writeback` is the only consumer of that file; it transitions the ledger and the next chapter's preflight runs against the corrected state. A defect surfaced at the release stage corrects the underlying facts for the next run.
+
+`syntopical-metabook` writes a Gap Report after each Synthesize pass: every thesis-tree node whose coverage falls below the contract threshold gets a row in `syntopical/acquisition/pending-seeds.txt`. The next Acquire run reads that file as its seed set, traverses the citation graph from there, and tightens coverage on the under-covered nodes before the following draft begins.
 
 ## The skills
+
+<!-- voice: technical-exposition -->
 
 ### Tier 1 — Acquisition + world model
 
@@ -139,7 +221,7 @@ syntopical-metabook  ─→  syntopical/acquisition/pending-seeds.txt  ─→  n
 
 **Inputs / outputs.**
 
-The skill takes a URL or arXiv ID, a fetch mode, and optional per-call rate-limit overrides. It returns either a `PaperRecord` dataclass, a PDF written to a caller-specified path, or a typed exception from the hierarchy `FetchFailed | RateLimitExceeded | BlockedRequest | NotAPdf | OfflineMiss | ArxivIdNotFound`. Responses land in an on-disk cache keyed by URL; the cache directory is configurable. Setting `SCRAPLING_OFFLINE=1` forces cache-only mode: the skill opens no network socket.
+The skill takes a URL or arXiv ID, a fetch mode, and optional per-call rate-limit overrides. It returns either an `ArxivPaper` dataclass, a PDF written to a caller-specified path, or a typed exception from the hierarchy `FetchFailed | RateLimitExceeded | BlockedRequest | NotAPdf | OfflineMiss | ArxivIdNotFound`. Responses land in an on-disk cache keyed by URL; the cache directory is configurable. Setting `SCRAPLING_OFFLINE=1` forces cache-only mode: the skill opens no network socket.
 
 **When to invoke.** Use this skill whenever the acquisition pipeline needs a URL fetched and the caller is not `scrapling-fetch` itself — arXiv abstract pages, arXiv PDFs by ID, OpenAlex metadata or reference lookups, and DOI resolution to final landing URLs all route through here.
 
@@ -153,12 +235,12 @@ The skill takes a URL or arXiv ID, a fetch mode, and optional per-call rate-limi
 # From a skill that has sibling_skills installed in its venv:
 from sibling_skills import load_skill_api
 sf = load_skill_api("scrapling-fetch", expected_major=0)
-record = sf.fetch_arxiv("2310.04673")
+record = sf.arxiv.get("2310.04673")
 print(record.title)
 # → "Lossless LLM Compression via Quantization-Aware Pruning"
 ```
 
-`fetch_arxiv` dispatches to the `arxiv` adapter, which parses the abstract page at `arxiv.org/abs/2310.04673`, returns a `PaperRecord` with `title`, `authors`, `abstract`, and `year` populated, and writes the raw HTML to the on-disk cache. The skill downloads no PDF unless the caller also calls `download_pdf`. Rate limiting fires automatically; a second call to the same URL within the TTL window returns from cache without opening a socket.
+`arxiv.get` dispatches to the `arxiv` adapter, which parses the abstract page at `arxiv.org/abs/2310.04673`, returns an `ArxivPaper` with `title`, `authors`, `abstract`, and `year` populated, and writes the raw HTML to the on-disk cache. The skill downloads no PDF unless the caller also calls `download_pdf`. Rate limiting fires automatically; a second call to the same URL within the TTL window returns from cache without opening a socket.
 
 **Where to dive deeper.**
 - `skills/scrapling-fetch/SKILL.md`
@@ -184,25 +266,16 @@ The metabook reads `raw/`, `wiki/`, `claims/`, `graph/`, and `chapters/<id>/cont
 
 **Example walkthrough.**
 
-```bash
-# User intent: "set up the world model for chapter 3 and project a lens"
-# Assumes contract.yaml exists at chapters/ch-03/contract.yaml
+The four sub-workflows (Acquire, Synthesize, Project Lens, Gap Report) are currently script-level and not exposed through a CLI entrypoint in v0.2; see `skill_api.py` for the governance-layer surface that v0.2 does export.
 
-from sibling_skills import load_skill_api
-sm = load_skill_api("syntopical-metabook", expected_major=0)
-workspace = "/path/to/my-book"
-
-sm.acquire(workspace, chapter_id="ch-03")
-# → syntopical/acquisition/manifest.jsonl updated; PDFs in syntopical/acquisition/incoming/
-
-sm.synthesize(workspace)
-# → syntopical/topic-map.md, disputed-questions/*.md, concepts/*.md
-
-sm.project_lens(workspace, chapter_id="ch-03")
-# → syntopical/lenses/ch-03.md
-```
+- **Acquire** traverses the citation graph from a seed set, downloads candidates that pass the embedding-similarity threshold and the booklogic reachability veto, and appends outcomes to `syntopical/acquisition/manifest.jsonl`.
+- **Synthesize** builds the topic map keyed to thesis-tree nodes, disputed-question tables (via booklogic's symbolic rewrite rules), and canonical-concept reconciliation files.
+- **Project Lens** slices the world model to exactly what the drafter needs for one chapter and writes `syntopical/lenses/<chapter-id>.md`.
+- **Gap Report** scores per-thesis-node coverage and appends under-covered nodes to `syntopical/acquisition/pending-seeds.txt`, seeding the next Acquire run automatically.
 
 `book-compose` reads `syntopical/lenses/ch-03.md` before drafting. The lens is a tag-filtered slice of the topic map carrying a YAML frontmatter block with the coverage score. If the score is below the contract threshold, Gap Report will have already written the uncovered nodes to `pending-seeds.txt`; the next Acquire run picks them up automatically.
+
+`skill_api.py` (v0.2) exports the governance layer: `build_positions`, `render_per_rule`, `render_consensus_map`, `render_adversarial`, `governance_filter`, `GateDecision`. The four-sub-workflow Python API is scheduled for v0.3.
 
 **Where to dive deeper.**
 - `skills/syntopical-metabook/SKILL.md`
@@ -387,9 +460,53 @@ python scripts/lint_supports.py my-workspace v0.1
 
 </details>
 <details>
+<summary><strong>paragraph-weaver</strong> — thread loose paragraphs toward a goal (argument | emotion | narrative)</summary>
+
+**What it does.** It threads a collection of existing paragraphs toward a typed goal — `argument`, `emotion`, or `narrative` — by reordering them, writing bridges between them, and lightly editing seams. Paragraph bodies stay immutable. The skill seam-edits only a paragraph's first or last sentence, and it inserts new bridge text between paragraphs. A deterministic Python substrate does the structural work: a graph model with content hashing, an entity proxy, Tarjan cycle detection, feasibility refusal, precedence-constrained ordering, closed-vocabulary bridge and seam validation, and gate scoring. The agent supplies judgment on top of that substrate — the same agent-in-the-loop pattern as `russellian-style`. The substrate is stdlib-only and opens no network socket. Non-determinism lives only in artefact *production*. The gate runs on the artefacts after a hash freezes them, so a given input produces the verdict those bytes determine, and no other. The Target interface is pluggable: v1 ships one deep target (`argument`, which fills dispositio slots and sequences over `book-thesis` structure) and two shallow stubs (`emotion`, `narrative`) that prove the interface but carry trivial objectives in v1.
+
+**Inputs / outputs.** The skill takes a paragraph collection and a one-line goal, plus the agent's judged inputs at each stage — a target choice, role tags, precedence edges, bridges, and seam edits. It carries one hard ordering constraint: acyclic precedence. The skill reports cycles instead of dying on them — it demotes the weakest edge in a cycle to a note. Slot-order and edge-loading stay soft penalties. Bridges draw on a closed connective vocabulary and name only entities the two flanking paragraphs already contain (an entity-subset guard, not raw NLI); a bridge that fails `validate_bridge` earns a rewrite or a structural GAP. The skill refuses bad inputs: `check_feasibility` stops and returns a diagnosis when required slots sit empty, too many paragraphs fall off-goal, or the entity graph splits apart. Output defaults to a provenance-marked render distinguishing source, seam-edit, and bridge text. The public surface is `skill_api.py`, `API_VERSION = (0, 1)`.
+
+**When to invoke.** Use this skill when the user already holds paragraphs and a goal and wants you to assemble them into one coherent whole. The skill reorders the paragraphs, bridges the gaps a reader would otherwise trip on, and edits the joins. In a book workspace, the `argument` target sequences over `book-thesis`'s structure and does not recompute contradictions — `book-thesis` owns those; standalone, the target extracts its own thesis. The `argument` target hands its prose to `russellian-style` at the end.
+
+**When NOT to invoke.** Do not use it to draft from scratch — it threads existing paragraphs and writes nothing but bridges and seam edits. For sentence-grain prose discipline, use `russellian-style`. For thesis and consistency checking, use `book-thesis`. Do not expect deep work from the `emotion` or `narrative` targets in v1; their objectives are trivial and their gates emit a not-yet-deep warning. Those two targets carry `prose_policy` `none` and do not route to `russellian-style`, which refuses their persuasive and story genres. `book-review` personas can feed the revise stage, but only as advisory input.
+
+**Trigger phrases.** "thread these paragraphs", "weave these paragraphs into an argument", "order these paragraphs toward a thesis", "write bridges between these paragraphs", "assemble these paragraphs into a coherent whole".
+
+**Example walkthrough.** Thread a paragraph set toward an argument, then gate the frozen artefacts:
+
+```python
+import skill_api as pw
+
+target = pw.get_target("argument")              # deep target, dispositio slots
+slots = target.plan_template(goal)              # thesis -> evidence -> ... -> conclusion
+graph = pw.WeaveGraph(nodes, edges)             # paragraphs + precedence edges
+assert pw.find_cycles(graph) == []              # cycles reported, never fatal
+
+feasible = pw.check_feasibility(graph, slots)   # refuse instead of threading off-goal
+if not feasible.ok:
+    raise SystemExit(feasible.reasons)
+
+order = pw.order_paragraphs(
+    graph, lambda seq: target.order_objective(seq, graph, goal))
+result = target.gate_hook(artifacts)            # pure over frozen, hashed artefacts
+print(pw.render_provenance(segments))           # source / seam / bridge marked
+```
+
+`order_paragraphs` honours the one hard constraint — acyclic precedence — and minimises the target's soft penalty; `score_gate` returns the same verdict for the same frozen inputs on every run.
+
+**Where to dive deeper.**
+- `skills/paragraph-weaver/SKILL.md` — operating doctrine, the six-stage pipeline, degenerate-input handling.
+- `skills/paragraph-weaver/skill_api.py` — the `API_VERSION = (0, 1)` public surface.
+- `skills/paragraph-weaver/references/engine-doctrine.md` — the deterministic substrate, and why production, not the gate, owns non-determinism.
+- `skills/paragraph-weaver/references/target-authoring.md` — the pluggable Target interface and how to add a deep target.
+- `skills/paragraph-weaver/tests/test_end_to_end.py` — the snail-paragraphs-to-argument acceptance demo.
+- `docs/superpowers/specs/2026-05-30-paragraph-weaver-design.md` — design spec and v1 scope.
+
+</details>
+<details>
 <summary><strong>russellian-style</strong> — generation contract first, checker second</summary>
 
-**What it does.** The skill is a generation contract first, a checker second. The contract runs before prose exists: three mode-keyed system prompts live at `assets/system-prompts/technical-exposition.md`, `assets/system-prompts/narrative-editorial.md`, and `assets/system-prompts/polemic.md`. `system_prompt_loader.load(mode)` reads the matching file and returns it as the LLM system message, conditioning the writer to the Russellian structural mandates before drafting begins. Those mandates hold four requirements: vary sentence length deliberately, with at least one sentence under ten words and at least one exceeding twenty-five per screen; favour compound-complex sentences with short declarative beats; open paragraphs with the conclusion the paragraph will earn; end paragraphs by changing argumentative pressure, not by restating what the paragraph just said. The checker side — twelve linter modules emitting seventeen rule names — audits prose already in existence. Six modules emit gating rules: `lint_hedges.py` covering `no-hedging`, `lint_passive_voice.py` covering `active-voice`, `lint_signal_density.py` covering `signal-density`, `lint_parallel_structure.py` covering `parallel-structure`, `lint_listicle_abstract.py` covering `listicle-abstract` and `listicle-anaphora`, and `lint_sentence_rhythm.py` covering `rhythm-uniform-length` and `rhythm-repeated-opening`. Six modules emit advisory rules: `lint_ai_staccato.py` covering `staccato-paragraph-run` and three variant patterns, `lint_ai_vocabulary.py` covering `ai-vocabulary`, `lint_burstiness.py` covering `burstiness`, `lint_concrete_instance_density.py` covering `concrete-instance-density`, `lint_epistemic_precision.py` covering `epistemic-precision`, and `lint_paragraph_motion.py` covering `paragraph-motion`. The `humanizer` sibling skill extends the checker with a 24-pattern Wikipedia catalog of AI writing tells when installed.
+**What it does.** The skill is a generation contract first, a checker second. The contract runs before prose exists: three mode-keyed system prompts live at `assets/system-prompts/technical-exposition.md`, `assets/system-prompts/narrative-editorial.md`, and `assets/system-prompts/polemic.md`. `system_prompt_loader.load(mode)` reads the matching file and returns it as the LLM system message, conditioning the writer to the Russellian structural mandates before drafting begins. Those mandates hold four requirements: vary sentence length deliberately, with at least one sentence under ten words and at least one exceeding twenty-five per screen; favour compound-complex sentences with short declarative beats; open paragraphs with the conclusion the paragraph will earn; end paragraphs by changing argumentative pressure, not by restating what the paragraph just said. The checker side — twelve linter modules emitting seventeen rule names — audits prose already in existence. Eight modules emit the ten default (gating) rules: `lint_hedges.py` covering `no-hedging`, `lint_passive_voice.py` covering `active-voice`, `lint_signal_density.py` covering `signal-density`, `lint_parallel_structure.py` covering `parallel-structure`, `lint_listicle_abstract.py` covering `listicle-abstract` and `listicle-anaphora`, `lint_sentence_rhythm.py` covering `rhythm-uniform-length` and `rhythm-repeated-opening`, `lint_burstiness.py` covering `burstiness`, and `lint_ai_vocabulary.py` covering `ai-vocabulary`. Four modules emit the seven advisory rules: `lint_ai_staccato.py` covering `staccato-paragraph-run` and three variant patterns (`negation-affirmation-template`, `this-is-conclusion-overuse`, `abstract-subject-run`), `lint_concrete_instance_density.py` covering `concrete-instance-density`, `lint_epistemic_precision.py` covering `epistemic-precision`, and `lint_paragraph_motion.py` covering `paragraph-motion`. The default `lint_fragment(text)` call runs the 10 gating rules; the other 7 advisory rules require explicit naming via `linters=[...]`. See §10 The QA grammar for the full registry. The `humanizer` sibling skill extends the checker with a 24-pattern Wikipedia catalog of AI writing tells when installed.
 
 **Inputs / outputs.** On the generation side, the skill loads one of three system-prompt Markdown files from `assets/system-prompts/` and returns its text as a string for the caller to pass to the LLM. On the linting side, it accepts a text fragment and a list of rule names, writes the text to a temporary Markdown file, runs the requested linters, and returns a list of `LintIssue` dataclasses — one per violation — carrying linter name, line, column, and a human-readable message. The output artefact for a full chapter pass is `style-pass-report.md`, which records per-rule findings, a `vitality_metrics` block, and corpus anchors when vitality linters fire.
 
@@ -413,13 +530,50 @@ fixed = "Hedges and passive constructions both erode signal density."
 assert lint_fragment(fixed, linters=["no-hedging", "active-voice"]) == []
 ```
 
-The first draft triggers `active-voice` on the passive construction; the rewrite commits to a direct claim and clears both rules. The same cycle — run, read, rewrite, re-run — applies to all six gating rules until zero violations remain.
+The first draft triggers `active-voice` on the passive construction; the rewrite commits to a direct claim and clears both rules. The same cycle — run, read, rewrite, re-run — applies to all ten gating rules until zero violations remain.
 
 **Where to dive deeper.**
 - `skills/russellian-style/SKILL.md`
 - `skills/russellian-style/assets/system-prompts/` — three mode-keyed generation contracts
 - `skills/russellian-style/assets/russell-corpus/` — 50-paragraph Russell corpus index
 - `skills/russellian-style/tests/`
+
+</details>
+<details>
+<summary><strong>feynman-style</strong> — second prose pass: Russellized text → Feynman voice</summary>
+
+**What it does.** `feynman-style` runs after `russellian-style` has cleared the mandatory prose gates. It warms Russellized prose into Feynman's voice — concrete analogy, conversational directness, honest curiosity, plain diction — without changing the argument. Its `preserve_argument` check is a hard gate that enforces that claims and logical structure survive the pass; it requires both the pre-Feynman (Russell) text and the post-Feynman text, so it runs through the skill's own `skill_api`, not inside `book-compose`'s flat-file flow. The skill owns a split linter partition: Surface linters (which catch Russellian surface violations) are omitted from acceptance tests on Feynman-final prose; Integrity linters (which verify the argument structure is intact) remain. The stylometric scorer measures closeness to the Feynman corpus using a relative-frequency L1 distance over a closed, offline local-drop corpus — no network calls, no external corpus fetch.
+
+**Inputs / outputs.** Through its `skill_api`, the skill takes a prose fragment that has already passed `russellian-style` (and, for `preserve_argument`, the pre-Feynman text alongside it) and returns the rewritten fragment plus a verdict carrying `preserve_argument_pass` (boolean), the L1 stylometric score, and any integrity-linter findings. When `preserve_argument_pass` is false, the pass is a hard gate failure and the fragment returns to the author unchanged.
+
+**When to invoke.** Use after `russellian-style` has cleared its ten gating rules on a section or chapter draft. The trigger is "feynman pass", "warm this prose into Feynman's voice", or "add analogy and directness without changing the argument". When a chapter contract sets `stage: feynman-final`, `book-compose` computes the Feynman surface metrics and exposes them for gating through the contract's `acceptance_tests` (with surface-class Russell thresholds legitimately omitted); `preserve_argument` is enforced separately via the `skill_api`, not in that compose pass, because the flat-file flow retains only the final draft.
+
+**When NOT to invoke.** Do not run `feynman-style` before `russellian-style` — the argument structure it gates on must already be clean. Do not use it for source ingestion, claim ledger writes, or chapter orchestration. Do not use it on prose genres where Russell's analytic precision is the contract (technical reference, legal writing): the Feynman warmth it adds would break the genre.
+
+**Trigger phrases.** `"feynman pass on this draft"`, `"warm this prose into Feynman's voice"`, `"add analogy and directness without changing the argument"`, `"feynman-style pass"`.
+
+**Where to dive deeper.**
+- `skills/feynman-style/SKILL.md`
+- `skills/feynman-style/tests/`
+
+</details>
+<details>
+<summary><strong>halmos</strong> — cross-chapter linkage review: spiral coherence, seam continuity, concept consistency</summary>
+
+**What it does.** Named for Paul Halmos, whose *How to Write Mathematics* prescribes the spiral method: each new part recalls and refines what came before. `halmos` enforces that discipline across chapters by auditing chapter N against chapters 1..N-1 for concept linkage, handoff seams, and spiral coherence. It runs four stages: `build_concept_ledger` builds a running inventory of introduced concepts; `build_linkage` detects broken seams (the N-1 close shares no salient term with the N open) and orphan references (a concept appears in N before it is introduced); `dispatch_halmos_review` dispatches a Halmos-reviewer subagent against the references/halmos-doctrine.md for continuity-gap, missed-recall, spiral-stall, terminology-drift, premature-definition, and `spiral_coherence` verdict; `aggregate_halmos` writes `halmos-review.md` and `halmos-verdict.json` for the chapter. The skill soft-gates: `halmos_critical_count == 0` in a chapter contract's `acceptance_tests` blocks `book-compose.chapter_contract_check` from advancing the chapter when critical linkage failures remain. It composes with `book-compose` (which reads `halmos_critical_count`) and `review-conductor`. No network calls; all evaluation is local.
+
+**Inputs / outputs.** Reads `chapters/drafts/`, `chapters/contracts/`, `claims/`, and `thesis/`. Writes `halmos/concepts.jsonl`, `halmos/linkage/ch-NN.json`, and per-chapter `chapters/drafts/<id>/halmos-review.md` and `chapters/drafts/<id>/halmos-verdict.json`. The `dispatcher` is caller-provided; in production it issues a Task-tool call against `references/halmos-doctrine.md`; in tests it returns a canned findings dict.
+
+**When to invoke.** Use after drafting chapter N and before the editorial persona panel. The natural triggers are "halmos review for chapter N", "check chapter N against prior chapters", "audit spiral coherence for ch-NN", or "validate cross-chapter linkage". Also fires automatically from `book-compose` when `halmos_critical_count` is listed in the chapter contract's `acceptance_tests`.
+
+**When NOT to invoke.** Skip `halmos` for logical entailment checking — that is `book-thesis`. Skip it for persona-based editorial review — that is `review-conductor`. Skip it on chapter 1, which has no prior chapters to link against (no-op by contract). Do not use it as a prose linter; it checks structural linkage, not sentence-grain style.
+
+**Trigger phrases.** `"halmos review for chapter N"`, `"check cross-chapter linkage"`, `"audit spiral coherence"`, `"validate chapter handoffs"`, `"check concept continuity across chapters"`.
+
+**Where to dive deeper.**
+- `skills/halmos/SKILL.md` — doctrine, four-stage pipeline, gate configuration.
+- `skills/halmos/references/halmos-doctrine.md` — the review rubric dispatched to the subagent.
+- `skills/halmos/tests/`
 
 </details>
 <details>
@@ -460,7 +614,7 @@ The first draft triggers `active-voice` on the passive construction; the rewrite
 
 ```bash
 python -c "
-from review_conductor.conductor import run_panel
+from scripts.conductor import run_panel
 from pathlib import Path
 verdict = run_panel(
     workspace=Path('workspaces/bermuda'),
@@ -484,7 +638,7 @@ Expected output: `redraft True`. Gottlieb found one `critical` AI-sloppy pattern
 
 **What it does.** Every artefact that `book-compose.build_book` produces enters this gate before it ships. The gate runs four stages. `lint_artifact.py` applies deterministic mechanical rules: eight D-class rules covering orphan citation tokens, raw Markdown bleed inside HTML, broken cross-references, heading hierarchy violations, count-contract failures, paragraph-length variance, CSS reset clobber, and asset 404s. `dispatch_chapter_qa.py` fires a swarm of fresh-context agents — ten per chapter — each checking one chapter against all fifteen C-class editorial dimensions, returning JSON tickets only. The sentinel script aggregates D and C tickets into a single defect ledger, classifying each as critical, important, or minor. `healer.py` opens an isolated-context agent per defect class, proposes a minimal patch, and hands it back to the sentinel for verification; the sentinel confirms the original failing check now passes before writing the change. Three iterations is the maximum.
 
-**Inputs / outputs.** The skill reads a built artefact (the release directory that `build_book` writes), `checklists/house-style.yaml`, and an optional `qa-waivers.yaml` at the workspace root. Book-thesis contributes D9-D12 inputs: `qa/supports-defects.json` (D9, D12), `qa/datalog-defects.json` (D10), and `qa/entailment-results.json` (D11). With `enable_verification: true` set in `qa-config.yaml`, the gate reads `qa/verification-defects.json` for D13. Outputs are `qa/lint-findings.json` (D-class), `qa/swarm-findings.json` (C-class), `claims/proposed-transitions.jsonl`, and a `qa/ledger-writeback-<version>.md` summary for `book-knowledge`.
+**Inputs / outputs.** Public API: CLI only — `book-qa` has no `skill_api.py`. All entry points are scripts invoked directly. The skill reads a built artefact (the release directory that `build_book` writes), `checklists/house-style.yaml`, and an optional `qa-waivers.yaml` at the workspace root. Book-thesis contributes D9-D12 inputs: `qa/supports-defects.json` (D9, D12), `qa/datalog-defects.json` (D10), and `qa/entailment-results.json` (D11). With `enable_verification: true` set in `qa-config.yaml`, the gate reads `qa/verification-defects.json` for D13. Outputs are `qa/lint-findings.json` (D-class), `qa/swarm-findings.json` (C-class), `claims/proposed-transitions.jsonl`, and a `qa/ledger-writeback-<version>.md` summary for `book-knowledge`.
 
 **When to invoke.** Use after `book-compose.build_book` completes and before the release bundle ships. The `--qa` flag on `book-compose` skips this gate during iteration; remove the flag for release builds.
 
@@ -496,12 +650,13 @@ Expected output: `redraft True`. Gottlieb found one `critical` AI-sloppy pattern
 
 ```bash
 python scripts/lint_artifact.py workspaces/bermuda v0.4
-python scripts/dispatch_chapter_qa.py workspaces/bermuda v0.4
+python scripts/dispatch_chapter_qa.py workspaces/bermuda ch-01 ch-02
 python scripts/sentinel.py workspaces/bermuda
-python scripts/healer.py workspaces/bermuda --max-iterations 3
+python scripts/healer.py workspaces/bermuda --prepare
+python scripts/healer.py workspaces/bermuda --apply qa/healer-payloads/D6-ch-03.json
 ```
 
-Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.2] band in chapter 3) and C7 (scene anchoring absent in chapter 5's opening section). For each, the healer opens a fresh-context agent: D6 splits the overlong paragraph at a natural clause boundary; C7 inserts a two-sentence locating phrase. Sentinel re-runs both checks, confirms zero violations, and writes the patched artefact. Release exits clean.
+`dispatch_chapter_qa.py` takes `[ch-NN ...]` chapter-ID filters, not a release version; the release version is an argument to `lint_artifact.py` only. `MAX_ITERATIONS = 3` is an internal constant in `healer.py`, not a CLI flag; the healer's two-phase CLI is `--prepare` (emit per-ticket payloads) followed by `--apply <patch-result.json>` (record a patch result and increment the iteration counter). Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.2] band in chapter 3) and C7 (scene anchoring absent in chapter 5's opening section). For each, the healer opens a fresh-context agent: D6 splits the overlong paragraph at a natural clause boundary; C7 inserts a two-sentence locating phrase. Sentinel re-runs both checks, confirms zero violations, and writes the patched artefact. Release exits clean.
 
 **Where to dive deeper.**
 - `skills/book-qa/SKILL.md`
@@ -528,12 +683,14 @@ Two defects surface: D6 (paragraph-length variance at 1.31, outside the [0.4, 1.
 **Example walkthrough.** Scaffold a verifier for the Bermuda workspace, add a `Date` sort and a date-ordering rule, then run.
 
 ```bash
-python -m scripts.scaffold_project --workspace workspaces/bermuda --out verifiers/bermuda
-python -m scripts.add_sort --project verifiers/bermuda --sort Date --doc "calendar date"
+python -m scripts.scaffold_project --name bermuda --slug bermuda --out verifiers/bermuda
+python -m scripts.add_sort --project verifiers/bermuda --sort Date
 python -m scripts.add_rewrite_rule \
   --project verifiers/bermuda \
-  --rule "(= (date-before? (Date ?d1) (Date ?d2)) (< ?d1 ?d2))"
+  --rule-file rules/date-before.json
 ```
+
+where `rules/date-before.json` contains the rule definition in JSON or EDN form.
 
 Override `verifiers/bermuda/src/axioms.rs` with the Z3 date-arithmetic constraints, then run the scaffolded project:
 
@@ -552,76 +709,105 @@ cd verifiers/bermuda && npm run build && node dist/verify.js
 
 </details>
 
+## Tools
+
+<!-- voice: technical-exposition -->
+
+`tools/` exists because some workflows are one-shot operator runs, not runtime pipeline stages. The operator expands the corpus quarterly when the russellian-style anchor base needs more coverage; the operator runs the audit per release to validate the suite's discipline; the commit hook invokes the readme-lint runner on every push. None of these belong inside `skills/`, where every directory is a Claude Code skill the chat session can dispatch. The three tools share a convention: a self-contained `pyproject.toml`, a venv at `tools/<name>/.venv/`, and a CLI entry at `scripts/cli.py` or `scripts/run.py`.
+
+### `tools/build-russell-corpus/`
+
+`build-russell-corpus` expands the russellian-style index — the corpus of tagged Russell passages that anchors every style rule in the suite. PR #121 introduced it, growing the anchor base from 50 to 500 entries; the design rationale lives at `docs/specs/2026-05-21-russell-corpus-expansion-design.md` and the implementation plan at `docs/plans/2026-05-21-russell-corpus-expansion.md`. Each candidate passage travels through five hallucination defences before reaching the index: (1) a public-domain allow-list check that rejects any source not cleared for unrestricted reuse, (2) a source-substring verification that confirms the extracted paragraph appears verbatim in the cached source, (3) a blind cross-check in which a second LLM verifies tag agreement without seeing the extractor's tag, (4) a two-layer lesson-specificity gate that rejects generic-lesson candidates, and (5) a 5% audit sample with a halt threshold that stops the run when the human reject rate exceeds 10%.
+
+The pipeline begins with a cached fetch of PD Russell source text via `scrapling-fetch`, then routes each candidate through `sentinel.py` (six deterministic checks) before handing verified passages to `cross_check.py`. Candidates that pass the blind verifier enter an audit sample; only then does the operator gate fire.
+
+```mermaid
+graph TD
+    src[PD Russell source<br/>cached via scrapling-fetch] --> extract[extract_candidates.py<br/>LLM extractor]
+    extract --> candidates[(candidates.jsonl)]
+    candidates --> sentinel[sentinel.py<br/>6 deterministic checks:<br/>PD allow-list, source-match,<br/>locator alignment, dedup,<br/>vocabulary, generic-lesson]
+    sentinel --> passed[(passed-sentinel.jsonl)]
+    sentinel --> rejected1[(rejected.jsonl)]
+    sentinel --> pending[(pending-tag.jsonl)]
+    passed --> crosscheck[cross_check.py<br/>blind LLM tag verifier<br/>extractor's tag NOT in prompt]
+    crosscheck --> verified[(verified.jsonl)]
+    crosscheck --> rejected2[(rejected.jsonl)]
+    verified --> audit[audit_sample.py<br/>5% sample<br/>halt at 10% reject rate]
+    audit --> gate{operator gate<br/>accept/reject/halt}
+    gate -->|accept| append[append_to_index.py]
+    gate -->|halt| stop[stop; index unchanged]
+    append --> index[(russellian-style<br/>index.json)]
+```
+
+At the operator gate, a blocking stdin prompt presents the audit sample and waits for `accept`, `reject`, or `halt`. CI and scripted runs have two bypass flags: `--auto-accept` skips the prompt and accepts the batch unconditionally; `--skip-expansion` bypasses the extraction and cross-check stages entirely, jumping straight to audit from a pre-existing `verified.jsonl`. The CLI surface is six subcommands chained by `scripts/cli.py`: `derive-vocabulary`, `extract`, `sentinel`, `cross-check`, `audit`, `append`. Operators invoke each subcommand in isolation for inspection or replay.
+
+The `extract` and `cross-check` subcommands need a live LLM connection; the current wiring is Python-side in `scripts/live_llm.py`. A forward-looking architectural item — migrating that wiring to an MCP-server boundary — appears in §13 Auditing the suite.
+
+Spec: `docs/specs/2026-05-21-russell-corpus-expansion-design.md`. Plan: `docs/plans/2026-05-21-russell-corpus-expansion.md`.
+
+### `tools/russellian-style-audit/`
+
+`russellian-style-audit` validates the suite end-to-end: health checks, an optional corpus expansion batch, three generated sample texts, and a lint-scoring pass over those samples. It serves as the authoritative validation gate before any release. Output lands in a dated bundle at `docs/audits/<date>-russellian-style/`, with `README.md`, `health-check.md`, `expansion.md`, and a `samples/` subdirectory; `docs/audits/2026-05-21-russellian-style/README.md` is the canonical reference example.
+
+`health_check.py` runs first, executing five deterministic checks against the index, the rule registry, and the corpus vocabulary. Any `FAIL` result halts immediately and marks the bundle `FAIL` without proceeding. The run logs `WARN` results and continues. When all checks clear, `expansion.py` wraps `build-russell-corpus` for an optional batch addition; `--skip-expansion` bypasses that stage. `generate_samples.py` then produces three mode prompts via `live_llm.generate`. Finally, `lint_samples.py` runs the full 17-rule registry against each sample and `report.py` renders the bundle.
+
+```mermaid
+graph TD
+    start([python -m scripts.run --batch-id X]) --> health[health_check.py<br/>5 deterministic checks]
+    health -->|any FAIL| haltH[halt; bundle.README = FAIL]
+    health -->|all PASS/WARN| expansion[expansion.py<br/>wraps build-russell-corpus]
+    expansion -->|live_llm or skip| sample[generate_samples.py<br/>3 mode prompts via live_llm.generate]
+    expansion -.->|halt| sample
+    sample --> lint[lint_samples.py<br/>17-rule registry per sample]
+    lint --> report[report.py<br/>render bundle]
+    report --> bundle[(docs/audits/<date>-russellian-style/)]
+```
+
+The operator gate mirrors the corpus tool: a blocking stdin prompt fires after the expansion batch, bypassed by `--auto-accept` or skipped with `--skip-expansion`. `lint_fragment` calls inside `lint_samples.py` use a namespace-eviction workaround to prevent collision between the audit tool's registry instance and the readme-lint runner's registry instance when both load in the same process. Recommendation #7 in §13 Auditing the suite describes the architectural fix that will eliminate this workaround.
+
+### `tools/readme-lint/` (new in this rewrite)
+
+`readme-lint` parses `README.md` at H2 boundaries, reads each section's `<!-- voice: <name> -->` declaration, and runs the russellian-style 17-rule registry against the section text. A nonzero gating score above 2 causes the runner to exit with code 1. Invoke via `make readme-lint`; for incremental work, target individual sections with `python -m scripts.lint_readme --section "<heading>"`, where the argument matches by case-insensitive substring against the H2 text.
+
+Inline `<!-- lint-disable: <rule>[, <rule>] reason=<short> -->` comments mark legitimate exemptions. The Bermuda narrative section, for example, uses concession-marker constructions that would trigger `staccato-paragraph-run` under `technical-exposition` rules; the disable comment marks that usage as intentional, not drift.
+
 ## Core concepts
+<!-- voice: technical-exposition -->
 
 ### The book workspace
 
-A workspace is a directory. Eight subtrees, four append-only ledgers, one RDF graph: cloning the directory clones the book.
+A workspace is a directory. Ten subtrees, four append-only ledgers, one RDF graph: cloning the directory clones the book.
 
-```
-<workspace>/
-├── CLAUDE.md                # workspace marker; book-id and style profile
-├── raw/                     # book-knowledge owns; immutable source corpus
-│   ├── pdf/
-│   ├── markdown/
-│   └── manifests/           # one source-manifest.json per source
-├── wiki/                    # book-knowledge owns; append-only synthesis pages
-│   ├── index.md
-│   ├── log.md
-│   ├── current-status.md
-│   ├── sources/  concepts/  entities/  chapters/
-├── claims/                  # book-knowledge owns; append-only claim ledger
-│   ├── ledger.jsonl                     # claim records + state-transition records
-│   │                                    # (n.b. transitions live here in v6;
-│   │                                    #  events.jsonl below is reserved for a
-│   │                                    #  future split-out — not yet in use)
-│   ├── counter-claims.jsonl
-│   ├── conflicts.jsonl                  # (created on first conflict)
-│   ├── events.jsonl                     # (reserved; transition log split planned)
-│   ├── proposed-transitions.jsonl
-│   ├── snapshots/
-│   └── address-checks/                  # (created on first counter-claim
-│                                        #  address check; absent in bermuda v6)
-├── graph/                   # book-knowledge owns; projected RDF dataset
-│   ├── dataset.trig                     # the projected graph
-│   └── reports/                         # SHACL reports, competency-query results
-│                                        # (SHACL shapes ship with the skill at
-│                                        #  skills/book-knowledge/assets/shapes.ttl
-│                                        #  and are referenced at validate-time)
-├── chapters/                # book-compose owns
-│   ├── contracts/           # chapter-NN.yaml
-│   ├── drafts/              # chapter-NN/{outline.md, draft.md, panel-review.md, verdict.json}
-│   └── releases/            # chapter-NN-vX.Y/{draft.md, manifest.yaml, ...}
-├── book/                    # book-compose owns; book-level release bundles
-│   ├── preflight/
-│   └── releases/<version>/
-│       ├── manuscript.md
-│       ├── manuscript.html
-│       ├── manuscript.pdf
-│       ├── book-manifest.yaml
-│       └── chapter-bundles/
-├── qa/                      # book-qa owns
-│   ├── lint-findings.json
-│   ├── swarm-findings.json
-│   ├── chapter-tickets/
-│   ├── ledger-writeback-<version>.md
-│   └── panels/                          # optional per-workspace panel overrides
-│                                        # (resolved by book-compose's wrapper at
-│                                        #  scripts/persona_review_pass.py:_resolve_panel_path;
-│                                        #  absent in bermuda v6, which uses the
-│                                        #  shipped chapter-default.yaml)
-├── thesis/                  # book-thesis owns
-│   ├── <book-id>.yaml
-│   └── schema.yaml
-├── syntopical/              # syntopical-metabook owns; world-model layer
-│   ├── config.yaml
-│   ├── topic-map.md
-│   ├── disputed-questions/
-│   ├── concepts/
-│   ├── lenses/
-│   ├── reports/
-│   └── acquisition/
-└── reports/                 # cross-skill release reports
+```mermaid
+graph TD
+    ws[(workspace/)]
+    ws --> claude[CLAUDE.md<br/>workspace marker]
+    ws --> raw["raw/<br/>book-knowledge owns"]
+    ws --> wiki["wiki/<br/>book-knowledge owns"]
+    ws --> claims["claims/<br/>book-knowledge owns"]
+    ws --> graph["graph/<br/>book-knowledge owns"]
+    ws --> chapters["chapters/<br/>book-compose owns"]
+    ws --> book["book/<br/>book-compose owns"]
+    ws --> qa["qa/<br/>book-qa owns"]
+    ws --> thesis["thesis/<br/>book-thesis owns"]
+    ws --> syntopical["syntopical/<br/>syntopical-metabook owns"]
+    ws --> reports["reports/<br/>cross-skill release reports"]
+    
+    raw --> raw_pdf[pdf/]
+    raw --> raw_md[markdown/]
+    raw --> raw_man[manifests/]
+    
+    claims --> claims_ledger[ledger.jsonl<br/>append-only]
+    claims --> claims_cc[counter-claims.jsonl]
+    claims --> claims_ev[events.jsonl]
+    claims --> claims_pt[proposed-transitions.jsonl]
+    
+    chapters --> ch_con[contracts/]
+    chapters --> ch_dr[drafts/]
+    chapters --> ch_rel[releases/]
+    
+    book --> book_pre[preflight/]
+    book --> book_rel[releases/<version>/]
 ```
 
 Five ownership invariants hold by skill contract and by test. `book-knowledge` is the only writer of `raw/`, `wiki/`, `claims/`, `graph/`. `book-compose` is the only writer of `chapters/` and `book/`. `book-qa` is the only writer of `qa/`. `book-thesis` is the only writer of `thesis/`. `syntopical-metabook` is the only writer of `syntopical/`, and its CI plugin enforces this by failing any test that opens a write handle on the other four subtrees. The SHACL shapes file (`shapes.ttl`) and the JSON Schema for the source manifest stay in lockstep: an off-by-one in the status enum would break both gates silently, so the test suite checks that the SHACL `sh:in` list and the JSON Schema enum match exactly.
@@ -634,36 +820,39 @@ The ledger is an append-only JSONL log. Each line is either a new claim or a sta
 
 The status field follows a five-state machine. New claims arrive `proposed`. `verify_claim.py` promotes a proposed claim to `verified` once it cross-checks the locator text against the source span. `detect_conflicts.py` flips a verified claim to `disputed` when it finds an antonym-pair contradiction; if a later ingest resolves the contradiction, the claim returns to `verified`. A newer source can supersede an older claim about the same triple, sending the older one to `superseded`. When post-build QA finds a verified claim that a later source contradicts, the write-back proposes a transition to `refuted`. Both `superseded` and `refuted` are terminal.
 
-```
-                   ┌─────────────┐
-                   │  proposed   │
-                   └──────┬──────┘
-                          │ verify_claim.py
-                          ▼
-                   ┌─────────────┐
-            ┌─────▶│  verified   │◀──── resolution restores verified
-            │      └──────┬──────┘     │
-            │             │ detect_conflicts.py
-            │             ▼            │
-            │      ┌─────────────┐     │
-            │      │  disputed   │─────┘
-            │      └──────┬──────┘
-            │             │
-            │      ┌──────┴───────┐
-            │      ▼              ▼
-            │ newer claim      refuting source
-            │ arrives          arrives
-            │      │              │
-            │      ▼              ▼
-            │ ┌─────────────┐  ┌─────────────┐
-            └─│ superseded  │  │   refuted   │
-              │ (terminal)  │  │ (terminal)  │
-              └─────────────┘  └─────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> proposed: ingest_pdf
+    proposed --> verified: verify_claim.py<br/>(locator match)
+    verified --> disputed: detect_conflicts.py<br/>(antonym pair)
+    disputed --> verified: resolution
+    verified --> superseded: newer source<br/>same triple
+    verified --> refuted: book-qa post-build<br/>writeback
+    superseded --> [*]
+    refuted --> [*]
 ```
 
 Every claim carries PROV-O provenance: which source, which extractor, which version, when. A SHACL violation surfaces as a warning at ingest time and as a hard fail at the release gate.
 
-Bayesian belief propagation, added in Bundle C, reads the ledger plus the conflict log and writes a posterior probability to each claim, conditioned on its supporting and refuting evidence. Claims dropping below a configurable floor receive a `pin_low_confidence` axiom and surface in the `posterior-floor` competency query — a SPARQL query that asks which claims the ledger accepted with insufficient evidence. Bundle C also introduced abductive counter-claim generation: given a load-bearing claim, the system synthesises a plausible rival hypothesis and writes it to `counter-claims.jsonl`. Any chapter whose contract references the original claim must address the rival before its release gate passes.
+### Bayesian belief propagation
+
+Belief propagation runs a Bayesian damping pass over the provenance DAG so a single source cannot double-count by appearing twice in the witness chain. `propagate_belief.py` iterates up to 20 rounds, converging at delta less than 10⁻⁴. Open counter-claims damp the posterior by ×0.95 per round; addressed counter-claims by ×0.85; dismissed counter-claims do not damp. Posteriors clamp to [0.05, 0.95] so no claim becomes either an unfalsifiable axiom or an unredeemable falsehood. The propagation writes timestamped snapshots to `claims/snapshots/` and appends `p_posterior` records to the ledger; it is advisory, not blocking, and feeds the defeasible competency queries that the preflight does block on.
+
+### Closed-loop ledger writeback
+
+The Bundle C closed-loop ledger lets a defect surfaced at the release stage correct the underlying facts for the next run. The data flow:
+
+```mermaid
+graph LR
+    qa[book-qa<br/>release gate] --> proposed[(proposed-transitions.jsonl)]
+    proposed --> apply[book-knowledge.apply_writeback]
+    apply --> ledger[(claims/ledger.jsonl)]
+    apply --> events[(claims/events.jsonl)]
+    ledger --> preflight[next chapter preflight<br/>SHACL + competency queries]
+    preflight --> qa
+```
+
+`apply_writeback` is the only mutator of `claims/` outside book-knowledge's own ingest path; it lives in book-knowledge to preserve the ledger-ownership invariant. The writeback transitions a verified claim to `refuted` (post-QA evidence against it) or `superseded` (a newer source addressing the same triple). The next chapter's preflight runs against the corrected state, and the SHACL gate rejects any chapter that still cites the refuted claim.
 
 ### Russellian prose discipline
 
@@ -682,6 +871,18 @@ undergo a transformative intellectual journey.
 ```
 
 The Russell version has zero hedges, zero promotional adjectives, an active verb in each clause, and a closing turn no reader anticipated. The AI version has three of the suite's hard-blocked patterns in one sentence: AI vocabulary (*leverage*, *navigate*, *transformative*), a superficial -ing analysis (*ensuring readers undergo...*), and a paragraph that does not earn its place.
+
+The linters enforce the discipline, not only describe it. Point `lint_hedges` at a hedged draft line and it names the offending token and the rule it breaks:
+
+```text
+$ python -m lint_hedges draft.md
+draft.md:1  no-hedging  hedge token "might" — replace with a falsifiable threshold
+
+  before:  The script might fail if the server is under heavy load.
+  after:   The script fails when server CPU utilization exceeds 90 percent.
+```
+
+The rewrite is testable: it names a threshold the reader can check.
 
 | Linter | What it catches |
 |---|---|
@@ -783,7 +984,7 @@ After a chapter passes Russellian linting, seven editorial personas read it. Eac
 
 `review-conductor` distinguishes gating personas from advisory ones: a single `critical` finding from any gating persona returns the chapter for redraft; criticals from advisory personas surface in the report but do not block. The shipped `chapter-default.yaml` makes Gottlieb, Domain Expert, Copyeditor, and AI-Slop Detector gating; the other three advisory.
 
-The personas do not rewrite. They flag. Revisions return to `book-compose` for the writer — human or agent — to apply. The conductor also injects Outcomes exemplars into each persona's prompt as few-shot context: seven exemplars drawn from a real seven-persona review run on an earlier draft of this README, each persona seeing one representative finding from its own rubric before reading the new chapter.
+The personas do not rewrite. They flag. Revisions return to `book-compose` for the writer — human or agent — to apply. The conductor also injects Outcomes exemplars into each persona's prompt as few-shot context: one representative finding per persona rubric, so each persona sees an example from its own lens before reading the new chapter.
 
 ### The defect taxonomy
 
@@ -934,7 +1135,202 @@ Three Bundle C invariants make the loop safe. `propagate_belief.run` deduplicate
 
 The Bundle C runbook (`docs/operations/2026-05-12-bundle-c-runbook.md`) walks the four phases on the Bermuda workspace.
 
+## The QA grammar
+
+<!-- voice: technical-exposition -->
+
+Roughly ninety distinct checks enforce the suite's quality contract, distributed across six skills plus a sibling. The distribution is not arbitrary: each skill owns the defect family it knows best. `russellian-style` owns sentence- and paragraph-level prose discipline; `feynman-style` owns the prose-integrity and stylometric gates on the second pass; `halmos` owns cross-chapter linkage, seam continuity, and spiral-coherence; `book-qa` owns release-gate structural defects; `book-thesis` owns argument-spine consistency; `book-knowledge` owns claim-shape and provenance integrity; `humanizer` (loaded as a sibling, not embedded here) owns the AI-prose-fingerprint catalog. Ai-vocabulary detection recurs across three of those layers — the suite-wide audit (§13) flags that overlap as drift worth consolidating.
+
+The master inventory lives at `docs/audits/2026-05-21-suite-wide-linter-review.md`. This section surfaces the shape of each linter surface — counts, severity tiers, and the most diagnostic examples — so that a reader who understands the pipeline can locate where any given defect class fires and how serious a hit is.
+
+### russellian-style — 17 prose rules
+
+A single `_LINTER_REGISTRY` in `skills/russellian-style/scripts/` holds all seventeen rules. Ten are gating: `skill_api.lint_fragment(text)` runs them by default. The other seven are advisory, invisible to that entry point unless the caller names them via `linters=`. The fuller chapter-level pass — `style_pass_report.generate_report_dict(path)` — runs all 17 and returns `negative_metrics`, `vitality_metrics` (Fano factor, `russell_vitality_score`), and `positive_checks` (concession-turn count, concrete-instance count).
+
+Advisory rules hide behind paragraph scope; chapter context reveals their signal. `staccato-paragraph-run` targets AI-style alternating short/long paragraphs; `paragraph-motion` catches chapters that never shift rhetorical gear; `concrete-instance-density` flags abstract argument spines with no named specifics. Operators rarely know to request them by name, which is why §13 recommendation 2 proposes a `lint_fragment(text, all=True)` shorthand.
+
+**10 gating rules:**
+
+| Rule | Catches | Needs |
+| --- | --- | --- |
+| `no-hedging` | Qualificative hedge words detected by regex | pure regex |
+| `active-voice` | Passive constructions via dep-parse | spaCy |
+| `signal-density` | Low information-per-word ratio | spaCy |
+| `parallel-structure` | Broken list parallelism | spaCy |
+| `listicle-abstract` | Opening paragraph formed as a bullet list | — |
+| `listicle-anaphora` | Every list item opening with the same word | — |
+| `rhythm-uniform-length` | All sentences within ±10 % of mean length | — |
+| `rhythm-repeated-opening` | Three or more sentences opening identically | — |
+| `burstiness` | Flat sentence-length variance (low Fano factor) | — |
+| `ai-vocabulary` | Word list of suite-prohibited AI terms; humanizer sibling can extend it at runtime | optional humanizer |
+
+**7 advisory rules:**
+
+| Rule | Catches | Needs |
+| --- | --- | --- |
+| `staccato-paragraph-run` | AI-pattern of alternating short and long paragraphs | — |
+| `negation-affirmation-template` | "Not X, but Y" template overuse | — |
+| `this-is-conclusion-overuse` | "this shows / this demonstrates" overuse | — |
+| `abstract-subject-run` | Run of sentences with abstract noun subjects | spaCy |
+| `concrete-instance-density` | Low ratio of named entities to abstract claims | spaCy |
+| `epistemic-precision` | Vague epistemic phrases lacking quantification | — |
+| `paragraph-motion` | Chapter never shifts rhetorical mode | — |
+
+### feynman-style — 2 gate classes (Surface + Integrity)
+
+`feynman-style` partitions its acceptance tests into two linter classes. Surface linters check whether prose has Russellian surface violations; on Feynman-final prose, these are omitted from acceptance tests (the second pass deliberately softens some surface patterns). Integrity linters verify that the argument structure — claims, logical connectives, and evidence references — survived the Feynman rewrite intact. The `preserve_argument` hard gate aggregates the Integrity class: a `false` result returns the fragment to the author without writing changes.
+
+| Class | What it enforces | Gate |
+| --- | --- | --- |
+| Integrity — `preserve_argument` | Claims, logical connectives, and evidence references match the pre-pass input | hard gate (blocks write) |
+| Integrity — stylometric score | L1 distance between fragment and Feynman corpus stays within threshold | advisory on first pass; configurable to gating |
+| Surface | Russellian surface linters (omitted from acceptance tests on Feynman-final prose) | omitted on Feynman-final; run on pre-pass for baseline |
+
+The stylometric scorer uses a relative-frequency L1 distance over a closed, offline local-drop corpus. No network calls.
+
+### halmos — 2 check layers (deterministic + agent)
+
+`halmos` instruments cross-chapter structural coherence. The deterministic layer runs `broken-seam` detection: it flags when the N-1 chapter close shares no salient term with the N chapter open. The agent layer dispatches a Halmos-reviewer subagent against `references/halmos-doctrine.md`, which checks seven named patterns: orphan-reference, continuity-gap, missed-recall, spiral-stall, terminology-drift, premature-definition, and a `spiral_coherence` verdict.
+
+| Check | Layer | Severity |
+| --- | --- | --- |
+| `broken-seam` | deterministic | critical (blocks chapter advance when `halmos_critical_count > 0`) |
+| `orphan-reference` | agent | critical |
+| `continuity-gap` | agent | critical |
+| `missed-recall` | agent | important |
+| `spiral-stall` | agent | important |
+| `terminology-drift` | agent | important |
+| `premature-definition` | agent | important |
+| `spiral_coherence` verdict | agent | informational (pass/fail narrative) |
+
+`book-compose.chapter_contract_check` reads `halmos-verdict.json` and blocks chapter advance when `halmos_critical_count > 0`. The deterministic layer cannot detect reference-before-introduction (by construction, `intro_n <= N`); the agent owns that check using the references/introduces inventory.
+
+### book-qa — 28 release-gate checks
+
+`skills/book-qa/scripts/lint_artifact.py` runs eight deterministic D-class checks. Four more (D9–D12) consume defect files that `book-thesis` writes. One optional check (D13) calls `neurosym-forge`. `dispatch_chapter_qa.py` fans out fifteen C-class dimensions across ten parallel chapter agents. All 28 feed `qa/sentinel.json`. Hard-fail policy: any critical D1–D8 hit, any C2 (cross-reference) or C13 (citation-completeness) hit, or any critical C-class finding blocks release. `healer.py` runs up to three repair iterations per ticket before escalating to the operator. `qa-waivers.yaml` in the workspace stores accepted exceptions.
+
+`book-qa` ships no `skill_api.py` — CLI-only, workspace-presupposing. §13 recommendation 4 proposes a thin wrapper.
+
+**D1–D8 deterministic:**
+
+| ID | Catches | Severity |
+| --- | --- | --- |
+| D1 | Orphan `clm-` citation tokens with no ledger entry | critical |
+| D2 | Raw markdown bleed inside HTML blocks | critical |
+| D3 | Broken cross-references (figures, footnotes, ToC entries) | critical / minor |
+| D4 | Heading level errors: missing h1 or skipped level | critical / minor |
+| D5 | Count-contract failures (word, footnote, figure targets) | minor |
+| D6 | Paragraph-length variance outside CV [0.4, 1.2] | minor |
+| D7 | CSS-reset clobber (Tailwind preflight without h1 override) | critical |
+| D8 | Broken image paths (asset 404s) | critical |
+
+**D9–D12 thesis-derived** (sourced from `qa/supports-defects.json`, `qa/datalog-defects.json`, `qa/entailment-results.json`):
+
+| ID | Catches | Severity |
+| --- | --- | --- |
+| D9 | Paragraph orphan — no `supports:` chain reaches `:Thesis` | critical |
+| D10 | Transitive contradiction via Datalog | critical |
+| D11 | LLM-critic entailment verdict of `contradicts` or `unrelated` | critical |
+| D12 | Unadvanced sub-argument (thesis node with no supporting paragraph) | important |
+
+**D13 (optional):** `neurosym-forge` verification-unsatisfiability. Fires only when `qa-config.yaml` sets `enable_verification: true`. Critical on hit.
+
+**C1–C15 chapter swarm:** one fresh-context agent per chapter, ten dispatch slots, checking: heading-hierarchy, cross-references, footnote-quality, citation-noise, HTML-block-hygiene, terminology-consistency, scene-anchoring, sidebar-quality, table-quality, paragraph-length-variance, Russell-style-discipline, citation-completeness, closing-strength, image-alt-text, print-ready-format.
+
+### book-thesis — 5 check classes
+
+`book-thesis` instruments the argument spine. Its linters write the defect files that D9–D12 consume; the two skills share defect-class vocabulary by design. `lint_supports.py` covers orphan paragraphs, broken and unreachable supports pointers, and unadvanced sub-arguments — all feeding D9 and D12. `dispatch_entailment.py` assembles per-paragraph payloads for the LLM critic that populates D11. `datalog_consistency.py` runs seven Datalog rules feeding D9, D10, D11, and D12.
+
+| Check | Script | Defect class |
+| --- | --- | --- |
+| Orphan paragraph (no `supports:`) | `lint_supports.py` | D9 |
+| Broken supports pointer | `lint_supports.py` | D9 |
+| Unreachable supports node | `lint_supports.py` | D9 |
+| Unadvanced sub-argument | `lint_supports.py` | D12 |
+| Per-paragraph entailment payload | `dispatch_entailment.py` | feeds D11 |
+| Datalog: direct contradiction | `datalog_consistency.py` | D10 |
+| Datalog: transitive contradiction | `datalog_consistency.py` | D10 |
+| Datalog: declared conflict | `datalog_consistency.py` | D11 |
+| Datalog: orphan paragraph | `datalog_consistency.py` | D9 |
+| Datalog: unreachable supports | `datalog_consistency.py` | D11 |
+| Datalog: unadvanced sub-arg | `datalog_consistency.py` | D12 |
+| Datalog: missing evidence | `datalog_consistency.py` | D12 |
+
+All `book-thesis` linters are CLI-only; no `skill_api` entry point exists. §13 recommendation 5 notes this gap.
+
+### book-knowledge — SHACL + SPARQL + Bayesian
+
+Three layers enforce claim-shape integrity. SHACL validates graph structure first: `tbf:ClaimShape` requires one `schema:text`, a status drawn from a five-state enum, a confidence value in [0, 1], and at least one source span; verified claims must also carry `prov:wasDerivedFrom`. `tbf:ChapterSectionShape` constrains sections to cite only verified claims. Either shape violation blocks the stage-2 preflight gate in `book-compose`.
+
+Eight SPARQL competency queries exercise the claim graph after SHACL passes. Four coverage queries confirm at least one verified claim per topic area. One consistency query checks for simultaneous `verified` and `refuted` status on the same claim. Three defeasible queries carry severity metadata; under `BLOCKING_DEFEASIBLE = True` (the default), the first two are hard-failures.
+
+Bayesian belief propagation (`propagate_belief.py`) damps claim posteriors by ×0.95, ×0.85, or 1.0 based on counter-claim status, running up to 20 rounds. Advisory, not blocking. Antonym-pair contradiction detection (`detect_conflicts.py`) scans twelve antonym pairs over verified claims, flips matches to `disputed`, and appends findings to `claims/conflicts.jsonl`. Locator verification (`verify_claim.py`) cross-checks proposed claim text against its declared source span before promoting the claim to `verified`.
+
+### humanizer sibling — 24 patterns
+
+`sibling_skills.py` loads `humanizer` from `~/.claude/skills/humanizer/SKILL.md` at runtime; the skill sits outside this repository by design. Keeping patterns external means catalog updates reach every consumer without modifying any in-repo code.
+
+The 24 named patterns cover: undue significance, notability/coverage, superficial -ing analyses, promotional language, vague attributions, challenges/future-prospects templates, AI vocabulary (`delve`, `tapestry`, `underscore`, `pivotal`, `showcase`), copula avoidance, negative parallelisms, rule-of-three overuse, elegant variation, false ranges, em-dash overuse, boldface overuse, inline-header lists, Title Case in headings, emojis, curly quotes, collaborative artifacts, knowledge-cutoff disclaimers, sycophantic tone, filler phrases, excessive hedging, and generic positive conclusions.
+
+`russellian-style.lint_ai_vocabulary` reads and augments its own word list from that same SKILL.md at runtime — the augmentation path that §13 recommendation 3 proposes consolidating into a single canonical source.
+
+### Cross-skill coverage map
+
+```mermaid
+graph LR
+    subgraph rs[russellian-style — 17 rules]
+        rsg[10 gating]
+        rsa[7 advisory]
+    end
+    subgraph fs[feynman-style — 2 gate classes]
+        fsi[Integrity: preserve_argument<br/>+ stylometric score]
+        fss[Surface: omitted on Feynman-final]
+    end
+    subgraph hl[halmos — 2 check layers]
+        hld[deterministic: broken-seam]
+        hla[agent: 7 doctrine checks]
+    end
+    subgraph qa[book-qa — 28 checks]
+        qad[D1-D8 deterministic]
+        qadt[D9-D12 thesis-derived]
+        qac[C1-C15 chapter swarm]
+        qadv[D13 optional verification]
+    end
+    subgraph bt[book-thesis — 5 classes]
+        bts[lint_supports]
+        btd[7 datalog rules]
+    end
+    subgraph bk[book-knowledge — SHACL + SPARQL]
+        bks[2 SHACL shapes]
+        bkq[8 competency queries]
+        bkb[Bayesian belief]
+        bkc[antonym detection]
+    end
+    subgraph hm[humanizer sibling — 24 patterns]
+        hmp[ai-vocabulary catalog]
+    end
+    bt --> qadt
+    bkb -.-> bkq
+    rs <-.-> hm
+    rs --> fs
+    hl -. halmos_critical_count .-> qa
+```
+
+### Known fragmentation
+
+<!-- lint-disable: listicle-abstract, parallel-structure reason=fragmentation enumeration is intentional and items name distinct components -->
+<!-- lint-disable: signal-density reason=table rows parsed as prose trigger false-positive modifier-ratio scores -->
+
+The suite-wide audit (§13) surfaces five structural gaps in linter coverage and invocability. Each links to the ranked recommendation that addresses it:
+
+- `ai-vocabulary` is detected in three places — `russellian-style.lint_ai_vocabulary`, `book-compose/scripts/humanizer_pass.py`, and the humanizer sibling itself — with three pattern lists that drift independently (recommendation 3).
+- Seven advisory `russellian-style` rules are hidden from the `lint_fragment` default entry point; operators do not know to name them explicitly (recommendation 2).
+- No automatic post-generation lint trigger exists: Claude has no standing instruction to run `lint_fragment` after generating prose, which is the gap the audit's session exposed (recommendation 1).
+- `book-qa` is CLI-only with no `skill_api.py`; Claude cannot invoke the post-build gate on raw prose from a chat session (recommendation 4).
+- The cross-tool `scripts.*` namespace collision causes `lint_fragment` to silently return `[]` when called from inside another skill's venv; the workaround in `lint_samples.py` is not a structural fix (recommendation 7).
+
 ## Quickstart
+<!-- voice: technical-exposition -->
 
 Two audiences use this suite differently. Authors care about workspace initialisation, source ingestion, and the chapter pipeline. Engineers care about venv setup, test invocation, and the architectural sections that explain why the pieces fit as they do.
 
@@ -949,7 +1345,7 @@ git clone https://github.com/CharlesHoskinson/russellian-book-suite.git
 cd russellian-book-suite
 ```
 
-2. **Install the skills into Claude Code.** Copy one skill at a time or run the batch loop for all seven core skills. `neurosym-forge` is optional; omit it unless you need the verifier track.
+2. **Install the skills into Claude Code.** Copy one skill at a time or run the batch loop for all ten core skills. `neurosym-forge` is optional; omit it unless you need the verifier track.
 
 ```bash
 # single skill
@@ -958,13 +1354,13 @@ cd ~/.claude/skills/book-qa
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"
 
-# all seven core skills (bash)
-for skill in russellian-style book-knowledge book-compose book-review review-conductor book-qa book-thesis; do
+# all ten core skills (bash)
+for skill in russellian-style feynman-style halmos book-knowledge book-compose book-review review-conductor book-qa book-thesis paragraph-weaver; do
   cp -r skills/$skill ~/.claude/skills/$skill
 done
 
 # PowerShell equivalent
-foreach ($skill in 'russellian-style','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis') {
+foreach ($skill in 'russellian-style','feynman-style','halmos','book-knowledge','book-compose','book-review','review-conductor','book-qa','book-thesis','paragraph-weaver') {
   Copy-Item -Recurse "skills\$skill" "$env:USERPROFILE\.claude\skills\$skill"
 }
 ```
@@ -1047,60 +1443,139 @@ python -m venv .venv
 
 5. **Read [Contributing](#contributing) before opening a PR.** The lint gate is mandatory; a PR that introduces gating violations will not be merged regardless of test status.
 
+### Linting prose on demand
+
+The russellian-style skill exposes `lint_fragment(text, linters=None)` as its public API. Without a chapter pipeline or a workspace, an operator can lint any markdown string. The default call runs 10 gating rules; passing `linters=ALL_17_RULES` runs the full registry (see §10 The QA grammar).
+
+The standard invocation pattern works when nothing else has registered a `scripts` package in `sys.modules`. Callers that invoke `lint_fragment` from inside another tool (build-russell-corpus, russellian-style-audit, readme-lint) must apply the audit's sys.modules namespace-eviction workaround — see those tools for the pattern, or wait for recommendation #7 in §13 to make the workaround unnecessary.
+
+```python
+import sys
+sys.path.insert(0, "/path/to/russellian-book-suite/skills/russellian-style")
+from skill_api import lint_fragment
+
+text = "The script provisions the server in four seconds."
+issues = lint_fragment(text)
+for issue in issues:
+    print(f"[{issue.linter}] L{issue.line}: {issue.message}")
+```
+
+The 10 gating rules are the discipline a chapter draft must clear before the persona panel will read it; the 7 advisory rules are calibration hints that the panel and the writer take as guidance, not as gates.
+
+### Wiring a live LLM caller
+
+The corpus-expansion tool (`tools/build-russell-corpus/`) and the audit tool (`tools/russellian-style-audit/`) both call an Anthropic API for their LLM stages. The caller lives at `tools/build-russell-corpus/scripts/live_llm.py` and exposes three functions: `extract_llm(prompt)` for corpus extraction, `cross_check_llm(prompt)` for tag verification, and `generate(prompt, model, max_tokens, temperature)` for general-purpose generation (used by the audit's sample-text stage).
+
+Both tools read `ANTHROPIC_API_KEY` from the environment. Without it, every call raises `RuntimeError` with a clear message; no network round-trip is attempted. Model selection comes from `tools/build-russell-corpus/assets/llm-config.yaml` — extract uses `claude-opus-4-7`, cross-check uses `claude-sonnet-4-6`, and the audit's sample-text generation uses `claude-opus-4-7` at temperature 0.7.
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+cd tools/build-russell-corpus
+.venv/bin/python -m scripts.cli extract \
+    --source /path/to/cached-source.html \
+    --source-id problems \
+    --source-url https://example.com/source \
+    --vocabulary assets/vocabulary.json \
+    --prompt assets/extractor-prompt.md \
+    --out runs/<batch-id>/candidates.jsonl \
+    --n 50
+```
+
+The Python-side API call is the current architectural boundary. The proposed MCP-server refactor flagged in §13 (recommendation about the live_llm boundary) would let Claude-in-session proxy the call through the harness, eliminating the separate API key requirement for chat-driven runs. Both shapes are open; the right choice depends on whether the primary invocation surface is operator-driven CLI or Claude-driven chat.
+
 ## End-to-end: the Bermuda manual
 
-The Bermuda workspace predates Tier 1. The metabook tier (Tier 1) adds an upstream acquisition stage — `scrapling-fetch` harvesting sources, `syntopical-metabook` building the world-model layer — which the Bermuda workspace did not exercise. What follows is a Tier 2 + Tier 3 end-to-end: ledger synthesis, chapter drafting, QA gate, and release. A separate follow-up example will demonstrate the acquisition stage once a workspace exists that runs `scrapling-fetch` and `syntopical-metabook` from a clean start.
+<!-- voice: narrative-editorial -->
+<!-- lint-disable: staccato-paragraph-run reason=scene-anchored short sentences are deliberate -->
 
-This pipeline produced a ten-chapter, ~28,000-word non-fiction book on contemporary Bermuda. The workspace at `examples/bermuda-manual/` is the proof.
+Charles opens `examples/bermuda-manual/` and finds a workspace whose work is already done. The release sits in `book/releases/6.0.0/manuscript.md`: ten chapters, twenty-eight thousand words on contemporary Bermuda, committed in May 2026. He did not write it. He is reading what his suite wrote.
 
-What "proof" means here requires a qualification. `tools/synthesize_bermuda_ledger.py` built the Bermuda ledger from a thesis YAML, not from an ingested PDF corpus. The thesis describes the argument structure; the tool produced a matching claim ledger, which the rest of the pipeline then drafted, reviewed, and shipped end-to-end. This validates the drafting → review → release chain on a real-shaped workload. `book-knowledge`'s own test suite exercises the PDF-ingest path, but no full Bermuda-scale build has yet run from PDF sources. A future release will rebuild the workspace from primary sources — Bermuda Government statistics, Department of Tourism reports, Association of Bermuda Insurers and Reinsurers (ABIR) data.
+He opens `book-manifest.yaml`. Two booleans declare the gates the manuscript cleared on its way out: `shacl_conforms: true`, `competency_clean: true`. The first says the projected RDF graph satisfies every shape in `shapes.ttl` — every claim carries a status from the five-state enum, every chapter section cites only verified claims, every required field holds a value. Eight competency queries returned zero rows for the second: no orphan wiki pages, no unsupported claims, no transitive contradictions, no posterior-floor violations, no open rebuttals against load-bearing claims. Both gates fired clean and the release-builder let the manuscript ship.
 
-What the v6.0.0 release contains:
+One further line in the manifest deserves the operator's careful attention. `sources_bibliography: [thesis]`. Not a corpus of PDFs. Not Bermuda Government statistics, not Department of Tourism reports, not the ABIR data tables. A single source named `thesis`, which points back to a YAML file in `thesis/` that lays out the argument structure of the book. From that YAML, `tools/synthesize_bermuda_ledger.py` produced the Bermuda claim ledger. Everything downstream — drafting, persona review, QA swarm, release — ran end-to-end against the synthesized ledger. Tier 1's acquisition chain (`scrapling-fetch` harvesting sources, `syntopical-metabook` building a world-model from primary documents) sat out this build.
 
+The qualification matters. Charles is looking at proof that the gates fire — not proof that the gates fire on a workspace whose ingest the suite has never seen before. His ledger carries the shape of a real ledger: ten claims, posterior probabilities, counter-claim arrays, status enums, source spans. His chapter contracts carry the shape of real contracts: section headings, abstract seeds, word-count targets, supports_chapters arrays. Downstream of the ledger, nothing in the pipeline can tell that the source was synthetic; every stage processes the data as if a Tier 1 acquisition produced it. So what Charles sees here is the Tier 2 plus Tier 3 chain under genuine load — the gates exercised end-to-end against a ledger that obeys every contract a real ingest would have to obey.
+
+Open `manuscript.md` and read Chapter 1. The first paragraph puts the reader on Nonsuch Island at dusk in late October — fifteen acres of limestone, salt and dry-grass smell off Castle Harbour, a Bermuda petrel returning from sixty days at sea, dropping into a concrete burrow as no light shows. A drafting agent wrote it against the chapter contract; the persona panel reviewed it; the linters fired against the prose during drafting and again at release; the QA swarm read every paragraph for claim-coverage, rebuttal-coverage, counter-claim treatment. Earlier versions failed the gates. Version six cleared them.
+
+Here is a paragraph that release shipped, from Chapter 1:
+
+> *In 1962 Wingate took up residence on Nonsuch Island, a stripped fifteen-acre limestone block in Castle Harbour, and began to replant it. He planted Bermuda cedar from seed. He planted palmetto. He cleared casuarina and pepper by hand. […] Over the next forty years the cahow population rose from eighteen breeding pairs to over a hundred. The project ran on one man and a typewriter.*
+
+On those same fifteen acres, Wingate brought back a bird the colony had given up for dead three centuries earlier.
+
+Open `claims-bibliography.jsonl`. Each line carries one claim cited in the manuscript, with its canonical text, its posterior probability, its source spans, its counter-claim ids, and its supports_chapters array. The bibliography projects the ledger down to exactly the claims the release cites. Every footnote in the manuscript that points to a claim id resolves here; every claim here turns up at least once in the manuscript. By construction the mapping is bijective, and the release-builder refuses to ship if it isn't.
+
+The workspace tree carries the rest of the story. `chapters/contracts/` holds the ten chapter contracts. `graph/dataset.trig` holds the projected RDF graph that the SHACL validator chewed through. `graph/reports/competency-*.md` holds the eight competency-query result tables, each with a zero-row body. `qa/` holds the swarm findings and the per-chapter tickets the earlier release iterations closed. `book/releases/` holds 3.0.0 alongside 6.0.0 — three release attempts the gates rejected, and the one they accepted. The history sits on disk; Charles can scroll through every version that did not ship.
+
+What the Bermuda manual proves is bounded and exact. It proves the SHACL shapes work; it proves the competency queries work; it proves the chapter contracts admit a real drafting workload; it proves the bibliography projection stays faithful to the manuscript; it proves the suite refuses to ship a release whose gates have not fired clean. What the manual does not yet prove is that the same gates fire correctly on a workspace built from PDF primary sources instead of a synthesized ledger. That validation belongs to the next example — the one that runs Tier 1 at Bermuda scale against ABIR data and government statistics the suite has never previously touched.
+
+## Auditing the suite
+
+<!-- voice: mixed -->
+
+This suite lints other people's prose. The section below records what it found when it linted itself. Two bugs surfaced in the first audit pass — a `sys.modules` namespace collision that silently returned zero issues to any cross-tool caller, and an operator-gate contract mismatch that would have crashed the audit after spending live API credits. Eight recommendations followed; the table below carries each one with its current status. None are closed by this rewrite.
+
+### The audit-bundle pattern
+
+Audit results live in `docs/audits/`. Each bundle occupies its own subdirectory named `<date>-<topic>/` — for example, `docs/audits/2026-05-21-russellian-style/`. A bundle contains a `README.md` that states the audit scope and outcome verdict, per-stage report files for each check that ran, sample texts that the linters processed during the audit, and a run ledger recording which commands executed and in what order. Flat single-file audits that do not require sample texts ship as a single `.md` file directly under `docs/audits/`, not in a subdirectory.
+
+CI does not enforce the bundle structure — the convention holds by agreement, not by gate. Anyone cloning the repository can navigate to a bundle, read the run ledger, and reproduce the audit commands exactly as they ran.
+
+### The two most recent audits
+
+`docs/audits/2026-05-21-russellian-style/` is a per-skill audit of the `russellian-style` linter. It ran five health checks — import, API surface, unit-test coverage, sample-text round-trip, and venv portability — against three sample texts drawn from the suite's own README. The outcome verdict is WARN: consumer virtualenvs created by a fresh clone were missing the spaCy model download step, which caused the sample-text round-trip to fail on a clean machine. Two of the three samples passed end-to-end. The venv portability gap is recommendation 7's prerequisite.
+
+`docs/audits/2026-05-21-suite-wide-linter-review.md` is the suite-wide review. It ran more than 80 checks across five skills and one sibling tool, examining rule coverage, API surface consistency, cross-tool calling contracts, and namespace hygiene. The review produced 8 ranked recommendations; the namespace collision and the operator-gate mismatch surfaced here. The table below carries them.
+
+### The 8 ranked recommendations
+
+<!-- lint-disable: signal-density reason=table rows trigger false-positive modifier ratios -->
+
+| # | Recommendation | Status | Source |
+| --- | --- | --- | --- |
+| 1 | Automatic post-generation lint trigger in `russellian-style` SKILL.md | Open | `docs/audits/2026-05-21-suite-wide-linter-review.md` |
+| 2 | Promote 7 advisory rules to `lint_fragment` default (or add `all=True` keyword) | Open | same |
+| 3 | Unify the 3 `ai-vocabulary` detectors | Open | same |
+| 4 | Give `book-qa` a `skill_api.py` | Open | same |
+| 5 | Prose linting in lefthook pre-commit | Partial — `readme-lint` hook ships in this rewrite | same |
+| 6 | `make audit` master target | Open | same |
+| 7 | Rename each skill's `scripts/` package to fix the namespace collision | Open | same |
+| 8 | `docs/skill-triggers.md` master index | Open | same |
+
+<!-- lint-enable: signal-density -->
+
+### The live_llm architectural boundary
+
+```mermaid
+graph LR
+    subgraph current[Current — Python-side API call]
+        A1[audit subprocess<br/>python -m scripts.run] --> A2[live_llm.extract_llm<br/>live_llm.cross_check_llm<br/>live_llm.generate]
+        A2 --> A3{ANTHROPIC_API_KEY<br/>in env?}
+        A3 -->|yes| A4[anthropic.Anthropic<br/>.messages.create]
+        A3 -->|no| A5[RuntimeError]
+        A4 --> A6[Anthropic API]
+    end
+    subgraph proposed[Proposed — MCP server proxy]
+        B1[audit subprocess] --> B2[mcp_anthropic.call<br/>via local MCP server]
+        B2 --> B3[Claude Code harness]
+        B3 --> B4[active session<br/>same Claude as chat]
+        B4 --> B5[Anthropic API]
+    end
 ```
-examples/bermuda-manual/
-├── CLAUDE.md                          # workspace marker
-├── raw/manifests/thesis.json          # the synthesized source
-├── claims/                            # ledger (10 claims, 1 thesis source)
-├── graph/dataset.trig                 # projected RDF graph
-├── graph/reports/competency-*.md      # competency-query results (all clean)
-├── chapters/contracts/ch-01..10.yaml  # 10 chapter contracts
-├── book/releases/
-│   ├── 3.0.0/                         # earlier release for comparison
-│   └── 6.0.0/                         # current release
-│       ├── manuscript.md              # 10 chapters, ~28,000 words
-│       ├── manuscript.html            # React/Tailwind browser
-│       ├── manuscript.pdf             # Playwright render (cover/TOC only in v6.0.0; full-body PDF render is a known limitation)
-│       ├── claims-bibliography.jsonl  # one record per claim cited in the release
-│       ├── book-manifest.yaml
-│       ├── summary.json
-│       └── chapter-bundles/ch-01..10-v6/
-├── qa/                                # swarm findings, chapter tickets
-├── reports/                           # cross-version release reports
-└── thesis/                            # bermuda thesis YAML
-```
 
-The v6.0.0 manifest declares the gate results:
+`live_llm.py` makes its calls from inside a Python subprocess that requires `ANTHROPIC_API_KEY` in its own environment. This is what an operator runs from the CLI: `python -m scripts.run`. The audit subprocess receives credentials, calls `anthropic.Anthropic().messages.create`, gets a response, continues. It runs independent of any Claude Code session in the foreground; if Claude is the operator, the subprocess does NOT inherit the harness's credentials.
 
-```yaml
-book_id: bermuda-manual
-built_at: '2026-05-13T01:22:49+00:00'
-title: Life in Bermuda
-version: 6.0.0
-chapters_included: [ch-01, …, ch-10]
-chapter_versions: {ch-01: v6, …, ch-10: v6}
-total_word_count: 36762                # counted on the assembled HTML;
-                                       # `wc -w` on the .md returns 28,018
-sources_bibliography:
-  - thesis
-shacl_conforms: true                   # graph validates against shapes.ttl
-competency_clean: true                 # all 8 competency queries return zero rows
-outputs: [manuscript.md, manuscript.html, manuscript.pdf]
-```
+Under the MCP-server alternative, Claude in the active session proxies the API call through the harness. The audit subprocess calls into a local MCP server that exposes `messages.create` as a tool; the MCP server routes the call through the running Claude Code harness, which makes the actual Anthropic call with its own session credentials. The audit gets the response without needing a separate API key.
 
-`shacl_conforms: true` confirms the projected RDF graph validates against `shapes.ttl`. `competency_clean: true` means all eight competency queries return zero rows — no orphan wiki pages, no unsupported claims, no transitive contradictions, no posterior-floor violations, no open rebuttals against load-bearing claims. The distinction matters: a graph that passes structure checks can still fail a competency query if the manuscript cites a claim without provenance support. Both gates must pass.
+Which shape fits depends on whether the suite's primary invocation surface is operator-driven (CLI; current path is correct) or Claude-driven (chat; MCP-server is correct). Both shapes will prove necessary; the architectural follow-up is to ship both and let the operator choose at invocation time. Both are open.
+
+### Updating this section
+
+Future suite-wide audits update the status column of the recommendations table above in place. Each new audit bundle goes into `docs/audits/` following the bundle pattern; whoever runs it updates the two-audit summary above to point at the new most-recent pair. This section accumulates status changes, not descriptions of past states.
 
 ## Local-only constraint
+<!-- voice: technical-exposition -->
 
 No paid APIs. No telemetry. The suite routes every outbound HTTP call through `scrapling-fetch`: it is the single network boundary. Only `scrapling-fetch` imports `requests`, `httpx`, `urllib3`, `aiohttp`, or `playwright`; no other skill does. The `ci/.import-linter` contract enforces the rule; a PR that imports any of those libraries from a skill other than `scrapling-fetch` fails CI before tests run. Everything else in the pipeline runs local.
 
@@ -1116,7 +1591,11 @@ Image sources for visuals come from OpenStreetMap (under the Open Database Licen
 
 LLM calls happen at three points in the pipeline: section drafting (`book-compose` calls a sibling skill or external agent for the first-pass prose), per-paragraph entailment (`book-thesis` Layer 3), and the per-chapter editorial swarm (`book-qa` Stage 2). Every call uses a callable parameter (`llm_call=`); tests pass fake LLM functions. No live network call runs in any test.
 
+One exception sits outside this constraint by design. The `live_llm.py` wrapper in `tools/build-russell-corpus/scripts/` calls the Anthropic API on the operator's authority. It runs only when an operator wires `ANTHROPIC_API_KEY` and invokes the corpus-expansion tool or the audit; the chapter pipeline never calls it. The exception is contained in `tools/`, not `skills/`, and the architectural follow-up flagged in §13 — the MCP-server refactor — would close the tension by routing the call through the active Claude Code session rather than a separate API credential.
+
 ## Repository layout
+
+<!-- voice: technical-exposition -->
 
 One skill per directory under `skills/`; each is self-contained with its own `SKILL.md`, `scripts/`, `tests/`, `.venv/` (gitignored), and `pyproject.toml`. Cross-cutting infrastructure — shared Python loader, CI contracts, documentation tooling — lives at the repo root or in top-level sibling directories, not inside any individual skill.
 
@@ -1129,6 +1608,9 @@ russellian-book-suite/
 │   ├── lint_no_shadow_writes.py
 │   └── test_*.py
 ├── docs/
+│   ├── audits/                   # audit-bundle archive (see §13)
+│   │   ├── 2026-05-21-russellian-style/
+│   │   └── 2026-05-21-suite-wide-linter-review.md
 │   ├── concepts/
 │   ├── operations/
 │   └── qa/                       # NEW (Stage 5 of README refactor)
@@ -1144,38 +1626,42 @@ russellian-book-suite/
 │   ├── book-qa/
 │   ├── book-review/
 │   ├── book-thesis/
+│   ├── feynman-style/             # second prose pass: Russell → Feynman voice
+│   ├── halmos/                    # cross-chapter linkage + spiral-coherence review
 │   ├── neurosym-forge/
+│   ├── paragraph-weaver/          # NEW — thread paragraphs toward a goal
 │   ├── review-conductor/
 │   ├── russellian-style/
 │   ├── scrapling-fetch/          # NEW — Tier 1
 │   └── syntopical-metabook/      # NEW — Tier 1
-├── tools/
-│   └── lint_readme.py            # NEW — README lint helper
+├── tools/                        # one-shot operator runs (see §8 Tools)
+│   ├── build-russell-corpus/     # 50→500 corpus growth pipeline
+│   ├── russellian-style-audit/   # end-to-end audit
+│   └── readme-lint/              # per-section README lint gate
 └── verifiers/
     └── bermuda/
 ```
 
 Read-only boundaries between skills are strict. The metabook accesses scrapling-fetch through `sibling_skills.load_skill_api`, not by direct import; it reads, never writes, the fetch skill's surface. `book-compose` reads only the chapter-lens files that the metabook deposits under `syntopical/lenses/`; the metabook's internals are opaque to it. The workspace directories `raw/`, `claims/`, `wiki/`, and `graph/` are open to every skill for reading, but `book-knowledge` alone writes them.
 
-## Deep QA: how this README was made
-
-Russellian-style's `technical-exposition` system prompt governed every word in this README. Every prose-writing subagent in the refactor loaded the prompt via `system_prompt_loader.load("technical-exposition")` and embedded it as the writer's voice contract before drafting a single sentence. The lint pass confirmed the result; the QA report at `docs/qa/README-QA-2026-05-17.md` carries the per-linter counts.
-
-Twelve linter modules emit seventeen rule names. Six modules gate (eight rule names): `no-hedging`, `active-voice`, `signal-density`, `parallel-structure`, `listicle-abstract`, `listicle-anaphora`, `rhythm-uniform-length`, `rhythm-repeated-opening`. Six modules advise (nine rule names): AI staccato, AI vocabulary, burstiness, concrete-instance-density, epistemic-precision, paragraph-motion. Final gating violations on the assembled README: zero. Advisory findings: 72, each documented in the QA report with the author's disposition. The dominant source of advisory noise was `epistemic-precision` — 70 of the 72 findings — firing on technically-precise sentences that name file paths, version numbers, and numeric thresholds.
-
-This section is the proof. The suite that drafted every other section drafted this one too. The Russell discipline sat in the generation contract, not bolted on after the fact. A reader who doubts the suite's voice can run `python tools/lint_readme.py README.md` locally; the result is reproducible.
-
 ## Documentation
 
-The repo's prose documentation lives in three places. Conceptual docs at `docs/concepts/` cover each skill's design reasoning in one file per topic. Operational runbooks at `docs/operations/` cover deploying, running, and recovering pipeline components. QA reports from the README pass live at `docs/qa/`. Find each skill's `SKILL.md` and its `references/` linked from that skill's mini-tutorial in [The skills](#the-skills).
+<!-- voice: technical-exposition -->
+
+The repo's prose documentation lives in three places. Conceptual docs at `docs/concepts/` cover each skill's design reasoning in one file per topic. Operational runbooks at `docs/operations/` cover deploying, running, and recovering pipeline components. QA reports from the README pass live at `docs/qa/`. Find each skill's `SKILL.md` and its `references/` linked from that skill's mini-tutorial in [The skills](#the-skills). The audit-bundle archive at `docs/audits/` is the newest addition to the doc tree.
 
 - `docs/concepts/neurosym-forge.md` — neurosymbolic verifier scaffolder: scope, layers, and integration boundary
 - `docs/operations/2026-05-12-bundle-c-runbook.md` — Phase-4 operator runbook for Bundle C end-to-end
 - `docs/operations/codex-review-protocol.md` — autonomous whole-repo review protocol for Codex-style agents
 - `docs/operations/neurosym-forge-runbook.md` — operator workflow for the verifier side-channel
-- `docs/qa/` — README QA reports (generated at Stage 5 of the README refactor)
+- `docs/qa/` — README QA reports
+- `docs/specs/2026-05-22-readme-rewrite-design.md` — the spec for this README rewrite
+- `docs/plans/2026-05-22-readme-rewrite.md` — the README rewrite implementation plan
+- `docs/audits/<date>-<topic>/` — audit bundles (see §13)
 
 ## Contributing
+
+<!-- voice: technical-exposition -->
 
 PR reviews use three severity buckets: **P0** (blocker — broken invariant, build failure, security issue), **P1** (must fix before merge — broken doc refs, contract-runtime mismatches, tautological test gates), **P2** (post-merge polish — comment clarity, test strengthening with no current bug). Every finding cites `file:line`. The reviewer writes the verdict to `openspec/changes/<change>/PR-<N>-REVIEW.md`; PR-33-REVIEW.md under `changes/codex-phase-1/` and PR-47-REVIEW.md under `changes/add-syntopical-metabook/` are the standing examples. The verdict line is one of: `approve`, `approve with follow-ups`, `request changes`, `block`.
 
@@ -1187,9 +1673,13 @@ Six checks gate every PR: `cljs-bermuda-test` and `cljs-integration` compile and
 
 Project conventions accumulate in per-session memory files at `~/.claude/projects/.../memory/feedback_*.md`; `feedback_pr_review_style.md` is the primary source this section abstracts. Each skill owns its version in `pyproject.toml`; the suite as a whole declares none. The `API_VERSION` field in each `skill_api.py` governs compatibility; `sibling_skills.load_skill_api(name, expected_major)` raises `IncompatibleSkillApiVersion` on a major mismatch before any skill code executes.
 
+Two workflows are new. First: `make readme-lint` runs the per-section README lint gate. When you edit `README.md`, the lefthook pre-commit hook fires the runner and refuses commits whose sections exceed the gating threshold. Use `<!-- lint-disable: <rule> reason=<short> -->` for legitimate exemptions; every exemption appears in the section it covers, not at the top of the file. Second: the audit pattern under `docs/audits/<date>-<topic>/`. When a contributor makes a substantive change to the suite's discipline — a new linter, a new persona, a renamed function — they run a per-skill audit through `tools/russellian-style-audit/` and commit the bundle alongside the PR. Reviewers read the audit's health-check, the sample-text lint reports, and the bundle's README before approving.
+
 ## License and acknowledgements
 
-MIT. See `LICENSE`.
+<!-- voice: technical-exposition -->
+
+MIT. Copyright (c) 2026 Charles Hoskinson. See `LICENSE`.
 
 Acknowledgements:
 
@@ -1202,3 +1692,4 @@ Acknowledgements:
 - **OpenStreetMap contributors (ODbL)** — base data for the parish and ferry-route maps
 - **The pyShacl, rdflib, spaCy, and pyDatalog maintainers** — the validation and parsing stack
 - **The Wikipedia editors of "Signs of AI writing"** — the AI-fingerprint catalog the `humanizer` skill encodes and the AI-Slop Detector persona delegates to
+- **Charles Hoskinson** — the operator who pushed every PR in the suite's evolution and named the audit pattern

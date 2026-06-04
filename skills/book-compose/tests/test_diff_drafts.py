@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from scripts.diff_drafts import diff_drafts
 
 

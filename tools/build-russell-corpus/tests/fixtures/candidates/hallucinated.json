@@ -1,0 +1,10 @@
+{
+  "candidate_id": "problems-099",
+  "source_id": "problems",
+  "source_url": "https://www.gutenberg.org/cache/epub/5827/pg5827-images.html",
+  "line_hint": 999,
+  "content_locator": "Philosophy proves that all dogs are mortal",
+  "paragraph_text": "Philosophy proves that all dogs are mortal and that Socrates is a dog.",
+  "rhetorical_move_tag": "domain_contrast",
+  "calibration_lesson": "Russell concludes Socrates is a dog through an invalid syllogism."
+}

@@ -1,0 +1,9 @@
+# Phrases that, when they appear in a candidate's calibration_lesson, indicate the lesson
+# is too generic to be useful for calibration. The sentinel surface-filter rejects on hit.
+#
+# Seed list is empty. The operator appends phrases observed during audit of the first batch.
+# Example entries (to be added by operator):
+#   - "uses a concrete example"
+#   - "varies sentence length"
+#   - "Russell writes clearly"
+phrases: []

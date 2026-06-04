@@ -4,28 +4,85 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions-all:
+        patterns:
+          - "*"
 
-  - package-ecosystem: pip
-    directory: /skills/book-qa
+  # Composite-action internals are not scanned by the root github-actions
+  # entry (the v5.6.0 setup-python pin went stale unnoticed); scan them
+  # explicitly.
+  - package-ecosystem: github-actions
+    directory: /.github/actions/setup-book-python
     schedule:
       interval: weekly
+    groups:
+      actions-composite:
+        patterns:
+          - "*"
 
+  # --- pip: one multi-directory entry covering every skill with a pyproject.toml.
+  # Grouped so a weekly cycle produces one PR (one CI run) instead of one per bump.
+  # scrapling-fetch pins scrapling==0.4.8 and pulls in trafilatura/playwright —
+  # the highest-risk supply-chain surface in the repo; it stays watched here,
+  # review its bumps within the grouped PR with extra care.
   - package-ecosystem: pip
-    directory: /skills/book-thesis
+    directories:
+      - /skills/book-compose
+      - /skills/book-knowledge
+      - /skills/book-qa
+      - /skills/book-review
+      - /skills/book-thesis
+      - /skills/feynman-style
+      - /skills/halmos
+      - /skills/neurosym-forge
+      - /skills/paragraph-weaver
+      - /skills/review-conductor
+      - /skills/russellian-style
+      - /skills/scrapling-fetch
+      - /skills/syntopical-metabook
     schedule:
       interval: weekly
+    groups:
+      pip-all:
+        patterns:
+          - "*"
 
-  - package-ecosystem: pip
-    directory: /skills/neurosym-forge
-    schedule:
-      interval: weekly
-
+  # --- cargo: one multi-directory entry per verifier rust-verifier crate ---
   - package-ecosystem: cargo
-    directory: /verifiers/bermuda/rust-verifier
+    directories:
+      - /verifiers/adsc-clinical/rust-verifier
+      - /verifiers/bermuda/rust-verifier
+      - /verifiers/epidemiology/rust-verifier
+      - /verifiers/osmotic_pressure/rust-verifier
     schedule:
       interval: weekly
+    groups:
+      cargo-all:
+        patterns:
+          - "*"
+    # rayon >=1.11 breaks graph_builder 0.4.1 (E0271/E0308 in its edgelist.rs:
+    # EdgeIter relies on rayon's pre-1.11 IntoParallelIterator impl for &Vec).
+    # Drop this ignore once graph_builder ships a rayon-1.11+ compatible release.
+    ignore:
+      - dependency-name: rayon
+        versions: [">=1.11"]
 
+  # --- npm: one multi-directory entry per verifier package.json ---
   - package-ecosystem: npm
-    directory: /verifiers/bermuda
+    directories:
+      - /verifiers/adsc-clinical
+      - /verifiers/bermuda
+      - /verifiers/epidemiology
+      - /verifiers/osmotic_pressure
     schedule:
       interval: weekly
+    groups:
+      npm-all:
+        patterns:
+          - "*"
+
+# NOTE: Clojure (deps.edn) dependencies in all four verifiers have NO native
+# Dependabot ecosystem. They must be reviewed manually or scanned with a tool
+# such as clj-watson / clj-holmes on a regular cadence — Dependabot cannot flag
+# CVEs in their transitive Clojure deps.

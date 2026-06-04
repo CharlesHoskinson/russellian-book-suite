@@ -99,7 +99,13 @@ def load_book_knowledge_module(name: str) -> types.ModuleType:
         raise SiblingNotFoundError(f"could not load spec for {module_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Drop the half-executed module so a retry re-raises the original
+        # error instead of returning a partial module from the cache.
+        sys.modules.pop(full_name, None)
+        raise
     return module
 
 
@@ -136,8 +142,91 @@ def load_russellian_style_module(name: str) -> types.ModuleType:
         raise SiblingNotFoundError(f"could not load spec for {module_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Drop the half-executed module so a retry re-raises the original
+        # error instead of returning a partial module from the cache.
+        sys.modules.pop(full_name, None)
+        raise
     return module
+
+
+_FS_PACKAGE_ALIAS = "_feynman_style_scripts"
+
+
+def feynman_style_root() -> Path:
+    """Resolve feynman-style. Prefer the installed sibling under
+    ~/.claude/skills/feynman-style; fall back to the in-repo sibling
+    (skills/feynman-style alongside book-compose) so the integration works
+    before the global junction is registered."""
+    try:
+        return _resolve("feynman-style")
+    except SiblingNotFoundError:
+        # book-compose root is .../skills/book-compose; sibling is .../skills/feynman-style
+        repo_sibling = Path(__file__).resolve().parent.parent.parent / "feynman-style"
+        if repo_sibling.is_dir() and (repo_sibling / "SKILL.md").is_file():
+            return repo_sibling
+        raise
+
+
+def _ensure_fs_package() -> types.ModuleType:
+    if _FS_PACKAGE_ALIAS in sys.modules:
+        return sys.modules[_FS_PACKAGE_ALIAS]
+    fs_scripts = feynman_style_root() / "scripts"
+    if not fs_scripts.is_dir():
+        raise SiblingNotFoundError(f"feynman-style scripts dir missing: {fs_scripts}")
+    pkg = types.ModuleType(_FS_PACKAGE_ALIAS)
+    pkg.__path__ = [str(fs_scripts)]  # type: ignore[attr-defined]
+    sys.modules[_FS_PACKAGE_ALIAS] = pkg
+    return pkg
+
+
+def load_feynman_style_module(name: str) -> types.ModuleType:
+    """Load a module from feynman-style/scripts/ under an alias namespace.
+
+    Mirrors load_russellian_style_module. feynman-style's linters use relative
+    imports (e.g. `from .lint_common import ...`); loading them under the
+    _feynman_style_scripts alias package resolves those relatives without
+    colliding with book-compose's own top-level `scripts` package.
+    """
+    _ensure_fs_package()
+    full_name = f"{_FS_PACKAGE_ALIAS}.{name}"
+    if full_name in sys.modules:
+        return sys.modules[full_name]
+    fs_scripts = feynman_style_root() / "scripts"
+    module_path = fs_scripts / f"{name}.py"
+    if not module_path.is_file():
+        raise SiblingNotFoundError(f"feynman-style module not found: {module_path}")
+    spec = importlib.util.spec_from_file_location(
+        full_name,
+        module_path,
+        submodule_search_locations=None,
+    )
+    if spec is None or spec.loader is None:
+        raise SiblingNotFoundError(f"could not load spec for {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[full_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Drop the half-executed module so a retry re-raises the original
+        # error instead of returning a partial module from the cache.
+        sys.modules.pop(full_name, None)
+        raise
+    return module
+
+
+def feynman_classify_linter(rule: str) -> str:
+    """Return 'surface' or 'integrity' for a Feynman/Russell rule name, per
+    feynman-style's assets/feynman-rules.json. Defaults to 'surface' for
+    unknown rules. Loaded directly from the JSON asset to avoid importing
+    feynman-style's skill_api (which would collide with book-compose's own
+    top-level `scripts` package)."""
+    import json as _json
+    rules_path = feynman_style_root() / "assets" / "feynman-rules.json"
+    data = _json.loads(rules_path.read_text(encoding="utf-8"))
+    return data.get("linter_class", {}).get(rule, "surface")
 
 
 _BR_PACKAGE_ALIAS = "_book_review_scripts"
@@ -174,7 +263,13 @@ def load_book_review_module(name: str) -> types.ModuleType:
         raise SiblingNotFoundError(f"could not load spec for {module_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Drop the half-executed module so a retry re-raises the original
+        # error instead of returning a partial module from the cache.
+        sys.modules.pop(full_name, None)
+        raise
     return module
 
 
@@ -212,5 +307,11 @@ def load_review_conductor_module(name: str) -> types.ModuleType:
         raise SiblingNotFoundError(f"could not load spec for {module_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Drop the half-executed module so a retry re-raises the original
+        # error instead of returning a partial module from the cache.
+        sys.modules.pop(full_name, None)
+        raise
     return module

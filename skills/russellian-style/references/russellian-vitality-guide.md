@@ -50,3 +50,41 @@ The last sentence of a paragraph is its verdict, not its summary. It should leav
 The negative-rules guide (`russellian-style-guide.md`) is enforced by deterministic linters. This guide is calibration material for the writer and the persona reviewers. The five new vitality linters (`lint_burstiness`, `lint_ai_vocabulary`, `lint_concrete_instance_density`, `lint_epistemic_precision`, `lint_paragraph_motion`) approximate the positive rules from the failure side: they detect the absence of these moves. They do not detect their presence; that judgment lives with the persona panel and the writer.
 
 When a vitality linter fires, `style_pass_report.py` retrieves one corpus exemplar (via `retrieve_corpus_anchor.py`) whose rhetorical move corresponds to the missing motion. The exemplar is a reference + lesson, not a paragraph for the writer to imitate. Russell's value is the paragraph motion, not the diction.
+
+## Calibrating to the delta band
+
+When `score_russell_delta` reports prose at or past the edge of Russell's range, run
+`score_russell_delta --diagnose <file>` to see *which* most-frequent words diverge.
+A recurring pattern, observed across calibration work, distinguishes machine analytic
+prose from Russell's:
+
+- **Over-used: emphatic absolutes and bare anaphora.** "never", "cannot", "no",
+  "nothing", "real", and a high rate of bare "it" and chained "and". These hammer.
+  Russell asserts without insisting.
+- **Under-used: subordinators.** "of" (the genitive "the X of Y"), "which" (relative
+  clauses), "but" and "if" (concession and condition). These are the connective
+  tissue of a balanced sentence.
+
+So the calibration is not lexical surgery; it is the same vitality work. Replace an
+emphatic absolute with a plain statement ("was never the binding constraint" →
+"was not the binding constraint"); fold "X. It is Y." into "X, which …" (adds the
+subordinator, drops the bare "it"); name a bare-"it" subject; break a run of "The …"
+openings. Each move lowers the Delta *and* improves the prose.
+
+Two warnings. First, **do not hunt single words.** The Delta is a distribution
+distance; removing one *under-used* word (e.g. trimming "a handful **of** tools" to
+"a few tools") can raise it. Edit for the move, then re-score. Second, the Delta is
+**advisory**. Prose sitting at p90 is as Russellian as Russell's own 90th-percentile
+paragraph; chasing the last thousandth is over-fitting a noisy metric and is exactly
+the lexical hacking this guide exists to prevent. Stop when the prose is right.
+
+## The negation-affirmation wall (the canonical machine tell)
+
+The single most reliable sign of machine analytic prose is the negation-affirmation
+template — "X is not Y. X is Z." / "This is not A. It is B." — stacked across
+paragraphs. It passes every negative linter (no hedge, active voice, short sentences)
+and still reads as a wall of compact assertions. `lint_ai_staccato` catches it.
+The fix is a *move*, not a punctuation swap: a concession-turn, a distinction, or a
+sentence that turns the argument rather than re-asserting it. Fold the pair into one
+sentence with a real connective ("not a counterexample to the thesis **but** the case
+it exists to worry about").

@@ -6,16 +6,20 @@ markdown, keeping the unit testable in pure Python.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from pathlib import Path
 
+import jsonschema
 import yaml
 
 from .persona_loader import Persona
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 PROMPT_TEMPLATE = (ASSETS / "persona-prompt-template.md").read_text(encoding="utf-8")
+REPORT_SCHEMA = json.loads((ASSETS / "review-report.schema.json").read_text(encoding="utf-8"))
 
 
 @dataclass(frozen=True)
@@ -71,10 +75,43 @@ def _parse_findings_section(body: str, header: str) -> list[Finding]:
         line = line.strip()
         if not line:
             continue
-        if line.startswith(("- ", "* ", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")):
-            text = re.sub(r"^[-*\d.]\s*\d*\.?\s*", "", line).strip()
+        if re.match(r"^([-*]\s|\d+\.)", line):
+            text = re.sub(r"^([-*]|\d+\.)\s*", "", line).strip()
             if text:
                 out.append(Finding(text=text))
+    return out
+
+
+def _reconcile_to_declared(findings: list, declared) -> list:
+    """Cap parsed findings at the persona's declared frontmatter count.
+
+    The frontmatter `<sev>_count` is the persona's explicit, schema-validated
+    self-assessment. A persona may write explanatory prose under a severity heading
+    (e.g. "None." followed by a "for the record" list of claims that *check out*);
+    those non-findings must not inflate the gating count above what was declared.
+    """
+    if declared is None:
+        return findings
+    try:
+        n = int(declared)
+    except (TypeError, ValueError):
+        return findings
+    if n <= 0:
+        return []
+    return findings[:n]
+
+
+def _schema_serializable(meta: dict) -> dict:
+    """Coerce YAML-native scalars to JSON-Schema-comparable forms.
+
+    PyYAML decodes an ISO timestamp into a datetime/date object, but the schema
+    declares reviewed_at as a date-time *string*; render such values back to
+    ISO strings so validation sees what the report actually wrote.
+    """
+    out = dict(meta)
+    for key, value in out.items():
+        if isinstance(value, (datetime, date)):
+            out[key] = value.isoformat()
     return out
 
 
@@ -85,9 +122,24 @@ def parse_review_report(path: Path) -> ReviewResult:
         raise ValueError(f"review report missing frontmatter: {path}")
     meta = yaml.safe_load(match.group(1)) or {}
     body = match.group(2)
-    critical = _parse_findings_section(body, "Critical")
-    important = _parse_findings_section(body, "Important")
-    minor = _parse_findings_section(body, "Minor")
+
+    # Persona is the dict key for per-persona verdicts/breakdowns downstream.
+    # Fall back to the report filename stem when the frontmatter omits it, so
+    # two field-less reports don't collide on the empty-string key.
+    persona_id = (str(meta.get("persona") or "").strip()) or Path(path).stem
+    meta.setdefault("persona", persona_id)
+
+    # Validate frontmatter against the report schema: reject bad chapter_id,
+    # invalid verdict, or missing/negative count fields rather than silently
+    # coercing them with defaults.
+    try:
+        jsonschema.validate(_schema_serializable(meta), REPORT_SCHEMA)
+    except jsonschema.ValidationError as exc:
+        raise ValueError(f"invalid review report {path}: {exc.message}") from exc
+
+    critical = _reconcile_to_declared(_parse_findings_section(body, "Critical"), meta.get("critical_count"))
+    important = _reconcile_to_declared(_parse_findings_section(body, "Important"), meta.get("important_count"))
+    minor = _reconcile_to_declared(_parse_findings_section(body, "Minor"), meta.get("minor_count"))
     voice_headers = [m for m in _SECTION.finditer(body) if "voice" in m.group(1).lower() or "cadence" in m.group(1).lower()]
     voice_notes = ""
     if voice_headers:
@@ -95,8 +147,9 @@ def parse_review_report(path: Path) -> ReviewResult:
         next_section = _SECTION.search(body, pos=start)
         end = next_section.start() if next_section else len(body)
         voice_notes = body[start:end].strip()
+
     return ReviewResult(
-        persona_id=meta.get("persona", ""),
+        persona_id=persona_id,
         chapter_id=meta.get("chapter_id", ""),
         verdict=meta.get("verdict", "APPROVED"),
         critical=critical,

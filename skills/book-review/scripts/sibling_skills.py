@@ -68,7 +68,13 @@ def _load_module(alias: str, scripts_dir: Path, name: str) -> types.ModuleType:
         raise SiblingNotFoundError(f"could not load spec for {module_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Drop the half-executed module so a retry re-raises the original
+        # error instead of returning a partial module from the cache.
+        sys.modules.pop(full_name, None)
+        raise
     return module
 
 

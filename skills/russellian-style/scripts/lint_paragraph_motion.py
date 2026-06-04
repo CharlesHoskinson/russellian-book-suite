@@ -9,6 +9,8 @@ import json
 import re
 from pathlib import Path
 
+from .lint_common import _is_code_block, _is_heading, _is_list_marker, _split_paragraphs
+
 
 SHAPES = (
     "assertion_only",
@@ -72,7 +74,17 @@ def classify_paragraph(para: str) -> str:
 
 
 def _paragraphs(text: str) -> list[str]:
-    return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    # Reuse lint_common's splitter and skip structural markdown (headings,
+    # fenced/indented code, list markers) so they are not classified as flat
+    # assertion_only prose and skew the flat_proportion gate.
+    out: list[str] = []
+    for _start_line, para in _split_paragraphs(text):
+        if _is_code_block(para) or _is_heading(para) or _is_list_marker(para):
+            continue
+        stripped = para.strip()
+        if stripped:
+            out.append(stripped)
+    return out
 
 
 def lint_paragraph_motion(path: Path) -> list[dict]:

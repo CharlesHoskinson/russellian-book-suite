@@ -7,6 +7,10 @@ extras.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import sqlite3
 import sys
 from pathlib import Path

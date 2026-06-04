@@ -18,32 +18,31 @@
     "C"   (+ v 273.15)
     v))
 
+(defn- ->kw
+  "Coerce a subject/predicate token to a keyword. Keywords pass through;
+   a subject entity map contributes its :name; strings/symbols are keyword-ified."
+  [x]
+  (cond
+    (keyword? x) x
+    (map? x)     (keyword (str (or (:name x) (get x "name") x)))
+    :else        (keyword (str x))))
+
 (defn- legacy-claim->formula [claim]
+  ;; Emit the FLAT atom contract the Rust SMT path (smt.rs::bind_atoms) and
+  ;; the Python ingesters consume:
+  ;;   {:kind :expression :id <id> :predicate <kw> :subject <kw> :value <scalar>}
+  ;; to-si unit conversion is preserved on the bound value.
   (m/rewrite claim
     {:id ?id
      :s  ?subj
      :p  ?pred
      :o  {:kind :quantity :value ?v :unit ?u}
      :c  [!conds ...]}
-    {:kind :expression :sort :formula
-     :head {:kind :symbol :sort :rule}
-     :args [{:kind :variable :sort :entity}
-            {:kind :expression :sort :formula
-             :head {:kind :symbol :sort :rule}
-             :args [{:kind :expression :sort :formula
-                     :head {:kind :symbol :sort :rule}
-                     :args [!conds ...]}
-                    {:kind :expression :sort :formula
-                     :head {:kind :symbol :sort :rule}
-                     :args [{:kind :expression :sort :real
-                             :head {:kind :grounded
-                                    :sort {:kind :fn :args [:entity] :ret :real}
-                                    :name ~?pred
-                                    :grounded {:lib "predicate" :fn "lookup"}}
-                             :args [{:kind :variable :sort :entity}]}
-                            {:kind :grounded :sort :real
-                             :name ~(to-si ?v ?u)
-                             :grounded {:lib "literal" :fn "value"}}]}]}]}
+    {:kind      :expression
+     :id        ~(str ?id)
+     :predicate ~(->kw ?pred)
+     :subject   ~(->kw ?subj)
+     :value     ~(to-si ?v ?u)}
     ?other {:kind :symbol :sort :formula}))
 
 (defn- head-string [head]
@@ -56,14 +55,13 @@
 (defn- event->formula [head payload]
   (case (head-string head)
     "claim/verified"
-    {:kind :expression :sort :formula
-     :head {:kind :symbol :name :verified :sort :rule}
-     :args [{:kind :grounded :sort :string
-             :name (or (:claim/id payload) (get payload "claim/id") "C000")
-             :grounded {:lib "literal" :fn "claim-id"}}
-            {:kind :grounded :sort :string
-             :name (or (:text payload) (get payload "text") "")
-             :grounded {:lib "literal" :fn "text"}}]}
+    (let [cid (or (:claim/id payload) (get payload "claim/id") "C000")]
+      ;; Flat atom: a verified status assertion bound as a boolean predicate.
+      {:kind      :expression
+       :id        (str cid)
+       :predicate :verified
+       :subject   (keyword (str cid))
+       :value     true})
 
     "source/ingested"  nil
     "claim/proposed"   nil

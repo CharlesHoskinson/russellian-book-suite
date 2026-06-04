@@ -1,0 +1,7 @@
+{:version 1
+ :school :school-b
+ :name "School B"
+ :charter "Rejects method X in favour of method Y."
+ :members ["doc-b1"]
+ :canonical-rejects [":induced/r-001"]
+ :canonical-asserts []}

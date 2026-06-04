@@ -23,6 +23,25 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 PANDOC = ASSETS / "pandoc"
 
 
+def _workspace_conformance(workspace: Path) -> tuple[bool, bool]:
+    """Compute (shacl_conforms, competency_clean) for the current workspace graph.
+
+    Mirrors book_preflight's workspace audit so the bundle manifest records the
+    chapter's real conformance state at build time rather than a hardcoded True.
+    """
+    workspace_mod = load_book_knowledge_module("workspace")
+    validate_shacl_mod = load_book_knowledge_module("validate_shacl")
+    queries_mod = load_book_knowledge_module("run_competency_queries")
+    layout = workspace_mod.WorkspaceLayout(Path(workspace))
+    shacl = validate_shacl_mod.validate_shacl(layout)
+    queries = queries_mod.run_competency_queries(layout)
+    competency_clean = (
+        len(queries.get("unsupported_claims", [])) == 0
+        and len(queries.get("contradiction_scan", [])) == 0
+    )
+    return bool(shacl.conforms), competency_clean
+
+
 def _claim_slice(workspace: Path, chapter_id: str) -> tuple[list[dict], list[str]]:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
@@ -83,6 +102,7 @@ def build_release_bundle(workspace: Path, chapter_id: str, version: str,
         if _run_pandoc(draft_md, out, fmt):
             outputs.append(f"draft.{ext}")
 
+    shacl_conforms, competency_clean = _workspace_conformance(workspace)
     manifest = {
         "chapter_id": chapter_id,
         "version": version,
@@ -90,8 +110,8 @@ def build_release_bundle(workspace: Path, chapter_id: str, version: str,
         "outputs": outputs,
         "sources_included": sources,
         "claim_slice_count": len(sliced),
-        "shacl_conforms": True,
-        "competency_clean": True,
+        "shacl_conforms": shacl_conforms,
+        "competency_clean": competency_clean,
     }
     (bundle / "manifest.yaml").write_text(yaml.safe_dump(manifest, sort_keys=True), encoding="utf-8")
 

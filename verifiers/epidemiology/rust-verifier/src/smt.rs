@@ -79,16 +79,67 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
             None => continue,
         };
 
+        // Bind the value in the same Z3 sort the codegen-emitted axiom
+        // uses for this symbol. A predicate the codegen promoted to Real
+        // (because a float literal appears in its constraint subtree)
+        // must have its integer-valued atoms bound as Real too; otherwise
+        // the Int const and the Real axiom const are distinct Z3 symbols
+        // and the binding never constrains the axiom (a silent false-sat).
+        let want_real = crate::axioms::predicate_is_real(var_name.as_str());
         let assertion: Bool = match value {
             Edn::Int(n) => {
-                let z3_var = Int::new_const(var_name.as_str());
-                z3_var.eq(&Int::from_i64(*n))
+                if want_real {
+                    let z3_var = Real::new_const(var_name.as_str());
+                    let lit = Real::from_rational_str(&n.to_string(), "1")
+                        .ok_or_else(|| Error::Smt(format!("from_rational_str({n}, 1) failed")))?;
+                    z3_var.eq(&lit)
+                } else {
+                    let z3_var = Int::new_const(var_name.as_str());
+                    z3_var.eq(&Int::from_i64(*n))
+                }
             }
+            // edn-rs renders bare non-negative integers as `Edn::UInt`
+            // rather than `Edn::Int`. Bind them identically so those
+            // values are asserted to Z3 instead of silently dropped.
+            Edn::UInt(n) => {
+                let n_i64: i64 = (*n)
+                    .try_into()
+                    .map_err(|_| Error::Smt(format!("value too large to bind as Int: {n}")))?;
+                if want_real {
+                    let z3_var = Real::new_const(var_name.as_str());
+                    let lit =
+                        Real::from_rational_str(&n_i64.to_string(), "1").ok_or_else(|| {
+                            Error::Smt(format!("from_rational_str({n_i64}, 1) failed"))
+                        })?;
+                    z3_var.eq(&lit)
+                } else {
+                    let z3_var = Int::new_const(var_name.as_str());
+                    z3_var.eq(&Int::from_i64(n_i64))
+                }
+            }
+            // Encode the double as the exact rational `round(v * 1e6) / 1e6`.
+            // The fixed 1e6 scale is a known soundness limitation: values
+            // with more than ~6 fractional digits are rounded. Overflow of
+            // the scaled numerator past i64 is rejected rather than letting
+            // an `as i64` cast saturate to i64::MAX and silently corrupt
+            // the encoded value.
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);
                 let z3_var = Real::new_const(var_name.as_str());
-                let numerator = (v * 1_000_000.0) as i64;
-                z3_var.eq(&Real::from_rational(numerator, 1_000_000))
+                let scale: i64 = 1_000_000;
+                let scaled = (v * scale as f64).round();
+                if !scaled.is_finite() || scaled > i64::MAX as f64 || scaled < i64::MIN as f64 {
+                    return Err(Error::Smt(format!(
+                        "double value {v} out of range for the fixed 1e6-scale \
+                         rational encoding (scaled numerator overflows i64)"
+                    )));
+                }
+                let numerator = scaled as i64;
+                let lit = Real::from_rational_str(&numerator.to_string(), &scale.to_string())
+                    .ok_or_else(|| {
+                        Error::Smt(format!("from_rational_str({numerator}, {scale}) failed"))
+                    })?;
+                z3_var.eq(&lit)
             }
             Edn::Str(s) => {
                 let z3_var = Z3String::new_const(var_name.as_str());
@@ -138,4 +189,45 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
 #[cfg(not(feature = "smt"))]
 pub fn check_all(_formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     Err(Error::Smt("compiled without `smt` feature".into()))
+}
+
+#[cfg(all(test, feature = "smt"))]
+mod tests {
+    use crate::ir::parse_formulas;
+
+    // A predicate the codegen declared Real (`vaccination-coverage_p`)
+    // must bind an integer-valued atom in the Real sort so it shares a
+    // Z3 symbol with the Real axiom/double bindings. Here the same
+    // predicate is pinned to integer 5 and to double 6.0; if the integer
+    // were bound as an Int const it would be a *distinct* symbol from the
+    // Real 6.0 const and Z3 would report sat. Sharing the Real sort makes
+    // 5 != 6.0 unsat.
+    #[test]
+    fn integer_on_real_predicate_shares_real_sort() {
+        let edn = r#"{:atoms [
+            {:id "r1" :kind :expression :predicate :vaccination-coverage :subject :p :value 5}
+            {:id "r2" :kind :expression :predicate :vaccination-coverage :subject :p :value 6.0}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse");
+        let verdict = super::check_all(&formulas).expect("check");
+        assert_eq!(
+            verdict.status, "unsat",
+            "integer bound to a Real predicate must share the Real sort; got {verdict:?}"
+        );
+    }
+
+    // A double whose scaled numerator overflows i64 must be rejected
+    // rather than silently saturated to i64::MAX (which corrupts the
+    // encoded rational).
+    #[test]
+    fn double_overflow_is_rejected() {
+        let edn = r#"{:atoms [
+            {:id "ov" :kind :expression :predicate :basic-reproduction-number :subject :d :value 1.0e19}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse");
+        assert!(
+            super::check_all(&formulas).is_err(),
+            "overflowing double must be rejected, not saturated"
+        );
+    }
 }

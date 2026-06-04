@@ -1,4 +1,8 @@
 """style_pass_report v0.2: emits vitality_metrics block + corpus_anchors list."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 

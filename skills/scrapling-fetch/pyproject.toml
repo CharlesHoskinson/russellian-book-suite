@@ -4,16 +4,17 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
   "scrapling==0.4.8",
-  "jsonschema>=4.21,<5",
+  "jsonschema>=4.26.0,<5",
+  "trafilatura>=2,<3",
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8", "pytest-cov"]
+test = ["pytest>=9.0.3", "pytest-cov"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["scripts*"]
 
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"

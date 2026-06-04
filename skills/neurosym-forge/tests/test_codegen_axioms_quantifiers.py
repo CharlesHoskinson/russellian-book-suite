@@ -1,4 +1,8 @@
 """REQ-SMT-051, 052, 054 — quantifier support in :assert heads."""
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import shutil
 import subprocess
 from pathlib import Path

@@ -143,8 +143,10 @@ def scan_paragraphs(md: str) -> list[ParaRef]:
         if start < 0 or any(s <= start < e for s, e in consumed):
             continue
         stripped = block.strip()
-        if not stripped or stripped.startswith(("#", "|", "<", ">", "```", ":::", "---")):
-            # HTML comments do not start with "<" because we strip them first.
+        if not stripped or stripped.startswith(("#", "|", "<", ">", "```", ":::", "---", "[^")):
+            # An HTML-comment supports carrier begins with "<!--", so it lands
+            # in this branch too. Keep it only when COMMENT_RE matches; every
+            # other "<"-prefixed (or markup) block is skipped.
             if not COMMENT_RE.match(stripped):
                 continue
         cm = COMMENT_RE.match(stripped)

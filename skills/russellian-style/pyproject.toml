@@ -9,7 +9,6 @@ description = "Russell-style linters for the russellian-style Claude Code skill"
 requires-python = ">=3.11"
 dependencies = [
     "spacy>=3.7,<4.0",
-    "markdown-it-py>=3.0,<4.0",
 ]
 
 [project.optional-dependencies]
@@ -17,13 +16,12 @@ dependencies = [
 # handles missing model. For full coverage: pip install -e .[ci] && python -m spacy download en_core_web_sm
 ci = [
     "spacy>=3.7,<4.0",
-    "markdown-it-py>=3.0,<4.0",
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
 dev = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
 ]
@@ -33,4 +31,7 @@ packages = ["scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "windows_canary: test exercises platform-sensitive behaviour and must run on Windows",
+]
 addopts = "-v"

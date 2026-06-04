@@ -21,6 +21,10 @@ the backend matrix (Tier 5 precedent).
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import re
 from pathlib import Path
 

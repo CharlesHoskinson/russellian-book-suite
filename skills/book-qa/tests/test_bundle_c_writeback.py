@@ -16,6 +16,10 @@ The test exercises the round-trip that real builds will follow.
 """
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import json
 from pathlib import Path
 

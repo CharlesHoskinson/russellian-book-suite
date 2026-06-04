@@ -1,6 +1,10 @@
 """Tests for lint_supports.py."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 import shutil
 import sys
 from pathlib import Path
@@ -9,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from compile_thesis import compile_thesis  # noqa: E402
-from lint_supports import lint  # noqa: E402
+from lint_supports import lint, scan_paragraphs  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 THESIS_YAML = FIXTURES / "tiny-thesis.yaml"
@@ -33,6 +37,18 @@ def _prepare(tmp_path: Path, manuscript_name: str, extra_ttl: str = "") -> Path:
     release_dir.mkdir(parents=True)
     shutil.copy(FIXTURES / manuscript_name, release_dir / "manuscript.md")
     return tmp_path
+
+
+def test_scan_paragraphs_skips_footnote_definitions() -> None:
+    md = (
+        "# Chapter 1\n\n"
+        "<!-- supports: thesis -->\n"
+        "A genuine paragraph with enough words to count as prose.\n\n"
+        "[^a]: A footnote definition that must not be scanned as a paragraph.\n"
+    )
+    raws = [p.raw for p in scan_paragraphs(md)]
+    assert any("genuine paragraph" in r for r in raws)
+    assert not any(r.lstrip().startswith("[^a]") for r in raws)
 
 
 def test_finds_orphan_no_support(tmp_path: Path) -> None:

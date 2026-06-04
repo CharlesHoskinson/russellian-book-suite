@@ -29,6 +29,24 @@ def latest_status(layout: WorkspaceLayout, claim_id: str) -> str | None:
     return found
 
 
+def current_claims(layout: WorkspaceLayout) -> list[dict]:
+    """Collapse the append-only log to one record per claim_id: its latest tip.
+
+    The ledger keeps every status transition as a new appended record, so
+    ``read_claims`` returns the full history. Callers that need each claim once,
+    at its current status, should use this instead. First-appearance order is
+    preserved.
+    """
+    tips: dict[str, dict] = {}
+    order: list[str] = []
+    for record in read_claims(layout):
+        cid = record["claim_id"]
+        if cid not in tips:
+            order.append(cid)
+        tips[cid] = record
+    return [tips[cid] for cid in order]
+
+
 def next_claim_id(layout: WorkspaceLayout) -> str:
     year = datetime.now(timezone.utc).year
     prefix = f"clm-{year}-"

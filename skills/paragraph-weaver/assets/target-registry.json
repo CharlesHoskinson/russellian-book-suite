@@ -1,0 +1,7 @@
+{
+  "targets": [
+    {"name": "argument", "depth": "deep", "prose_policy": "russellian-style"},
+    {"name": "emotion", "depth": "shallow", "prose_policy": "none"},
+    {"name": "narrative", "depth": "shallow", "prose_policy": "none"}
+  ]
+}

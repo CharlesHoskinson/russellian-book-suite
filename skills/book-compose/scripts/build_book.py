@@ -20,6 +20,25 @@ class BookBuildError(Exception):
     pass
 
 
+# Orphan claim-citation tokens (e.g. [clm-2026-000001]) must never survive into
+# the assembled manuscript or merged HTML (see CLAUDE.md "Known pitfalls").
+_CITATION_PATTERN = re.compile(r"\[clm-\d{4}-\d{6}\]")
+
+
+def _strip_orphan_citations(text: str) -> str:
+    return _CITATION_PATTERN.sub("", text)
+
+
+def _version_sort_key(version: str) -> tuple:
+    """Parse a release version string into a sortable key by numeric components.
+
+    Handles `v1`, `v2`, `0.1.0`, `1.2` etc. Non-numeric trailing labels sort
+    before numeric ones so e.g. `v2` > `v2-rc1`. Unparseable versions sort lowest.
+    """
+    nums = tuple(int(n) for n in re.findall(r"\d+", version))
+    return (nums, version)
+
+
 def _autodetect_latest_versions(workspace: Path) -> dict[str, str]:
     releases_dir = Path(workspace) / "chapters" / "releases"
     if not releases_dir.is_dir():
@@ -36,14 +55,19 @@ def _autodetect_latest_versions(workspace: Path) -> dict[str, str]:
         by_chapter.setdefault(chapter_id, []).append((version, mtime))
     out: dict[str, str] = {}
     for chapter_id, candidates in by_chapter.items():
-        candidates.sort(key=lambda t: t[1], reverse=True)
-        out[chapter_id] = candidates[0][0]
+        by_version = max(candidates, key=lambda t: _version_sort_key(t[0]))[0]
+        by_mtime = max(candidates, key=lambda t: t[1])[0]
+        if by_version != by_mtime:
+            print(
+                f"warning: {chapter_id} latest-by-version is {by_version} but "
+                f"latest-by-mtime is {by_mtime}; selecting {by_version}"
+            )
+        out[chapter_id] = by_version
     return out
 
 
 def _assemble_manuscript(workspace: Path, chapter_versions: dict[str, str],
-                         book_title: str) -> str:
-    from .chapter_contract import load_contract
+                         book_title: str, titles: dict[str, str]) -> str:
     lines: list[str] = [f"# {book_title}", ""]
     lines.append(f"_Compiled {datetime.now(timezone.utc).strftime('%Y-%m-%d')}_")
     lines.append("")
@@ -52,11 +76,6 @@ def _assemble_manuscript(workspace: Path, chapter_versions: dict[str, str],
     lines.append("## Table of Contents")
     lines.append("")
     sorted_chapters = sorted(chapter_versions.items(), key=lambda kv: int(kv[0].split("-")[1]))
-    contracts_dir = Path(workspace) / "chapters" / "contracts"
-    titles: dict[str, str] = {}
-    for chapter_id, _ in sorted_chapters:
-        contract = load_contract(contracts_dir / f"{chapter_id}.yaml")
-        titles[chapter_id] = contract["title"]
     for chapter_id, _ in sorted_chapters:
         n = int(chapter_id.split("-")[1])
         lines.append(f"{n}. {titles[chapter_id]}")
@@ -70,15 +89,22 @@ def _assemble_manuscript(workspace: Path, chapter_versions: dict[str, str],
         release_dir = Path(workspace) / "chapters" / "releases" / f"{chapter_id}-{version}"
         body = (release_dir / "draft.md").read_text(encoding="utf-8")
         body_lines = body.splitlines()
+        heading = f"# Chapter {n}: {title}"
+        rewrote = False
         for i, raw in enumerate(body_lines):
             if raw.startswith("# "):
-                body_lines[i] = f"# Chapter {n}: {title}"
+                body_lines[i] = heading
+                rewrote = True
                 break
+        if not rewrote:
+            # No H1 in the draft: prepend a synthesized chapter heading so the
+            # body does not silently merge into the previous chapter.
+            body_lines = [heading, ""] + body_lines
         lines.append("\n".join(body_lines).strip())
         lines.append("")
         lines.append("---")
         lines.append("")
-    return "\n".join(lines)
+    return _strip_orphan_citations("\n".join(lines))
 
 
 def _copy_chapter_bundles(workspace: Path, chapter_versions: dict[str, str], book_dir: Path) -> None:
@@ -148,11 +174,23 @@ def build_book(workspace: Path, version: str,
     book_dir = workspace / "book" / "releases" / version
     book_dir.mkdir(parents=True, exist_ok=True)
 
-    manuscript_md = _assemble_manuscript(workspace, chapter_versions, book_title)
+    # Load each chapter contract once and thread it through both consumers
+    # (manuscript assembly and summary building) to avoid a second disk read
+    # and re-validation per chapter.
+    from .chapter_contract import load_contract
+    contracts_dir = workspace / "chapters" / "contracts"
+    contracts = {
+        chapter_id: load_contract(contracts_dir / f"{chapter_id}.yaml")
+        for chapter_id in chapter_versions
+    }
+    titles = {cid: c["title"] for cid, c in contracts.items()}
+
+    manuscript_md = _assemble_manuscript(workspace, chapter_versions, book_title, titles)
     (book_dir / "manuscript.md").write_text(manuscript_md, encoding="utf-8")
 
     summary = build_book_summary(workspace, chapter_versions,
-                                 book_title=book_title, book_id=book_id)
+                                 book_title=book_title, book_id=book_id,
+                                 contracts=contracts)
     (book_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
     write_html_skeleton(book_dir / "manuscript.html", summary, manuscript_md)

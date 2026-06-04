@@ -1,6 +1,10 @@
 """system_prompt_loader: returns the text of a mode-keyed system prompt."""
 import pytest
 
+pytestmark = pytest.mark.windows_canary
+
+import pytest
+
 
 def test_load_known_mode_returns_nonempty_text(tmp_path, monkeypatch):
     from scripts.system_prompt_loader import load

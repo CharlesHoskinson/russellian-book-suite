@@ -1,6 +1,10 @@
 """Unit tests for the book-thesis public skill_api surface (IF-BT-1)."""
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.windows_canary
+
 from pathlib import Path
 
 import pytest

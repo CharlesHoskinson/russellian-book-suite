@@ -713,3 +713,52 @@ def test_extended_operators_v0_5_golden_fixture():
         assert expected in out, (
             f"case {case[Keyword('name')]!r}: expected {expected!r} in emitted source"
         )
+
+
+def test_approx_with_inline_tolerance_in_assert_form() -> None:
+    """approx= constraints whose CLJS intermediate carried :tolerance nil
+    must still extract the tolerance from inside the assert form itself
+    when it is specified as a trailing :tolerance key-value pair."""
+    c = _constraint(
+        name="C-INLINE-TOL",
+        assert_form="(approx= (:p-empty :s) (- 1.0 (:phi :s)) :tolerance 0.01)",
+        tolerance=None,
+    )
+    src = generate_axioms_source([c])
+    assert "C-INLINE-TOL" in src
+    # _emit_approx_block raises CodegenError if tolerance is None at emit
+    # time, so reaching this assertion means inline extraction worked.
+    assert "assert_and_track" in src
+
+
+def test_approx_always_uses_real_typing() -> None:
+    """_emit_approx_block multiplies by Real::from_rational eps, so both
+    sides of approx= must be Real-typed regardless of whether any subtree
+    contained a float literal. Int-typed sides would produce Int * Real."""
+    # Both sides scalar-int subtrees; without the always-Real fix this would
+    # emit Int::new_const and fail to compile in Rust.
+    c = _constraint(
+        name="C-APPROX-REAL",
+        assert_form="(approx= (:a :s) (:b :s) :tolerance 0.001)",
+        tolerance=None,
+    )
+    src = generate_axioms_source([c])
+    # The emitted block declares the predicate variables as Real (not Int).
+    assert 'Real::new_const("a_s")' in src
+    assert 'Real::new_const("b_s")' in src
+    assert 'Int::new_const("a_s")' not in src
+
+
+def test_mod_operator_emits_rem_call() -> None:
+    """(mod dividend divisor) compiles to Int::rem; predicate args are
+    typed Int. Required by EpochPoET's epoch-length-vs-Casper-sub-epoch
+    constraint."""
+    c = _constraint(
+        name="C-MOD",
+        assert_form="(= (mod (:epoch-length :s) 32) 0)",
+        tolerance=None,
+    )
+    src = generate_axioms_source([c])
+    assert "C-MOD" in src
+    # The mod operator emits Int::rem(&...).
+    assert ".rem(&" in src

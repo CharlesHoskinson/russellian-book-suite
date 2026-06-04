@@ -35,6 +35,7 @@ if _SYNTOPICAL_DIR.is_dir() and str(_SYNTOPICAL_DIR) not in _sys.path:
 import functools
 import json
 import os
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -699,8 +700,11 @@ def _run_nbb_induce(
     a real nbb runtime.
     """
     script = Path(__file__).resolve().parent / "induce_theory.cljs"
+    # On Windows, nbb ships as nbb.cmd; subprocess.run without shell=True
+    # does not consult PATHEXT, so resolve the full executable path here.
+    nbb_exe = shutil.which("nbb") or "nbb"
     cmd = [
-        "nbb",
+        nbb_exe,
         "-m", "induce-theory",
         str(project_root),
         "--folds", str(folds),
@@ -833,7 +837,10 @@ def induce(
     click.echo("")
     click.echo(_format_induce_summary(prov))
     click.echo("")
-    click.echo(f"Wrote: {theory_path}")
+    if theory_path.exists():
+        click.echo(f"Wrote: {theory_path}")
+    else:
+        click.echo(f"Skipped: {theory_path} (no rules survived validation)")
     click.echo(f"Wrote: {prov_path}")
 
     if governance_gate and not dry_run:
@@ -1201,10 +1208,18 @@ def theory(project_root: Path, rule_id: str | None) -> None:
     project_root = Path(project_root).resolve()
     theory_path, prov_path = _induced_paths(project_root)
 
+    # When induction yields zero surviving rules the orchestrator skips
+    # writing induced-theory.edn but the sidecar is still written. Surface
+    # an empty-theory summary instead of erroring.
     if not theory_path.exists():
-        raise FileNotFoundError(
-            f"induced-theory.edn not found at {theory_path}"
-        )
+        if not prov_path.exists():
+            raise FileNotFoundError(
+                f"induced-theory.edn not found at {theory_path} "
+                f"and no sidecar at {prov_path} — has `forge induce` run?"
+            )
+        click.echo(f"No induced rules (sidecar at {prov_path}).")
+        click.echo("Run `forge induce <project>` to (re)attempt induction.")
+        return
 
     theory_data = _load_induced_theory(theory_path)
 

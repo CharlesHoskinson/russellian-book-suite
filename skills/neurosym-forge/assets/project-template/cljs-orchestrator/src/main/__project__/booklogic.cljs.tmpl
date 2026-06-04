@@ -259,9 +259,11 @@
 ;; ----- defconstraint expansion -----
 
 (defn- assert-form-approx?
-  "True iff the :assert form uses the ~= (approximate-equality) head."
+  "True iff the :assert form uses the ~= or approx= (approximate-equality) head."
   [assert-form]
-  (and (sequential? assert-form) (= '~= (first assert-form))))
+  (and (sequential? assert-form)
+       (let [h (first assert-form)]
+         (or (= '~= h) (= 'approx= h)))))
 
 (defn- extract-tolerance
   "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.

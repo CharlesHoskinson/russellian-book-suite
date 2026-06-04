@@ -79,37 +79,41 @@ jobs:
         run: actionlint -color
 
   # Detect whether the PR diff touches anything that could affect the Rust
-  # verifiers or the Nix preflight. Pure-Python PRs skip those jobs (they
-  # always pass on pure-Python changes). Pushes to main always run them.
+  # verifiers / Nix preflight (rust output) or the python-skill matrix
+  # (python output). Pure-Python PRs skip the rust-gated jobs; verifier-only
+  # and docs-only PRs skip the python matrix. Pushes to main always run them.
   changes:
     name: detect rust/nix changes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      python: ${{ steps.filter.outputs.python }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
+            # rust gates cargo-test (verifier crate compilation only). The old
+            # filter included skills/** and interpreted-language globs, which
+            # made every python PR pay 4 cargo jobs for crates it cannot affect.
             rust:
               - 'verifiers/**'
-              - 'skills/**'
-              - 'tools/**'
-              - 'ci/**'
               - '**/*.rs'
-              - '**/*.py'
-              - '**/*.clj'
-              - '**/*.cljs'
-              - '**/*.cljc'
-              - '**/*.edn'
-              - '**/*.nix'
               - '**/Cargo.toml'
               - '**/Cargo.lock'
               - 'flake.nix'
               - 'flake.lock'
               - 'Makefile'
+              - '.github/workflows/ci.yml'
+            # python gates the 35-job python-skill matrix. Verifier-only and
+            # docs-only PRs skip it (the 2026-06-03 dependabot flood queued
+            # ~12h of matrix runs for one-line verifier bumps).
+            python:
+              - 'skills/**'
+              - 'sibling_skills/**'
+              - 'ci/**'
               - '.github/workflows/ci.yml'
               - '.github/actions/setup-book-python/**'
 
@@ -125,6 +129,8 @@ jobs:
     name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.python == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -325,7 +331,7 @@ jobs:
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
     needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -348,7 +354,7 @@ jobs:
   cargo-test:
     name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
     needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -445,11 +451,12 @@ jobs:
     timeout-minutes: 10
     if: always()
     steps:
-      # Fail-closed aggregation. Always-run jobs (lint, python-skill-matrix,
+      # Fail-closed aggregation. Always-run jobs (lint, actionlint,
       # ci-divergence-summary) MUST be 'success' — a 'skipped' there means the
       # gate did not actually run and is now treated as a failure. Change-scoped
-      # jobs (preflight, cargo-test) are legitimately 'skipped' on pure-Python
-      # PRs, so they accept 'success' OR 'skipped' but never 'failure'/'cancelled'.
+      # jobs (preflight, cargo-test, python-skill-matrix) are legitimately
+      # 'skipped' when the PR diff does not touch their inputs, so they accept
+      # 'success' OR 'skipped' but never 'failure'/'cancelled'.
       - name: aggregate
         env:
           LINT: ${{ needs.lint.result }}
@@ -474,8 +481,8 @@ jobs:
           }
           require_success lint "$LINT"
           require_success actionlint "$ACTIONLINT"
-          require_success python-skill-matrix "$PYTHON_SKILL"
           require_success ci-divergence-summary "$DIVERGENCE"
+          require_not_failed python-skill-matrix "$PYTHON_SKILL"
           require_not_failed preflight "$PREFLIGHT"
           require_not_failed cargo-test "$CARGO_TEST"
           if [ "$fail" -ne 0 ]; then

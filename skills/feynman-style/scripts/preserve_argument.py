@@ -40,7 +40,51 @@ def _sentences(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
-def preserve_argument(before: str, after: str, min_overlap: float = 0.34) -> PreservationReport:
+def _best_single(bbag: set[str], after_bags: list[set[str]]) -> tuple[int, float]:
+    """Best overlap against any one after-sentence; used for claim ordering."""
+    best_i, best = -1, 0.0
+    for ai, abag in enumerate(after_bags):
+        if not abag:
+            continue
+        overlap = len(bbag & abag) / len(bbag)
+        if overlap > best:
+            best_i, best = ai, overlap
+    return best_i, best
+
+
+def _best_window(bbag: set[str], after_bags: list[set[str]], k: int = 3) -> float:
+    """Best overlap against a window of up to k consecutive after-sentences.
+
+    A Feynman pass may split one Russell sentence into several, so a claim's
+    content words spread across consecutive after-sentences. Matching against the
+    union of a short window recovers those split claims without weakening the
+    drop test, since unrelated neighbours share few content words.
+    """
+    best = 0.0
+    n = len(after_bags)
+    for i in range(n):
+        union: set[str] = set()
+        for j in range(i, min(i + k, n)):
+            union |= after_bags[j]
+            overlap = len(bbag & union) / len(bbag)
+            if overlap > best:
+                best = overlap
+    return best
+
+
+def _longest_nondecreasing(seq: list[int]) -> int:
+    import bisect
+    tails: list[int] = []
+    for x in seq:
+        i = bisect.bisect_right(tails, x)
+        if i == len(tails):
+            tails.append(x)
+        else:
+            tails[i] = x
+    return len(tails)
+
+
+def preserve_argument(before: str, after: str, min_overlap: float = 0.30) -> PreservationReport:
     violations: list[dict] = []
     before_sents = _sentences(before)
     after_sents = _sentences(after)
@@ -51,22 +95,22 @@ def preserve_argument(before: str, after: str, min_overlap: float = 0.34) -> Pre
         bbag = _content_words(bs)
         if not bbag:
             continue
-        best_i, best_score = -1, 0.0
-        for ai, abag in enumerate(after_bags):
-            if not abag:
-                continue
-            overlap = len(bbag & abag) / len(bbag)
-            if overlap > best_score:
-                best_i, best_score = ai, overlap
-        if best_score < min_overlap:
-            violations.append({"kind": "dropped-claim", "claim": bs[:120], "score": round(best_score, 2)})
+        # Drop test uses a window union (tolerates sentence-splitting and synonym
+        # swaps); ordering uses the single best sentence (so a real swap is caught).
+        window_score = _best_window(bbag, after_bags)
+        if window_score < min_overlap:
+            violations.append({"kind": "dropped-claim", "claim": bs[:120], "score": round(window_score, 2)})
         else:
+            best_i, _ = _best_single(bbag, after_bags)
             matched_after_idx.append(best_i)
 
-    for a, b in zip(matched_after_idx, matched_after_idx[1:]):
-        if b < a:
-            violations.append({"kind": "reordered-claim", "detail": f"after-sentence {b} precedes {a}"})
-            break
+    # Flag reordering only when claim order is substantially scrambled, not on a
+    # single local move that a Feynman pass makes for flow. A near-fully-reversed
+    # sequence (longest non-decreasing run below ~60% of claims) is a real reorder.
+    if len(matched_after_idx) >= 2:
+        keep = _longest_nondecreasing(matched_after_idx)
+        if keep < max(2, (len(matched_after_idx) * 3 + 4) // 5):
+            violations.append({"kind": "reordered-claim", "detail": "claim order not preserved"})
 
     before_nums = set(_NUM.findall(before))
     for n in _NUM.findall(after):

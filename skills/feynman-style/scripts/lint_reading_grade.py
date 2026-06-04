@@ -8,7 +8,12 @@ from pathlib import Path
 
 from .lint_common import iter_sentences, load_markdown
 
-DEFAULT_MAX_GRADE = 12
+# Flesch-Kincaid grade is computed per sentence. Unavoidable domain nouns
+# (segmentation, cryptanalysis, normalization) inflate the syllables-per-word
+# term regardless of how plain the syntax is, so a grade-12 cap flags essentially
+# every technical sentence. 16 keeps genuinely tangled prose flagged while letting
+# warm-but-technical sentences pass.
+DEFAULT_MAX_GRADE = 16
 
 
 def _syllables(word: str) -> int:

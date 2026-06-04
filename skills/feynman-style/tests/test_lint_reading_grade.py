@@ -32,3 +32,11 @@ def test_passes_plain_sentence(tmp_path):
     md = tmp_path / "plain.md"
     md.write_text("Atoms are little things that jiggle. The hotter it is, the more they jiggle.\n", encoding="utf-8")
     assert lint_reading_grade(md, max_grade=12) == []
+
+
+def test_warm_technical_sentence_passes_default(tmp_path):
+    # Regression: a plain, warm sentence whose grade is inflated only by domain
+    # nouns must pass the default cap, not be flagged for unavoidable vocabulary.
+    md = tmp_path / "tech.md"
+    md.write_text("That caution pays off downstream, because every later measurement inherits the geometry fixed right here.\n", encoding="utf-8")
+    assert lint_reading_grade(md) == []

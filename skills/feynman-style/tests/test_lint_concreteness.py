@@ -35,3 +35,14 @@ def test_concrete_analogy_passes(tmp_path):
         encoding="utf-8",
     )
     assert lint_concreteness(md) == []
+
+
+def test_predicate_metaphor_counts_as_analogy(tmp_path):
+    # Regression: a metaphor with no simile keyword ("wearing a tie") is an analogy.
+    md = tmp_path / "metaphor.md"
+    md.write_text(
+        "The gap between the two scores is tiny, far smaller than the wobble between runs, "
+        "so calling it an improvement is really just noise wearing a tie and pretending to be signal.\n",
+        encoding="utf-8",
+    )
+    assert not any(f["rule"] == "analogy-absent" for f in lint_concreteness(md))

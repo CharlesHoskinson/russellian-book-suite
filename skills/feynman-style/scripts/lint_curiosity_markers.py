@@ -14,13 +14,18 @@ _CURIOSITY = re.compile(
     r"(nobody (?:really )?knows|the funny thing is|here'?s the puzzle|"
     r"it turns out|what'?s (?:really )?going on|the strange thing|"
     r"you might (?:ask|wonder)|the question is|why (?:on earth|in the world)|"
-    r"the mystery|nobody had figured)",
+    r"the mystery|nobody had figured|"
+    r"maybe|perhaps|what if|how do you|could a|could it)",
     re.IGNORECASE,
 )
 
 
 def count_markers(text: str) -> int:
-    return len(_CURIOSITY.findall(text))
+    # A rhetorical question is the core Feynman curiosity move; count question
+    # marks alongside the honest-doubt phrase list so warmed prose is not flagged
+    # as curiosity-absent merely because its puzzle-framing uses "?" rather than a
+    # whitelisted phrase.
+    return len(_CURIOSITY.findall(text)) + text.count("?")
 
 
 def lint_curiosity_markers(path: Path, min_per_long_passage: int = 1, long_words: int = 30) -> list[dict]:

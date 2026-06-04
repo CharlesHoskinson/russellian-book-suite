@@ -36,6 +36,18 @@ def test_parses_skill_axis_and_excludes_smoke_rows():
     assert skills == {"alpha", "beta", "gamma"}
 
 
+def test_include_only_full_pytest_row_is_detected():
+    fixture = WORKFLOW_FIXTURE + "              - skill: zeta\n                extra: dev\n"
+    skills = full_pytest_matrix_skills(fixture)
+    assert "zeta" in skills
+
+
+def test_quoted_smoke_value_is_exempt():
+    fixture = WORKFLOW_FIXTURE.replace("smoke: import", "smoke: 'import'", 1)
+    skills = full_pytest_matrix_skills(fixture)
+    assert "delta" not in skills
+
+
 def test_missing_canary_detection(tmp_path):
     skills_dir = tmp_path / "skills"
     # alpha: marked test -> ok

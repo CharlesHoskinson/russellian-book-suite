@@ -47,15 +47,20 @@ def full_pytest_matrix_skills(workflow_text: str) -> set[str]:
                 continue
             if stripped and indent <= skill_indent:
                 in_skill_axis = False
-    # Collect smoke-only skills from include rows: a `- skill: X` bullet whose
-    # following sibling keys (same indent, until the next `- `) contain
-    # `smoke: import`.
+    # Walk include rows: a `- skill: X` bullet runs full pytest on Windows
+    # UNLESS its sibling keys (same indent, until the next `- `) carry
+    # `smoke: import`. Non-smoke include rows are added to the result even when
+    # they never appear on the `skill:` axis (a partial-drift gap); smoke rows
+    # go to the exempt set and are subtracted (covering axis + include alike).
+    # Smoke values may be bare or quoted (`import` / 'import' / "import").
+    include_nonsmoke: set[str] = set()
     smoke: set[str] = set()
     for i, line in enumerate(lines):
         m = re.match(r"^(\s*)-\s*skill:\s*([A-Za-z0-9_-]+)\s*$", line)
         if not m:
             continue
         row_indent, skill = len(m.group(1)), m.group(2)
+        is_smoke = False
         for j in range(i + 1, len(lines)):
             nxt = lines[j]
             if not nxt.strip():
@@ -63,10 +68,14 @@ def full_pytest_matrix_skills(workflow_text: str) -> set[str]:
             nxt_indent = len(nxt) - len(nxt.lstrip())
             if nxt_indent <= row_indent or nxt.lstrip().startswith("- "):
                 break
-            if re.match(r"^smoke:\s*import\s*$", nxt.strip()):
-                smoke.add(skill)
+            if re.match(r"^smoke:\s*['\"]?import['\"]?\s*$", nxt.strip()):
+                is_smoke = True
                 break
-    return axis - smoke
+        if is_smoke:
+            smoke.add(skill)
+        else:
+            include_nonsmoke.add(skill)
+    return (axis | include_nonsmoke) - smoke
 
 
 def skills_missing_canary(skills: set[str], skills_dir: Path) -> list[str]:

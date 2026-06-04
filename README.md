@@ -1693,3 +1693,4 @@ Acknowledgements:
 - **The pyShacl, rdflib, spaCy, and pyDatalog maintainers** — the validation and parsing stack
 - **The Wikipedia editors of "Signs of AI writing"** — the AI-fingerprint catalog the `humanizer` skill encodes and the AI-Slop Detector persona delegates to
 - **Charles Hoskinson** — the operator who pushed every PR in the suite's evolution and named the audit pattern
+

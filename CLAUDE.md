@@ -4,7 +4,7 @@ This file orients any AI agent working in this repo. Read it first.
 
 ## What this repo is
 
-A family of nine core Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts (`book-knowledge`, `russellian-style`, `feynman-style`, `halmos`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`), plus an optional verifier-scaffolder skill `neurosym-forge`, a standalone paragraph-threading skill `paragraph-weaver`, and a standalone IACR writing aid `iacr-math-prose`. See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
+A family of nine core Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts (`book-knowledge`, `russellian-style`, `feynman-style`, `halmos`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`), plus an optional verifier-scaffolder skill `neurosym-forge`, a standalone paragraph-threading skill `paragraph-weaver`, a standalone IACR writing aid `iacr-math-prose`, and a standalone IACR review aid `iacr-review` (EC22 rubric, ten-persona dispatch, consolidation ledger). See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
 
 ## Per-skill conventions
 

@@ -1,0 +1,107 @@
+name: Setup Models
+description: >
+  Cache-and-warm ML model assets. The save happens in an explicit step
+  immediately after a successful warm — NOT in actions/cache's post-job
+  hook, which is skipped when the job fails. This breaks the cold-cache +
+  flaky-network death spiral (REQ-CI-047): one successful warm anywhere
+  persists the cache for every subsequent run on that OS.
+
+inputs:
+  spacy:
+    description: Install the en_core_web_sm spaCy model ("true"/"false")
+    required: false
+    default: "false"
+  hf-model:
+    description: HuggingFace model id to warm into hf-cache ("" = skip)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # ---------- spaCy model wheel ----------
+    - name: restore spaCy model wheel cache
+      if: inputs.spacy == 'true'
+      id: restore-spacy
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: spacy-wheel
+        key: spacy-model-en_core_web_sm-3.8.0
+    # russellian-style's linters require the spaCy English model; the wheel is
+    # installed with --no-deps so the click/typer-free [ci] extra is not
+    # disturbed. `click` is added back because spaCy's top-level __init__
+    # eagerly imports spacy.cli, which imports click. Pinned to the spaCy
+    # 3.8.x model matching `spacy>=3.7,<4.0` in [ci].
+    - name: install spaCy model (en_core_web_sm)
+      if: inputs.spacy == 'true'
+      shell: bash
+      run: |
+        retry() {
+          for i in 1 2 3 4; do
+            "$@" && return 0
+            delay=$((15 * 2 ** (i - 1)))
+            echo "attempt $i failed; retrying in ${delay}s" >&2
+            sleep "$delay"
+          done
+          return 1
+        }
+        WHEEL_URL="https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+        WHEEL="spacy-wheel/en_core_web_sm-3.8.0-py3-none-any.whl"
+        mkdir -p spacy-wheel
+        if [ ! -f "$WHEEL" ]; then
+          retry curl -fsSL "$WHEEL_URL" -o "$WHEEL"
+        fi
+        retry python -m pip install click
+        python -m pip install --no-deps "$WHEEL"
+    - name: save spaCy model wheel cache
+      if: inputs.spacy == 'true' && steps.restore-spacy.outputs.cache-hit != 'true'
+      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: spacy-wheel
+        key: spacy-model-en_core_web_sm-3.8.0
+
+    # ---------- HuggingFace model ----------
+    # Key preserved from the pre-composite workflows (basename of the model
+    # id) so already-populated caches keep hitting. OS-scoped: the HF cache
+    # uses symlinks on Linux/macOS but copies on Windows.
+    - name: compute HF cache key
+      if: inputs.hf-model != ''
+      id: hf-key
+      shell: bash
+      env:
+        HF_MODEL: ${{ inputs.hf-model }}
+      run: echo "key=hf-model-$(basename "$HF_MODEL")-${{ runner.os }}-v1" >> "$GITHUB_OUTPUT"
+    - name: restore HF model cache
+      if: inputs.hf-model != ''
+      id: restore-hf
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: hf-cache
+        key: ${{ steps.hf-key.outputs.key }}
+    # Without a persisted cache every xdist worker revalidates per-file
+    # metadata against huggingface.co; parallel workers trip HF Hub's 429
+    # rate limit (#192/#194/#197/#203). The consumer job runs pytest with
+    # HF_HUB_OFFLINE=1 so no leg touches the network for the model.
+    - name: warm HF model cache
+      if: inputs.hf-model != '' && steps.restore-hf.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        HF_HOME: ${{ github.workspace }}/hf-cache
+        HF_MODEL: ${{ inputs.hf-model }}
+      run: |
+        retry() {
+          for i in 1 2 3 4; do
+            "$@" && return 0
+            delay=$((15 * 2 ** (i - 1)))
+            echo "attempt $i failed; retrying in ${delay}s" >&2
+            sleep "$delay"
+          done
+          return 1
+        }
+        retry python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['HF_MODEL'])"
+    - name: save HF model cache
+      if: inputs.hf-model != '' && steps.restore-hf.outputs.cache-hit != 'true'
+      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: hf-cache
+        key: ${{ steps.hf-key.outputs.key }}

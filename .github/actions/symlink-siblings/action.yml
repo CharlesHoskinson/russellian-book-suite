@@ -1,0 +1,30 @@
+name: Symlink Sibling Skills
+description: >
+  Link sibling skills under ~/.claude/skills via Node fs.symlinkSync.
+  `ln -sfn` requires Developer Mode (or admin) on Windows; the Node path
+  works uniformly across ubuntu/macos/windows runners.
+
+inputs:
+  siblings:
+    description: Space-separated sibling skill names to link
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      env:
+        SIBLINGS: ${{ inputs.siblings }}
+      with:
+        script: |
+          const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
+          const { join } = require('path');
+          const home = process.env.HOME || process.env.USERPROFILE;
+          const target = join(home, '.claude', 'skills');
+          mkdirSync(target, { recursive: true });
+          const cwd = process.cwd();
+          for (const s of process.env.SIBLINGS.split(/\s+/).filter(Boolean)) {
+            const link = join(target, s);
+            if (existsSync(link)) rmSync(link, { recursive: true, force: true });
+            symlinkSync(join(cwd, 'skills', s), link, 'dir');
+          }

@@ -13,7 +13,10 @@ updates:
   # entry (the v5.6.0 setup-python pin went stale unnoticed); scan them
   # explicitly.
   - package-ecosystem: github-actions
-    directory: /.github/actions/setup-book-python
+    directories:
+      - /.github/actions/setup-book-python
+      - /.github/actions/symlink-siblings
+      - /.github/actions/setup-models
     schedule:
       interval: weekly
     groups:

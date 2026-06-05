@@ -19,9 +19,9 @@ concurrency:
 
 env:
   # sccache temporarily disabled (opendal/ghac ConfigInvalid under cache
-  # contention, observed under the retired magic-nix-cache). Re-enable per-job
-  # by setting RUSTC_WRAPPER +
-  # SCCACHE_GHA_ENABLED alongside the sccache-action step once contention is fixed.
+  # contention, observed under the retired magic-nix-cache). Re-enable
+  # per-job by setting RUSTC_WRAPPER + SCCACHE_GHA_ENABLED alongside the
+  # sccache-action step once contention is fixed.
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
 
@@ -47,7 +47,8 @@ jobs:
       # ride a reverse-engineered cache API). cache-nix-action stores
       # /nix/store in the regular Actions cache with GC-before-save.
       # lint and preflight share the default-shell closure, hence one
-      # `nix-shell-` key class for both.
+      # `nix-shell-` key class for both. The store save runs post-job gated
+      # on success(): a failed build never persists its store (by design).
       - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
           primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock') }}

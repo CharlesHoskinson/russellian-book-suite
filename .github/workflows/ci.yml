@@ -30,9 +30,9 @@ jobs:
   # rust-gated `preflight` job, so without this job the pure gates would
   # never run at PR time on a pure-Python change (the root cause of the
   # red-since-PR-122 incident). The gates are flake checks (nix/checks.nix,
-  # nix/treefmt.nix): one definition serves CI and `nix flake check` locally
-  # (the hook layer joins it in PR 3). There is no second step list to
-  # drift against the flake checks.
+  # nix/treefmt.nix): one definition serves CI, `nix flake check` locally,
+  # and the hook layer (nix/hooks.nix pins hook commands to the same store
+  # paths). There is no second step list to drift against the flake checks.
   lint:
     name: lint
     runs-on: ubuntu-24.04

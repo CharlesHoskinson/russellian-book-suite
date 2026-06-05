@@ -43,15 +43,18 @@ This repo runs CI on Ubuntu Linux. To avoid "works on my machine" drift, see [`d
 
 ### First-time setup
 
-After cloning, install the pre-commit hooks:
+After cloning, enter the dev shell once:
 
 ```bash
-make install-hooks
+nix develop   # or: make install-hooks
 ```
 
-This installs lefthook's pre-commit hook, which runs `cargo fmt --check`, `ruff check`, `clj-kondo`, and other linters before each commit. Without it, formatting drift won't be caught locally and will surface as a CI failure on your PR instead.
-
-If `lefthook` is not on your PATH, enter the Nix dev shell first (`nix develop` — lefthook is included) or install it directly with `go install github.com/evilmartians/lefthook@latest`.
+The shell hook installs the git hooks. `lefthook.yml` is generated from
+`nix/hooks.nix` (gitignored — do not hand-edit); hook commands are pinned to
+the same store paths the flake checks use, so the pre-commit surface cannot
+drift from CI. Pre-commit runs treefmt (rustfmt, ruff, nixpkgs-fmt) and
+clj-kondo on staged files. Without the hooks, formatting drift won't be
+caught locally and will surface as a CI failure on your PR instead.
 
 ### Skill venvs and spaCy
 

@@ -39,8 +39,10 @@
               "${toolchains.pythonEnv}/bin/python -m pytest skills/neurosym-forge/tests/test_scaffold_bake.py -x";
             regression-suite.run =
               "${toolchains.pythonEnv}/bin/python -m pytest skills/neurosym-forge/tests/regression/ -x";
-            nextest-changed.run =
-              "nix develop -c cargo nextest run --workspace --no-fail-fast";
+            # No nextest hook: there is no top-level cargo workspace (see the
+            # Makefile nextest comment); the old `cargo nextest run --workspace`
+            # hook errored on every push from a hook-installed clone. Per-crate
+            # rust tests run via smoke-changed's verifier `ci` targets.
             smoke-changed = {
               glob = "verifiers/**";
               run = "nix develop -c bash -c 'for d in $(git diff --name-only origin/main...HEAD verifiers/ | cut -d/ -f1-2 | sort -u); do make -C \"$d\" ci || exit 1; done'";

@@ -3,20 +3,21 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    flake-utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
+  outputs = inputs@{ flake-parts, ... }:
     let
-      # REQ-CI-043: declare the supported systems as an explicit named
-      # constant so the matrix is greppable and the macOS contributor
-      # path is documented in source. `eachDefaultSystem` would also
-      # cover these, but naming them lets the runbook
-      # (docs/operations/ci-platforms.md) point at one location.
+      # REQ-CI-043: the supported systems stay a named, greppable constant;
+      # the runbook (docs/operations/ci-platforms.md) points here.
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
@@ -24,95 +25,15 @@
         "aarch64-darwin"
       ];
     in
-    flake-utils.lib.eachSystem supportedSystems (system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ rust-overlay.overlays.default ];
-        };
-        rust = pkgs.rust-bin.stable."1.90.0".default.override {
-          extensions = [ "rust-src" "clippy" "rustfmt" ];
-        };
-        # Python + the few PyPI deps that the booklogic build truly needs at
-        # the system level (everything else lives in per-skill venvs).
-        python = pkgs.python313.withPackages (ps: with ps; [
-          pytest
-          pytest-xdist
-          ruff
-          pyyaml
-          jinja2
-          psutil
-        ]);
-        # Single source of truth for the toolchain — used by both
-        # devShells.default and packages.preflight so they stay in sync.
-        devPackages = with pkgs; [
-          rust
-          mold
-          sccache
-          cargo-nextest
-          nodejs_22
-          nodePackages.pnpm
-          babashka
-          python
-          jdk21
-          clj-kondo
-          z3
-          cmake
-          gnumake
-          pkg-config
-          lefthook
-          git
-          gh
-          jq
-          yq
-          curl
-          nixpkgs-fmt
-        ];
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          name = "russellian-book-suite";
-          packages = devPackages;
-
-          shellHook = ''
-            # RUSTC_WRAPPER=sccache is set externally (by mozilla-actions/sccache-action
-            # in CI, or by the dev locally) — not here, so the shell stays usable in
-            # environments without GHA Cache (CI jobs that disable sccache, local
-            # dev, nightly runs).
-            export CARGO_BUILD_RUSTFLAGS="-C link-arg=-fuse-ld=mold"
-            export CARGO_INCREMENTAL=0
-            export PATH="$HOME/.cargo/bin:$PATH"
-            export NBB_PATH="$PWD/.nbb"
-            export NIX_CONFIG="experimental-features = nix-command flakes"
-          '';
-        };
-
-        # `nix build .#preflight` runs `make preflight` with the same
-        # toolchain devShells.default provides. CI uses this as a single
-        # entry point for drift verification.
-        packages.preflight = pkgs.writeShellApplication {
-          name = "preflight";
-          runtimeInputs = devPackages;
-          text = ''
-            cd "$PWD"
-            make preflight
-          '';
-        };
-
-        # Flake-level check: assert the makefile preflight target's step list
-        # matches scripts/ci-steps.txt. Detects drift between CI YAML and
-        # local Makefile. `make -n` prints recipe lines without their leading
-        # tab, so the dry-run output (with directory chatter suppressed) IS
-        # the step list — no grep/sed extraction.
-        checks.flake-drift = pkgs.runCommand "flake-drift-check"
-          {
-            buildInputs = [ pkgs.gnumake pkgs.coreutils ];
-          } ''
-          if ! diff ${./scripts/ci-steps.txt} <(make -C ${./.} --no-print-directory -n preflight); then
-            echo "DRIFT: scripts/ci-steps.txt diverges from Makefile preflight"
-            exit 1
-          fi
-          touch $out
-        '';
-      });
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = supportedSystems;
+      imports = [
+        inputs.treefmt-nix.flakeModule
+        ./nix/toolchains.nix
+        ./nix/shells.nix
+        ./nix/treefmt.nix
+        ./nix/checks.nix
+        ./nix/preflight.nix
+      ];
+    };
 }

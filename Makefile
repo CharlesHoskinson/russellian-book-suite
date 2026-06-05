@@ -1,23 +1,18 @@
-# Top-level Makefile. The CI workflow and `make preflight` execute the same
-# step list. Every shell line is the unit of comparison against
-# scripts/ci-steps.txt — keep them aligned (the flake-drift check enforces).
+# Top-level Makefile. Pure gates live in flake checks (`make lint` is an
+# alias for the same `nix flake check` CI runs). preflight chains the
+# sandbox-unsafe suites: cargo builds and npm ci cannot run inside the
+# nix sandbox, so they stay Make verbs under `nix develop`.
 
 .PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean install-hooks readme-lint
 
-preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
+preflight: scaffold-bake regression smoke-bermuda smoke-osmotic
 
 # `nextest` is not part of preflight because there is no top-level cargo
 # workspace; per-verifier cargo nextest can be added when a verifier ships
 # Rust unit tests worth running outside its smoke chain.
 
 lint:
-	clj-kondo --lint $$(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn') --fail-level error
-	ruff check .
-	cargo fmt --check --manifest-path verifiers/bermuda/rust-verifier/Cargo.toml
-	cargo fmt --check --manifest-path verifiers/osmotic_pressure/rust-verifier/Cargo.toml
-	nixpkgs-fmt --check $$(git ls-files '*.nix')
-	pytest skills/neurosym-forge/tests/test_support_matrix.py -q
-	pytest skills/neurosym-forge/tests/test_induction_grammar_drift.py -q
+	nix flake check -L
 
 scaffold-bake:
 	pytest skills/neurosym-forge/tests/test_scaffold_bake.py -x

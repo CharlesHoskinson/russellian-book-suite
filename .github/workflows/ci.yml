@@ -53,11 +53,9 @@ jobs:
       - name: required-check name drift (ci.yml job name == ruleset context)
         run: nix develop -c bash scripts/check-required-name.sh
 
-  # Always-run actionlint on every PR/push (P2-actionlint-and-legacy). Workflow
-  # YAML errors used to be caught only when ci-legacy edited itself (its
-  # paths-filter is self-referential); now any change to .github/workflows is
-  # linted at PR time and feeds the ci-required aggregator. Uses the same
-  # pinned-tarball + SHA-verification install as ci-legacy's lint-workflow job.
+  # Always-run actionlint on every PR/push (P2-actionlint-and-legacy): any
+  # change to .github/workflows is linted at PR time and feeds the
+  # ci-required aggregator. Pinned-tarball install with SHA verification.
   actionlint:
     name: actionlint
     runs-on: ubuntu-24.04
@@ -84,16 +82,15 @@ jobs:
         run: actionlint -color
 
   # Detect whether the PR diff touches anything that could affect the Rust
-  # verifiers / Nix preflight (rust output) or the python-skill matrix
-  # (python output). Pure-Python PRs skip the rust-gated jobs; verifier-only
-  # and docs-only PRs skip the python matrix. Pushes to main always run them.
+  # verifiers / Nix preflight. Pure-Python PRs skip the rust-gated jobs;
+  # pushes to main always run them. (The python-skill matrix has its own
+  # finer-grained gate: the compute-matrix job below.)
   changes:
     name: detect rust/nix changes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
-      python: ${{ steps.filter.outputs.python }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
@@ -112,20 +109,34 @@ jobs:
               - 'flake.lock'
               - 'Makefile'
               - '.github/workflows/ci.yml'
-            # python gates the 35-job python-skill matrix. Verifier-only and
-            # docs-only PRs skip it (the 2026-06-03 dependabot flood queued
-            # ~12h of matrix runs for one-line verifier bumps).
-            python:
-              - 'skills/**'
-              - 'sibling_skills/**'
-              - 'ci/**'
-              - '.github/workflows/ci.yml'
-              - '.github/actions/setup-book-python/**'
+
+  # Dynamic python-skill matrix (REQ-CI-046). The skill registry lives in
+  # .github/ci/skills-matrix.json; ci/compute_matrix.py scopes PR runs to the
+  # skills the diff touches (shared-path hits and push/merge_group run the
+  # full matrix). Fail-closed: a selection error fails this job, which fails
+  # ci-required (it is in the require_success set).
+  compute-matrix:
+    name: compute python matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.compute.outputs.matrix }}
+      any_selected: ${{ steps.compute.outputs.any_selected }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0   # compute_matrix diffs against origin/<base>
+      - name: compute matrix from skills-matrix.json
+        id: compute
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 -m ci.compute_matrix --profile pr
 
   # Python-only skills don't need Nix — they run under standard setup-python.
-  # The setup-book-python composite action handles pip + venv per skill; the
-  # matrix.include lines override `extra` and add sibling-skill symlinks /
-  # pytest deselect arguments where individual skills need them.
+  # The setup-book-python composite action handles pip + venv per skill.
+  # Per-skill configuration (extras, siblings, deselects, models) lives in
+  # .github/ci/skills-matrix.json; compute-matrix turns it into include rows.
   #
   # The matrix runs on three OSes (REQ-CI-040). `fail-fast: false` is
   # mandatory so the divergence-summary aggregator (REQ-CI-042) sees every
@@ -133,168 +144,32 @@ jobs:
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    needs: [changes]
-    if: github.event_name != 'pull_request' || needs.changes.outputs.python == 'true'
+    timeout-minutes: ${{ matrix.timeout }}
+    needs: [compute-matrix]
+    if: needs.compute-matrix.outputs.any_selected == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-15, windows-2022]
-        skill:
-          - book-qa
-          - book-thesis
-          - book-knowledge
-          - book-review
-          - book-compose
-          - russellian-style
-          - feynman-style
-          - halmos
-          - iacr-review
-          - review-conductor
-          - neurosym-forge
-          - paragraph-weaver
-        include:
-          # book-qa is the P2-pip-lockfiles pilot: its install is pinned with a
-          # committed constraints.txt for byte-identical transitive versions.
-          - skill: book-qa
-            constraints: skills/book-qa/constraints.txt
-          # book-compose needs sibling skills symlinked under ~/.claude/skills/
-          - skill: book-compose
-            siblings: book-knowledge russellian-style book-review review-conductor
-            pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
-          # neurosym-forge needs both [dev] (pytest + z3-solver + numpy + xdist) and
-          # [semantic] (sentence-transformers) to cover the full test surface
-          # including the semantic-index tests. xdist parallelisation cuts the
-          # Windows wall-time roughly in half.
-          - skill: neurosym-forge
-            extra: dev,semantic
-            pytest-workers: auto
-          # P2-matrix-coverage-gaps: scrapling-fetch (highest supply-chain risk
-          # per dependabot.yml) and syntopical-metabook had ZERO CI signal — a
-          # Dependabot bump could land unverified. They carry heavy/risky
-          # transitive deps (scrapling/trafilatura; torch/sentence-transformers)
-          # and large suites with live-network and integration tests, so a full
-          # pytest leg is not reliably green under the no-extra base install.
-          # Add them as Linux-only install + import-smoke legs (smoke: import):
-          # the base package installs and `import skill_api` succeeds, which
-          # catches a broken dependency pin or a top-level import regression
-          # without committing to the full (red-prone) suite. These are
-          # include-only rows (not in the `skill` axis) so they create exactly
-          # one row each, pinned to ubuntu-24.04.
-          - skill: scrapling-fetch
-            os: ubuntu-24.04
-            extra: none
-            smoke: import
-          - skill: syntopical-metabook
-            os: ubuntu-24.04
-            extra: none
-            smoke: import
+      matrix: ${{ fromJSON(needs.compute-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: ./.github/actions/setup-book-python
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python_version }}
           skill-path: skills/${{ matrix.skill }}
-          extra: ${{ matrix.extra || 'ci' }}
-          constraints: ${{ matrix.constraints || '' }}
-      # Portable symlink: `ln -sfn` requires Developer Mode (or admin) on
-      # Windows. The Node `fs.symlinkSync` path works uniformly across
-      # ubuntu/macos/windows runners.
+          extra: ${{ matrix.extra }}
+          constraints: ${{ matrix.constraints }}
       - name: symlink siblings
         if: matrix.siblings != ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: ./.github/actions/symlink-siblings
         with:
-          script: |
-            const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
-            const { join } = require('path');
-            const home = process.env.HOME || process.env.USERPROFILE;
-            const target = join(home, '.claude', 'skills');
-            mkdirSync(target, { recursive: true });
-            const cwd = process.cwd();
-            const raw = `${{ matrix.siblings }}`;
-            for (const s of raw.split(/\s+/).filter(Boolean)) {
-              const link = join(target, s);
-              if (existsSync(link)) rmSync(link, { recursive: true, force: true });
-              symlinkSync(join(cwd, 'skills', s), link, 'dir');
-            }
-      # russellian-style's linters require the spaCy English model. Without it
-      # conftest would skip the entire linter suite (and now hard-errors in CI).
-      # book-compose symlinks russellian-style as a sibling and has its own
-      # spaCy-dependent tests, so it needs the model too (else those tests
-      # silently drop from collection). feynman-style's lint_common is a copy
-      # of russellian-style's and carries the same conftest hard-error gate. Install the model wheel directly with
-      # --no-deps so the click/typer-free [ci] extra is not disturbed (the
-      # `spacy download` CLI needs click/typer). `click` is added back because
-      # spaCy's top-level __init__ eagerly imports spacy.cli, which imports
-      # click; without it `import spacy` (and thus `spacy.load`) raises
-      # ModuleNotFoundError and the conftest still hard-errors in CI. Pin to
-      # the spaCy 3.8.x model that matches `spacy>=3.7,<4.0` in [ci].
-      # Cache the spaCy model wheel keyed on its pinned version so it is not
-      # re-fetched from GitHub releases on every run. The download step below
-      # uses the cached wheel when present and only hits the network on a miss.
-      - name: cache spaCy model wheel
-        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose' || matrix.skill == 'feynman-style'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+          siblings: ${{ matrix.siblings }}
+      # spaCy wheel + HF model with restore/save-on-warm-success caching
+      # (REQ-CI-047); no-ops for skills with neither model registered.
+      - name: setup models (spaCy / HF as registered)
+        uses: ./.github/actions/setup-models
         with:
-          path: spacy-wheel
-          key: spacy-model-en_core_web_sm-3.8.0
-      - name: install spaCy model (russellian-style / book-compose / feynman-style)
-        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose' || matrix.skill == 'feynman-style'
-        shell: bash
-        # Single-shot network steps are wrapped in a 3-try backoff so a
-        # transient registry/GitHub-release blip retries rather than reddening
-        # the required check (P2-network-retries).
-        run: |
-          retry() {
-            for i in 1 2 3; do
-              "$@" && return 0
-              echo "attempt $i failed; retrying in $((i * 5))s" >&2
-              sleep $((i * 5))
-            done
-            return 1
-          }
-          WHEEL_URL="https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
-          WHEEL="spacy-wheel/en_core_web_sm-3.8.0-py3-none-any.whl"
-          mkdir -p spacy-wheel
-          if [ ! -f "$WHEEL" ]; then
-            retry curl -fsSL "$WHEEL_URL" -o "$WHEEL"
-          fi
-          retry python -m pip install click
-          python -m pip install --no-deps "$WHEEL"
-      # neurosym-forge's semantic-index tests load the all-MiniLM-L6-v2
-      # sentence-transformers model. Without a persisted cache every xdist
-      # worker revalidates per-file metadata against huggingface.co (HEAD
-      # requests); parallel workers trip HF Hub's 429 rate limit and the
-      # semantic tests fail or hang (#192/#194/#197/#203, all 2026-06-03).
-      # Cache the model keyed on its pinned name, warm it once per run on a
-      # miss, then run pytest with HF_HUB_OFFLINE=1 so no leg touches the
-      # network for the model. Key is OS-scoped: the HF cache uses symlinks
-      # on Linux/macOS but copies on Windows.
-      - name: cache HF model (all-MiniLM-L6-v2)
-        if: matrix.skill == 'neurosym-forge'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: hf-cache
-          key: hf-model-all-MiniLM-L6-v2-${{ runner.os }}-v1
-      - name: warm HF model cache (neurosym-forge)
-        if: matrix.skill == 'neurosym-forge'
-        shell: bash
-        env:
-          HF_HOME: ${{ github.workspace }}/hf-cache
-        run: |
-          retry() {
-            for i in 1 2 3; do
-              "$@" && return 0
-              echo "attempt $i failed; retrying in $((i * 5))s" >&2
-              sleep $((i * 5))
-            done
-            return 1
-          }
-          if [ ! -d "$HF_HOME/hub/models--sentence-transformers--all-MiniLM-L6-v2" ]; then
-            retry python -c "from huggingface_hub import snapshot_download; snapshot_download('sentence-transformers/all-MiniLM-L6-v2')"
-          else
-            echo "HF model cache hit; skipping warmup"
-          fi
+          spacy: ${{ matrix.spacy }}
+          hf-model: ${{ matrix.hf_model }}
       # Install + import smoke for the coverage-gap skills (P2-matrix-coverage-gaps).
       # The setup-book-python step above already installed the base package;
       # importing skill_api proves the dependency pins resolve and the public
@@ -309,9 +184,9 @@ jobs:
         working-directory: skills/${{ matrix.skill }}
         shell: bash
         env:
-          # neurosym-forge only: read the warmed model cache, never the network.
-          HF_HOME: ${{ matrix.skill == 'neurosym-forge' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
-          HF_HUB_OFFLINE: ${{ matrix.skill == 'neurosym-forge' && '1' || '0' }}
+          # hf_model legs only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.hf_model != '' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.hf_model != '' && '1' || '0' }}
         run: |
           marker_filter=""
           if [ "${{ runner.os }}" = "Windows" ]; then
@@ -322,10 +197,10 @@ jobs:
           # `-m windows_canary`, `--deselect <id>`). Empty values expand to no
           # args. SC2086 is intentional here.
           # shellcheck disable=SC2086
-          if [ -n "${{ matrix.pytest-workers }}" ]; then
-            python -m pytest tests/ -q --tb=short $marker_filter -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
+          if [ -n "${{ matrix.pytest_workers }}" ]; then
+            python -m pytest tests/ -q --tb=short $marker_filter -n ${{ matrix.pytest_workers }} ${{ matrix.pytest_deselect }}
           else
-            python -m pytest tests/ -q --tb=short $marker_filter ${{ matrix.pytest-deselect }}
+            python -m pytest tests/ -q --tb=short $marker_filter ${{ matrix.pytest_deselect }}
           fi
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally
@@ -336,8 +211,8 @@ jobs:
   # Make's preflight target chains the sub-steps in dependency order.
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
-    needs: [changes]
-    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.python == 'true'
+    needs: [changes, compute-matrix]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true' || needs.compute-matrix.outputs.any_selected == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -449,6 +324,7 @@ jobs:
     needs:
       - lint
       - actionlint
+      - compute-matrix
       - preflight
       - python-skill-matrix
       - cargo-test
@@ -467,6 +343,7 @@ jobs:
         env:
           LINT: ${{ needs.lint.result }}
           ACTIONLINT: ${{ needs.actionlint.result }}
+          COMPUTE_MATRIX: ${{ needs.compute-matrix.result }}
           PYTHON_SKILL: ${{ needs.python-skill-matrix.result }}
           DIVERGENCE: ${{ needs.ci-divergence-summary.result }}
           PREFLIGHT: ${{ needs.preflight.result }}
@@ -487,6 +364,7 @@ jobs:
           }
           require_success lint "$LINT"
           require_success actionlint "$ACTIONLINT"
+          require_success compute-matrix "$COMPUTE_MATRIX"
           require_success ci-divergence-summary "$DIVERGENCE"
           require_not_failed python-skill-matrix "$PYTHON_SKILL"
           require_not_failed preflight "$PREFLIGHT"

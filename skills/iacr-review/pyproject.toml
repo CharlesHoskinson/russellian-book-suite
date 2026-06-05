@@ -11,10 +11,10 @@ dependencies = []
 
 [project.optional-dependencies]
 ci = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
 dev = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
 
 [tool.setuptools]

@@ -37,14 +37,9 @@ clean:
 	rm -rf verifiers/*/cljs-orchestrator/native
 
 install-hooks:
-	@command -v lefthook >/dev/null 2>&1 || { \
-		echo "ERROR: lefthook not found. Install it first:"; \
-		echo "  nix develop  # (recommended — lefthook is in flake.nix)"; \
-		echo "  OR: go install github.com/evilmartians/lefthook@latest"; \
-		exit 1; \
-	}
-	lefthook install
-	@echo "Pre-commit hooks installed. They will run on every git commit."
+	@echo "Hooks are installed by the dev shell (nix develop)."
+	@echo "lefthook.yml is generated from nix/hooks.nix — do not hand-edit."
+	nix develop -c true
 
 readme-lint:
 	nix develop -c bash -c 'cd tools/readme-lint && .venv/bin/python -m scripts.lint_readme'

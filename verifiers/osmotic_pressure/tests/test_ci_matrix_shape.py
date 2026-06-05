@@ -104,17 +104,17 @@ def test_coverage_gap_skills_have_smoke_legs():
 
 
 def test_cargo_test_job_exists():
-    """REQ-CI-041: a cargo-test job (Linux + macOS) is declared."""
+    """REQ-CI-041: a cargo-test job (Linux + macOS) is declared; toolchain
+    and z3 come from the flake's rust shell, not apt/brew/rustup."""
     text = _workflow_text()
-    # Loose check: the job key appears, and the macOS install step is wired.
     assert "cargo-test:" in text or "cargo test" in text, (
         "no cargo-test job declared"
     )
-    assert "brew install z3" in text, (
-        "cargo-test macOS leg should run `brew install z3`"
+    assert "nix develop .#rust" in text, (
+        "cargo-test must take its toolchain + z3 from the flake's rust shell"
     )
-    assert "libz3-dev" in text, (
-        "cargo-test Linux leg should install libz3-dev via apt"
+    assert "brew install z3" not in text, (
+        "apt/brew z3 installs were retired by nix-consolidation PR 3"
     )
 
 

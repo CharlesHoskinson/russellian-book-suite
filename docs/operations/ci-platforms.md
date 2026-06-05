@@ -15,32 +15,55 @@ cargo signal locally.
 |----------------------|----------------------|----------------------|-------------------------------|
 | `python-skill-matrix`| nix-supplied Python  | `actions/setup-python` | `actions/setup-python`      |
 | `preflight` (nix)    | yes                  | no (Linux-only)      | no (Linux-only)               |
-| `cargo-test`         | apt libz3            | brew z3              | **skipped — see below**       |
+| `cargo-test`         | flake rust shell     | flake rust shell     | **skipped — see below**       |
 | `ci-divergence-summary` | linux runner (aggregator only) | n/a | n/a                |
 
 `fail-fast: false` is set on every matrix job. We want every leg to
 report — otherwise the divergence-summary has incomplete data.
 
-## libz3 install per OS
+The table above is x86_64-only; the per-PR matrix never builds the
+`aarch64-linux` system the flake declares in its `supportedSystems`
+list. The nightly `nightly.yml` workflow closes that gap with a
+single `flake-check-arm` leg (`ubuntu-24.04-arm`, nightly-only,
+`nix flake check`). ARM GitHub-hosted runners are free for public
+repos (GA 2025-08), so the arch the flake claims to support is
+exercised once daily rather than never.
 
-The Rust verifier crates depend on the `z3` crate, which links against
-system libz3. The CI workflow installs it as follows:
+| Job               | Arch          | OS / runner       | Cadence       | Check             |
+|-------------------|---------------|-------------------|---------------|-------------------|
+| `flake-check-arm` | aarch64-linux | `ubuntu-24.04-arm`| nightly-only  | `nix flake check` |
+
+## z3 and toolchain in CI
+
+As of nix-consolidation PR 3, the `cargo-test` job takes both its Rust
+toolchain and its z3 library from the flake's `rust` devShell
+(`nix develop .#rust`). This replaces the previous per-OS apt/brew
+installs. The `preflight` job was already hermetic; `cargo-test` now
+matches it. One pinned solver version links everywhere.
+
+## libz3 install — local, non-nix contributors
+
+Developers who do not have nix available can still run the verifier
+tests manually by installing libz3 from their system package manager.
+These are **local fallback recipes only** — CI no longer uses them.
 
 ### Linux (ubuntu-24.04)
 
-Two paths depending on the job:
+```bash
+sudo apt-get install -y libz3-dev
+cargo test --features smt --manifest-path verifiers/<name>/rust-verifier/Cargo.toml
+```
 
-- `preflight` (nix): uses `pkgs.z3` from the flake. No apt install
-  needed; the toolchain is hermetic.
-- `cargo-test`: `sudo apt-get install -y libz3-dev`. This duplicates
-  what nix provides but is the canonical "developer without nix"
-  recipe and the one this job exists to validate.
+### macOS
 
-### macOS (macos-latest)
+```bash
+brew install z3
+cargo test --features smt --manifest-path verifiers/<name>/rust-verifier/Cargo.toml
+```
 
-`brew install z3`. The Homebrew bottle ships both the static lib and
-the headers; the `z3` crate's pkg-config probe finds them without
-extra `LDFLAGS` on modern macOS runners.
+The Homebrew bottle ships both the shared dylib and the headers; the
+`z3` crate's pkg-config probe finds them without extra `LDFLAGS` on
+modern macOS.
 
 ### Windows (windows-2022)
 

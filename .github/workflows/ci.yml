@@ -50,7 +50,7 @@ jobs:
         with:
           primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
           restore-prefixes-first-match: nix-shell-${{ runner.os }}-
-          gc-max-store-size-linux: 5G
+          gc-max-store-size-linux: 8G
           purge: true
           purge-prefixes: nix-shell-${{ runner.os }}-
           purge-created: 0
@@ -228,7 +228,7 @@ jobs:
         with:
           primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
           restore-prefixes-first-match: nix-shell-${{ runner.os }}-
-          gc-max-store-size-linux: 5G
+          gc-max-store-size-linux: 8G
           purge: true
           purge-prefixes: nix-shell-${{ runner.os }}-
           purge-created: 0
@@ -240,18 +240,17 @@ jobs:
             verifiers/osmotic_pressure/rust-verifier
       - run: nix develop -c make preflight
 
-  # Per-verifier cargo test on Linux + macOS (REQ-CI-041). Windows is
-  # deliberately skipped — the z3 crate's pkg-config probe doesn't reliably
-  # find a Windows-native libz3, so cargo test on windows-2022 would surface
-  # link errors that have nothing to do with the code under test. The
-  # WSL-fallback runbook in `docs/operations/ci-platforms.md` covers
-  # Windows contributors who need cargo signal locally.
+  # Per-verifier cargo test on Linux + macOS (REQ-CI-041). Toolchain and z3
+  # come from the flake's rust shell — the same z3 the devShell provides, so
+  # the smt feature links against one pinned solver everywhere. Windows is
+  # deliberately skipped (see docs/operations/ci-platforms.md: no reliable
+  # Windows-native libz3; WSL fallback runbook covers local cargo signal).
   cargo-test:
     name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
     needs: [changes]
     if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -259,30 +258,26 @@ jobs:
         verifier: [bermuda, osmotic_pressure]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: install libz3 (linux)
-        if: matrix.os == 'ubuntu-24.04'
-        # 3-try backoff around the apt mirror (P2-network-retries).
-        run: |
-          for i in 1 2 3; do
-            sudo apt-get update && sudo apt-get install -y libz3-dev && break
-            echo "apt attempt $i failed; retrying in $((i * 5))s" >&2
-            sleep $((i * 5))
-          done
-      - name: install libz3 (macos)
-        if: matrix.os == 'macos-15'
-        # 3-try backoff around the brew formula download (P2-network-retries).
-        run: |
-          for i in 1 2 3; do
-            brew install z3 && break
-            echo "brew attempt $i failed; retrying in $((i * 5))s" >&2
-            sleep $((i * 5))
-          done
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-rust-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+          restore-prefixes-first-match: nix-rust-${{ runner.os }}-
+          gc-max-store-size-linux: 6G
+          gc-max-store-size-macos: 6G
+          purge: true
+          purge-prefixes: nix-rust-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/${{ matrix.verifier }}/rust-verifier
+          # No rustup on the runner — rust-cache probes `rustc -vV` for its
+          # key and hard-throws if it is off PATH. Route its commands through
+          # the flake shell so it sees the same toolchain the cargo step uses.
+          cmd-format: "nix develop .#rust -c {0}"
       - name: cargo test
-        run: cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
+        run: nix develop .#rust -c cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
 
   # Divergence summary (REQ-CI-042). Runs regardless of upstream status so
   # the summary is published even on red runs. Emits a markdown table to

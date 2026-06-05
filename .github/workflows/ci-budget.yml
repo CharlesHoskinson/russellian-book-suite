@@ -1,7 +1,10 @@
 name: ci-budget
+# pull_request fires on `labeled` only (REQ-CI-048): with the job-level
+# label gate, the previous broader trigger set produced 4-6 permanently
+# skipped phantom runs per PR push, burying real runs in the checks list.
 on:
   pull_request:
-    types: [labeled, opened, synchronize]
+    types: [labeled]
   schedule:
     - cron: '0 9 * * 1'   # Mondays 09:00 UTC — weekly trend
   workflow_dispatch:

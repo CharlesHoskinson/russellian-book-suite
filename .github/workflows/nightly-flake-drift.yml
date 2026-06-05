@@ -23,153 +23,198 @@ jobs:
       - name: run preflight in fresh shell
         run: nix develop -c make preflight
 
+  # Both nightly matrices come from .github/ci/skills-matrix.json — the same
+  # registry the PR-time matrix uses (REQ-CI-045), so the nightly can never
+  # again drift out of sync with the skill list (the static copy here was
+  # missing feynman-style, halmos, iacr-review, and paragraph-weaver).
+  compute-matrix:
+    name: compute nightly matrices
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      windows_matrix: ${{ steps.canary.outputs.windows_matrix }}
+      compat_matrix: ${{ steps.compat.outputs.compat_matrix }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: windows-canary matrix (all runnable skills, windows-2022)
+        id: canary
+        run: python3 -m ci.compute_matrix --profile windows-canary --output-prefix windows_
+      - name: python-compat matrix (all runnable skills, ubuntu x py3.11/3.12)
+        id: compat
+        run: python3 -m ci.compute_matrix --profile python-compat --python-versions 3.11,3.12 --output-prefix compat_
+
   # Run the full Windows test suite (no -m filter) once daily. Catches
   # under-tagging of the windows_canary marker within 24h. The PR-time
   # CI matrix only runs marker-tagged tests on Windows; this nightly job
-  # is the safety net.
+  # is the safety net. Smoke-only entries run install+import on Windows, so
+  # a bump that only breaks the Windows install is caught nightly too.
   windows-full-canary:
     name: windows full suite (catches under-tagging)
     runs-on: windows-2022
     timeout-minutes: 30
+    needs: [compute-matrix]
     strategy:
       fail-fast: false
-      matrix:
-        skill:
-          - book-qa
-          - book-thesis
-          - book-knowledge
-          - book-review
-          - book-compose
-          - russellian-style
-          - review-conductor
-          - neurosym-forge
-        include:
-          - skill: book-compose
-            siblings: book-knowledge russellian-style book-review review-conductor
-            pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
-          - skill: neurosym-forge
-            extra: dev,semantic
-          # P2-matrix-coverage-gaps: install + import smoke on Windows too, so a
-          # bump that only breaks the Windows install is caught nightly. Full
-          # pytest is intentionally not run (heavy/risky deps, red-prone suites).
-          - skill: scrapling-fetch
-            extra: none
-            smoke: import
-          - skill: syntopical-metabook
-            extra: none
-            smoke: import
+      matrix: ${{ fromJSON(needs.compute-matrix.outputs.windows_matrix) }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: ./.github/actions/setup-book-python
         with:
           python-version: "3.13"
           skill-path: skills/${{ matrix.skill }}
-          extra: ${{ matrix.extra || 'ci' }}
+          extra: ${{ matrix.extra }}
+          constraints: ${{ matrix.constraints }}
       - name: symlink siblings
         if: matrix.siblings != ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: ./.github/actions/symlink-siblings
         with:
-          script: |
-            const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
-            const { join } = require('path');
-            const home = process.env.HOME || process.env.USERPROFILE;
-            const target = join(home, '.claude', 'skills');
-            mkdirSync(target, { recursive: true });
-            const cwd = process.cwd();
-            const raw = `${{ matrix.siblings }}`;
-            for (const s of raw.split(/\s+/).filter(Boolean)) {
-              const link = join(target, s);
-              if (existsSync(link)) rmSync(link, { recursive: true, force: true });
-              symlinkSync(join(cwd, 'skills', s), link, 'dir');
-            }
-      # russellian-style's conftest hard-errors in CI when the spaCy English
-      # model is missing, and book-compose's sibling-loaded linters need
-      # `import spacy` to work, which needs click (spaCy's __init__ eagerly
-      # imports spacy.cli). Mirror ci.yml: install the model wheel with
-      # --no-deps plus click. Without these steps the unfiltered Windows legs
-      # red on environment, not on under-tagging — the drift this job exists
-      # to catch.
-      - name: cache spaCy model wheel
-        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+          siblings: ${{ matrix.siblings }}
+      # spaCy wheel + HF model with restore/save-on-warm-success caching
+      # (REQ-CI-047); no-ops for skills with neither model registered. The
+      # unfiltered Windows legs must not red on environment, only on
+      # under-tagging — the drift this job exists to catch.
+      - name: setup models (spaCy / HF as registered)
+        uses: ./.github/actions/setup-models
         with:
-          path: spacy-wheel
-          key: spacy-model-en_core_web_sm-3.8.0
-      - name: install spaCy model (russellian-style / book-compose)
-        if: matrix.skill == 'russellian-style' || matrix.skill == 'book-compose'
-        shell: bash
-        run: |
-          retry() {
-            for i in 1 2 3; do
-              "$@" && return 0
-              echo "attempt $i failed; retrying in $((i * 5))s" >&2
-              sleep $((i * 5))
-            done
-            return 1
-          }
-          WHEEL_URL="https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
-          WHEEL="spacy-wheel/en_core_web_sm-3.8.0-py3-none-any.whl"
-          mkdir -p spacy-wheel
-          if [ ! -f "$WHEEL" ]; then
-            retry curl -fsSL "$WHEEL_URL" -o "$WHEEL"
-          fi
-          retry python -m pip install click
-          python -m pip install --no-deps "$WHEEL"
+          spacy: ${{ matrix.spacy }}
+          hf-model: ${{ matrix.hf_model }}
       - name: import smoke
         if: matrix.smoke == 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
         run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
-      # neurosym-forge's semantic-index tests load the all-MiniLM-L6-v2
-      # sentence-transformers model. Without a persisted cache every xdist
-      # worker revalidates per-file metadata against huggingface.co (HEAD
-      # requests); parallel workers trip HF Hub's 429 rate limit and the
-      # semantic tests fail or hang (#192/#194/#197/#203, all 2026-06-03).
-      # Cache the model keyed on its pinned name, warm it once per run on a
-      # miss, then run pytest with HF_HUB_OFFLINE=1 so no leg touches the
-      # network for the model. Key is OS-scoped: the HF cache uses symlinks
-      # on Linux/macOS but copies on Windows.
-      - name: cache HF model (all-MiniLM-L6-v2)
-        if: matrix.skill == 'neurosym-forge'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: hf-cache
-          key: hf-model-all-MiniLM-L6-v2-${{ runner.os }}-v1
-      - name: warm HF model cache (neurosym-forge)
-        if: matrix.skill == 'neurosym-forge'
-        shell: bash
-        env:
-          HF_HOME: ${{ github.workspace }}/hf-cache
-        run: |
-          retry() {
-            for i in 1 2 3; do
-              "$@" && return 0
-              echo "attempt $i failed; retrying in $((i * 5))s" >&2
-              sleep $((i * 5))
-            done
-            return 1
-          }
-          if [ ! -d "$HF_HOME/hub/models--sentence-transformers--all-MiniLM-L6-v2" ]; then
-            retry python -c "from huggingface_hub import snapshot_download; snapshot_download('sentence-transformers/all-MiniLM-L6-v2')"
-          else
-            echo "HF model cache hit; skipping warmup"
-          fi
       - name: pytest (unfiltered)
         if: matrix.smoke != 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
         env:
-          # neurosym-forge only: read the warmed model cache, never the network.
-          HF_HOME: ${{ matrix.skill == 'neurosym-forge' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
-          HF_HUB_OFFLINE: ${{ matrix.skill == 'neurosym-forge' && '1' || '0' }}
-        run: python -m pytest tests/ -q --tb=short ${{ matrix.pytest-deselect }}
+          # hf_model legs only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.hf_model != '' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.hf_model != '' && '1' || '0' }}
+        run: python -m pytest tests/ -q --tb=short ${{ matrix.pytest_deselect }}
+
+  # py3.11/3.12 compatibility legs (moved from ci-legacy on its retirement).
+  # Skills declare requires-python >=3.11; PR-time CI tests 3.13 only, so this
+  # nightly job is the only signal for the older interpreters. Linux-only;
+  # constraints files are dropped by the python-compat profile (they are
+  # generated under 3.13).
+  python-compat:
+    name: python-compat (${{ matrix.skill }} / py${{ matrix.python_version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: [compute-matrix]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.compute-matrix.outputs.compat_matrix) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python_version }}
+          skill-path: skills/${{ matrix.skill }}
+          extra: ${{ matrix.extra }}
+      - name: symlink siblings
+        if: matrix.siblings != ''
+        uses: ./.github/actions/symlink-siblings
+        with:
+          siblings: ${{ matrix.siblings }}
+      - name: setup models (spaCy / HF as registered)
+        uses: ./.github/actions/setup-models
+        with:
+          spacy: ${{ matrix.spacy }}
+          hf-model: ${{ matrix.hf_model }}
+      - name: import smoke
+        if: matrix.smoke == 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
+      - name: pytest
+        if: matrix.smoke != 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        env:
+          HF_HOME: ${{ matrix.hf_model != '' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.hf_model != '' && '1' || '0' }}
+        run: |
+          # shellcheck disable=SC2086
+          if [ -n "${{ matrix.pytest_workers }}" ]; then
+            python -m pytest tests/ -q --tb=short -n ${{ matrix.pytest_workers }} ${{ matrix.pytest_deselect }}
+          else
+            python -m pytest tests/ -q --tb=short ${{ matrix.pytest_deselect }}
+          fi
+
+  # End-to-end book-thesis pipeline on the worked example (moved from
+  # ci-legacy on its retirement). Not covered by preflight, which smokes the
+  # bermuda *verifier*, not the book-thesis compile/datalog chain.
+  bermuda-example-pipeline:
+    name: bermuda example pipeline (compile_thesis + datalog)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: "3.13"
+          skill-path: skills/book-thesis
+      - name: compile_thesis
+        run: python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
+      - name: datalog_consistency
+        run: python skills/book-thesis/scripts/datalog_consistency.py examples/bermuda-manual
+      - name: upload qa reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bermuda-qa-reports
+          path: |
+            examples/bermuda-manual/qa/defects.json
+            examples/bermuda-manual/qa/supports-defects.json
+            examples/bermuda-manual/qa/datalog-defects.json
+          if-no-files-found: warn
+
+  # shadow-cljs test compile + node run for the bermuda orchestrator (moved
+  # from ci-legacy on its retirement). preflight's `make -C verifiers/bermuda
+  # ci` builds the cljs release bundle but does not run the cljs test suite.
+  cljs-bermuda-test:
+    name: cljs-bermuda-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: verifiers/bermuda/package-lock.json
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: npm ci (strict lockfile install)
+        working-directory: verifiers/bermuda
+        # `npm ci` installs strictly from package-lock.json so transitive deps
+        # cannot resolve to newer/unintended versions at CI time. If the lockfile
+        # genuinely drifts from package.json, fix the lockfile (npm install
+        # locally + commit) rather than masking it with `npm install`, which
+        # silently mutates the resolved dependency set. 3-try backoff around the
+        # registry (P2-network-retries).
+        run: |
+          for i in 1 2 3; do
+            npm ci --no-audit --no-fund && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+      - name: shadow-cljs compile + node test
+        working-directory: verifiers/bermuda
+        run: |
+          npx shadow-cljs compile test
+          node cljs-orchestrator/dist/test.js
 
   # P2-nightly-alerting-and-drift: a red scheduled run used to fail silently.
   # On failure, open (or update) a single dedup-by-title tracking issue so the
   # regression is actionable. Runs only on schedule (not on manual dispatch or
   # self-edit pushes) to avoid issue spam during workflow iteration.
   alert-on-failure:
-    needs: [drift-check, windows-full-canary]
+    needs: [drift-check, windows-full-canary, python-compat, bermuda-example-pipeline, cljs-bermuda-test]
     if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -185,9 +230,10 @@ jobs:
               `- Run: ${runUrl}`,
               `- Triggered: ${context.eventName} @ ${new Date().toISOString()}`,
               ``,
-              `Investigate the failing job (flake check / preflight / windows canary)`,
-              `and close this issue once green. This issue is updated, not`,
-              `duplicated, on subsequent failures.`,
+              `Investigate the failing job (flake check / preflight / windows canary`,
+              `/ python-compat / bermuda pipeline / cljs test) and close this issue`,
+              `once green. This issue is updated, not duplicated, on subsequent`,
+              `failures.`,
             ].join('\n');
             const existing = await github.rest.search.issuesAndPullRequests({
               q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,

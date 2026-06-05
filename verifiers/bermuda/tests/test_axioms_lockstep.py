@@ -99,14 +99,20 @@ def test_lib_rs_declares_axioms_mod_not_canonical() -> None:
 
 
 @pytest.mark.skipif(not _YAML_OK, reason="pyyaml not installed")
-def test_ci_yaml_has_bermuda_z3_jobs() -> None:
+def test_ci_yaml_covers_bermuda_z3_build() -> None:
+    """The repo CI must compile the bermuda verifier with the smt feature.
+    Since ci-legacy's retirement this lives in ci.yml's cargo-test job
+    (cargo test --features smt builds before testing)."""
     ci = yaml.safe_load(
         (BERMUDA_ROOT.parents[1] / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
         )
     )
     jobs = ci.get("jobs", {})
-    assert "bermuda-z3-build" in jobs, "bermuda-z3-build job missing from ci.yml"
-    assert "bermuda-z3-verify" in jobs, "bermuda-z3-verify job missing from ci.yml"
-    assert jobs["bermuda-z3-build"].get("runs-on") == "ubuntu-latest"
-    assert jobs["bermuda-z3-verify"].get("runs-on") == "ubuntu-latest"
+    assert "cargo-test" in jobs, "cargo-test job missing from ci.yml"
+    matrix = jobs["cargo-test"]["strategy"]["matrix"]
+    assert "bermuda" in matrix["verifier"], "cargo-test matrix must include bermuda"
+    run_lines = " ".join(
+        step.get("run", "") for step in jobs["cargo-test"]["steps"]
+    )
+    assert "--features smt" in run_lines, "cargo-test must build with --features smt"

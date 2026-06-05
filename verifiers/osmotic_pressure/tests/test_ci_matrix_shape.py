@@ -14,12 +14,14 @@ REQ map:
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 CI_BUDGET = REPO_ROOT / ".github" / "workflows" / "ci-budget.yml"
-CI_LEGACY = REPO_ROOT / ".github" / "workflows" / "ci-legacy.yml"
+MATRIX_JSON = REPO_ROOT / ".github" / "ci" / "skills-matrix.json"
+SETUP_MODELS = REPO_ROOT / ".github" / "actions" / "setup-models" / "action.yml"
 DEPENDABOT = REPO_ROOT / ".github" / "dependabot.yml"
 FLAKE = REPO_ROOT / "flake.nix"
 CI_PLATFORMS_DOC = REPO_ROOT / "docs" / "operations" / "ci-platforms.md"
@@ -30,9 +32,9 @@ def _budget_text() -> str:
     return CI_BUDGET.read_text(encoding="utf-8")
 
 
-def _legacy_text() -> str:
-    assert CI_LEGACY.exists(), f"ci-legacy workflow not found at {CI_LEGACY}"
-    return CI_LEGACY.read_text(encoding="utf-8")
+def _matrix_config() -> dict:
+    assert MATRIX_JSON.exists(), f"skills matrix registry not found at {MATRIX_JSON}"
+    return json.loads(MATRIX_JSON.read_text(encoding="utf-8"))
 
 
 def _dependabot_text() -> str:
@@ -49,10 +51,10 @@ def _workflow_text() -> str:
 
 
 def test_python_skill_matrix_has_three_oses():
-    """REQ-CI-040: python-skill matrix axis enumerates all three OSes."""
-    text = _workflow_text()
-    for os_label in ("ubuntu-24.04", "macos-15", "windows-2022"):
-        assert os_label in text, f"workflow missing OS label {os_label}"
+    """REQ-CI-040: the default OS axis enumerates all three OSes."""
+    assert _matrix_config()["defaults"]["os"] == [
+        "ubuntu-24.04", "macos-15", "windows-2022",
+    ]
 
 
 def test_python_skill_runs_on_matrix_os():
@@ -75,31 +77,27 @@ def test_python_skill_matrix_fail_fast_false():
 
 
 def test_python_skill_include_overrides_are_in_skill_axis():
-    """REQ-CI-040: include-only skills must still receive every OS value."""
-    text = _workflow_text()
-    skill_axis = text.split("        include:", 1)[0].split("        skill:", 1)[1]
+    """REQ-CI-040: override-carrying skills are full-coverage entries (no
+    os restriction), so their overrides apply on every OS."""
+    entries = {e["skill"]: e for e in _matrix_config()["skills"]}
     for skill in ("book-compose", "neurosym-forge"):
-        assert f"          - {skill}" in skill_axis, (
-            f"{skill} must be in matrix.skill; otherwise its include override "
-            "creates a matrix row without matrix.os"
+        entry = entries[skill]
+        assert entry.get("ci") != "none", f"{skill} must be runnable"
+        assert "os" not in entry, (
+            f"{skill} must inherit the full default OS axis; an os override "
+            "would silently drop matrix legs"
         )
 
 
 def test_coverage_gap_skills_have_smoke_legs():
     """P2-matrix-coverage-gaps: scrapling-fetch + syntopical-metabook are
-    covered by an install+import smoke leg (include-only rows pinned to one OS
-    with `smoke: import`), closing the zero-CI-signal gap on the highest
-    supply-chain-risk skills."""
-    text = _workflow_text()
-    include_block = text.split("        include:", 1)[1].split("\n    steps:", 1)[0]
+    covered by an install+import smoke leg, closing the zero-CI-signal gap
+    on the highest supply-chain-risk skills."""
+    entries = {e["skill"]: e for e in _matrix_config()["skills"]}
     for skill in ("scrapling-fetch", "syntopical-metabook"):
-        assert f"- skill: {skill}" in include_block, (
-            f"{skill} must have a matrix include row"
+        assert entries[skill].get("smoke") == "import", (
+            f"{skill} must be a `smoke: import` entry"
         )
-    # These rows must be smoke-only (not full pytest) to stay green.
-    assert "smoke: import" in include_block, (
-        "coverage-gap skills must be added as `smoke: import` legs"
-    )
 
 
 # ---------- REQ-CI-041 ----------
@@ -327,33 +325,43 @@ def test_budget_enforces_or_documents_advisory():
     )
 
 
-# ---------- audit: ci-legacy bermuda-z3-verify (finding #6) ----------
+# ---------- model-cache hardening (REQ-CI-047) + budget triggers (REQ-CI-048) ----------
 
 
-def test_legacy_bermuda_z3_job_name_not_misleading():
-    """#6 ci-legacy-advisory-d13-vacuous: the stubbed smoke job must not be
-    named to imply genuine real-Z3 end-to-end verification."""
-    text = _legacy_text()
-    # The job still runs run_verification with --stub, so its name must not
-    # claim "real Z3" end-to-end (which would mislead operators reading the
-    # green check on the PR page).
-    assert "--stub" in text, (
-        "guard assumption: this test targets the stubbed bermuda-z3 job"
+def test_model_caches_save_on_warm_success_not_post_job():
+    """REQ-CI-047: setup-models uses explicit cache/restore + cache/save so a
+    warmed model survives later step failures (the combined actions/cache
+    post-job save is skipped on job failure — the 2026-06-04 Windows
+    neurosym death spiral)."""
+    assert SETUP_MODELS.exists(), f"composite not found at {SETUP_MODELS}"
+    text = SETUP_MODELS.read_text(encoding="utf-8")
+    assert "actions/cache/restore@" in text, "setup-models must use cache/restore"
+    assert "actions/cache/save@" in text, "setup-models must use explicit cache/save"
+    assert "actions/cache@" not in text.replace(
+        "actions/cache/restore@", ""
+    ).replace("actions/cache/save@", ""), (
+        "setup-models must not use the combined actions/cache (post-job save "
+        "is skipped on job failure)"
     )
-    # Find the job name line for bermuda-z3-verify.
-    name_line = next(
-        (
-            ln
-            for ln in text.splitlines()
-            if ln.strip().startswith("name:") and "bermuda end-to-end" in ln
-        ),
-        "",
-    )
-    assert "real Z3" not in name_line, (
-        "bermuda-z3-verify runs run_verification --stub and its D13 assertion "
-        "is advisory; its job name must not advertise 'real Z3' end-to-end "
-        f"verification. Got: {name_line.strip()!r}"
-    )
+
+
+def test_python_matrix_uses_setup_models_composite():
+    """REQ-CI-047: the matrix job consumes the composite, not inline steps."""
+    text = _workflow_text()
+    assert "./.github/actions/setup-models" in text
+
+
+def test_budget_triggers_labeled_only():
+    """REQ-CI-048: ci-budget must not trigger on opened/synchronize — the
+    label gate made those runs permanent skipped-phantom noise (4-6 per PR
+    push)."""
+    text = _budget_text()
+    on_block = text.split("\njobs:", 1)[0]
+    assert "labeled" in on_block, "ci-budget must keep the labeled trigger"
+    for noisy in ("opened", "synchronize"):
+        assert noisy not in on_block, (
+            f"ci-budget pull_request trigger must not include {noisy!r}"
+        )
 
 
 # ---------- audit: ci divergence summary (finding #7) ----------

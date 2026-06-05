@@ -24,7 +24,10 @@
         jinja2
         psutil
       ]);
-      rust = [ rustToolchain pkgs.mold pkgs.sccache pkgs.cargo-nextest pkgs.z3 pkgs.cmake pkgs.pkg-config ];
+      rust = [ rustToolchain pkgs.sccache pkgs.cargo-nextest pkgs.z3 pkgs.cmake pkgs.pkg-config ]
+        # mold is linux-only (marked broken on darwin in nixpkgs 25.05); darwin
+        # uses the default ld64.
+        ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.mold ];
       python = [ pythonEnv ];
       cljs = [ pkgs.nodejs_22 pkgs.pnpm pkgs.babashka pkgs.jdk21 pkgs.clj-kondo ];
       core = [ pkgs.git pkgs.gh pkgs.jq pkgs.yq pkgs.curl pkgs.gnumake pkgs.lefthook pkgs.nixpkgs-fmt ];

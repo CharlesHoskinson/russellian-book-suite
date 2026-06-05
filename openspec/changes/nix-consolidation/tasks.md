@@ -14,6 +14,14 @@
 
 **Gate-replay discipline:** a gate is only "migrated" when a deliberate violation has turned the *new* home red. Each replay is: create violation on a scratch change → run the new gate → confirm red → revert. Replays are never committed.
 
+**QA gate (every task, executed — never satisfied by reading code):** before a task is complete, run in the WSL ext4 clone and capture output:
+
+1. `nix flake check -L` if `flake.nix`/`nix/**`/`flake.lock` changed — pass.
+2. `nix run nixpkgs#actionlint -- -color` if `.github/**` changed — zero findings.
+3. `python -m pytest ci/ -q` and `python -m pytest verifiers/osmotic_pressure/tests/test_ci_matrix_shape.py -q` if ci.yml, the flake, the Makefile, or `.github/ci/**` changed — pass.
+4. PR 2 only: each new check built individually (`nix build .#checks.x86_64-linux.<name> -L`) so sandbox violations attribute to the right gate.
+5. Evidence rule: claims without pasted command output count as not run.
+
 ---
 
 ## PR 1 — forced fixes (branch `nix/consolidation`, already created)

@@ -51,6 +51,10 @@
         export CARGO_BUILD_RUSTFLAGS="-C link-arg=-fuse-ld=mold"
         export CARGO_INCREMENTAL=0
         export PATH="$HOME/.cargo/bin:$PATH"
+        # z3 splits bin/lib outputs; the z3 crate links libz3 dynamically but rustc
+        # records no RPATH for the pkg-config -L dir, so the lib output must be on
+        # LD_LIBRARY_PATH for the loader.
+        export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.z3.lib ]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
       '';
     in
     {

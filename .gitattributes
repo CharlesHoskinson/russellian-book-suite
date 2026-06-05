@@ -24,4 +24,3 @@
 *.sh   text eol=lf
 *.nix  text eol=lf
 flake.lock text eol=lf
-lefthook.yml text eol=lf

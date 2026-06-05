@@ -32,6 +32,7 @@
         ./nix/toolchains.nix
         ./nix/shells.nix
         ./nix/treefmt.nix
+        ./nix/hooks.nix
         ./nix/checks.nix
         ./nix/preflight.nix
       ];

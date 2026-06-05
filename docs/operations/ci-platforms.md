@@ -21,6 +21,18 @@ cargo signal locally.
 `fail-fast: false` is set on every matrix job. We want every leg to
 report — otherwise the divergence-summary has incomplete data.
 
+The table above is x86_64-only; the per-PR matrix never builds the
+`aarch64-linux` system the flake declares in its `supportedSystems`
+list. The nightly `nightly.yml` workflow closes that gap with a
+single `flake-check-arm` leg (`ubuntu-24.04-arm`, nightly-only,
+`nix flake check`). ARM GitHub-hosted runners are free for public
+repos (GA 2025-08), so the arch the flake claims to support is
+exercised once daily rather than never.
+
+| Job               | Arch          | OS / runner       | Cadence       | Check             |
+|-------------------|---------------|-------------------|---------------|-------------------|
+| `flake-check-arm` | aarch64-linux | `ubuntu-24.04-arm`| nightly-only  | `nix flake check` |
+
 ## z3 and toolchain in CI
 
 As of nix-consolidation PR 3, the `cargo-test` job takes both its Rust

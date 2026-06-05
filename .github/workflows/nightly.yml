@@ -1,4 +1,4 @@
-name: nightly-flake-drift
+name: nightly
 on:
   schedule:
     - cron: '0 7 * * *'   # 07:00 UTC daily
@@ -18,7 +18,7 @@ jobs:
       # See ci.yml lint job for the cache-nix-action rationale.
       - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
-          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
           restore-prefixes-first-match: nix-shell-${{ runner.os }}-
           gc-max-store-size-linux: 8G
           purge: true
@@ -31,6 +31,26 @@ jobs:
         run: nix build .#preflight
       - name: run preflight in fresh shell
         run: nix develop -c make preflight
+
+  # aarch64-linux is in the flake's systems list; this is the only leg that
+  # builds it. ARM runners are free for public repos (GA 2025-08).
+  flake-check-arm:
+    name: flake check (aarch64-linux)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-shell-arm-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+          restore-prefixes-first-match: nix-shell-arm-
+          gc-max-store-size-linux: 8G
+          purge: true
+          purge-prefixes: nix-shell-arm-
+          purge-created: 0
+          purge-primary-key: never
+      - run: nix flake check -L
 
   # Both nightly matrices come from .github/ci/skills-matrix.json — the same
   # registry the PR-time matrix uses (REQ-CI-045), so the nightly can never
@@ -223,7 +243,7 @@ jobs:
   # regression is actionable. Runs only on schedule (not on manual dispatch or
   # self-edit pushes) to avoid issue spam during workflow iteration.
   alert-on-failure:
-    needs: [drift-check, windows-full-canary, python-compat, bermuda-example-pipeline, cljs-bermuda-test]
+    needs: [drift-check, flake-check-arm, windows-full-canary, python-compat, bermuda-example-pipeline, cljs-bermuda-test]
     if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -231,15 +251,15 @@ jobs:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const title = 'nightly-flake-drift failed';
+            const title = 'nightly failed';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const body = [
-              `The scheduled \`nightly-flake-drift\` run failed.`,
+              `The scheduled \`nightly\` run failed.`,
               ``,
               `- Run: ${runUrl}`,
               `- Triggered: ${context.eventName} @ ${new Date().toISOString()}`,
               ``,
-              `Investigate the failing job (flake check / preflight / windows canary`,
+              `Investigate the failing job (flake check / preflight / aarch64 flake check / windows canary`,
               `/ python-compat / bermuda pipeline / cljs test) and close this issue`,
               `once green. This issue is updated, not duplicated, on subsequent`,
               `failures.`,

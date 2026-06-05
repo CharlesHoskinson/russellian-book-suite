@@ -1,51 +1,25 @@
 """Tests for ci/check_windows_canary.py (windows-canary zero-marking guard)."""
 from __future__ import annotations
 
-import textwrap
-
 from ci.check_windows_canary import full_pytest_matrix_skills, skills_missing_canary
 
-WORKFLOW_FIXTURE = textwrap.dedent(
-    """\
-    jobs:
-      python-skill-matrix:
-        strategy:
-          matrix:
-            os: [ubuntu-24.04, macos-15, windows-2022]
-            skill:
-              - alpha
-              - beta
-              - gamma
-            include:
-              - skill: alpha
-                constraints: skills/alpha/constraints.txt
-              - skill: delta
-                os: ubuntu-24.04
-                extra: none
-                smoke: import
-              - skill: epsilon
-                os: ubuntu-24.04
-                smoke: import
-    """
-)
+CONFIG = {
+    "defaults": {"os": ["ubuntu-24.04", "macos-15", "windows-2022"]},
+    "skills": [
+        {"skill": "alpha"},
+        {"skill": "beta"},
+        {"skill": "gamma", "extra": "dev"},
+        {"skill": "delta", "os": ["ubuntu-24.04"], "smoke": "import"},
+        {"skill": "epsilon", "os": ["ubuntu-24.04"]},
+        {"skill": "zeta", "ci": "none", "reason": "templates only"},
+    ],
+}
 
 
-def test_parses_skill_axis_and_excludes_smoke_rows():
-    skills = full_pytest_matrix_skills(WORKFLOW_FIXTURE)
-    # axis skills run full pytest on Windows; smoke-only include rows do not
+def test_selects_windows_full_pytest_entries_only():
+    skills = full_pytest_matrix_skills(CONFIG)
+    # smoke rows, linux-only rows, and ci:none entries never run pytest on Windows
     assert skills == {"alpha", "beta", "gamma"}
-
-
-def test_include_only_full_pytest_row_is_detected():
-    fixture = WORKFLOW_FIXTURE + "              - skill: zeta\n                extra: dev\n"
-    skills = full_pytest_matrix_skills(fixture)
-    assert "zeta" in skills
-
-
-def test_quoted_smoke_value_is_exempt():
-    fixture = WORKFLOW_FIXTURE.replace("smoke: import", "smoke: 'import'", 1)
-    skills = full_pytest_matrix_skills(fixture)
-    assert "delta" not in skills
 
 
 def test_missing_canary_detection(tmp_path):
@@ -71,13 +45,13 @@ def test_missing_canary_detection(tmp_path):
     assert missing == ["beta"]
 
 
-def test_real_workflow_parses_and_repo_is_clean():
-    # The guard must hold on the actual repo: parse the real ci.yml and
-    # confirm every full-pytest matrix skill has at least one marked test.
-    from ci.check_windows_canary import REPO_ROOT, WORKFLOW_PATH
+def test_real_registry_parses_and_repo_is_clean():
+    import json
 
-    text = WORKFLOW_PATH.read_text(encoding="utf-8")
-    skills = full_pytest_matrix_skills(text)
+    from ci.check_windows_canary import MATRIX_PATH, REPO_ROOT
+
+    config = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+    skills = full_pytest_matrix_skills(config)
     assert "neurosym-forge" in skills and "paragraph-weaver" in skills
-    assert "syntopical-metabook" not in skills  # smoke-only row
+    assert "syntopical-metabook" not in skills  # smoke-only entry
     assert skills_missing_canary(skills, REPO_ROOT / "skills") == []

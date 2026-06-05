@@ -6,76 +6,36 @@ skill whose tests/ contains zero windows_canary marks makes pytest exit 5
 paragraph-weaver incident). This guard fails the cheap lint job instead,
 naming the skill and the fix.
 
-Smoke-only matrix rows (`smoke: import`) never run pytest and are exempt.
+The skill list comes from .github/ci/skills-matrix.json (REQ-CI-045) —
+smoke-only entries, linux-only entries, and ci:none entries never run
+pytest on Windows and are exempt.
 
 Run as a check:  python -m ci.check_windows_canary   (exits non-zero on violations)
 Tested by:       ci/test_check_windows_canary.py
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+MATRIX_PATH = REPO_ROOT / ".github" / "ci" / "skills-matrix.json"
 
 _MARKER_RE = re.compile(r"pytest\.mark\.windows_canary|pytestmark\s*=.*windows_canary")
 
 
-def full_pytest_matrix_skills(workflow_text: str) -> set[str]:
-    """Skills on the matrix `skill:` axis (full pytest on Windows).
-
-    Include-only rows are added by `include:` entries; any row carrying
-    `smoke: import` is exempt (and removed even if it also sits on the axis).
-    """
-    lines = workflow_text.splitlines()
-    axis: set[str] = set()
-    in_skill_axis = False
-    skill_indent = None
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if re.match(r"^skill:\s*$", stripped):
-            in_skill_axis = True
-            skill_indent = len(line) - len(line.lstrip())
+def full_pytest_matrix_skills(config: dict) -> set[str]:
+    """Skills that run full pytest on a windows-2022 leg."""
+    selected: set[str] = set()
+    for entry in config["skills"]:
+        if entry.get("ci") == "none" or entry.get("smoke"):
             continue
-        if in_skill_axis:
-            indent = len(line) - len(line.lstrip())
-            m = re.match(r"^-\s*([A-Za-z0-9_-]+)\s*$", stripped)
-            if m and indent > skill_indent:
-                axis.add(m.group(1))
-                continue
-            if stripped and indent <= skill_indent:
-                in_skill_axis = False
-    # Walk include rows: a `- skill: X` bullet runs full pytest on Windows
-    # UNLESS its sibling keys (same indent, until the next `- `) carry
-    # `smoke: import`. Non-smoke include rows are added to the result even when
-    # they never appear on the `skill:` axis (a partial-drift gap); smoke rows
-    # go to the exempt set and are subtracted (covering axis + include alike).
-    # Smoke values may be bare or quoted (`import` / 'import' / "import").
-    include_nonsmoke: set[str] = set()
-    smoke: set[str] = set()
-    for i, line in enumerate(lines):
-        m = re.match(r"^(\s*)-\s*skill:\s*([A-Za-z0-9_-]+)\s*$", line)
-        if not m:
-            continue
-        row_indent, skill = len(m.group(1)), m.group(2)
-        is_smoke = False
-        for j in range(i + 1, len(lines)):
-            nxt = lines[j]
-            if not nxt.strip():
-                continue
-            nxt_indent = len(nxt) - len(nxt.lstrip())
-            if nxt_indent <= row_indent or nxt.lstrip().startswith("- "):
-                break
-            if re.match(r"^smoke:\s*['\"]?import['\"]?\s*$", nxt.strip()):
-                is_smoke = True
-                break
-        if is_smoke:
-            smoke.add(skill)
-        else:
-            include_nonsmoke.add(skill)
-    return (axis | include_nonsmoke) - smoke
+        os_list = entry.get("os", config["defaults"]["os"])
+        if "windows-2022" in os_list:
+            selected.add(entry["skill"])
+    return selected
 
 
 def skills_missing_canary(skills: set[str], skills_dir: Path) -> list[str]:
@@ -93,10 +53,10 @@ def skills_missing_canary(skills: set[str], skills_dir: Path) -> list[str]:
 
 
 def main() -> int:
-    text = WORKFLOW_PATH.read_text(encoding="utf-8")
-    skills = full_pytest_matrix_skills(text)
+    config = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+    skills = full_pytest_matrix_skills(config)
     if not skills:
-        print("check_windows_canary: parsed ZERO matrix skills from ci.yml — parser drift; failing closed")
+        print("check_windows_canary: ZERO windows-pytest skills in skills-matrix.json — registry drift; failing closed")
         return 1
     missing = skills_missing_canary(skills, REPO_ROOT / "skills")
     if missing:

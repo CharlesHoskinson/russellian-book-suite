@@ -18,8 +18,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
-  # sccache temporarily disabled (opendal/ghac ConfigInvalid under cache contention
-  # from Swatinem + magic-nix-cache). Re-enable per-job by setting RUSTC_WRAPPER +
+  # sccache temporarily disabled (opendal/ghac ConfigInvalid under cache
+  # contention, observed under the retired magic-nix-cache). Re-enable per-job
+  # by setting RUSTC_WRAPPER +
   # SCCACHE_GHA_ENABLED alongside the sccache-action step once contention is fixed.
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
@@ -42,7 +43,20 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+      # magic-nix-cache is deprecated (free tier EOL 2025-02; current builds
+      # ride a reverse-engineered cache API). cache-nix-action stores
+      # /nix/store in the regular Actions cache with GC-before-save.
+      # lint and preflight share the default-shell closure, hence one
+      # `nix-shell-` key class for both.
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          restore-prefixes-first-match: nix-shell-${{ runner.os }}-
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-shell-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
       - name: make lint (ruff + clj-kondo + nixpkgs-fmt + cargo-fmt)
         run: nix develop -c make lint
       - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, windows-canary guard, ci tests)
@@ -218,7 +232,15 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          restore-prefixes-first-match: nix-shell-${{ runner.os }}-
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-shell-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: |

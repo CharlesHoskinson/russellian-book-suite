@@ -1,5 +1,5 @@
 name: Setup Book Python
-description: Install Python, cache pip, and install a skill's [ci] extras.
+description: Install Python and install a skill's [ci] extras.
 
 inputs:
   python-version:
@@ -23,11 +23,15 @@ inputs:
 runs:
   using: composite
   steps:
+    # No pip cache: setup-python's restore-keys prefix fallback made every
+    # matrix leg restore-then-resave an ever-growing shared wheel cache
+    # (2.6GB on Linux), which blew the repo's 10GB quota and LRU-evicted the
+    # HF model caches (re-exposing the REQ-CI-047 429 spiral). Re-downloading
+    # wheels from PyPI costs each leg seconds and PyPI doesn't rate-limit the
+    # way HF Hub does.
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
         python-version: ${{ inputs.python-version }}
-        cache: pip
-        cache-dependency-path: ${{ inputs.skill-path }}/pyproject.toml
     - name: install ${{ inputs.skill-path }}[${{ inputs.extra }}]
       shell: bash
       # Pin pip itself so the resolver/installer behaviour is reproducible

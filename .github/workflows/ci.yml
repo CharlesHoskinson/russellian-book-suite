@@ -27,15 +27,12 @@ env:
 
 jobs:
   # Always-run lint gate (no rust gate, no `needs`). Pure-Python PRs skip the
-  # rust-gated `preflight` job, so without this job ruff/clj-kondo/fmt would
+  # rust-gated `preflight` job, so without this job the pure gates would
   # never run at PR time on a pure-Python change (the root cause of the
-  # red-since-PR-122 incident). Reuses the proven `nix develop -c make lint`
-  # command set (identical toolchain to preflight) so it is green by
-  # construction. `make preflight` still chains `lint` too; the double-run only
-  # happens when preflight actually runs (push to main, or a rust-touching PR),
-  # which is an acceptable cost for keeping the Makefile/flake-drift contract
-  # intact. Also wires the NFR-4/NFR-5 invariant linters and ci/ tests that no
-  # gate previously executed.
+  # red-since-PR-122 incident). The gates are flake checks (nix/checks.nix,
+  # nix/treefmt.nix): one definition serves CI and `nix flake check` locally
+  # (the hook layer joins it in PR 3). There is no second step list to
+  # drift against the flake checks.
   lint:
     name: lint
     runs-on: ubuntu-24.04
@@ -51,22 +48,15 @@ jobs:
       # on success(): a failed build never persists its store (by design).
       - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
-          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
           restore-prefixes-first-match: nix-shell-${{ runner.os }}-
           gc-max-store-size-linux: 5G
           purge: true
           purge-prefixes: nix-shell-${{ runner.os }}-
           purge-created: 0
           purge-primary-key: never
-      - name: make lint (ruff + clj-kondo + nixpkgs-fmt + cargo-fmt)
-        run: nix develop -c make lint
-      - name: invariant linters (NFR-4 no-direct-http, NFR-5 no-shadow-writes, windows-canary guard, ci tests)
-        run: |
-          nix develop -c python -m ci.lint_no_direct_http
-          nix develop -c python -m ci.check_windows_canary
-          nix develop -c python -m pytest ci/ -q
-      - name: required-check name drift (ci.yml job name == ruleset context)
-        run: nix develop -c bash scripts/check-required-name.sh
+      - name: flake checks (treefmt + clj-kondo + invariant linters + required-name)
+        run: nix flake check -L
 
   # Always-run actionlint on every PR/push (P2-actionlint-and-legacy): any
   # change to .github/workflows is linted at PR time and feeds the
@@ -122,6 +112,7 @@ jobs:
               - '**/Cargo.lock'
               - 'flake.nix'
               - 'flake.lock'
+              - 'nix/**'
               - 'Makefile'
               - '.github/workflows/ci.yml'
 
@@ -235,7 +226,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
       - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
-          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
           restore-prefixes-first-match: nix-shell-${{ runner.os }}-
           gc-max-store-size-linux: 5G
           purge: true

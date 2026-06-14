@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=9.0.3", "pytest-cov"]
+test = ["pytest>=9.1.0", "pytest-cov"]
 
 [tool.setuptools.packages.find]
 where = ["."]

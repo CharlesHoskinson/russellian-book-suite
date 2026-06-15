@@ -1729,4 +1729,13 @@ git commit -m "Add build-voice-corpus README"
 - **`published` is relative.** Channel-grid dates are strings like "2 years ago". The plan resolves real `upload_date` from yt-dlp per video; until that enrichment runs, sampling on the relative string will bucket everything into a wrong "year". When implementing the live run, enrich rows with yt-dlp `--print upload_date` (or `--dump-json`) before `sample()`. The offline tests use explicit `published` dates and are unaffected.
 - **Linters unchanged.** No `russellian-style` linter is modified. The fused voice is exemplar-driven; discipline stays enforced.
 - **scrapling-fetch on Python 3.14** requires the `scrapling[fetchers]` extra (curl_cffi/playwright/browserforge); already installed in this repo's skill venv.
+
+## Deviations made during execution
+
+These three corrections were applied while implementing the plan; the shipped code differs from the task bodies above accordingly.
+
+- **Task 4 (clean).** The plan's `test_clean_vtt_human_subs` asserted `passages[0]["t_start"] == "00:00:01.000"`, but cue 1 of the fixture is a pure stock fragment that strips to empty. `clean_vtt` correctly skips empty passages (`if merged:`), so the surviving passage is cue 2. The shipped test asserts `len(passages) == 1`, `all(p["text"] for p in passages)`, and `passages[0]["t_start"] == "00:00:04.000"`. `clean_vtt` does not emit empty-text passages.
+- **Task 6 (discover).** The regex `ytInitialData` extractor truncates if a JSON string value contains `};</script>` or `};` (real video titles do). Replaced with a string/escape-aware brace-matching `extract_initial_data`, plus a regression test for a title containing `};</script>`. `import re` removed.
+- **Task 10 (cli).** The plan re-recorded `discovered`/`sampled` unconditionally each run; since `latest_state` is last-write-wins, a rerun regressed `tagged` videos back to `sampled`, breaking resumability (duplicate-id `ValueError`). The shipped `run()` guards each `record` so it never regresses a video to an earlier stage.
+- **Task 11 (adapters).** `scrapling_fetch` runs scrapling-fetch through its own venv via subprocess (cwd = the skill dir) rather than importing `scripts.fetch` in-process, which would collide with this tool's own `scripts` package. Confirmed public API: `skill_api.fetch(url).html`.
 ```

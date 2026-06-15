@@ -23,6 +23,16 @@ Each network/LLM boundary is an injected callable; the unit suite runs offline.
 `llm_call` must be wired to a model client in `main()` before a live run.
 yt-dlp is the only network call outside scrapling-fetch, scoped to caption tracks.
 
+## Generate (live)
+
+Once a corpus exists, generate voice text grounded in it (needs ANTHROPIC_API_KEY):
+
+    .venv/Scripts/python.exe -m scripts.generate --topic "why formal verification belongs at the base layer" --mode triadic
+
+`--mode hoskinson` for pure Hoskinson voice, `--mode triadic` (default) for the Russell x Feynman x
+Hoskinson fusion. `--model` overrides the model (default claude-opus-4-8). Generation is an injected
+llm_call; the unit tests run offline with a stub.
+
 ## Copyright
 
 Hoskinson transcripts are the channel owner's own content (stored inline). The

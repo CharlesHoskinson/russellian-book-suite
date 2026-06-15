@@ -10,8 +10,7 @@ generate prose. Each passage draws on the rhetorical moves tagged in
 `skills/russellian-style/assets/hoskinson-corpus/transcripts/*.md` (signature open,
 "the thing people miss", systems-tradeoff framing, change-without-consent-erodes-trust,
 walk-before-you-run, candor, direct address), plus the Feynman/Russell contributions
-from `references/triadic-voice-guide.md`. The wiring to generate prose automatically at
-this quality is future work.
+from `references/triadic-voice-guide.md`. An automated generator now exists at `tools/build-voice-corpus/scripts/generate.py` (`python -m scripts.generate --topic ... --mode hoskinson|triadic`); it builds this same corpus-grounded prompt and calls the wired Anthropic llm_call. The samples above were authored before that wiring landed.
 
 ---
 

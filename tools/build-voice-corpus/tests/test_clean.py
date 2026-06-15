@@ -36,7 +36,10 @@ def test_clean_vtt_human_subs(fixtures_dir: Path):
         (fixtures_dir / "sample.vtt").read_text(encoding="utf-8"),
         stock_fragments=_stock(fixtures_dir),
     )
+    # Cue 1 is a pure stock fragment -> stripped to empty -> skipped. Only cue 2 survives.
+    assert len(passages) == 1
+    assert all(p["text"] for p in passages)  # no empty-text passages
     joined = " ".join(p["text"] for p in passages)
     assert "Welcome back" not in joined
     assert "governance and why it matters" in joined
-    assert passages[0]["t_start"] == "00:00:01.000"
+    assert passages[0]["t_start"] == "00:00:04.000"

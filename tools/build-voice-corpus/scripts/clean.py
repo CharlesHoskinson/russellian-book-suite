@@ -63,6 +63,6 @@ def clean_vtt(text: str, *, stock_fragments: list[str]) -> list[dict[str, str]]:
                 kept.append(line)
                 prev_line = line
         merged = strip_fragments(" ".join(kept), stock_fragments)
-        if kept:
+        if merged:
             out.append({"t_start": t_start, "text": merged})
     return out

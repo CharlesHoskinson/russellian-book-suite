@@ -34,3 +34,12 @@ def test_discover_channel_uses_injected_fetch(fixtures_dir: Path):
     rows = discover_channel("https://www.youtube.com/@charleshoskinsoncrypto/videos",
                             fetch=fake_fetch, max_pages=1)
     assert {r["video_id"] for r in rows} == {"aaa111", "bbb222"}
+
+
+def test_extract_initial_data_handles_braces_in_strings():
+    # A title containing "};</script>" must NOT truncate the blob.
+    payload = '{"title": "weird };</script> title", "n": {"a": 1}}'
+    html = f'<script>var ytInitialData = {payload};</script><script>var other = 1;</script>'
+    data = extract_initial_data(html)
+    assert data["title"] == "weird };</script> title"
+    assert data["n"] == {"a": 1}

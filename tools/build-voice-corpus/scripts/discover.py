@@ -3,19 +3,44 @@
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Callable
-
-_INITIAL = re.compile(r"ytInitialData\s*=\s*(\{.*?\})\s*;</script>", re.DOTALL)
-_INITIAL_LOOSE = re.compile(r"ytInitialData\s*=\s*(\{.*?\});", re.DOTALL)
 
 
 def extract_initial_data(html: str) -> dict[str, Any]:
-    """Pull the ytInitialData JSON blob out of channel page HTML."""
-    m = _INITIAL.search(html) or _INITIAL_LOOSE.search(html)
-    if not m:
+    """Pull the ytInitialData JSON object out of channel page HTML.
+
+    Uses brace matching (string- and escape-aware) rather than a regex, so a `};`
+    or `};</script>` appearing inside a JSON string value (e.g. a video title) does
+    not truncate the blob.
+    """
+    marker = html.find("ytInitialData")
+    if marker == -1:
         raise ValueError("ytInitialData not found in page")
-    return json.loads(m.group(1))
+    start = html.find("{", marker)
+    if start == -1:
+        raise ValueError("ytInitialData object start not found")
+    depth = 0
+    in_string = False
+    escaped = False
+    for i in range(start, len(html)):
+        ch = html[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return json.loads(html[start : i + 1])
+    raise ValueError("unbalanced braces in ytInitialData blob")
 
 
 def hms_to_seconds(text: str) -> int:

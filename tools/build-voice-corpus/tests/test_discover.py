@@ -32,7 +32,7 @@ def test_discover_channel_uses_injected_fetch(fixtures_dir: Path):
         return f"<script>var ytInitialData = {payload};</script>"
 
     rows = discover_channel("https://www.youtube.com/@charleshoskinsoncrypto/videos",
-                            fetch=fake_fetch, max_pages=1)
+                            fetch=fake_fetch)
     assert {r["video_id"] for r in rows} == {"aaa111", "bbb222"}
 
 

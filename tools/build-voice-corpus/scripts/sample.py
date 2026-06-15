@@ -3,7 +3,20 @@
 from __future__ import annotations
 
 import random
+import re
 from typing import Any
+
+_YEAR_AT_START = re.compile(r"^\s*(\d{4})\b")
+
+
+def publish_year(published: object) -> str:
+    """Return a 4-digit year if `published` begins with one (ISO date or bare year), else 'unknown'.
+
+    The channel grid yields relative strings ("2 years ago"); those have no real year and
+    must not be mislabeled. Live runs should enrich rows with yt-dlp upload_date first.
+    """
+    m = _YEAR_AT_START.match(str(published))
+    return m.group(1) if m else "unknown"
 
 _FORMAT_KEYWORDS = [
     ("ama", ("ama", "ask me anything", "q&a", "surprise")),
@@ -33,8 +46,7 @@ def length_bucket(duration_seconds: int) -> str:
 
 
 def stratum_key(row: dict[str, Any]) -> tuple[str, str, str]:
-    year = str(row["published"])[:4]
-    return (year, infer_format(row), length_bucket(row["duration_seconds"]))
+    return (publish_year(row["published"]), infer_format(row), length_bucket(row["duration_seconds"]))
 
 
 def sample(rows: list[dict[str, Any]], *, target: int, seed: int) -> list[dict[str, Any]]:

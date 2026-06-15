@@ -83,12 +83,11 @@ def parse_video_entries(data: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def discover_channel(channel_videos_url: str, *, fetch: Callable[[str], str], max_pages: int = 20) -> list[dict[str, Any]]:
-    """Fetch the channel /videos page(s) and parse video rows.
+def discover_channel(channel_videos_url: str, *, fetch: Callable[[str], str]) -> list[dict[str, Any]]:
+    """Fetch the channel /videos page and parse video rows.
 
-    `fetch(url) -> html` is the injected scrapling-fetch boundary. Pagination beyond
-    the first page requires continuation handling; v1 fetches the first page and is
-    capped by max_pages (continuation wiring is a documented later extension).
+    `fetch(url) -> html` is the injected scrapling-fetch boundary. v1 fetches the first
+    page only; pagination via continuation tokens is a future extension.
     """
     html = fetch(channel_videos_url)
     data = extract_initial_data(html)

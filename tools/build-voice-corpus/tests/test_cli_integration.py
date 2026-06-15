@@ -62,6 +62,26 @@ def test_run_is_resumable(tmp_path: Path, fixtures_dir: Path):
     assert all(v["stage"] == "tagged" for v in state.values())
 
 
+def test_run_leaves_failed_fetch_retryable(tmp_path: Path, fixtures_dir: Path):
+    from scripts.manifest import latest_state
+    html = _channel_html(fixtures_dir)
+
+    def fetch(url): return html
+
+    def failing_ytdlp(args):
+        return type("R", (), {"returncode": 1})()  # always fails, never writes a VTT
+
+    def llm_call(prompt): return '{"rhetorical_move": "m", "tags": ["a"]}'
+
+    index_path = tmp_path / "hoskinson-corpus" / "index.json"
+    run(channel_videos_url="https://x/@c/videos", workdir=tmp_path, index_path=index_path,
+        fetch=fetch, ytdlp_runner=failing_ytdlp, llm_call=llm_call, target=2, seed=1)
+    state = latest_state(tmp_path / "manifest.jsonl")
+    # No video may be left in terminal "skipped" due to a fetch failure; they must remain retryable.
+    assert all(v["stage"] != "skipped" for v in state.values())
+    assert all(v["stage"] != "tagged" for v in state.values())
+
+
 def test_run_recovers_from_crash_between_append_and_record(tmp_path: Path, fixtures_dir: Path):
     # Simulate a crash AFTER a video's entries were appended to the index but BEFORE
     # its manifest "tagged" record was written. A rerun must not raise duplicate-id.

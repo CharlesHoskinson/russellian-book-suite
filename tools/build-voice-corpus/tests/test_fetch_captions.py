@@ -36,3 +36,21 @@ def test_fetch_returns_none_when_no_captions(tmp_path: Path):
         return type("R", (), {"returncode": 0})()
 
     assert fetch_captions("zzz999", out_dir=tmp_path, runner=runner) is None
+
+
+def test_fetch_nonzero_is_retryable(tmp_path: Path):
+    import pytest
+    from scripts.fetch_captions import CaptionFetchError
+
+    def runner(args):
+        return type("R", (), {"returncode": 1})()  # fails, writes no file
+
+    with pytest.raises(CaptionFetchError):
+        fetch_captions("vid_fail", out_dir=tmp_path, runner=runner)
+
+
+def test_fetch_zero_no_file_is_true_absence(tmp_path: Path):
+    def runner(args):
+        return type("R", (), {"returncode": 0})()  # succeeds, no captions exist
+
+    assert fetch_captions("vid_none", out_dir=tmp_path, runner=runner) is None

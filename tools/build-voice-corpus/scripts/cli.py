@@ -12,7 +12,7 @@ from scripts.append_to_index import append_passages
 from scripts.clean import clean_vtt
 from scripts.corpus_io import init_index, read_index
 from scripts.discover import discover_channel
-from scripts.fetch_captions import fetch_captions
+from scripts.fetch_captions import CaptionFetchError, fetch_captions
 from scripts.sample import sample
 from scripts.style_tag import tag_passage
 
@@ -63,10 +63,15 @@ def run(*, channel_videos_url: str, workdir: Path, index_path: Path,
             manifest.record(manifest_path, vid, "sampled")
 
     todo = manifest.pending(manifest_path, sorted(by_id), target="tagged")
-    summary = {"discovered": len(rows), "sampled": len(by_id), "tagged": 0, "skipped": 0}
+    summary = {"discovered": len(rows), "sampled": len(by_id), "tagged": 0, "skipped": 0, "errored": 0}
 
     for vid in todo:
-        vtt = fetch_captions(vid, out_dir=captions_dir, runner=ytdlp_runner)
+        try:
+            vtt = fetch_captions(vid, out_dir=captions_dir, runner=ytdlp_runner)
+        except CaptionFetchError:
+            # Transient fetch failure: leave the video at its current stage so a rerun retries it.
+            summary["errored"] = summary.get("errored", 0) + 1
+            continue
         if vtt is None:
             manifest.record(manifest_path, vid, "skipped", reason="no_captions")
             summary["skipped"] += 1

@@ -3,9 +3,8 @@
 Topic (held constant): *Why formal verification belongs at the base layer of a blockchain.*
 Chosen because it sits where all three voices have something to say.
 
-These are **hand-authored against the corpus and guide**, not the output of an automated
-generator. The pipeline (`tools/build-voice-corpus`) builds the corpus; it does not yet
-generate prose. Each passage draws on the rhetorical moves tagged in
+These specific samples are **hand-authored against the corpus and guide** — they predate the
+generator referenced at the end of this note. Each passage draws on the rhetorical moves tagged in
 `skills/russellian-style/assets/hoskinson-corpus/index.json` and the cadence in
 `skills/russellian-style/assets/hoskinson-corpus/transcripts/*.md` (signature open,
 "the thing people miss", systems-tradeoff framing, change-without-consent-erodes-trust,

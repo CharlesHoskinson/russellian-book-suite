@@ -1,0 +1,376 @@
+{
+  "version": "0.1.0",
+  "paragraph_count": 26,
+  "copyright_policy": "Channel owner's own spoken content (@charleshoskinsoncrypto); auto-generated captions cleaned and stored inline. Full transcripts in transcripts/.",
+  "sources": {
+    "w2bhIQdzeI4": {
+      "title": "On Governance (The Nick Szabo Video)",
+      "url": "https://www.youtube.com/watch?v=w2bhIQdzeI4",
+      "transcript": "transcripts/w2bhIQdzeI4.md"
+    },
+    "zhFTO1jYjbk": {
+      "title": "On Governance (Part 1)",
+      "url": "https://www.youtube.com/watch?v=zhFTO1jYjbk",
+      "transcript": "transcripts/zhFTO1jYjbk.md"
+    },
+    "ILglnEC0iqU": {
+      "title": "On Propaganda",
+      "url": "https://www.youtube.com/watch?v=ILglnEC0iqU",
+      "transcript": "transcripts/ILglnEC0iqU.md"
+    },
+    "EDyQEUZ0PlY": {
+      "title": "What is Bitcoin and Blockchain",
+      "url": "https://www.youtube.com/watch?v=EDyQEUZ0PlY",
+      "transcript": "transcripts/EDyQEUZ0PlY.md"
+    },
+    "3bY66Zgr8Cs": {
+      "title": "A Brief Introduction to Smart Contracts",
+      "url": "https://www.youtube.com/watch?v=3bY66Zgr8Cs",
+      "transcript": "transcripts/3bY66Zgr8Cs.md"
+    },
+    "9d3bp33AJFk": {
+      "title": "Foundations of a Programmable Society",
+      "url": "https://www.youtube.com/watch?v=9d3bp33AJFk",
+      "transcript": "transcripts/9d3bp33AJFk.md"
+    },
+    "0QtQGzqAIiU": {
+      "title": "Decentralized?",
+      "url": "https://www.youtube.com/watch?v=0QtQGzqAIiU",
+      "transcript": "transcripts/0QtQGzqAIiU.md"
+    },
+    "HvIAgDEUC4o": {
+      "title": "Cross Chain Communication, Sidechains, NiPoPoWs and Litecoin",
+      "url": "https://www.youtube.com/watch?v=HvIAgDEUC4o",
+      "transcript": "transcripts/HvIAgDEUC4o.md"
+    },
+    "P2sNyAZLLqg": {
+      "title": "Global Events, Coronavirus, and the Information Age",
+      "url": "https://www.youtube.com/watch?v=P2sNyAZLLqg",
+      "transcript": "transcripts/P2sNyAZLLqg.md"
+    },
+    "aO1S6MOrZcE": {
+      "title": "The Future of ETC",
+      "url": "https://www.youtube.com/watch?v=aO1S6MOrZcE",
+      "transcript": "transcripts/aO1S6MOrZcE.md"
+    },
+    "xiDHg-Ql2hU": {
+      "title": "The Shelley Hybrid Era and the d parameter",
+      "url": "https://www.youtube.com/watch?v=xiDHg-Ql2hU",
+      "transcript": "transcripts/xiDHg-Ql2hU.md"
+    },
+    "JilEb42q-CI": {
+      "title": "Social Media Curation",
+      "url": "https://www.youtube.com/watch?v=JilEb42q-CI",
+      "transcript": "transcripts/JilEb42q-CI.md"
+    }
+  },
+  "paragraphs": [
+    {
+      "id": "hoskinson-w2bhIQdzeI4-021",
+      "video_id": "w2bhIQdzeI4",
+      "t_start": "00:15:17.760",
+      "text": "you're going to screw something up the problem is that every time you change you hurt trust if the change is done without consent so how do you solve this this is the problem of the third generation cryptocurrencies we want to give you everything we want to give you peer-to-peer lending we want to be a world financial operating system we want to be able to allow an interplay with complex identities and zero knowledge crypto and lots of metadata we'd like to have very sophisticated contractual relationships both on chain and off chain and so forth and actually when you talk about scale if",
+      "rhetorical_move": "frames a hard design constraint then poses it as the problem to solve: changing a system without consent erodes trust",
+      "tags": [
+        "systems_tradeoff",
+        "problem_framing",
+        "direct_address"
+      ]
+    },
+    {
+      "id": "hoskinson-w2bhIQdzeI4-014",
+      "video_id": "w2bhIQdzeI4",
+      "t_start": "00:10:18.480",
+      "text": "it's a service contract whatever it may be now all four of these things live nested within a concept of regulation that's the fifth property and regulation it basically takes a look at the contract it takes a look at the metadata it takes a look at the identities of the actors and it takes a look at the value and it's nested within geographies this is a meta property of a transaction and basically in our systems it's entirely possible to build things where you are under the regulations of multiple jurisdictions in some cases contradictory ones bitcoin doesn't have",
+      "rhetorical_move": "builds a layered model by naming each property in turn and nesting the next inside it",
+      "tags": [
+        "systematic_buildup",
+        "taxonomy"
+      ]
+    },
+    {
+      "id": "hoskinson-w2bhIQdzeI4-035",
+      "video_id": "w2bhIQdzeI4",
+      "t_start": "00:25:53.279",
+      "text": "delegation so those who hold the asset actually have a say now there are still developers but the developers if catalyst works correctly will be financed by the network which means they work for the blockchain they work for the government or anybody else and the infrastructure players still do actually have some power and you have to carefully think about the infrastructure players uh if you're going to do things properly like for example you have to figure out ways to make sure that exchanges can't vote with the tokens and exchanges can't stake or they're staking on behalf the will of",
+      "rhetorical_move": "qualifies an ideal mechanism with the concrete actors who can corrupt it",
+      "tags": [
+        "candor",
+        "practical_caveat",
+        "systems_tradeoff"
+      ]
+    },
+    {
+      "id": "hoskinson-zhFTO1jYjbk-000",
+      "video_id": "zhFTO1jYjbk",
+      "t_start": "00:00:02.230",
+      "text": "hi everybody this is charles hoskinson broadcasting on a pre-recorded whiteboard from warm sunny colorado late at night always warm always sunny always colorado so today we get to talk about something very fun and very exciting we could talk about governance how about that i know how much you guys love my whiteboard videos so i'll just keep making them okay and this is governance as of january as of july 13th 2020. it's actually my parents wedding anniversary i think they've been married for 35 years actually 36 years now if i recall correctly so happy 36 mom and dad okay so",
+      "rhetorical_move": "opens with the signature warm direct-address framing before naming the topic",
+      "tags": [
+        "signature_open",
+        "direct_address",
+        "warmth"
+      ]
+    },
+    {
+      "id": "hoskinson-zhFTO1jYjbk-030",
+      "video_id": "zhFTO1jYjbk",
+      "t_start": "00:24:14.559",
+      "text": "hey guys let's say we only have five hundred thousand dollars worth of ada to spend for this round so if you only have five hundred thousand dollars to spend for this round how would you prioritize where that money should be spent should it be spent on marketing should it be spent on development should it be spent on development tooling should it be spent on infrastructure like getting a debit card or getting a credit card to accept data should be spent on partnership development should it be spent on security auditing etc etc everybody in the their mind has a list of",
+      "rhetorical_move": "turns an abstract governance question into a concrete budgeting choice put to the listener",
+      "tags": [
+        "concrete_scenario",
+        "reader_question",
+        "direct_address"
+      ]
+    },
+    {
+      "id": "hoskinson-zhFTO1jYjbk-060",
+      "video_id": "zhFTO1jYjbk",
+      "t_start": "00:45:28.160",
+      "text": "example things like changes to the monetary policy of cardano should we enhance the inflation rate print more aida changes to big things like should we go from proof of stake to something else you can actually even have multiple rounds of voting end rounds of voting over a longer time horizon to create more resistance in the system to sudden change and so forth all of those mechanics will be built hand in glove with the community the cardano foundation i o global and other partners but you have to learn how to walk before you can run and we decided that it would be nice to do what we did with",
+      "rhetorical_move": "grounds an ambitious roadmap in an incremental-discipline maxim",
+      "tags": [
+        "maxim",
+        "incrementalism",
+        "momentum"
+      ]
+    },
+    {
+      "id": "hoskinson-ILglnEC0iqU-065",
+      "video_id": "ILglnEC0iqU",
+      "t_start": "00:43:19.190",
+      "text": "So these people, they don't care at all about our rights. They don't care at all about what individual nations have to say about things. And this is the sole reason why I still am in the blockchain industry. This is the sole reason why I tweet about these things and talk about these things. I uh I want to rewrite the rules. You see, the basis of our cryptocurrency Cardano is the scientific method. Okay? That's the basis. This concept of professional skepticism. And it's not that complicated. We we've all seemed to forgotten the scientific method. You know, you start with something you see.",
+      "rhetorical_move": "reframes a political grievance as the personal motive behind his work and lands on first principles",
+      "tags": [
+        "candor",
+        "conviction",
+        "first_principles"
+      ]
+    },
+    {
+      "id": "hoskinson-ILglnEC0iqU-078",
+      "video_id": "ILglnEC0iqU",
+      "t_start": "00:52:09.240",
+      "text": "on critical thinking, numerous books on applying the scientific method to your day-to-day life, and tons of biases that you can learn about. Confirmation bias, negativity bias, availability bias. There's all kinds of cognitive fallacies that we have. Our inability to understand exponential growth and statistics. And if you train your mind, then you will be able to overcome all of this. You'll be able to filter out the [&nbsp;__&nbsp;] and not be propagandized. As a final point, here's a test. And then I'll end this rant. If you find yourself on some topic that you don't actually know a lot",
+      "rhetorical_move": "closes a rant with an actionable prescription and a direct challenge to the listener",
+      "tags": [
+        "prescriptive",
+        "direct_address",
+        "momentum"
+      ]
+    },
+    {
+      "id": "hoskinson-EDyQEUZ0PlY-008",
+      "video_id": "EDyQEUZ0PlY",
+      "t_start": "00:05:33.219",
+      "text": "Bitcoin came from the passion side of things and then we can perhaps learn a little bit more about the frustration side of things so first off a unit of account what does that mean well it's so engrained into our culture now that we tend to miss this but what if we didn't actually have the ability to measure prices in a dollar or euro or a pound sterling so whatever instead of saying well my services will be $30 or instead of saying that that couch is $300 we had a non-standard unit of account so every time you went to a different store that actually charged different prices",
+      "rhetorical_move": "defines an abstraction by removing it and imagining the world without it",
+      "tags": [
+        "intuition_pump",
+        "definition_by_absence"
+      ]
+    },
+    {
+      "id": "hoskinson-EDyQEUZ0PlY-040",
+      "video_id": "EDyQEUZ0PlY",
+      "t_start": "00:28:18.789",
+      "text": "part of the lecture at the blockchain industry they say hang on a second here there are all kinds of things in the world that we are trusting third parties to do that we really would not want to for example voting I would love every time I vote to be able to verify that my vote first was counted in second that my vote was accurately counted so I'd love to be able to know that I when I have the right to vote it's been properly recorded and my vote has been recorded and know that for a fact for every other person I don't want to trust a third party to go count those votes for me I",
+      "rhetorical_move": "makes a trust problem concrete through a first-person voting example",
+      "tags": [
+        "concrete_example",
+        "intuition_first"
+      ]
+    },
+    {
+      "id": "hoskinson-3bY66Zgr8Cs-000",
+      "video_id": "3bY66Zgr8Cs",
+      "t_start": "00:00:02.830",
+      "text": "Hi, I'm Charles Hoskinson, chief executive officer of Input Output Hong Kong, and this is a brief introduction to smart contracts. So, what are smart contracts and why should we care? How do we even begin to explain them? What I found is the easiest way to begin understanding the notion of a smart contract is first to kind of think about Bitcoin, to look into Bitcoin itself. Well, the Bitcoin protocol, what it really does is it enables push payments. Uh so, you have Alice and Bob and Alice wants to push value to Bob, she would do so via a transaction. Alice's value is",
+      "rhetorical_move": "bootstraps a new concept from a familiar one using named actors",
+      "tags": [
+        "analogy_first",
+        "intuition_before_formalism",
+        "named_actors"
+      ]
+    },
+    {
+      "id": "hoskinson-3bY66Zgr8Cs-020",
+      "video_id": "3bY66Zgr8Cs",
+      "t_start": "00:11:33.960",
+      "text": "actually map well into legacy systems. Okay, so let's put it all together. Smart contracts are composable. And what that basically means is you can actually take fundamental units of behavior such as a random number generation or an escrow contract or a lottery contract, and you can actually combine these things together to create highly complex behavior that is emergent from standardized components. So, you know all the components behave in a certain way, and if they're put together like LEGO bricks, they actually can produce something even better. And that's an incredibly desirable",
+      "rhetorical_move": "compresses a technical property into a physical Lego analogy",
+      "tags": [
+        "concrete_analogy",
+        "compression"
+      ]
+    },
+    {
+      "id": "hoskinson-9d3bp33AJFk-036",
+      "video_id": "9d3bp33AJFk",
+      "t_start": "00:20:13.720",
+      "text": "decides to go spend the money on something they're not allowed to spend the constituents can actually lock that so to use an example imagine if the US government's assets were digital and they decided to go invade Iraq one of the things that could be done if it was algorithmically constrained is that the American population could vote and lock the US government's money so it wouldn't actually be able to pay for the adventure to Iraq and they actually have to convince the voters that this was in some way legal so this is an example of where you can go once your assets become",
+      "rhetorical_move": "drives an abstract capability to a vivid, provocative political consequence",
+      "tags": [
+        "thought_experiment",
+        "provocative_example",
+        "stakes"
+      ]
+    },
+    {
+      "id": "hoskinson-9d3bp33AJFk-000",
+      "video_id": "9d3bp33AJFk",
+      "t_start": "00:00:03.149",
+      "text": "hi I'm Charles hoskinson and this is foundations of a programmable Society so the purpose of this lecture is to discuss what are the pillars required to enable a fundamentally different type of society and when I say Society I mean it in the most abstract and general sense all the way up to governance so the Bitcoin revolution has given us uh really some pillars uh first incentivized distributed databases so really think of these as blockchain chains and it turns out there's more than one architecture that's propagating uh trustless smart Behavior so you may",
+      "rhetorical_move": "states the lecture's aim in maximal generality before narrowing",
+      "tags": [
+        "thesis_statement",
+        "framing"
+      ]
+    },
+    {
+      "id": "hoskinson-0QtQGzqAIiU-000",
+      "video_id": "0QtQGzqAIiU",
+      "t_start": "00:00:02.090",
+      "text": "hey everybody Charles Hoskinson here I figured I'd make a video a nice one of those whiteboard videos I love making them and let's talk a little bit about decentralisation so I I heard through the grapevine that old Jimmy song and tone days were picking on Cardno and generally I don't reply to tone this isn't really not a rebuttal or reply to him because what's the point I mean you can't really beat stupidity with fax you just you just let it move on fact there was an old saying you never play chess with a pigeon because they'll just strut over the board knocking over the pieces",
+      "rhetorical_move": "dismisses a critic with a vivid proverb, setting a candid combative tone",
+      "tags": [
+        "candor",
+        "proverb",
+        "combative"
+      ]
+    },
+    {
+      "id": "hoskinson-0QtQGzqAIiU-007",
+      "video_id": "0QtQGzqAIiU",
+      "t_start": "00:05:38.539",
+      "text": "alright well hang on a second here what if you live in a country with very expensive electricity what if you live in a country where you have political connections you get free power or inexpensive power so based on geography and political connections your price of power may vary so how is that fair for people who don't live in countries with subsidized power or very expect or they live in countries very expensive power so we already have two factors that limit access to mining okay two factors that limit access to my geographically and also one in the supply chain so the other thing is",
+      "rhetorical_move": "exposes a fairness flaw by walking through concrete geographic cases",
+      "tags": [
+        "case_walkthrough",
+        "fairness_argument",
+        "rhetorical_question"
+      ]
+    },
+    {
+      "id": "hoskinson-HvIAgDEUC4o-018",
+      "video_id": "HvIAgDEUC4o",
+      "t_start": "00:14:54.520",
+      "text": "all chains are irrelevant except for Bitcoin only Bitcoin is the truth if Bitcoin can't do it it's not necessary and if Bitcoin can do it it can do it better than everybody else even when objective reality gets in the way and if you are part of any other chain you are a scam horrible human being in should be in jail and you're a security and they're not that's maximalism as best as I can understand it right now and that philosophy seems to be fairly regressive but the IOB philosophy there and a blockchain philosophy I'm saying there's going to be hundreds if not thousands of",
+      "rhetorical_move": "caricatures an opposing ideology, then states his pluralist counter-position",
+      "tags": [
+        "steelman_then_counter",
+        "conviction",
+        "candor"
+      ]
+    },
+    {
+      "id": "hoskinson-HvIAgDEUC4o-036",
+      "video_id": "HvIAgDEUC4o",
+      "t_start": "00:27:18.270",
+      "text": "governance service of Cardno to vote on things in the light coin chain for fees in light coin which then get paid to the ADA holders in the sequel operators and you could do this for any change you could do this for all cryptocurrencies Bitcoin cash Bitcoin and so forth and they don't actually need to implement a very sophisticated governance system for that just the bridging mechanisms so this is the example of what happens when you think about partnership is that you say we can do a lot of things not just for our own ecosystem but for all other ecosystems and all they have to do is",
+      "rhetorical_move": "generalizes a technical mechanism into a partnership philosophy",
+      "tags": [
+        "zoom_out",
+        "philosophy",
+        "momentum"
+      ]
+    },
+    {
+      "id": "hoskinson-P2sNyAZLLqg-000",
+      "video_id": "P2sNyAZLLqg",
+      "t_start": "00:00:01.910",
+      "text": "hi everyone this is charles hoskinson broadcasting pre-recorded from warm sunny colorado always warm always sunny sometimes colorado today's video is a video about global events the global event that we are all living through is coronavirus and i imagine if you are like me or most people floating around you have corona fatigue you know we're just tired of it we're done with it we've been living with this for over a year imagine how the world felt with world war ii uh that lasted six years from 1939 to 1945 and sometimes you have events that last decades or even centuries",
+      "rhetorical_move": "uses a signature catchphrase, then reaches for a historical analogy to set scale",
+      "tags": [
+        "signature_open",
+        "historical_analogy",
+        "scale_setting"
+      ]
+    },
+    {
+      "id": "hoskinson-P2sNyAZLLqg-040",
+      "video_id": "P2sNyAZLLqg",
+      "t_start": "00:28:24.159",
+      "text": "because the people running it either are economically conflicted and ideologically bent or simply running older software and they're in incapable because of that older software to actually sort their way out of all of it so the way that we move forward for any of these global events and there are going to be many global events the rise of ai that's going to be a big global event in the next 20 years next one is nanotechnology this is going to be a big global event within 20 to 30 years there's going to be crispr and genetic engineering of human beings and viruses and so forth you can look up",
+      "rhetorical_move": "enumerates looming global shifts to argue the stakes generalize beyond the moment",
+      "tags": [
+        "forward_looking",
+        "stakes",
+        "enumeration"
+      ]
+    },
+    {
+      "id": "hoskinson-aO1S6MOrZcE-024",
+      "video_id": "aO1S6MOrZcE",
+      "t_start": "00:15:56.440",
+      "text": "around a decade of working on ETC just to make enough money to cover what I just invested in Cardano. This has nothing to do with the money. This has to do with sustainability. People who do work need to be paid to do the work, whether it's us or someone else. And for four years now, the people who've been doing the work are either uncompensated, under compensated, or beholden to a single interest or ideology. That doesn't seem to have the ability to broadcast a non-copy-paste roadmap that will produce use and utility. Um I've been very nice when we came in. Our",
+      "rhetorical_move": "rejects an imputed motive and restates the real principle plainly",
+      "tags": [
+        "candor",
+        "principle",
+        "direct_rebuttal"
+      ]
+    },
+    {
+      "id": "hoskinson-aO1S6MOrZcE-018",
+      "video_id": "aO1S6MOrZcE",
+      "t_start": "00:12:19.040",
+      "text": "had been mining with it. I waited 1 year for that. Okay? It's a whole different ballgame. It's a whole different discussion and there's trade-offs. There's ups and downs in both of that. When you talk about borrowing consensus from another system, an external system, whether it be OBFT nodes or be ProgPoW or whatever the hell, this is not a minor deal. You're basically saying this chain does not have enough internal support to keep it secure. We need to borrow security from somebody else. What is the social contract behind that? What's the philosophy behind it? How",
+      "rhetorical_move": "surfaces the hidden admission inside a technical choice and presses the philosophical question",
+      "tags": [
+        "unmasking",
+        "rhetorical_question",
+        "systems_tradeoff"
+      ]
+    },
+    {
+      "id": "hoskinson-xiDHg-Ql2hU-030",
+      "video_id": "xiDHg-Ql2hU",
+      "t_start": "00:20:54.640",
+      "text": "recent launch from spacex where nasa and spacex had worked hand in glove for year after year after year and many demonstrations and test scenarios to get to a point where nasa felt comfortable enough to put human beings into that rocket and blast them off to the international space station now i watched that launch live and you could see how nervous everybody on the spacex team the nasa team the astronauts themselves were about the launch a completely new rocket that had never launched human beings to space before was now being for the first time ever tested in that way",
+      "rhetorical_move": "borrows a high-stakes SpaceX analogy to justify cautious, staged rollout",
+      "tags": [
+        "analogy",
+        "caution",
+        "staged_rollout"
+      ]
+    },
+    {
+      "id": "hoskinson-xiDHg-Ql2hU-025",
+      "video_id": "xiDHg-Ql2hU",
+      "t_start": "00:17:42.240",
+      "text": "software who have a moral responsibility to make sure that the things that they do are right so you do it systematically and you do it with an increasingly larger and larger set of people if you look at this layout we go from here an operating model that could run indefinitely and we're all comfortable with to increasingly more uncomfortable territory where suddenly more and more of the network is made by brows to a point where none of the network is made by opft nodes now along the way we're going to discover all kinds of things performance issues slight bugs here and there",
+      "rhetorical_move": "ties engineering process to a moral duty and an incremental method",
+      "tags": [
+        "duty",
+        "incrementalism",
+        "process"
+      ]
+    },
+    {
+      "id": "hoskinson-JilEb42q-CI-075",
+      "video_id": "JilEb42q-CI",
+      "t_start": "00:52:29.240",
+      "text": "time dids enable real life identities or aliases with reputation metrics behind them to propagate the pairing of idea flow and the construction of knowledge graphs this can easily be done with blockchain technology in fact many entrepreneurs in our space are looking at these things and thinking about how to do and accommodate these things but there's a more meta thing regardless of what the tools are it's a duty that falls upon each and every one of shoulders the people who disagree with us are not often evil they just have a different Viewpoint and they perhaps",
+      "rhetorical_move": "deflates a polarizing frame with a plain humane claim",
+      "tags": [
+        "candor",
+        "humane",
+        "deflation"
+      ]
+    },
+    {
+      "id": "hoskinson-JilEb42q-CI-090",
+      "video_id": "JilEb42q-CI",
+      "t_start": "01:01:50.640",
+      "text": "you can encode with terms of conduct there's like a nomic game where the players evolve the rules you can do that with a curated Community there's some cool really things you can do there you can incentivize engagement especially engagement with people are radically different from you and the end goal ought to be that we're creating Collective empathy built on a basis of good idea flow if we achieve that then we get wisdom we grow as people because it turns out that some of the values we hold are not so good and it turns out that perhaps other values ought to be adopted and you start",
+      "rhetorical_move": "lands a systems argument on an aspirational human goal",
+      "tags": [
+        "aspirational_close",
+        "synthesis",
+        "momentum"
+      ]
+    }
+  ]
+}

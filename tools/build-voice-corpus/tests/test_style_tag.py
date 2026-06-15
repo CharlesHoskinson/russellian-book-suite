@@ -32,3 +32,15 @@ def test_tag_passage_uses_injected_llm():
 
     out = tag_passage("...", llm_call=fake_llm, template=_template())
     assert out["tags"] == ["candor", "direct_address"]
+
+
+def test_parse_tag_response_rejects_bad_output():
+    import pytest
+    for bad in [
+        '{"rhetorical_move": "", "tags": ["x"]}',
+        '{"rhetorical_move": "m", "tags": []}',
+        '{"rhetorical_move": "m", "tags": ["Bad Tag"]}',
+        '{"rhetorical_move": "m", "tags": ["a","b","c","d","e"]}',
+    ]:
+        with pytest.raises(ValueError):
+            parse_tag_response(bad)

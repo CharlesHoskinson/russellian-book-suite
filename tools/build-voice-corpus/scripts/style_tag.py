@@ -14,6 +14,9 @@ def build_prompt(passage: str, template: str) -> str:
     return template.replace("{passage}", passage)
 
 
+_SNAKE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
 def parse_tag_response(raw: str) -> dict[str, Any]:
     text = raw.strip()
     m = _FENCE.search(text)
@@ -22,9 +25,21 @@ def parse_tag_response(raw: str) -> dict[str, Any]:
     obj = json.loads(text)
     if "rhetorical_move" not in obj or "tags" not in obj:
         raise ValueError("response missing required keys")
-    if not isinstance(obj["tags"], list):
+    move = str(obj["rhetorical_move"]).strip()
+    if not move:
+        raise ValueError("rhetorical_move is empty")
+    tags = obj["tags"]
+    if not isinstance(tags, list):
         raise ValueError("tags must be a list")
-    return {"rhetorical_move": str(obj["rhetorical_move"]), "tags": [str(t) for t in obj["tags"]]}
+    if not 1 <= len(tags) <= 4:
+        raise ValueError("tags must contain 1 to 4 items")
+    norm_tags = []
+    for t in tags:
+        t = str(t)
+        if not _SNAKE.match(t):
+            raise ValueError(f"tag {t!r} is not lowercase snake_case")
+        norm_tags.append(t)
+    return {"rhetorical_move": move, "tags": norm_tags}
 
 
 def tag_passage(passage: str, *, llm_call: LlmCall, template: str) -> dict[str, Any]:

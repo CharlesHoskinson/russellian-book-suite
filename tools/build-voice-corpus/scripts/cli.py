@@ -81,7 +81,11 @@ def run(*, channel_videos_url: str, workdir: Path, index_path: Path,
         manifest.record(manifest_path, vid, "cleaned")
         tagged: list[dict[str, Any]] = []
         for p in passages:
-            tags = tag_passage(p["text"], llm_call=llm_call, template=template)
+            try:
+                tags = tag_passage(p["text"], llm_call=llm_call, template=template)
+            except ValueError:
+                # A malformed tag response for one passage shouldn't sink the whole video.
+                continue
             tagged.append({"video_id": vid, "t_start": p["t_start"], "text": p["text"],
                            "rhetorical_move": tags["rhetorical_move"], "tags": tags["tags"]})
         if tagged and vid not in already_indexed:
@@ -101,7 +105,7 @@ def main() -> None:
     """Live entry point. The llm_call boundary must be wired to a model client by the operator."""
     import argparse
 
-    from scripts.adapters import scrapling_fetch, ytdlp_runner
+    from scripts.adapters import scrapling_fetch, ytdlp_runner, make_anthropic_llm_call
 
     parser = argparse.ArgumentParser(description="Build the Hoskinson voice corpus")
     parser.add_argument("--channel", default="https://www.youtube.com/@charleshoskinsoncrypto/videos")
@@ -111,8 +115,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
 
-    def llm_call(prompt: str) -> str:
-        raise SystemExit("Wire llm_call to your model client before running live.")
+    llm_call = make_anthropic_llm_call()
 
     summary = run(channel_videos_url=args.channel, workdir=args.workdir, index_path=args.index,
                   fetch=scrapling_fetch, ytdlp_runner=ytdlp_runner, llm_call=llm_call,

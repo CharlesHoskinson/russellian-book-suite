@@ -10,7 +10,7 @@ import yaml
 from scripts import manifest
 from scripts.append_to_index import append_passages
 from scripts.clean import clean_vtt
-from scripts.corpus_io import init_index
+from scripts.corpus_io import init_index, read_index
 from scripts.discover import discover_channel
 from scripts.fetch_captions import fetch_captions
 from scripts.sample import sample
@@ -40,6 +40,12 @@ def run(*, channel_videos_url: str, workdir: Path, index_path: Path,
     init_index(index_path, version="0.1.0",
                copyright_policy="Channel owner's own spoken content; transcripts stored inline.",
                sources={"channel": channel_videos_url})
+
+    already_indexed: set[str] = set()
+    if index_path.exists():
+        already_indexed = {
+            e["video_id"] for e in read_index(index_path)["paragraphs"] if "video_id" in e
+        }
 
     rows = discover_channel(channel_videos_url, fetch=fetch)
     state_now = manifest.latest_state(manifest_path)
@@ -73,8 +79,9 @@ def run(*, channel_videos_url: str, workdir: Path, index_path: Path,
             tags = tag_passage(p["text"], llm_call=llm_call, template=template)
             tagged.append({"video_id": vid, "t_start": p["t_start"], "text": p["text"],
                            "rhetorical_move": tags["rhetorical_move"], "tags": tags["tags"]})
-        if tagged:
+        if tagged and vid not in already_indexed:
             append_passages(index_path, tagged)
+            already_indexed.add(vid)
         manifest.record(manifest_path, vid, "tagged")
         summary["tagged"] += 1
 

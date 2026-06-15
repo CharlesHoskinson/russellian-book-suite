@@ -36,10 +36,19 @@ def test_clean_vtt_human_subs(fixtures_dir: Path):
         (fixtures_dir / "sample.vtt").read_text(encoding="utf-8"),
         stock_fragments=_stock(fixtures_dir),
     )
-    # Cue 1 is a pure stock fragment -> stripped to empty -> skipped. Only cue 2 survives.
+    # Cue 1 is a pure stock fragment -> stripped -> dropped. Cue 2 survives as one passage.
     assert len(passages) == 1
-    assert all(p["text"] for p in passages)  # no empty-text passages
-    joined = " ".join(p["text"] for p in passages)
-    assert "Welcome back" not in joined
-    assert "governance and why it matters" in joined
+    assert all(p["text"] for p in passages)
     assert passages[0]["t_start"] == "00:00:04.000"
+    assert "Welcome back" not in passages[0]["text"]
+    assert "governance and why it matters" in passages[0]["text"]
+
+
+def test_clean_vtt_auto_subs_merges_rolling_window(fixtures_dir: Path):
+    passages = clean_vtt(
+        (fixtures_dir / "auto_sub.vtt").read_text(encoding="utf-8"),
+        stock_fragments=[],
+    )
+    assert len(passages) == 1
+    assert passages[0]["text"] == "the thing people miss about governance is incentives not slogans"
+    assert passages[0]["t_start"] == "00:00:01.000"

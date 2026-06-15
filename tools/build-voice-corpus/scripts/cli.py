@@ -83,3 +83,30 @@ def run(*, channel_videos_url: str, workdir: Path, index_path: Path,
     summary["tagged"] = sum(1 for v in state.values() if v["stage"] == "tagged")
     summary["skipped"] = sum(1 for v in state.values() if v["stage"] == "skipped")
     return summary
+
+
+def main() -> None:
+    """Live entry point. The llm_call boundary must be wired to a model client by the operator."""
+    import argparse
+
+    from scripts.adapters import scrapling_fetch, ytdlp_runner
+
+    parser = argparse.ArgumentParser(description="Build the Hoskinson voice corpus")
+    parser.add_argument("--channel", default="https://www.youtube.com/@charleshoskinsoncrypto/videos")
+    parser.add_argument("--workdir", type=Path, required=True)
+    parser.add_argument("--index", type=Path, required=True)
+    parser.add_argument("--target", type=int, default=200)
+    parser.add_argument("--seed", type=int, default=1)
+    args = parser.parse_args()
+
+    def llm_call(prompt: str) -> str:
+        raise SystemExit("Wire llm_call to your model client before running live.")
+
+    summary = run(channel_videos_url=args.channel, workdir=args.workdir, index_path=args.index,
+                  fetch=scrapling_fetch, ytdlp_runner=ytdlp_runner, llm_call=llm_call,
+                  target=args.target, seed=args.seed)
+    print(summary)
+
+
+if __name__ == "__main__":
+    main()

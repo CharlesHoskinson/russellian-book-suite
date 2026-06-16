@@ -116,3 +116,20 @@ def test_imports_in_skips_relative_imports():
 def test_forbidden_modules_cover_http_and_browser():
     assert {"requests", "httpx", "urllib3", "aiohttp"} <= FORBIDDEN_MODULES
     assert {"playwright", "patchright"} <= FORBIDDEN_MODULES
+
+
+def test_imports_in_detects_dunder_import():
+    """5.10: __import__("requests") is caught by the static scan."""
+    assert "requests" in _imports_in('__import__("requests")')
+
+
+def test_imports_in_detects_importlib_import_module():
+    """5.10: importlib.import_module("httpx") is caught."""
+    src = "import importlib\nx = importlib.import_module('httpx')\n"
+    assert "httpx" in _imports_in(src)
+
+
+def test_imports_in_ignores_nonliteral_dynamic_import():
+    """A variable target is out of scope for the static scanner (no false hit)."""
+    src = "name = 'requests'\n__import__(name)\n"
+    assert "requests" not in _imports_in(src)

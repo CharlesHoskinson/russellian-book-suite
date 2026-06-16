@@ -117,3 +117,11 @@ def test_python_compat_profile_linux_times_versions_drops_constraints():
     assert {r["python_version"] for r in rows} == {"3.11", "3.12"}
     beta = next(r for r in rows if r["skill"] == "beta")
     assert beta["constraints"] == ""  # 3.13-generated pins must not leak to 3.11/3.12
+
+
+def test_build_rows_fails_closed_on_empty_os():
+    """5.9: an explicit empty os list raises rather than silently dropping tests."""
+    import pytest
+    entries = [{"skill": "ghost", "os": [], "extra": "ci"}]
+    with pytest.raises(ValueError, match=r"empty 'os'"):
+        build_rows(entries, CONFIG, profile="pr")

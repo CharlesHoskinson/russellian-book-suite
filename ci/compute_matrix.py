@@ -111,7 +111,15 @@ def build_rows(
     rows: list[dict] = []
     if profile in ("pr", "full"):
         for e in entries:
-            for os_name in e.get("os", defaults["os"]):
+            os_list = e.get("os", defaults["os"])
+            if not os_list:
+                # Fail closed: an explicit empty os list would silently produce
+                # zero rows, dropping the entry's tests with no signal (5.9).
+                raise ValueError(
+                    f"matrix entry {e.get('name', e)!r} has an empty 'os' list; "
+                    "would silently skip all of its tests"
+                )
+            for os_name in os_list:
                 rows.append(_row(e, os_name, defaults))
     elif profile == "windows-canary":
         for e in entries:

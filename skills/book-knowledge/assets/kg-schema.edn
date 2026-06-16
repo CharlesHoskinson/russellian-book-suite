@@ -35,11 +35,14 @@
                [:supersedes :claim]]}
 
   ;; Source span — the provenance anchor for a claim
-  ;; (claim-record.schema.json source_spans[]).
+  ;; (claim-record.schema.json source_spans[]). :claim-id is the back-reference
+  ;; to the owning claim: spans are nested under a claim record in the ledger,
+  ;; so the relational projection (REQ-KG-004) carries the parent claim id here
+  ;; to make the claim<->span join expressible.
   :source-span
-  {:attrs [:id :doc-id :node-id :page-index :locator-text]
+  {:attrs [:id :claim-id :doc-id :node-id :page-index :locator-text]
    :types {:page-index :int}
-   :relations []}
+   :relations [[:of-claim :claim]]}
 
   ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
   :thesis-node

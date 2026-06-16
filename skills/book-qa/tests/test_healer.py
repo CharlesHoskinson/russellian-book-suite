@@ -48,3 +48,13 @@ def test_healer_skips_important_d12(tmp_path: Path):
 
     payloads = prepare_payloads(tmp_path)
     assert all(p.class_ != "D12" for p in payloads)
+
+
+def test_load_state_resets_on_corruption(tmp_path):
+    """4.2: a corrupt healer-state.json (idempotency cache) resets to empty
+    rather than crashing the healer dispatch."""
+    from pathlib import Path
+    from scripts.healer import _load_state
+    qa = Path(tmp_path) / "qa"; qa.mkdir()
+    (qa / "healer-state.json").write_text("{ corrupt", encoding="utf-8")
+    assert _load_state(Path(tmp_path)) == {}

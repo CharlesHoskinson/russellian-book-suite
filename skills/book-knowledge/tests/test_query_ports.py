@@ -177,3 +177,74 @@ def test_chapter_evidence_coverage_counts_distinct_verified(tmp_path: Path) -> N
     assert _canonical(rows) == _canonical(
         [[f"{base}ch-aaa", 2], [f"{base}ch-bbb", 1]]
     )
+
+
+def test_posterior_floor_matches_golden() -> None:
+    """The EDN port reproduces the bermuda golden exactly (both empty).
+
+    bermuda's golden is ``[]``: the lowest *projected* posterior is 0.4299, above
+    the 0.4 floor (the sub-floor 0.3685 claims are superseded, so the projector
+    drops them). The empty match alone is therefore vacuous -- the synthetic
+    firing test below carries the real proof. To keep this gate non-vacuous we
+    also assert bermuda actually projects claims that carry posteriors (so the
+    query ran over real data, it just found none below the floor).
+    """
+    golden = json.loads((GOLDEN_DIR / "posterior-floor.json").read_text("utf-8"))
+    assert _run("posterior-floor", BERMUDA) == _canonical_golden(golden)
+
+    # Non-vacuity: bermuda DOES project claims carrying a (non-null) posterior --
+    # the query found none below the floor, not none at all. (An ordered compare
+    # against a null cell errors in Cozo, so guard with !is_null, mirroring the
+    # compiler's lowering.)
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(WorkspaceLayout(BERMUDA), store)
+    with_posterior = store.query(
+        "?[claim, p] := *claim{id: claim, p_posterior: p}, !is_null(p), p >= 0.0"
+    )
+    assert with_posterior, "bermuda should project claims carrying p_posterior"
+
+
+def test_posterior_floor_fires_below_threshold(tmp_path: Path) -> None:
+    """The MEANINGFUL firing test: ONLY the sub-floor, non-pinned claim returns.
+
+    Three verified claims, each supporting a chapter so the supportsChapter join
+    is satisfied:
+      - clm 1: posterior 0.3 (below floor), not pinned -> MUST return.
+      - clm 2: posterior 0.9 (above floor)             -> excluded by ``< 0.4``.
+      - clm 3: posterior 0.3 (below floor) but pinned  -> excluded by the
+               pin-low-confidence negation.
+    All three are non-superseded so they project. The query must return exactly
+    clm 1, proving both the ordered comparison and the pin negation fire.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    def _claim(cid: str, posterior: float, pinned: bool) -> dict:
+        return {
+            "claim_id": cid,
+            "canonical_text": f"claim {cid}",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "p_posterior": posterior,
+            "pin_low_confidence": pinned,
+            "source_spans": [{"doc_id": "doc-1", "locator_text": "locator"}],
+            "supports_chapters": ["ch-aaa"],
+            "created_at": "2026-06-16T00:00:00+00:00",
+        }
+
+    for record in (
+        _claim("clm-2026-000001", 0.3, False),
+        _claim("clm-2026-000002", 0.9, False),
+        _claim("clm-2026-000003", 0.3, True),
+    ):
+        append_claim(layout, record)
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "posterior-floor.edn").read_text("utf-8"), SCHEMA_PATH
+    )
+    rows = store.query(script)
+
+    assert _canonical(rows) == _canonical([["clm-2026-000001", 0.3]])

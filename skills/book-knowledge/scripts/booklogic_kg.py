@@ -17,9 +17,10 @@ Grammar supported in P0.5
 A ``defquery`` is the flat EDN list::
 
     (defquery <name-keyword>
-      :find  [<?var> ...]
-      :where [[<?evar> :<entity>/<attr> <?var-or-literal>] ...]
-      :not   [[<?evar> :<entity>/<attr> <?var-or-literal>] ...])   ; optional
+      :find   [<?var> ...]
+      :where  [[<?evar> :<entity>/<attr> <?var-or-literal>] ...]
+      :filter [[<op> <?var> <literal>] ...]                        ; optional
+      :not    [[<?evar> :<entity>/<attr> <?var-or-literal>] ...])  ; optional
 
 Variable lowering and joins
 ---------------------------
@@ -45,6 +46,15 @@ columns.
   ``*<snake_entity>{...}``. A triple whose value is a ``?var`` binds the column
   to that var (``col: var``); the same var in another atom unifies (join). A
   triple whose value is a literal becomes an inline match (``col: <literal>``).
+* ``:filter`` is an optional vector of ordered-comparison clauses
+  ``[<op> ?var <literal>]`` where ``op`` is one of ``<``, ``<=``, ``>``, ``>=``.
+  Each lowers to a CozoScript inline expression atom ``<var> <op> <literal>``
+  (e.g. ``[< ?p 0.4]`` -> ``p < 0.4``), emitted after the positive atoms so the
+  variable is already bound. The compared ``?var`` MUST be bound by the :where
+  body and the right-hand side MUST be a literal. Numeric literals stay UNQUOTED
+  so they compare against the typed Float/Int column; a comparison against a null
+  cell is a Cozo evaluation error (the projector leaves a missing field null), so
+  bind the var to a column the rows actually carry.
 * ``:not`` is an optional vector of triples; each entity-var group becomes a
   Cozo negation ``not *<snake_entity>{...}``. A variable used in the negation
   MUST already be bound by the positive body -- the compiler threads it through
@@ -78,6 +88,13 @@ __all__ = ["compile_query"]
 _FIND = edn_format.Keyword("find")
 _WHERE = edn_format.Keyword("where")
 _NOT = edn_format.Keyword("not")
+_FILTER = edn_format.Keyword("filter")
+
+# Ordered-comparison operators allowed in :filter, mapping the booklogic operator
+# symbol to its CozoScript spelling (identical text -- Cozo uses the same glyphs).
+# These lower to an inline expression atom ``<var> <op> <literal>`` on a variable
+# already bound by :where, so e.g. ``[< ?p 0.4]`` -> ``p < 0.4``.
+_COMPARATORS = {"<": "<", "<=": "<=", ">": ">", ">=": ">="}
 
 # Aggregation forms allowed in :find, mapping the booklogic operator symbol to
 # its CozoScript head-aggregation function. ``count`` is the plain row count;
@@ -223,6 +240,60 @@ def _compile_clauses(
     return [atoms[k].render(negate=negate) for k in order]
 
 
+def _compile_filters(clauses: Any, env: set[str]) -> list[str]:
+    """Lower a :filter vector into CozoScript inline comparison expressions.
+
+    Each clause is ``[<op> ?var <literal>]`` where ``op`` is one of
+    :data:`_COMPARATORS` (``<``, ``<=``, ``>``, ``>=``). It lowers to the inline
+    expression atom ``<var> <op> <literal>`` (e.g. ``p < 0.4``), placed in the
+    Cozo body after the positive atoms that bind the variable. The variable MUST
+    already be bound by the :where body; Cozo evaluates the comparison against the
+    bound cell, so an unbound var (or one whose cell is null) would fail at query
+    time. Numeric literals stay UNQUOTED so they compare against the typed Float
+    column; string literals are quoted via :func:`_format_literal`.
+    """
+    out: list[str] = []
+    for clause in clauses:
+        if (
+            isinstance(clause, (str, bytes))
+            or not isinstance(clause, Sequence)
+            or len(clause) != 3
+        ):
+            raise ValueError(
+                f"malformed filter {clause!r}: expected [<op> ?var <literal>] "
+                f"(arity 3)"
+            )
+        op, var_sym, value = clause[0], clause[1], clause[2]
+        op_name = op.name if hasattr(op, "name") else str(op)
+        if op_name not in _COMPARATORS:
+            raise ValueError(
+                f"unknown comparator '{op_name}' in filter {clause!r} "
+                f"(supported: {', '.join(sorted(_COMPARATORS))})"
+            )
+        if not _is_var(var_sym):
+            raise ValueError(
+                f"filter {clause!r} must compare a ?var (got {var_sym!r})"
+            )
+        var = _var_name(var_sym)
+        if var not in env:
+            raise ValueError(
+                f"filter variable '?{var}' is not bound by the :where body"
+            )
+        if _is_var(value):
+            raise ValueError(
+                f"filter {clause!r} right-hand side must be a literal, not a ?var"
+            )
+        # Guard the comparison with !is_null(var). The compared column may be
+        # nullable (a missing ledger field projects as null), and Cozo raises
+        # "Evaluation of expression failed" on an ordered comparison against a
+        # null cell. SPARQL's source FILTER never sees null: ``?p`` is bound by a
+        # triple pattern that must EXIST, so a claim with no posterior is simply
+        # not selected. The guard reproduces exactly that existence semantics.
+        out.append(f"!is_null({var})")
+        out.append(f"{var} {_COMPARATORS[op_name]} {_format_literal(value)}")
+    return out
+
+
 def compile_query(edn: str, schema_path: Path) -> str:
     """Compile a booklogic ``defquery`` EDN string into CozoScript.
 
@@ -258,6 +329,9 @@ def compile_query(edn: str, schema_path: Path) -> str:
     # :find and :not variables must resolve against it.
     env: set[str] = set()
     positive = _compile_clauses(sections[_WHERE], schema, env, negate=False)
+    filters: list[str] = []
+    if _FILTER in sections:
+        filters = _compile_filters(sections[_FILTER], env)
     negations: list[str] = []
     if _NOT in sections:
         negations = _compile_clauses(sections[_NOT], schema, env, negate=True)
@@ -267,10 +341,11 @@ def compile_query(edn: str, schema_path: Path) -> str:
     # aggregated/output var must be bound by the body in every case.
     head_terms = [_compile_find_term(term, env) for term in sections[_FIND]]
 
-    # Order in CozoScript body: positive atoms, then negation atoms. Each atom
-    # already carries its column renames and inline literal matches, so no
-    # trailing equality filters are needed.
-    body_str = ", ".join(positive + negations)
+    # Order in CozoScript body: positive atoms, then :filter comparison
+    # expressions (their vars are bound by the positive atoms above), then
+    # negation atoms. Each positive atom already carries its column renames and
+    # inline literal matches, so no trailing equality filters are needed.
+    body_str = ", ".join(positive + filters + negations)
     head_str = f"?[{', '.join(head_terms)}]"
     return f"{head_str} := {body_str}"
 

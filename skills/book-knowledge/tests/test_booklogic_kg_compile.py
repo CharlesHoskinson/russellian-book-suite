@@ -79,6 +79,89 @@ def test_negation_compiles():
     assert out == expected
 
 
+def test_filter_comparison_golden():
+    # :filter lowers an ordered comparison to an inline expr atom on the bound
+    # var, guarded by !is_null (a nullable column would error Cozo on a null
+    # cell). The numeric literal stays UNQUOTED so it compares against the Float.
+    edn = (
+        '(defquery :floor '
+        ':find [?id ?p] '
+        ':where [[?c :claim/id ?id] [?c :claim/p-posterior ?p]] '
+        ':filter [[< ?p 0.4]])'
+    )
+    out = compile_query(edn, SCHEMA)
+    expected = (
+        '?[id, p] := *claim{id: id, p_posterior: p}, '
+        '!is_null(p), p < 0.4'
+    )
+    assert out == expected
+
+
+def test_filter_unknown_comparator_raises():
+    edn = (
+        '(defquery :bad :find [?p] '
+        ':where [[?c :claim/p-posterior ?p]] :filter [[== ?p 0.4]])'
+    )
+    with pytest.raises(ValueError) as exc:
+        compile_query(edn, SCHEMA)
+    assert "comparator" in str(exc.value).lower()
+
+
+def test_filter_unbound_var_raises():
+    # The compared var must be bound by :where; an unknown var is a clear error.
+    edn = (
+        '(defquery :bad :find [?p] '
+        ':where [[?c :claim/p-posterior ?p]] :filter [[< ?q 0.4]])'
+    )
+    with pytest.raises(ValueError) as exc:
+        compile_query(edn, SCHEMA)
+    assert "not bound" in str(exc.value)
+
+
+def test_filter_literal_rhs_required():
+    # The right-hand side must be a literal, not another variable.
+    edn = (
+        '(defquery :bad :find [?p] '
+        ':where [[?c :claim/p-posterior ?p] [?c :claim/p-prior ?q]] '
+        ':filter [[< ?p ?q]])'
+    )
+    with pytest.raises(ValueError) as exc:
+        compile_query(edn, SCHEMA)
+    assert "literal" in str(exc.value).lower()
+
+
+def test_filter_malformed_arity_raises():
+    edn = (
+        '(defquery :bad :find [?p] '
+        ':where [[?c :claim/p-posterior ?p]] :filter [[< ?p]])'
+    )
+    with pytest.raises(ValueError) as exc:
+        compile_query(edn, SCHEMA)
+    assert "filter" in str(exc.value).lower()
+
+
+def test_filter_excludes_above_and_null(tmp_path=None):
+    # Semantics: only the sub-floor, non-null claim returns. The above-floor
+    # claim fails the comparison; the null-posterior claim is dropped by the
+    # !is_null guard rather than erroring (faithful to SPARQL triple existence).
+    edn = (
+        '(defquery :floor '
+        ':find [?id ?p] '
+        ':where [[?c :claim/id ?id] [?c :claim/p-posterior ?p]] '
+        ':filter [[< ?p 0.4]])'
+    )
+    script = compile_query(edn, SCHEMA)
+
+    store = CozoStore.in_memory(schema_path=SCHEMA)
+    store.load("claim", [
+        {"id": "low", "p-posterior": 0.3},
+        {"id": "high", "p-posterior": 0.9},
+        {"id": "none"},  # null p_posterior -> excluded, not an error
+    ])
+    rows = store.query(script)
+    assert rows == [["low", 0.3]]
+
+
 def test_malformed_triple_raises():
     # A triple must be [evar :entity/attr value]; a 2-element triple is a clear
     # ValueError, not an IndexError leaking from tuple unpacking.

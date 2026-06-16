@@ -1,0 +1,30 @@
+;; posterior-floor — claims whose posterior belief is below the floor (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/defeasible/posterior-floor.rq:
+;;   SELECT ?claim ?p WHERE {
+;;     ?claim a tbf:Claim ;
+;;            tbf:pPosterior ?p ;
+;;            tbf:supportsChapter ?chapter .
+;;     FILTER (?p < 0.4)
+;;     FILTER NOT EXISTS { ?claim tbf:pinLowConfidence true . }
+;;   }
+;;
+;; The :where binds the claim id and its p_posterior (a typed Float column), then
+;; joins the claim->chapter coverage edge (the relational form of
+;; tbf:supportsChapter) so only claims that support a chapter qualify -- matching
+;; the .rq, which requires a tbf:supportsChapter triple. :filter applies the
+;; ordered comparison ``?p < 0.4`` (the defeasible floor); the literal stays
+;; unquoted so it compares against the Float column. :not negates a pinned claim
+;; row joined on the same id, lowering FILTER NOT EXISTS { ?claim
+;; tbf:pinLowConfidence true } to a safe Cozo negation: drop claims explicitly
+;; pinned low-confidence (operator override). bermuda's golden is empty -- its
+;; lowest projected posterior is 0.4299, above the floor.
+(defquery :posterior-floor
+  :find   [?claim ?p]
+  :where  [[?c :claim/id ?claim]
+           [?c :claim/p-posterior ?p]
+           [?cc :claim-chapter/claim-id ?claim]
+           [?cc :claim-chapter/chapter ?chapter]]
+  :filter [[< ?p 0.4]]
+  :not    [[?pin :claim/id ?claim]
+           [?pin :claim/pin-low-confidence true]])

@@ -185,7 +185,7 @@ def render_ledger(
             distribution[RECOMMENDATION_NAMES[r.recommendation]] += 1
 
     recs = [r.recommendation for r in reviews if r.recommendation]
-    median_name = RECOMMENDATION_NAMES.get(int(statistics.median(recs)), "n/a") if recs else "n/a"
+    median_name = RECOMMENDATION_NAMES.get(round(statistics.median(recs)), "n/a") if recs else "n/a"
     weighted_pairs = [(r.recommendation, max(r.confidence, 1)) for r in reviews if r.recommendation]
     if weighted_pairs:
         num = sum(rec * conf for rec, conf in weighted_pairs)

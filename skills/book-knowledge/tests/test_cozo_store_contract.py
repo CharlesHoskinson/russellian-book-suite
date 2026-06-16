@@ -100,3 +100,24 @@ def test_stub_backend_satisfies_contract() -> None:
     store.load("claim", [{"id": "clm-1", "status": "verified"}])
     rows = store.query('?[id] := *claim{id, status}, status == "verified"')
     assert rows == [["clm-1"]]
+
+
+def test_stub_comparison_against_null_raises() -> None:
+    """A StubBackend ordered comparison against a null cell must RAISE.
+
+    Real Cozo raises a QueryException ("Evaluation of expression failed") when a
+    comparison operator (<, <=, >, >=) is applied to a null cell. The stub must
+    mirror that so it stays a faithful oracle for P1 numeric queries; silently
+    returning "no match" would hide queries that fail against the real store.
+    Equality (==) null-handling is unchanged (null simply doesn't match).
+    """
+    store = CozoStore(backend=StubBackend(), schema_path=SCHEMA_PATH)
+    store.load(
+        "claim",
+        [
+            {"id": "clm-null", "canonical-text": "x"},  # confidence omitted -> null
+            {"id": "clm-low", "canonical-text": "y", "confidence": 0.3},
+        ],
+    )
+    with pytest.raises(RuntimeError):
+        store.query("?[id] := *claim{id, confidence}, confidence < 0.4")

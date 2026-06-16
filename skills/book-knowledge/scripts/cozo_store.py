@@ -291,13 +291,23 @@ class StubBackend:
             ">=": lambda a, b: a >= b,
         }
         fn = ops[op]
+        # Ordered comparisons against a null cell are an error in real Cozo
+        # (raises QueryException "Evaluation of expression failed"); equality
+        # against null simply does not match. Mirror both so the stub stays a
+        # faithful oracle.
+        is_ordered = op in ("<", "<=", ">", ">=")
 
         def pred(env: Mapping[str, Any]) -> bool:
             if col not in env:
                 raise KeyError(f"filter column {col!r} not bound")
             value = env[col]
             if value is None:
-                return False  # null compares false, as Cozo would skip it
+                if is_ordered:
+                    raise RuntimeError(
+                        f"stub: comparison {col!r} {op} against null cell "
+                        f"(Cozo would raise QueryException)"
+                    )
+                return False  # equality with null: no match, as Cozo would skip
             return fn(value, literal)
 
         return pred

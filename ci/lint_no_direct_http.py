@@ -66,6 +66,17 @@ def _imports_in(source: str) -> set[str]:
             # Skip relative imports (node.level > 0) — they never name a top-level lib.
             if node.level == 0 and node.module:
                 found.add(_top_level(node.module))
+        elif isinstance(node, ast.Call):
+            # Dynamic imports with a string-literal target: __import__("requests")
+            # and importlib.import_module("requests") (5.10). Non-literal args
+            # (a variable) are out of scope for this static scanner.
+            func = node.func
+            is_dunder = isinstance(func, ast.Name) and func.id == "__import__"
+            is_importlib = isinstance(func, ast.Attribute) and func.attr == "import_module"
+            if (is_dunder or is_importlib) and node.args:
+                arg0 = node.args[0]
+                if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
+                    found.add(_top_level(arg0.value))
     return found
 
 

@@ -19,6 +19,28 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def _load_latest_claims(ledger_path: Path) -> dict[str, dict]:
+    """Read the claim ledger into {claim_id: latest_row}, skipping corrupt lines.
+
+    A malformed JSONL line is warned and skipped rather than aborting the v6
+    split (4.2 / robustness).
+    """
+    latest: dict[str, dict] = {}
+    if not ledger_path.exists():
+        return latest
+    for n, ln in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), 1):
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            rec = json.loads(ln)
+        except json.JSONDecodeError as e:
+            print(f"warning: skipping malformed ledger line {n}: {e}", file=sys.stderr)
+            continue
+        latest[rec["claim_id"]] = rec
+    return latest
+
 import yaml
 
 
@@ -60,13 +82,7 @@ def main(argv: list[str]) -> int:
 
     contracts_dir = ws / "chapters" / "contracts"
     ledger_path = ws / "claims" / "ledger.jsonl"
-    latest_claims: dict[str, dict] = {}
-    if ledger_path.exists():
-        for ln in ledger_path.read_text(encoding="utf-8").splitlines():
-            ln = ln.strip()
-            if ln:
-                rec = json.loads(ln)
-                latest_claims[rec["claim_id"]] = rec
+    latest_claims = _load_latest_claims(ledger_path)
 
     n_chapters = len(boundaries)
     written = 0

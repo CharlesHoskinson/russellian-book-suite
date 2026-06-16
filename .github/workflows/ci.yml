@@ -99,7 +99,7 @@ jobs:
   # bumps. Pure-Python and fast, so it runs always (like lint/actionlint) and
   # feeds the ci-required gate.
   tools-test:
-    name: tools (build-voice-corpus)
+    name: tools (build-voice-corpus + root)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -112,6 +112,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e "tools/build-voice-corpus[test]"
           python -m pytest tools/build-voice-corpus/tests -q
+      - name: test root tools/ (5.2 canonical-writer coverage)
+        run: |
+          # Root tools/ scripts had no CI coverage. test_run_bermuda imports
+          # book-knowledge's scripts, so install it (+ pyyaml for the yaml tools).
+          python -m pip install pyyaml
+          python -m pip install -e "skills/book-knowledge"
+          python -m pytest tools/tests -q
 
   # Detect whether the PR diff touches anything that could affect the Rust
   # verifiers / Nix preflight. Pure-Python PRs skip the rust-gated jobs;

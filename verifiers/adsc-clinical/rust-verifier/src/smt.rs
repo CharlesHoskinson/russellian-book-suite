@@ -13,7 +13,7 @@
 //! the unsat core (a vector of tracker booleans) and translate the
 //! tracker names back to ClaimIds.
 
-use crate::ir::{Atom, ClaimId, Error, Verdict};
+use crate::ir::{Atom, Claim, ClaimId, Error, Verdict};
 
 #[cfg(feature = "smt")]
 use std::str::FromStr as _;
@@ -83,6 +83,13 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     crate::axioms::assert_axioms(&solver);
 
     let mut tracker_ids: Vec<ClaimId> = Vec::with_capacity(formulas.len());
+    // H-03: the claims actually asserted into the solver — i.e. the
+    // `:expression` atoms with a bindable predicate/subject/value. This
+    // is the set the kg layer ingests (lib.rs feeds `verdict.verified`
+    // into `kg::ingest_and_summarize`). Atoms have no `:source` key in
+    // the IR (only :id/:kind/:predicate/:subject/:value), so `source` is
+    // empty; only the claim id and count matter to the kg relation.
+    let mut verified: Vec<Claim> = Vec::with_capacity(formulas.len());
 
     for (id, atom) in formulas {
         // Skip context / opaque / non-expression atoms.
@@ -174,14 +181,18 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
         };
         solver.assert_and_track(&assertion, &tracker);
         tracker_ids.push(id.clone());
+        verified.push(Claim {
+            id: id.clone(),
+            source: String::new(),
+        });
     }
 
-    match solver.check() {
-        SatResult::Sat => Ok(Verdict {
+    let mut verdict = match solver.check() {
+        SatResult::Sat => Verdict {
             status: "sat".into(),
             core: Vec::new(),
             ..Default::default()
-        }),
+        },
         SatResult::Unsat => {
             let core_bools = solver.get_unsat_core();
             let core_ids: Vec<ClaimId> = core_bools
@@ -190,19 +201,23 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
                 .map(|s| s.trim_matches('|').to_string())
                 .filter(|s| tracker_ids.iter().any(|tid| tid == s))
                 .collect();
-            Ok(Verdict {
+            Verdict {
                 status: "unsat".into(),
                 core: core_ids,
                 explanation: "Z3 reports unsat; offending atoms in core".into(),
                 ..Default::default()
-            })
+            }
         }
-        SatResult::Unknown => Ok(Verdict {
+        SatResult::Unknown => Verdict {
             status: "unknown".into(),
             explanation: solver.get_reason_unknown().unwrap_or_default(),
             ..Default::default()
-        }),
-    }
+        },
+    };
+    // H-03: carry the asserted claims out so lib.rs's kg block ingests
+    // real claims instead of an empty slice (claim_count was always 0).
+    verdict.verified = verified;
+    Ok(verdict)
 }
 
 #[cfg(not(feature = "smt"))]
@@ -287,5 +302,36 @@ mod tests {
             super::check_all(&formulas).is_err(),
             "overflowing double must be rejected, not saturated"
         );
+    }
+
+    // H-03: the kg layer must receive the claims that were asserted into
+    // the solver, not an empty slice. `check_all` now populates
+    // `Verdict.verified`; feeding that into `ingest_and_summarize` (the
+    // exact hand-off lib.rs performs) must yield a non-zero `claim_count`.
+    // Before the fix `verdict.verified` was always empty -> claim_count 0.
+    // (adsc-clinical/epidemiology ship as cdylib-only, so this lib-path
+    // test must be inline rather than an external integration test.)
+    #[cfg(feature = "kg")]
+    #[test]
+    fn check_all_populates_verified_and_kg_sees_real_claims() {
+        let edn = r#"{:atoms [
+            {:id "clm-001" :kind :expression :predicate :some-pred :subject :s :value 5}
+            {:id "clm-002" :kind :expression :predicate :other-pred :subject :s :value 7}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse");
+        let verdict = super::check_all(&formulas).expect("check");
+        assert_eq!(
+            verdict.verified.len(),
+            2,
+            "check_all must carry the asserted claims out on Verdict.verified; got {verdict:?}"
+        );
+        let summary = crate::kg::ingest_and_summarize(&verdict.verified)
+            .expect("ingest_and_summarize over verified claims");
+        assert!(
+            summary.claim_count > 0,
+            "kg must see the real claims fed from the lib path; claim_count was {}",
+            summary.claim_count
+        );
+        assert_eq!(summary.claim_count, 2);
     }
 }

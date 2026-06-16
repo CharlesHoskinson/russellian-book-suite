@@ -12,7 +12,7 @@
 //! `crate::axioms::assert_axioms` (the backward-compat aggregator) and
 //! is no longer used by `check_all`.
 
-use crate::ir::{Atom, ClaimId, CorpusDefect, Error, Verdict};
+use crate::ir::{Atom, Claim, ClaimId, CorpusDefect, Error, Verdict};
 
 #[cfg(feature = "smt")]
 use std::collections::BTreeMap;
@@ -163,6 +163,10 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
         }
     }
     verdict.corpus_defects = corpus_defects;
+    // H-03: carry the asserted claims out so lib.rs's kg block ingests
+    // real claims instead of an empty slice (claim_count was always 0,
+    // so bermuda's Q001 contradiction query could never fire).
+    verdict.verified = collect_verified(formulas);
     Ok(verdict)
 }
 
@@ -459,6 +463,46 @@ fn atom_subject(atom: &Atom) -> Option<String> {
         Some(Edn::Str(s)) => Some(s.trim_start_matches(':').to_string()),
         _ => None,
     }
+}
+
+/// H-03: the claims the kg layer should ingest — the `:expression`
+/// atoms that carry a bindable `:predicate`, `:subject`, and `:value`
+/// (the same structural gate `bind_atoms` applies before asserting an
+/// atom into the solver).
+///
+/// Computed once as a pure function of the parsed `formulas` rather than
+/// threaded out of every partition's `bind_atoms` call: the partitioned
+/// engine binds each atom in BOTH its per-subject partition and the
+/// corpus partition, so collecting from the bind walk would double-count.
+/// This pure pass counts each asserted claim exactly once.
+///
+/// Atoms have no `:source` key in the IR (only
+/// :id/:kind/:predicate/:subject/:value), so `source` is empty; only the
+/// claim id and count matter to the kg `claim {id, source}` relation.
+#[cfg(feature = "smt")]
+fn collect_verified(formulas: &[(ClaimId, Atom)]) -> Vec<Claim> {
+    use edn_rs::Edn;
+    let mut out: Vec<Claim> = Vec::with_capacity(formulas.len());
+    for (id, atom) in formulas {
+        let kind = match atom.get(":kind") {
+            Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
+            _ => String::new(),
+        };
+        if kind != ":expression" {
+            continue;
+        }
+        let has_predicate = matches!(atom.get(":predicate"), Some(Edn::Key(_) | Edn::Str(_)));
+        let has_subject = matches!(atom.get(":subject"), Some(Edn::Key(_) | Edn::Str(_)));
+        let has_value = atom.get(":value").is_some();
+        if has_predicate && has_subject && has_value {
+            out.push(Claim {
+                id: id.clone(),
+                source: String::new(),
+            });
+        }
+    }
+    out
 }
 
 #[cfg(feature = "smt")]

@@ -3,14 +3,24 @@
 Detailed TDD steps in `docs/superpowers/plans/2026-06-16-audit-remediation.md`. Each task: failing test citing the REQ-ID → minimal fix → green → commit. One problem per PR.
 
 ## Sprint 1 — verifier chain (release-blocking)
-- [ ] T1.1 Port flat-atom `nl_to_fol` + `{:atoms}` verify payload + `ir.cljs Formula` to epidemiology, osmotic_pressure (REQ-VRF-001) [C-001, C-002]
-- [ ] T1.2 Per-verifier cljs CI matrix + bridge round-trip test (REQ-VRF-002) [C-003]
-- [ ] T1.3 Populate `Verdict.verified` for the kg path (REQ-VRF-003) [H-03]
-- [ ] T1.4 epidemiology `var_name.rs` canonicaliser (REQ-VRF-001) [H-04]
-- [ ] T1.5 De-drift: `Edn::Str` arm, `approx=`/`~=` recognizer, `reduce` lift-merge, re-sync 3 stale `_edn_reader.py` + checksum gate (REQ-VRF-004) [H-08, H-09]
-- [ ] T1.6 Design: single source of truth for the 4 orchestrators (root-cause follow-up)
+
+> **Reconciled 2026-06-16** against `origin/main` @ `c695de9`. Sprint 1 landed via
+> PRs #225/#227/#228/#229; boxes were not updated at the time. T1.2 left open to
+> verify the per-verifier cljs round-trip test (coverage was expanded in #225).
+> T1.6 (design follow-up) is still open and carries into a future sprint.
+
+- [x] T1.1 Port flat-atom `nl_to_fol` + `{:atoms}` verify payload + `ir.cljs Formula` to epidemiology, osmotic_pressure (REQ-VRF-001) [C-001, C-002] — #227
+- [ ] T1.2 Per-verifier cljs CI matrix + bridge round-trip test (REQ-VRF-002) [C-003] — coverage expanded in #225; **verify** the bridge round-trip test is wired
+- [x] T1.3 Populate `Verdict.verified` for the kg path (REQ-VRF-003) [H-03] — #228
+- [x] T1.4 epidemiology `var_name.rs` canonicaliser (REQ-VRF-001) [H-04] — #228
+- [x] T1.5 De-drift: `Edn::Str` arm, `approx=`/`~=` recognizer, `reduce` lift-merge, re-sync 3 stale `_edn_reader.py` + checksum gate (REQ-VRF-004) [H-08, H-09] — #229 + `ci/test_vendored_sync.py`
+- [ ] T1.6 Design: single source of truth for the 4 orchestrators (root-cause follow-up) — **open**
 
 ## Sprint 2 — neurosym-forge
+> **Next sprint.** Sequenced with the v0.6 predicate-UF soundness centerpiece in
+> `docs/superpowers/plans/2026-06-16-sprint2-codegen-soundness.md`. T2.2 (H-02)
+> shares `codegen_axioms.py` with the v0.6 work — land the escaping inside the new
+> `apply` emission.
 - [ ] T2.1 Holdout + tautology gates into CLJS `induce_theory.cljs -main` (REQ-NSI-001) [H-01]
 - [ ] T2.2 Escape/validate codegen identifiers + constraint-id allowlist (REQ-NSI-002) [H-02]
 - [ ] T2.3 Bake test asserts codegen output [neurosym Important]

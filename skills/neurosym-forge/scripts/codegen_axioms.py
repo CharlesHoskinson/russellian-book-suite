@@ -86,6 +86,38 @@ _SUPPORTED_ASSERT_HEADS = frozenset({
 _SCHEMA: dict[Keyword, dict] = {}
 _VECTOR_SYMBOLS: set[str] = set()
 _SET_SYMBOLS: set[str] = set()
+# REQ-SMT-056: predicate-uninterpreted-function registry. Maps a predicate name
+# to its ordered argument-sort names, for every schema predicate with non-empty
+# :arg-sorts and a Bool :return. Built once per generate_axioms_source call.
+# Predicates absent here keep the legacy opaque-Bool emission (REQ-SMT-061).
+_PREDICATE_UFS: dict[str, list[str]] = {}
+
+
+def _kw_name(value) -> str:
+    """A Keyword's bare name, or str() of anything else."""
+    return value.name if isinstance(value, Keyword) else str(value)
+
+
+def _is_bool_sort(sort) -> bool:
+    """True if a return-sort spec resolves to the Bool sort."""
+    return isinstance(sort, Keyword) and sort.name == "bool"
+
+
+def _sort_const_name(sort_name: str) -> str:
+    """The block-local Rust const holding the Z3 Sort for an uninterpreted sort."""
+    return f"{sort_name.replace('-', '_')}_sort"
+
+
+def _sort_ref_expr(sort_name: str) -> str:
+    """A Rust expression for the Z3 Sort of `sort_name`.
+
+    Primitive sorts map to their `Sort::<kind>()` constructor (no declaration
+    needed); custom sorts reference the block-local `<sort>_sort` const declared
+    alongside the quantifier's bound constants.
+    """
+    primitive = {"int": "Sort::int()", "real": "Sort::real()",
+                 "bool": "Sort::bool()", "string": "Sort::string()"}
+    return primitive.get(sort_name, _sort_const_name(sort_name))
 
 
 def _sort_to_z3(sort) -> str:
@@ -153,7 +185,7 @@ HEADER = """\
 use z3::{
     ast,
     ast::{Array, Bool, Datatype, Dynamic, Int, Real, Set, String as Z3String},
-    Solver, Sort, Symbol,
+    FuncDecl, Solver, Sort, Symbol,
 };
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
@@ -284,10 +316,20 @@ def generate_axioms_source(constraints: list[dict],
     """
     # Reset module-level schema state before each call so test isolation
     # holds and re-vendored copies pick up only the current call's schema.
-    global _SCHEMA, _VECTOR_SYMBOLS, _SET_SYMBOLS
+    global _SCHEMA, _VECTOR_SYMBOLS, _SET_SYMBOLS, _PREDICATE_UFS
     _SCHEMA = schema or {}
     _VECTOR_SYMBOLS = set()
     _SET_SYMBOLS = set()
+    # REQ-SMT-056: build the predicate-UF registry. A predicate joins it only
+    # if it declares a non-empty :arg-sorts AND a Bool :return; nil-arity
+    # predicates stay on the legacy opaque-Bool path (REQ-SMT-061).
+    _PREDICATE_UFS = {}
+    for pred_kw, spec in _SCHEMA.items():
+        if not isinstance(spec, dict):
+            continue
+        arg_sorts = spec.get(Keyword("arg-sorts"))
+        if arg_sorts and _is_bool_sort(spec.get(Keyword("return"))):
+            _PREDICATE_UFS[_kw_name(pred_kw)] = [_kw_name(s) for s in arg_sorts]
     # REQ-SMT-051..054: build the declared-sort registry once per call.
     declared_sort_names: set[str] = set()
     if sorts:
@@ -1134,6 +1176,43 @@ def _emit_ite(node: Any, z3_type: str, bound_vars: dict[str, str] | None = None)
     return f"{cond}.ite(&{then_branch}, &{else_branch})"
 
 
+def _resolve_pred_arg(arg, sort_name: str, bound_vars: dict[str, str] | None) -> str:
+    """REQ-SMT-058: resolve one predicate argument to a Rust Ast reference.
+
+    A `?var` resolves to its in-scope bound constant (raising on an unbound
+    reference); any other argument becomes a sort-typed `Dynamic::new_const`
+    of the predicate's declared argument sort.
+    """
+    if isinstance(arg, Symbol) and str(arg).startswith("?"):
+        name = str(arg)
+        if bound_vars and name in bound_vars:
+            return bound_vars[name]
+        raise CodegenError(f"unbound variable {name!r} in predicate application")
+    const_name = arg.name if isinstance(arg, Keyword) else str(arg)
+    return (f'Dynamic::new_const({json.dumps(const_name)}, '
+            f'&{_sort_ref_expr(sort_name)})')
+
+
+def _collect_predicate_ufs(node: Any) -> set[str]:
+    """Names of registered predicate-UFs applied directly in `node`.
+
+    Stops at nested `forall`/`exists` boundaries — an inner quantifier declares
+    the FuncDecls its own body needs, so we avoid declaring them twice.
+    """
+    found: set[str] = set()
+    if not isinstance(node, (list, tuple, EdnList, EdnVector)) or len(node) == 0:
+        return found
+    head = node[0]
+    head_str = head.name if isinstance(head, Keyword) else str(head)
+    if head_str in ("forall", "exists"):
+        return found
+    if isinstance(head, Keyword) and head.name in _PREDICATE_UFS:
+        found.add(head.name)
+    for child in node[1:]:
+        found |= _collect_predicate_ufs(child)
+    return found
+
+
 def _emit_quantifier_expr(
     node: Any,
     declared_sort_names: set[str],
@@ -1210,6 +1289,27 @@ def _emit_quantifier_expr(
         )
         new_bound_vars[var_str] = const_name
         new_const_names.append(const_name)
+    # REQ-SMT-057: declare a FuncDecl for every registered predicate this body
+    # applies directly, plus any argument-sort const it needs that the bindings
+    # did not already declare. Same-name FuncDecls return the same Z3 decl under
+    # the thread-local context, so block-local declaration is safe and the symbol
+    # is shared across asserts (the precondition for quantifier binding).
+    fn_decls: list[str] = []
+    for pred in sorted(_collect_predicate_ufs(body_node)):
+        arg_sorts = _PREDICATE_UFS[pred]
+        for s in arg_sorts:
+            safe_s = s.replace("-", "_")
+            if s not in ("int", "real", "bool", "string") and safe_s not in declared_local_sorts:
+                sort_decls.append(
+                    f"let {_sort_const_name(s)} = Sort::uninterpreted("
+                    f"Symbol::String({json.dumps(s)}.to_string()));"
+                )
+                declared_local_sorts.add(safe_s)
+        domain = ", ".join(f"&{_sort_ref_expr(s)}" for s in arg_sorts)
+        fn_decls.append(
+            f'let {pred.replace("-", "_")}_fn = FuncDecl::new('
+            f'{json.dumps(pred)}, &[{domain}], &Sort::bool());'
+        )
     body_rendered = _emit_bool_subexpr(
         body_node,
         bound_vars=new_bound_vars,
@@ -1229,7 +1329,7 @@ def _emit_quantifier_expr(
     return (
         "{ "
         + f"/* {marker} */ "
-        + " ".join(sort_decls + const_decls)
+        + " ".join(sort_decls + const_decls + fn_decls)
         + f" ast::{api}(&[{bound_refs}], &[], &{body_rendered})"
         + " }"
     )
@@ -1293,18 +1393,33 @@ def _emit_bool_subexpr(
             )
         return _emit_quantifier_expr(node, declared_sort_names, outer_bound_vars=bound_vars)
     # Keyword-headed predicate application: (:predicate arg1 arg2 ...)
-    # Treated as a named Bool constant whose name encodes the predicate + args.
-    # TODO(Tier 3): proper predicate-as-uninterpreted-function semantics.
-    # Currently emits a Bool constant whose name encodes the predicate + bound-var
-    # references. Z3 sees a fresh opaque Bool per textual occurrence, so a quantified
-    # property over this predicate is NOT actually enforced across instantiations.
-    # Proper handling: declare `<pred>: <arg-sorts...> -> Bool` in the preamble and
-    # emit `<pred>_fn.apply(&[&a, &b])`. Tracked in SUPPORT_MATRIX.md §"Quantifier
-    # predicate-application semantics".
     if isinstance(head_node, Keyword):
         pred = head_node.name
+        args = list(node)[1:]
+        # REQ-SMT-056..058: a predicate the schema declares with non-empty
+        # :arg-sorts and a Bool :return is a Z3 uninterpreted function. Apply
+        # its FuncDecl to the resolved argument constants so the bound variables
+        # actually enter the predicate and the enclosing quantifier constrains it.
+        if pred in _PREDICATE_UFS:
+            arg_sorts = _PREDICATE_UFS[pred]
+            # REQ-SMT-059: arity must match the schema declaration.
+            if len(args) != len(arg_sorts):
+                raise CodegenError(
+                    f"predicate {pred!r} arity mismatch: schema declares "
+                    f"{len(arg_sorts)}, got {len(args)}"
+                )
+            fn = f"{pred.replace('-', '_')}_fn"
+            arg_refs = [
+                _resolve_pred_arg(a, sort_name, bound_vars)
+                for a, sort_name in zip(args, arg_sorts)
+            ]
+            joined = ", ".join(f"&{r}" for r in arg_refs)
+            return f"{fn}.apply(&[{joined}]).as_bool().unwrap()"
+        # Legacy opaque-Bool path for nil-arity predicates (REQ-SMT-061): a named
+        # Bool constant whose name encodes the predicate + args. Sound for ground
+        # atoms; the registry above intercepts every predicate that needs binding.
         arg_parts: list[str] = []
-        for arg in list(node)[1:]:
+        for arg in args:
             if isinstance(arg, Keyword):
                 arg_parts.append(arg.name)
             elif isinstance(arg, Symbol):

@@ -63,6 +63,10 @@ def capture(workspace: Path, out_dir: Path) -> dict[str, int]:
     """
     layout = WorkspaceLayout(Path(workspace).resolve())
     dataset = _load_dataset(layout)
+    if len(dataset) == 0:
+        raise SystemExit(
+            f"ERROR: no triples loaded from {layout.dataset}; refusing to write empty goldens"
+        )
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

@@ -291,3 +291,13 @@ def test_projection_claims_are_schema_valid(tmp_path: Path) -> None:
         extra = set(c) - allowed
         assert not extra, f"non-schema keys on claim record: {extra}"
         assert required <= set(c), f"missing required keys: {required - set(c)}"
+
+
+def test_corrupt_ledger_line_is_skipped(tmp_path: Path) -> None:
+    """4.2: a malformed JSONL line must not crash the consistency pass."""
+    ws = _make_workspace(tmp_path, [_valid_claim("clm-a", "A well-formed claim.")])
+    with (ws / "claims" / "ledger.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write("{ this is not valid json\n")
+    run(ws)  # must not raise
+    payload = _load_payload(ws)
+    assert "summary" in payload

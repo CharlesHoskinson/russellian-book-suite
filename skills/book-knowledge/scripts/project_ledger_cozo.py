@@ -1,10 +1,19 @@
 """Project the claim ledger into the Cozo store (REQ-KG-004).
 
-`project_ledger(layout, store)` loads every latest-per-id VERIFIED claim and its
-source-spans from the append-only ledger into the store's ``claim`` and
+`project_ledger(layout, store)` loads every latest-per-id NON-SUPERSEDED claim
+and its source-spans from the append-only ledger into the store's ``claim`` and
 ``source-span`` relations. The ledger is read-only here: it is never opened for
 writing. This is the relational counterpart of :mod:`project_graph` (the RDF/TriG
 emit), which stays in parallel and is NOT replaced.
+
+Inclusion filter (mirrors :func:`project_graph.project_graph` exactly so the Cozo
+node set equals the RDF node set): collapse the append-only ledger to one record
+per ``claim_id`` (last write wins) with ``latest_per``, then keep every record
+whose latest ``status`` is NOT ``"superseded"``. Note this is the *only* status
+dropped: ``refuted`` (the other terminal state) IS projected, matching
+``project_graph``, which skips solely ``superseded``. Per-query status filtering
+(e.g. ``contradiction_scan``, ``posterior-floor``) is left to the SPARQL/Cozo
+query layer, so each projected ``claim`` row carries its ``status`` column.
 
 Field mapping (ledger snake -> schema snake column):
   - claim record ``claim_id`` -> claim relation identity column ``id``.
@@ -66,11 +75,14 @@ def _span_id(claim_id: str, doc_id: str, locator_text: str) -> str:
 
 
 def project_ledger(layout: WorkspaceLayout, store) -> None:
-    """Load latest-per-id verified claims + their spans into ``store``.
+    """Load latest-per-id non-superseded claims + their spans into ``store``.
 
     Reads ``layout.ledger`` (never writes it), collapses to one record per
-    ``claim_id`` (last write wins), keeps only ``status == "verified"``, and
-    upserts a ``claim`` row plus its ``source-span`` rows for each.
+    ``claim_id`` (last write wins), drops only records whose latest
+    ``status == "superseded"`` (mirroring :func:`project_graph.project_graph`),
+    and upserts a ``claim`` row plus its ``source-span`` rows for each. The
+    ``status`` column rides along on every claim row so downstream queries can
+    apply their own per-status filtering.
     """
     latest = latest_per(read_jsonl(layout.ledger), "claim_id")
 
@@ -78,7 +90,7 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     span_rows: list[dict] = []
 
     for record in latest.values():
-        if record.get("status") != "verified":
+        if record.get("status") == "superseded":
             continue
         claim_id = record["claim_id"]
 

@@ -48,7 +48,32 @@ def generate_for_claim(workspace_root: Path, claim_id: str,
         raise ValueError(f"claim not found: {claim_id}")
     prompt = prompt_for_claim(target)
     raw = llm_call(prompt)
-    rivals = json.loads(raw)
+    # The LLM boundary is untrusted: validate JSON-ness and shape before
+    # indexing into rivals, so malformed output fails loud and specific instead
+    # of as a raw JSONDecodeError/KeyError/TypeError downstream.
+    try:
+        rivals = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"counter-claim LLM output for {claim_id} is not valid JSON: {e}"
+        ) from e
+    if not isinstance(rivals, list):
+        raise ValueError(
+            f"counter-claim LLM output for {claim_id} must be a JSON array of "
+            f"objects, got {type(rivals).__name__}"
+        )
+    for i, rival in enumerate(rivals):
+        if not isinstance(rival, dict):
+            raise ValueError(
+                f"counter-claim LLM output for {claim_id}: item {i} must be a "
+                f"JSON object, got {type(rival).__name__}"
+            )
+        missing = [k for k in ("text", "disagreement_vector") if k not in rival]
+        if missing:
+            raise ValueError(
+                f"counter-claim LLM output for {claim_id}: item {i} missing "
+                f"required key(s) {missing}"
+            )
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     new_ids: list[str] = []

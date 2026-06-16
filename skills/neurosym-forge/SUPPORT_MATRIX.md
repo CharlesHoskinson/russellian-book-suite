@@ -21,7 +21,7 @@
 | `defquery`                   | wired        | `kg.rs::run_queries` | Cozo        | wired  |
 | `defremedy`                  | wired        | `verdict_to_qa.py`  | n/a          | wired (query-bound) |
 | `defconstraint :assert (and / or / not / =>)` | wired | `codegen_axioms.py` | Z3      | **wired (v0.5)** |
-| `defconstraint :assert (forall / exists)`     | wired | `codegen_axioms.py` | Z3      | **wired-with-caveat (v0.5)** |
+| `defconstraint :assert (forall / exists)`     | wired | `codegen_axioms.py` | Z3      | **wired (v0.6)** |
 
 ## Status legend
 
@@ -82,24 +82,24 @@ the framework had validated their claims — when in fact the constraint
 had been dropped. SUPPORT_MATRIX.md + the drift lint
 (`test_support_matrix.py`) keep the doc-vs-code state synchronised.
 
-### Quantifier predicate-application semantics (v0.5 caveat)
+### Quantifier predicate-application semantics (v0.6)
 
-A Keyword-headed predicate `(:contradicts ?a ?b)` inside a quantifier body
-currently emits `Bool::new_const("contradicts_a_b")` — an opaque Bool atom
-whose **name** mentions the bound-variable references but does not bind to
-them at the solver level. Z3 sees a single Bool per textual occurrence; the
-quantifier therefore does not actually constrain the predicate's truth across
-instantiations. The structural wiring is complete (the `mk_forall_const` /
-`mk_exists_const` calls are emitted correctly with the right typed bound
-constants), but proper predicate-as-uninterpreted-function semantics — declaring
-`contradicts : ProofObligation × ProofObligation → Bool` in the Z3 preamble and
-emitting `.apply(&[&a, &b])` — is deferred to a Tier 3 follow-up. Until that
-lands, authors using quantified predicates should treat the verifier verdict
-as a structural check ("did the framework wire the quantifier?") rather than
-a soundness proof ("did Z3 actually verify the universal property?").
+A Keyword-headed predicate the schema declares with non-empty `:arg-sorts` and a
+Bool `:return` is a Z3 **uninterpreted function**. `(:contradicts ?a ?b)` inside a
+quantifier body emits `contradicts_fn.apply(&[&a_const, &b_const]).as_bool()`,
+where `contradicts_fn = FuncDecl::new("contradicts", &[&sort, &sort], &Sort::bool())`
+is declared once per block. The bound constants enter the predicate, so two
+applications to the same arguments are the same Z3 term and the quantifier
+constrains the predicate across its domain — quantified universals are now sound
+(z3 refutes `(forall [?a] (:p ?a))` together with `(exists [?b] (not (:p ?b)))`).
 
-Tracked as Tier 3 follow-up; see `references/tier-roadmap.md` (or open a new
-issue if that file doesn't exist yet).
+Predicates with `nil`/empty `:arg-sorts` keep the legacy named-Bool emission
+(`Bool::new_const("contradicts_a_b")`), which is sound for ground atoms; the three
+shipped verifiers declare only nil-arity predicates, so their output is unchanged.
+
+Out of scope (future): term-valued (non-Bool) uninterpreted functions; trigger
+patterns (quantifiers fall back to MBQI); deep per-position argument-sort checking
+beyond arity.
 
 ## Roadmap pointers
 

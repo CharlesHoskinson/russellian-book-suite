@@ -10,8 +10,12 @@ import pytest
 
 pytestmark = pytest.mark.windows_canary
 
+from pathlib import Path
+
 from scripts.codegen_axioms import generate_axioms_source, CodegenError
 from scripts._edn_reader import Keyword, Symbol
+
+_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _kw(name):
@@ -158,3 +162,58 @@ def test_soundness_shape_exposes_opaque_collision():
     assert "p_fn.apply(&[&b_const])" in out
     assert 'Bool::new_const("p_a")' not in out
     assert 'Bool::new_const("p_b")' not in out
+
+
+def test_no_tier3_todo_remains():
+    """REQ-BOOKLOGIC-054: the predicate-application Tier-3 deferral is gone."""
+    code = (_ROOT / "scripts" / "codegen_axioms.py").read_text(encoding="utf-8")
+    assert "TODO(Tier 3)" not in code
+
+
+def test_support_matrix_quantifier_row_is_wired():
+    """REQ-BOOKLOGIC-054: the forall/exists row reads wired, no caveat."""
+    matrix = (_ROOT / "SUPPORT_MATRIX.md").read_text(encoding="utf-8")
+    row = next(line for line in matrix.splitlines()
+               if "(forall / exists)" in line)
+    assert "wired" in row.lower()
+    assert "caveat" not in row.lower()
+
+
+def test_golden_predicate_uf():
+    """REQ-BOOKLOGIC-056: pin the emission shape (or raised error) for each
+    predicate-UF golden case."""
+    from scripts._edn_reader import read_edn
+    fixture = read_edn((_ROOT / "tests" / "golden" / "predicate_uf_v0_6.edn")
+                       .read_text(encoding="utf-8"))
+    for case in fixture[Keyword("cases")]:
+        constraint = {
+            Keyword("id"): case[Keyword("name")],
+            Keyword("backend"): Keyword("z3"),
+            Keyword("assert"): case[Keyword("assert")],
+            Keyword("track"): Keyword("claim/id"),
+            Keyword("on-unsat"): {Keyword("defect"): Keyword("D13"),
+                                  Keyword("severity"): Keyword("critical"),
+                                  Keyword("message"): "golden"},
+        }
+        sorts = list(case.get(Keyword("sorts"), []))
+        schema = case.get(Keyword("predicates"))
+        name = case[Keyword("name")]
+        if Keyword("expected-error") in case:
+            with pytest.raises(CodegenError, match=case[Keyword("expected-error")]):
+                generate_axioms_source([constraint], schema=schema, sorts=sorts)
+        else:
+            out = generate_axioms_source([constraint], schema=schema, sorts=sorts)
+            expected = case[Keyword("expected-z3-call")]
+            assert expected in out, f"case {name!r}: expected {expected!r} in output"
+
+
+def test_dsl_reference_documents_operators():
+    """REQ-BOOKLOGIC-055: the DSL reference documents boolean connectives,
+    quantifiers, and predicate-UF semantics under non-colliding section numbers."""
+    ref = (_ROOT.parent.parent / "docs" / "booklogic-dsl-reference.md").read_text(encoding="utf-8")
+    assert "### 2.8 Boolean connectives" in ref
+    assert "### 2.9 Quantifiers" in ref
+    assert "### 2.10 Predicate-as-uninterpreted-function" in ref
+    # §2.6/§2.7 remain defquery/defremedy (no collision).
+    assert "### 2.6 `defquery`" in ref
+    assert "### 2.7 `defremedy`" in ref

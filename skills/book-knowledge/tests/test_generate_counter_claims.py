@@ -102,3 +102,43 @@ def test_generate_for_claim_appends_ids_to_target(tmp_path):
     records = [json.loads(l) for l in layout.ledger.read_text(encoding="utf-8").splitlines()]
     latest = [r for r in records if r["claim_id"] == "clm-2026-000001"][-1]
     assert latest.get("counter_claim_ids") == new_ids
+
+
+# H-05/REQ adjacency: guard the LLM boundary in generate_for_claim
+def _seed_target(tmp_path):
+    init_workspace(tmp_path)
+    layout = WorkspaceLayout(tmp_path)
+    target = {"claim_id": "clm-2026-000001",
+              "canonical_text": "Bermuda's ferry network expanded since 2020.",
+              "status": "verified", "claim_type": "fact", "confidence": 0.8,
+              "source_spans": [{"doc_id": "d", "locator_text": "abcd"}],
+              "created_at": "2026-05-11T00:00:00Z", "load_bearing": True}
+    layout.ledger.write_text(json.dumps(target) + "\n", encoding="utf-8")
+    return target
+
+
+def test_malformed_non_json_raises_clear_error(tmp_path):
+    _seed_target(tmp_path)
+    with _pytest.raises(ValueError, match=r"(?i)not valid json|json"):
+        generate_for_claim(tmp_path, "clm-2026-000001", llm_call=lambda p: "not json at all {")
+
+
+def test_json_object_not_array_raises(tmp_path):
+    _seed_target(tmp_path)
+    with _pytest.raises(ValueError, match=r"(?i)array|list"):
+        generate_for_claim(tmp_path, "clm-2026-000001",
+                           llm_call=lambda p: json.dumps({"text": "x", "disagreement_vector": "y"}))
+
+
+def test_rival_missing_required_key_raises(tmp_path):
+    _seed_target(tmp_path)
+    with _pytest.raises(ValueError, match=r"(?i)text|disagreement|key"):
+        generate_for_claim(tmp_path, "clm-2026-000001",
+                           llm_call=lambda p: json.dumps([{"text": "only text, no vector"}]))
+
+
+def test_rival_not_a_dict_raises(tmp_path):
+    _seed_target(tmp_path)
+    with _pytest.raises(ValueError, match=r"(?i)object|dict|mapping"):
+        generate_for_claim(tmp_path, "clm-2026-000001",
+                           llm_call=lambda p: json.dumps(["a bare string, not an object"]))

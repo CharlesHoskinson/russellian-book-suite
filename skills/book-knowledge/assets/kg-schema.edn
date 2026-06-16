@@ -122,6 +122,21 @@
    :relations [[:of-claim :claim]
                [:for-chapter :chapter]]}
 
+  ;; Source — an ingested source document (raw/manifests/*.json). The RDF
+  ;; projection (project_graph) reads each manifest and emits
+  ;; ``<source> schema:dateCreated <ingested_at>`` keyed by the manifest's
+  ;; ``doc_id``; this entity is its relational counterpart, one row per manifest.
+  ;; :id is the manifest ``doc_id`` (the natural key a claim's source-span carries
+  ;; in its :doc-id column, so claim->span->source joins on it — the relational
+  ;; form of ``?claim prov:wasDerivedFrom ?src``). :ingested-at is the manifest's
+  ;; ``ingested_at`` (ISO-8601 string; Cozo compares ISO-8601 lexically, no :types
+  ;; coercion — schema:dateCreated in the .rq). :path and :title ride along from
+  ;; the manifest; :trust is the manifest's numeric trust score.
+  :source
+  {:attrs [:id :ingested-at :path :title :trust]
+   :types {:trust :float}
+   :relations [[:derives :claim]]}
+
   ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
   :thesis-node
   {:attrs [:id :statement :polarity :scope]

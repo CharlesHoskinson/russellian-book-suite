@@ -68,6 +68,7 @@ floats/bools/ints from the ledger land as real typed cells.
 from __future__ import annotations
 
 import hashlib
+import json
 import sys
 from pathlib import Path
 from urllib.parse import quote
@@ -156,6 +157,48 @@ def _span_id(claim_id: str, doc_id: str, locator_text: str) -> str:
         "\x1f".join((claim_id, doc_id, locator_text)).encode("utf-8")
     ).hexdigest()[:16]
     return f"span-{digest}"
+
+
+# source-relation columns we copy from a manifest (snake spelling matches the
+# schema attrs). The manifest ``doc_id`` maps to the source identity column ``id``
+# and ``ingested_at`` to ``ingested_at`` (schema:dateCreated in the RDF emit).
+_SOURCE_FIELDS = ("path", "title", "trust")
+
+
+def _collect_sources(layout: WorkspaceLayout) -> list[dict]:
+    """Scan ``raw/manifests/*.json`` and return one ``source`` row per manifest.
+
+    Mirrors :func:`project_graph.project_graph`'s manifest pass: it reads each
+    manifest, keys the source on the manifest ``doc_id``, and carries the
+    ``ingested_at`` date (project_graph emits ``<src> schema:dateCreated
+    <ingested_at>``). A manifest lacking ``doc_id`` is skipped, matching
+    project_graph (which only emits when both ``doc_id`` and ``ingested_at`` are
+    present). The ``doc_id`` is the natural key a claim's source span carries in
+    its ``doc_id`` column, so the claim->span->source join (the relational form of
+    ``?claim prov:wasDerivedFrom ?src``) keys off it.
+    """
+    rows: list[dict] = []
+    seen: set[str] = set()
+    manifest_dir = layout.manifests
+    if not manifest_dir.exists():
+        return rows
+    for mf in sorted(manifest_dir.glob("*.json")):
+        try:
+            data = json.loads(mf.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        doc_id = data.get("doc_id")
+        if not doc_id or doc_id in seen:
+            continue
+        seen.add(doc_id)
+        row: dict = {"id": doc_id}
+        if "ingested_at" in data:
+            row["ingested_at"] = data["ingested_at"]
+        for field in _SOURCE_FIELDS:
+            if field in data:
+                row[field] = data[field]
+        rows.append(row)
+    return rows
 
 
 def project_ledger(layout: WorkspaceLayout, store) -> None:
@@ -264,6 +307,12 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
 
     store.load("claim", claim_rows)
     store.load("source-span", span_rows)
+    # Source manifests (REQ-KG-006): one row per raw/manifests/*.json, mirroring
+    # project_graph's schema:dateCreated emission. The claim->span->source join
+    # (span.doc_id == source.id) is the relational form of prov:wasDerivedFrom,
+    # and source.ingested_at is the schema:dateCreated the stale_after_source_refresh
+    # port compares against the claim's created_at.
+    store.load("source", _collect_sources(layout))
     store.load("claim-chapter", claim_chapter_rows)
     store.load("chapter", list(chapter_rows.values()))
     store.load("claim-conflict", claim_conflict_rows)

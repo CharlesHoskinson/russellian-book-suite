@@ -118,16 +118,53 @@ def test_filter_unbound_var_raises():
     assert "not bound" in str(exc.value)
 
 
-def test_filter_literal_rhs_required():
-    # The right-hand side must be a literal, not another variable.
+def test_filter_var_vs_var_golden():
+    # A :filter RHS may be another bound ?var (var-vs-var comparison). Both
+    # operands are guarded with !is_null, then compared inline. This is what
+    # stale_after_source_refresh needs: ?src_date > ?claim_date.
+    edn = (
+        '(defquery :vv '
+        ':find [?p ?q] '
+        ':where [[?c :claim/p-posterior ?p] [?c :claim/p-prior ?q]] '
+        ':filter [[> ?p ?q]])'
+    )
+    out = compile_query(edn, SCHEMA)
+    expected = (
+        '?[p, q] := *claim{p_posterior: p, p_prior: q}, '
+        '!is_null(p), !is_null(q), p > q'
+    )
+    assert out == expected
+
+
+def test_filter_var_vs_var_unbound_rhs_raises():
+    # The RHS var must also be bound by :where; an unknown RHS var is an error.
     edn = (
         '(defquery :bad :find [?p] '
-        ':where [[?c :claim/p-posterior ?p] [?c :claim/p-prior ?q]] '
-        ':filter [[< ?p ?q]])'
+        ':where [[?c :claim/p-posterior ?p]] :filter [[> ?p ?q]])'
     )
     with pytest.raises(ValueError) as exc:
         compile_query(edn, SCHEMA)
-    assert "literal" in str(exc.value).lower()
+    assert "not bound" in str(exc.value)
+
+
+def test_filter_var_vs_var_executes(tmp_path=None):
+    # Semantics: only the row whose p_posterior strictly exceeds p_prior returns;
+    # the equal-valued and the null-operand rows are dropped (the !is_null guards).
+    edn = (
+        '(defquery :vv :find [?id] '
+        ':where [[?c :claim/id ?id] [?c :claim/p-posterior ?p] '
+        '[?c :claim/p-prior ?q]] '
+        ':filter [[> ?p ?q]])'
+    )
+    script = compile_query(edn, SCHEMA)
+    store = CozoStore.in_memory(schema_path=SCHEMA)
+    store.load("claim", [
+        {"id": "rose", "p-posterior": 0.9, "p-prior": 0.3},   # > -> returns
+        {"id": "flat", "p-posterior": 0.5, "p-prior": 0.5},   # == -> excluded
+        {"id": "fell", "p-posterior": 0.2, "p-prior": 0.8},   # < -> excluded
+    ])
+    rows = store.query(script)
+    assert rows == [["rose"]]
 
 
 def test_filter_malformed_arity_raises():

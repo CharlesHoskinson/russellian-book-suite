@@ -528,3 +528,77 @@ def test_contested_rebuttal_window_fires_on_disputed_claim(tmp_path: Path) -> No
             ["clm-2026-000002", f"{base}ch-bbb"],
         ]
     )
+
+
+# --- stale-after-source-refresh port (REQ-KG-006) ------------------------------
+
+
+def test_stale_after_source_refresh_matches_golden() -> None:
+    """The EDN port reproduces the bermuda golden exactly (both empty).
+
+    bermuda's golden is ``[]``: its one manifest-backed claim (doc_id "thesis")
+    was created at the SAME instant its source was ingested, so the strict
+    ``?src_date > ?claim_date`` never fires. The empty match is vacuous on its own
+    -- the synthetic firing test below carries the real proof.
+    """
+    golden = json.loads(
+        (GOLDEN_DIR / "stale_after_source_refresh.json").read_text("utf-8")
+    )
+    assert _run("stale_after_source_refresh", BERMUDA) == _canonical_golden(golden)
+
+
+def test_stale_after_source_refresh_fires(tmp_path: Path) -> None:
+    """The MEANINGFUL firing test: ONLY the claim whose source post-dates it returns.
+
+    Two verified claims, each derived (via a source span's doc_id) from a manifest
+    source:
+      - clm 1: source ingested 2026-06-10, claim created 2026-06-01 -> source is
+               NEWER than the claim -> stale -> MUST return.
+      - clm 2: source ingested 2026-06-01, claim created 2026-06-10 -> source
+               PREDATES the claim -> not stale -> excluded by the date filter.
+    The manifest source rows are written as raw JSON under raw/manifests/, mirroring
+    project_graph's manifest pass; the claim->span->source join keys on doc_id and
+    the var-vs-var ISO-8601 comparison decides staleness. Proves the source
+    projection AND the var-vs-var filter fire.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    def _claim(cid: str, doc_id: str, created_at: str) -> dict:
+        return {
+            "claim_id": cid,
+            "canonical_text": f"claim {cid}",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [{"doc_id": doc_id, "locator_text": "locator text"}],
+            "created_at": created_at,
+        }
+
+    append_claim(layout, _claim("clm-2026-000001", "doc-stale", "2026-06-01T00:00:00+00:00"))
+    append_claim(layout, _claim("clm-2026-000002", "doc-fresh", "2026-06-10T00:00:00+00:00"))
+
+    # Source manifests: doc-stale was ingested AFTER its claim (stale); doc-fresh
+    # was ingested BEFORE its claim (not stale). Mirrors project_graph's manifest
+    # shape (doc_id + ingested_at).
+    layout.manifests.mkdir(parents=True, exist_ok=True)
+    (layout.manifests / "doc-stale.json").write_text(
+        json.dumps({"doc_id": "doc-stale", "ingested_at": "2026-06-10T00:00:00+00:00"}),
+        encoding="utf-8",
+    )
+    (layout.manifests / "doc-fresh.json").write_text(
+        json.dumps({"doc_id": "doc-fresh", "ingested_at": "2026-06-01T00:00:00+00:00"}),
+        encoding="utf-8",
+    )
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "stale_after_source_refresh.edn").read_text("utf-8"),
+        SCHEMA_PATH,
+    )
+    rows = store.query(script)
+
+    assert _canonical(rows) == _canonical(
+        [["clm-2026-000001", "2026-06-01T00:00:00+00:00", "2026-06-10T00:00:00+00:00"]]
+    )

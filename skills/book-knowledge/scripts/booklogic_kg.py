@@ -47,14 +47,17 @@ columns.
   to that var (``col: var``); the same var in another atom unifies (join). A
   triple whose value is a literal becomes an inline match (``col: <literal>``).
 * ``:filter`` is an optional vector of ordered-comparison clauses
-  ``[<op> ?var <literal>]`` where ``op`` is one of ``<``, ``<=``, ``>``, ``>=``.
-  Each lowers to a CozoScript inline expression atom ``<var> <op> <literal>``
-  (e.g. ``[< ?p 0.4]`` -> ``p < 0.4``), emitted after the positive atoms so the
-  variable is already bound. The compared ``?var`` MUST be bound by the :where
-  body and the right-hand side MUST be a literal. Numeric literals stay UNQUOTED
-  so they compare against the typed Float/Int column; a comparison against a null
-  cell is a Cozo evaluation error (the projector leaves a missing field null), so
-  bind the var to a column the rows actually carry.
+  ``[<op> ?var <rhs>]`` where ``op`` is one of ``<``, ``<=``, ``>``, ``>=`` and
+  ``<rhs>`` is either a LITERAL or another ``?var``. Each lowers to a CozoScript
+  inline expression atom ``<lhs> <op> <rhs>`` (e.g. ``[< ?p 0.4]`` -> ``p < 0.4``;
+  ``[> ?src-date ?claim-date]`` -> ``src_date > claim_date``), emitted after the
+  positive atoms so both operands are already bound. The compared ``?var`` (and
+  the RHS ``?var``, when used) MUST be bound by the :where body. Numeric literals
+  stay UNQUOTED so they compare against the typed Float/Int column; ISO-8601 date
+  strings compare lexically. A comparison against a null cell is a Cozo evaluation
+  error (the projector leaves a missing field null), so the lowering guards every
+  operand with ``!is_null`` — a row with a null operand is dropped, reproducing
+  SPARQL's triple-existence semantics rather than erroring.
 * ``:not`` is an optional vector of triples; each entity-var group becomes a
   Cozo negation ``not *<snake_entity>{...}``. A variable used in the negation
   MUST already be bound by the positive body -- the compiler threads it through
@@ -243,14 +246,24 @@ def _compile_clauses(
 def _compile_filters(clauses: Any, env: set[str]) -> list[str]:
     """Lower a :filter vector into CozoScript inline comparison expressions.
 
-    Each clause is ``[<op> ?var <literal>]`` where ``op`` is one of
-    :data:`_COMPARATORS` (``<``, ``<=``, ``>``, ``>=``). It lowers to the inline
-    expression atom ``<var> <op> <literal>`` (e.g. ``p < 0.4``), placed in the
-    Cozo body after the positive atoms that bind the variable. The variable MUST
-    already be bound by the :where body; Cozo evaluates the comparison against the
-    bound cell, so an unbound var (or one whose cell is null) would fail at query
-    time. Numeric literals stay UNQUOTED so they compare against the typed Float
-    column; string literals are quoted via :func:`_format_literal`.
+    Each clause is ``[<op> ?var <rhs>]`` where ``op`` is one of
+    :data:`_COMPARATORS` (``<``, ``<=``, ``>``, ``>=``) and ``<rhs>`` is a LITERAL
+    or another ``?var``. It lowers to the inline expression atom
+    ``<lhs> <op> <rhs>`` (e.g. ``p < 0.4`` or ``src_date > claim_date``), placed
+    in the Cozo body after the positive atoms that bind the operands. Every
+    operand ``?var`` MUST already be bound by the :where body; Cozo evaluates the
+    comparison against the bound cell, so an unbound var (or one whose cell is
+    null) would fail at query time. Numeric literals stay UNQUOTED so they compare
+    against the typed Float column; string literals are quoted via
+    :func:`_format_literal`.
+
+    Both operands are guarded with ``!is_null`` because a nullable column (a
+    missing ledger field projects as null) makes Cozo raise on an ordered
+    comparison against a null cell. SPARQL's FILTER never sees null: each operand
+    is bound by a triple pattern that must EXIST, so a row missing the operand is
+    simply not selected. The guard reproduces exactly that existence semantics —
+    for the var-vs-var case (e.g. stale_after_source_refresh's
+    ``?src_date > ?claim_date``) BOTH operands are guarded.
     """
     out: list[str] = []
     for clause in clauses:
@@ -260,7 +273,7 @@ def _compile_filters(clauses: Any, env: set[str]) -> list[str]:
             or len(clause) != 3
         ):
             raise ValueError(
-                f"malformed filter {clause!r}: expected [<op> ?var <literal>] "
+                f"malformed filter {clause!r}: expected [<op> ?var <rhs>] "
                 f"(arity 3)"
             )
         op, var_sym, value = clause[0], clause[1], clause[2]
@@ -279,18 +292,20 @@ def _compile_filters(clauses: Any, env: set[str]) -> list[str]:
             raise ValueError(
                 f"filter variable '?{var}' is not bound by the :where body"
             )
-        if _is_var(value):
-            raise ValueError(
-                f"filter {clause!r} right-hand side must be a literal, not a ?var"
-            )
-        # Guard the comparison with !is_null(var). The compared column may be
-        # nullable (a missing ledger field projects as null), and Cozo raises
-        # "Evaluation of expression failed" on an ordered comparison against a
-        # null cell. SPARQL's source FILTER never sees null: ``?p`` is bound by a
-        # triple pattern that must EXIST, so a claim with no posterior is simply
-        # not selected. The guard reproduces exactly that existence semantics.
         out.append(f"!is_null({var})")
-        out.append(f"{var} {_COMPARATORS[op_name]} {_format_literal(value)}")
+        if _is_var(value):
+            # var-vs-var comparison: the RHS var must also be bound by :where so
+            # both cells exist. Guard both operands against null (see docstring).
+            rhs_var = _var_name(value)
+            if rhs_var not in env:
+                raise ValueError(
+                    f"filter right-hand variable '?{rhs_var}' is not bound by "
+                    f"the :where body"
+                )
+            out.append(f"!is_null({rhs_var})")
+            out.append(f"{var} {_COMPARATORS[op_name]} {rhs_var}")
+        else:
+            out.append(f"{var} {_COMPARATORS[op_name]} {_format_literal(value)}")
     return out
 
 

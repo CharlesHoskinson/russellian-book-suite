@@ -89,15 +89,34 @@ def test_python_skill_include_overrides_are_in_skill_axis():
         )
 
 
-def test_coverage_gap_skills_have_smoke_legs():
-    """P2-matrix-coverage-gaps: scrapling-fetch + syntopical-metabook are
-    covered by an install+import smoke leg, closing the zero-CI-signal gap
-    on the highest supply-chain-risk skills."""
+def test_scrapling_fetch_keeps_smoke_leg():
+    """P2-matrix-coverage-gaps: scrapling-fetch (scrapling/playwright/trafilatura,
+    the highest supply-chain-risk skill) stays covered by an install+import smoke
+    leg rather than a full pytest run."""
     entries = {e["skill"]: e for e in _matrix_config()["skills"]}
-    for skill in ("scrapling-fetch", "syntopical-metabook"):
-        assert entries[skill].get("smoke") == "import", (
-            f"{skill} must be a `smoke: import` entry"
-        )
+    assert entries["scrapling-fetch"].get("smoke") == "import", (
+        "scrapling-fetch must be a `smoke: import` entry"
+    )
+
+
+def test_syntopical_metabook_runs_full_pytest_with_shadow_guard():
+    """syntopical-metabook was promoted from smoke:import to a full-pytest leg so
+    its suite runs in CI; the NFR-5 no-shadow-writes guard is registered in the
+    skill's conftest so it fires over real metabook code (was wired into ci/ only)."""
+    entries = {e["skill"]: e for e in _matrix_config()["skills"]}
+    mb = entries["syntopical-metabook"]
+    assert mb.get("smoke") != "import" and mb.get("ci") != "none", (
+        "syntopical-metabook must be a runnable full-pytest entry, not smoke-only"
+    )
+    assert (REPO_ROOT / "skills" / "syntopical-metabook" / "tests").is_dir(), (
+        "metabook full-pytest entry needs a tests/ dir"
+    )
+    conftest = (REPO_ROOT / "skills" / "syntopical-metabook" / "conftest.py").read_text(
+        encoding="utf-8"
+    )
+    assert "ci.lint_no_shadow_writes" in conftest, (
+        "metabook conftest must register the NFR-5 shadow-write guard plugin"
+    )
 
 
 # ---------- REQ-CI-041 ----------

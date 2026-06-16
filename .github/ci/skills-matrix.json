@@ -36,7 +36,12 @@
     },
     { "skill": "paragraph-weaver" },
     { "skill": "scrapling-fetch", "os": ["ubuntu-24.04"], "extra": "none", "smoke": "import" },
-    { "skill": "syntopical-metabook", "os": ["ubuntu-24.04"], "extra": "none", "smoke": "import" },
+    {
+      "skill": "syntopical-metabook",
+      "os": ["ubuntu-24.04"],
+      "extra": "test",
+      "hf_model": "sentence-transformers/all-MiniLM-L6-v2"
+    },
     {
       "skill": "iacr-math-prose",
       "ci": "none",

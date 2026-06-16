@@ -30,7 +30,9 @@ smoke-osmotic:
 	make -C verifiers/osmotic_pressure ci
 
 clean:
-	cargo clean
+	# No root cargo workspace exists, so `cargo clean` here aborts the
+	# target before anything is removed; the per-verifier rm lines below
+	# do the real work.
 	rm -rf verifiers/*/rust-verifier/target
 	rm -rf verifiers/*/cljs-orchestrator/dist
 	rm -rf verifiers/*/cljs-orchestrator/.shadow-cljs

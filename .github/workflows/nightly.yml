@@ -4,9 +4,16 @@ on:
     - cron: '0 7 * * *'   # 07:00 UTC daily
   workflow_dispatch:
 
+# Least privilege at the workflow default; issues:write is granted only to the
+# alert-on-failure job, so the many code-executing matrix jobs stay read-only.
 permissions:
   contents: read
-  issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
+
+# A manual dispatch overlapping the 07:00 schedule would run two full nightly
+# suites (incl. Windows + ARM) at once; serialize instead.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
 
 jobs:
   drift-check:
@@ -247,6 +254,8 @@ jobs:
     if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:

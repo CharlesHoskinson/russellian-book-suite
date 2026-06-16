@@ -166,12 +166,19 @@ def analyse(paragraphs: list[ParaRef], nodes: set[str],
     defects: list[Defect] = []
     cited: set[str] = set()
     n_supported = n_no = n_broken = n_unreach = 0
+    # 3.7: supports tracking is opt-in per manuscript. A document that declares
+    # NO carriers (e.g. a freshly assembled manuscript whose paragraphs were
+    # never annotated) is not in tracking mode, so a missing carrier is not an
+    # orphan — flagging every paragraph would be noise, not signal. Once ANY
+    # paragraph declares a carrier, the carrier-less ones are flagged normally.
+    supports_tracking = any(p.supports is not None for p in paragraphs)
     for p in paragraphs:
         loc = f"ch-{p.chapter:02d} line {p.line}" if p.chapter else f"line {p.line}"
         if p.supports is None:
-            defects.append(Defect("D9", "no-support", loc,
-                                  f"paragraph has no supports declaration: {p.raw!r}"))
-            n_no += 1
+            if supports_tracking:
+                defects.append(Defect("D9", "no-support", loc,
+                                      f"paragraph has no supports declaration: {p.raw!r}"))
+                n_no += 1
             continue
         if p.supports not in nodes:
             defects.append(Defect("D9", "broken-supports", loc,
@@ -186,8 +193,10 @@ def analyse(paragraphs: list[ParaRef], nodes: set[str],
         cited.add(p.supports)
         n_supported += 1
 
+    # Only audit sub-argument coverage when the manuscript is in supports-tracking
+    # mode; with no carriers every sub-argument would trivially be "unadvanced".
     sub_args = {n for n in nodes if n != "Thesis"}
-    unadvanced = sorted(sub_args - cited)
+    unadvanced = sorted(sub_args - cited) if supports_tracking else []
     for sa in unadvanced:
         defects.append(Defect("D12", "unadvanced", sa,
                               f"sub-argument {sa!r} is named by no paragraph's supports"))
@@ -199,6 +208,7 @@ def analyse(paragraphs: list[ParaRef], nodes: set[str],
         "orphan_broken_supports": n_broken,
         "orphan_unreachable": n_unreach,
         "unadvanced_sub_arguments": unadvanced,
+        "supports_tracking": supports_tracking,
     }
     return defects, summary
 

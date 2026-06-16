@@ -13,7 +13,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "skills" / "book-knowledge"))
 
-from scripts.generate_counter_claims import generate_for_claim  # noqa: E402
+from scripts.generate_counter_claims import (  # noqa: E402
+    generate_for_claim, _latest_claim_record,
+)
 
 WS = REPO / "examples" / "bermuda-manual"
 
@@ -135,10 +137,27 @@ def _llm_for(cid: str):
     return _call
 
 
-def main():
+def generate(ws: Path = WS) -> dict[str, list[str]]:
+    """Generate counter-claims for each RIVALS cid in ``ws``, idempotently.
+
+    H-06: a cid whose latest ledger record already carries counter_claim_ids is
+    skipped, so re-running the tool does not append a second set of rivals.
+    """
+    out: dict[str, list[str]] = {}
     for cid in RIVALS:
-        ids = generate_for_claim(WS, cid, llm_call=_llm_for(cid))
+        existing = _latest_claim_record(ws, cid)
+        if existing and existing.get("counter_claim_ids"):
+            print(f"{cid}: already has counter-claims, skipping")
+            out[cid] = []
+            continue
+        ids = generate_for_claim(ws, cid, llm_call=_llm_for(cid))
         print(f"{cid}: generated {len(ids)} counter-claims -> {ids}")
+        out[cid] = ids
+    return out
+
+
+def main():
+    generate(WS)
 
 
 if __name__ == "__main__":

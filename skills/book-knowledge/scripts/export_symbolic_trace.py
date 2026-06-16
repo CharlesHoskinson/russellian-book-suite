@@ -18,13 +18,17 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import logging
 import sys
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 # scripts/__init__.py extends this package's __path__ to include forge's
 # scripts/ dir, so the imports below resolve to neurosym-forge's modules.
 from scripts._edn_reader import Keyword, Symbol  # noqa: E402
 from scripts._edn_writer import write_edn  # noqa: E402
+from scripts.io_utils import read_jsonl  # noqa: E402
 
 
 def _parse_instant(value: str) -> dt.datetime:
@@ -124,17 +128,20 @@ def export_trace(workspace: Path, out_path: Path) -> int:
     manifests_dir = workspace / "raw" / "manifests"
     if manifests_dir.is_dir():
         for manifest_path in sorted(manifests_dir.glob("*.json")):
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                # Skip a corrupt manifest rather than abort the whole trace export.
+                _log.warning("skipping malformed manifest %s: %s", manifest_path, e)
+                continue
             events.append(_manifest_to_event(manifest))
 
+    # read_jsonl skips blank lines and warns on corrupt ones (4.2), so a single
+    # bad ledger/events line no longer aborts the export.
     ledger_path = workspace / "claims" / "ledger.jsonl"
     if ledger_path.exists():
         seen_claims: set[str] = set()
-        for line in ledger_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
+        for row in read_jsonl(ledger_path):
             cid = row.get("claim_id")
             if cid and cid not in seen_claims:
                 seen_claims.add(cid)
@@ -142,11 +149,8 @@ def export_trace(workspace: Path, out_path: Path) -> int:
 
     events_path = workspace / "claims" / "events.jsonl"
     if events_path.exists():
-        for line in events_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            events.append(_event_to_status_event(json.loads(line)))
+        for event in read_jsonl(events_path):
+            events.append(_event_to_status_event(event))
 
     events.sort(key=_event_sort_key)
 

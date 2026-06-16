@@ -67,11 +67,7 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
             Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
-        let var_name = format!(
-            "{}_{}",
-            predicate.trim_start_matches(':'),
-            subject.trim_start_matches(':')
-        );
+        let var_name = crate::var_name::canonical_var_name(&predicate, &subject);
         let tracker = Bool::new_const(id.as_str());
 
         let value = match atom.get(":value") {
@@ -228,6 +224,29 @@ mod tests {
         assert!(
             super::check_all(&formulas).is_err(),
             "overflowing double must be rejected, not saturated"
+        );
+    }
+
+    // The Z3 var name must be the cross-language canonical form, which
+    // strips BOTH `:` and `?` prefixes. A `?`-prefixed string predicate
+    // and a `:`-keyword predicate that denote the same identifier must
+    // map to the SAME Z3 symbol. Here `?dose`/`?p` (string) and
+    // `:dose`/`:p` (keyword) both canonicalise to `dose_p`; binding them
+    // to contradictory values is unsat only when they share the symbol.
+    // With the old `trim_start_matches(':')` the `?`-prefixed atom yields
+    // `?dose_?p`, a distinct symbol, and Z3 returns sat.
+    #[test]
+    fn question_prefixed_predicate_canonicalises_to_same_symbol() {
+        let edn = r#"{:atoms [
+            {:id "q1" :kind :expression :predicate "?dose" :subject "?p" :value 5}
+            {:id "q2" :kind :expression :predicate :dose :subject :p :value 6}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse");
+        let verdict = super::check_all(&formulas).expect("check");
+        assert_eq!(
+            verdict.status, "unsat",
+            "?-prefixed and :-prefixed forms of the same identifier must \
+             share a canonical Z3 symbol; got {verdict:?}"
         );
     }
 }

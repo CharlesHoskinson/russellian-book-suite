@@ -1,0 +1,75 @@
+;; kg-schema.edn — unified knowledge-graph schema (REQ-KG-001)
+;;
+;; Homoiconic source of truth for the unified graph: claims + thesis + code
+;; graph. The projectors (ledger->cozo) and the EDN->CozoScript compiler read
+;; this contract; cozo_store creates one Cozo relation per entity from it
+;; (REQ-KG-011) and the compiler validates query references against it
+;; (REQ-KG-003).
+;;
+;; This is DISTINCT from assets/claim-record.schema.json (JSON-Schema), which
+;; still guards ledger-write shape. Do not conflate the two.
+;;
+;; Conventions:
+;;   - One map {:entities {...}}.
+;;   - Each entity is {<name> {:attrs [<keyword>...] :relations [[<verb> <target>]...]}}.
+;;   - All names are kebab-case keywords; relation targets reference declared
+;;     entities. The first attr of each entity is its identity column.
+;;   - Attr names are derived from the real field sources (claim-record schema,
+;;     book-thesis compile_thesis / RDF projection, graphify graph.json), not a
+;;     sketch — normalized to stable kebab-case keywords.
+
+{:entities
+ {;; Claim — derived from claim-record.schema.json (latest-per-id verified
+  ;; claims land here via the ledger->cozo projector, REQ-KG-004).
+  :claim
+  {:attrs [:id :canonical-text :status :claim-type :semantic-class
+           :confidence :p-prior :p-posterior :load-bearing :axiom
+           :pin-low-confidence :created-at :last-verified-at]
+   :relations [[:has-source :source-span]
+               [:supports :thesis-node]
+               [:advances :sub-argument]
+               [:derived-from :claim]
+               [:conflicts-with :claim]
+               [:supersedes :claim]]}
+
+  ;; Source span — the provenance anchor for a claim
+  ;; (claim-record.schema.json source_spans[]).
+  :source-span
+  {:attrs [:id :doc-id :node-id :page-index :locator-text]
+   :relations []}
+
+  ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
+  :thesis-node
+  {:attrs [:id :statement :polarity :scope]
+   :relations []}
+
+  ;; Sub-argument — a thesis sub-claim (book-thesis :SubArgument);
+  ;; supports its parent (thesis-node or another sub-argument).
+  :sub-argument
+  {:attrs [:id :statement :polarity :parent]
+   :relations [[:supports :thesis-node]
+               [:supports :sub-argument]
+               [:advanced-by :wiki-page]]}
+
+  ;; Wiki page — a *.md page under wiki/ (tbf:WikiPage in the RDF projection).
+  :wiki-page
+  {:attrs [:id :path :title]
+   :relations []}
+
+  ;; Code node — graphify graph.json node (id, label) plus its rank and
+  ;; community assignment.
+  :code-node
+  {:attrs [:id :label :rank :community]
+   :relations [[:edge :code-edge]
+               [:member-of :community]]}
+
+  ;; Code edge — graphify graph.json link (source, target, relation, weight).
+  :code-edge
+  {:attrs [:source-id :target-id :relationship :weight]
+   :relations [[:from :code-node]
+               [:to :code-node]]}
+
+  ;; Community — a detected cluster of code nodes (graphify community structure).
+  :community
+  {:attrs [:id :members]
+   :relations [[:has-member :code-node]]}}}

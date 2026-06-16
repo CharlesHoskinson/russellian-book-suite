@@ -23,15 +23,24 @@ Each network/LLM boundary is an injected callable; the unit suite runs offline.
 `llm_call` must be wired to a model client in `main()` before a live run.
 yt-dlp is the only network call outside scrapling-fetch, scoped to caption tracks.
 
-## Generate (live)
+## Generate
 
-Once a corpus exists, generate voice text grounded in it (needs ANTHROPIC_API_KEY):
+In a Claude session this is a SKILL, not an API call — the running model reads the corpus + the
+triadic-voice guide and writes the passage directly. No API key, no `anthropic` package. See
+`skills/triadic-voice/SKILL.md`.
+
+To assemble the corpus-grounded prompt without any model call (e.g. to hand to a session):
 
     .venv/Scripts/python.exe -m scripts.generate --topic "why formal verification belongs at the base layer" --mode triadic
 
-`--mode hoskinson` for pure Hoskinson voice, `--mode triadic` (default) for the Russell x Feynman x
-Hoskinson fusion. `--model` overrides the model (default claude-opus-4-8). Generation is an injected
-llm_call; the unit tests run offline with a stub.
+That prints the prompt (`--llm print`, the default). `--mode hoskinson` for pure Hoskinson voice.
+
+For an unattended/headless run that calls the model itself, install the optional API extra and set a
+key:
+
+    .venv/Scripts/python.exe -m pip install -e ".[api]"
+    set ANTHROPIC_API_KEY=...    # PowerShell: $env:ANTHROPIC_API_KEY="..."
+    .venv/Scripts/python.exe -m scripts.generate --topic "..." --mode triadic --llm anthropic
 
 ## Copyright
 

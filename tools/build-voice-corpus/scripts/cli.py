@@ -105,7 +105,7 @@ def main() -> None:
     """Live entry point. The llm_call boundary must be wired to a model client by the operator."""
     import argparse
 
-    from scripts.adapters import scrapling_fetch, ytdlp_runner, make_anthropic_llm_call
+    from scripts.adapters import scrapling_fetch, ytdlp_runner
 
     parser = argparse.ArgumentParser(description="Build the Hoskinson voice corpus")
     parser.add_argument("--channel", default="https://www.youtube.com/@charleshoskinsoncrypto/videos")
@@ -115,7 +115,15 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
 
-    llm_call = make_anthropic_llm_call()
+    try:
+        from scripts.adapters import make_anthropic_llm_call
+        llm_call = make_anthropic_llm_call()
+    except ImportError as e:
+        raise SystemExit(
+            "The headless corpus builder tags passages via the Anthropic API. Install the optional "
+            "extra with `pip install -e .[api]` and set ANTHROPIC_API_KEY. In a Claude session you "
+            "can instead run discovery + cleaning and tag the passages directly (no key)."
+        ) from e
 
     summary = run(channel_videos_url=args.channel, workdir=args.workdir, index_path=args.index,
                   fetch=scrapling_fetch, ytdlp_runner=ytdlp_runner, llm_call=llm_call,

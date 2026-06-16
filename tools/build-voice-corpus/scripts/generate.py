@@ -110,20 +110,49 @@ def generate(topic: str, *, mode: str, llm_call: LlmCall,
     return llm_call(prompt).strip()
 
 
+def build_prompt_for(topic: str, *, mode: str, n_exemplars: int = 8, seed: int = 0,
+                     corpus_path: Path = _CORPUS, guide_path: Path = _GUIDE) -> str:
+    """Assemble the corpus-grounded prompt without calling any model.
+
+    This is the in-session path: print the prompt and let the running Claude write the passage.
+    No API key or `anthropic` package is needed.
+    """
+    exemplars = select_exemplars(load_exemplars(corpus_path), n=n_exemplars, seed=seed)
+    guide = Path(guide_path).read_text(encoding="utf-8")
+    return build_generation_prompt(topic, mode=mode, exemplars=exemplars, guide=guide)
+
+
 def main() -> None:
     import argparse
 
-    from scripts.adapters import make_anthropic_llm_call
-
-    parser = argparse.ArgumentParser(description="Generate Hoskinson / triadic voice text from the corpus")
+    parser = argparse.ArgumentParser(
+        description="Generate Hoskinson / triadic voice text from the corpus")
     parser.add_argument("--topic", required=True)
     parser.add_argument("--mode", choices=MODES, default="triadic")
     parser.add_argument("--n-exemplars", type=int, default=8)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--model", default=None, help="override the model (default claude-opus-4-8)")
+    parser.add_argument(
+        "--llm", choices=("print", "anthropic"), default="print",
+        help="print (default): emit the corpus-grounded prompt for the running Claude session to "
+             "complete - no API key, no extra deps. anthropic: call the Anthropic API for an "
+             "unattended/headless run (needs the [api] extra and ANTHROPIC_API_KEY).")
+    parser.add_argument("--model", default=None, help="model id for --llm anthropic")
     args = parser.parse_args()
 
-    llm_call = make_anthropic_llm_call(model=args.model)
+    if args.llm == "print":
+        print(build_prompt_for(args.topic, mode=args.mode,
+                               n_exemplars=args.n_exemplars, seed=args.seed))
+        return
+
+    try:
+        from scripts.adapters import make_anthropic_llm_call
+        llm_call = make_anthropic_llm_call(model=args.model)
+    except ImportError as e:
+        raise SystemExit(
+            "--llm anthropic needs the optional API extra. Install it with "
+            "`pip install -e .[api]` and set ANTHROPIC_API_KEY. In a Claude session you do not "
+            "need this - use the default --llm print and let the session write the passage."
+        ) from e
     print(generate(args.topic, mode=args.mode, llm_call=llm_call,
                    n_exemplars=args.n_exemplars, seed=args.seed))
 

@@ -72,3 +72,13 @@ def test_hoskinson_prompt_has_tic_budget_and_economy():
     p = build_generation_prompt("x", mode="hoskinson", exemplars=ex, guide="G")
     assert "at most one overt catchphrase" in p
     assert "omit needless words" in p.lower()
+
+
+def test_build_prompt_for_needs_no_llm():
+    from scripts.generate import build_prompt_for
+    p = build_prompt_for("zero-knowledge proofs", mode="triadic", n_exemplars=4, seed=1)
+    assert "zero-knowledge proofs" in p
+    assert "HOSKINSON" in p and "FEYNMAN" in p and "RUSSELL" in p
+    # it reads the real corpus, so an exemplar fragment should appear (transcripts are lowercase)
+    pl = p.lower()
+    assert "charles" in pl or "cardano" in pl or "governance" in pl

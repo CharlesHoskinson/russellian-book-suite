@@ -94,3 +94,24 @@ def test_clean_paragraph_passes(tmp_path: Path) -> None:
     assert summary["orphan_broken_supports"] == 0
     assert summary["orphan_unreachable"] == 0
     assert summary["supported"] == 2
+
+
+def test_untracked_manuscript_is_not_flagged_orphan(tmp_path: Path) -> None:
+    """3.7: a manuscript that declares NO supports carriers (e.g. a freshly
+    assembled one) is treated as not-in-supports-tracking-mode — it is not
+    flooded with D9 no-support orphans, nor D12 unadvanced sub-arguments."""
+    workspace = _prepare(tmp_path, "manuscript-untracked.md")
+    defects, summary = lint(workspace, "v1")
+    assert [d for d in defects if d.kind == "no-support"] == []
+    assert summary["orphan_no_support"] == 0
+    assert summary["unadvanced_sub_arguments"] == []
+    assert summary.get("supports_tracking") is False
+
+
+def test_partially_tracked_manuscript_still_flags_missing(tmp_path: Path) -> None:
+    """Opt-in is per-manuscript: once ANY paragraph declares a carrier, the
+    carrier-less ones are still flagged (the existing no-support fixture)."""
+    workspace = _prepare(tmp_path, "manuscript-no-support.md")
+    defects, summary = lint(workspace, "v1")
+    assert summary.get("supports_tracking") is True
+    assert summary["orphan_no_support"] >= 1

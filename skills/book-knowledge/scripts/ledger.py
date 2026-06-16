@@ -68,7 +68,8 @@ def transition_status(layout: WorkspaceLayout, claim_id: str, new_status: str,
                       cause_ticket_id: str = "manual",
                       cause_class: str = "manual",
                       operator: str = "unknown",
-                      note: str = "") -> dict:
+                      note: str = "",
+                      extra_fields: dict | None = None) -> dict:
     current = latest_status(layout, claim_id)
     if current is None:
         raise LedgerError(f"unknown claim_id: {claim_id}")
@@ -88,6 +89,8 @@ def transition_status(layout: WorkspaceLayout, claim_id: str, new_status: str,
     new_record["last_verified_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     if note:
         new_record["review_notes"] = note
+    if extra_fields:
+        new_record.update(extra_fields)
     append_claim(layout, new_record)
 
     append_event(layout.root, {

@@ -69,3 +69,6 @@ lefthook.yml
 
 # build-voice-corpus live-run scratch (captions, passages, ad hoc scripts)
 tools/build-voice-corpus/.run/
+
+# graphify generated knowledge graph (regenerate with `graphify update .`)
+graphify-out/

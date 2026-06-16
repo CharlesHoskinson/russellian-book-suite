@@ -336,10 +336,19 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
         }
         let predicate = match atom.get(":predicate") {
             Some(Edn::Key(k)) => k.clone(),
+            // The contract permits a string-form predicate atom; accept
+            // it alongside the keyword form (mirrors adsc/epidemiology).
+            // Without this arm a string predicate falls through to
+            // `_ => continue`, the atom is silently skipped, the
+            // partition is under-constrained, and a real contradiction
+            // comes out a false `:sat`. The value flows through
+            // `canonical_var_name` below just like the keyword form.
+            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let subject = match atom.get(":subject") {
             Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let var_name = crate::var_name::canonical_var_name(&predicate, &subject);
@@ -514,4 +523,34 @@ fn merge_verdicts(per_subject: &[PartitionVerdict], shared: &PartitionVerdict) -
 #[cfg(not(feature = "smt"))]
 pub fn check_all(_formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     Err(Error::Smt("compiled without `smt` feature".into()))
+}
+
+#[cfg(all(test, feature = "smt"))]
+mod tests {
+    use crate::ir::parse_formulas;
+
+    // The contract permits a STRING-form `:predicate` atom (not just a
+    // `:`-keyword). `bind_atoms` must bind it; otherwise the atom falls
+    // through `_ => continue`, the partition is under-constrained, and a
+    // real contradiction comes out a false `:sat`.
+    //
+    // Two atoms pin the same string predicate/subject pair to two
+    // distinct integers. If the string-form arm binds them, the
+    // conjunction on the shared Z3 symbol `some-string-pred_s` is
+    // `:unsat`. Without the arm both atoms are skipped and Z3 reports
+    // `:sat`.
+    #[test]
+    fn string_form_predicate_binds_and_contradiction_is_unsat() {
+        let edn = r#"{:atoms [
+            {:id "s1" :kind :expression :predicate "some-string-pred" :subject "s" :value 5}
+            {:id "s2" :kind :expression :predicate "some-string-pred" :subject "s" :value 6}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse");
+        let verdict = super::check_all(&formulas).expect("check");
+        assert_eq!(
+            verdict.status, "unsat",
+            "a string-form predicate atom must bind; the contradiction \
+             5 != 6 on `some-string-pred_s` must be unsat; got {verdict:?}"
+        );
+    }
 }

@@ -41,6 +41,11 @@
       "skill": "iacr-math-prose",
       "ci": "none",
       "reason": "reference/template-only skill; no Python package, no tests (AGENTS.md)"
+    },
+    {
+      "skill": "triadic-voice",
+      "ci": "none",
+      "reason": "SKILL.md-only in-session writing skill; no Python package or tests. Backed by russellian-style corpora assets and tools/build-voice-corpus."
     }
   ]
 }

@@ -454,3 +454,22 @@ def test_d13_disabled_explicitly(tmp_path: Path) -> None:
         "explanation": "contradiction",
     }), encoding="utf-8")
     assert lint_d13_verification_unsat(tmp_path) == []
+
+
+# 5.1: gate exit-code coverage for the CLI entry point.
+def test_main_exits_1_on_critical_defect(stage_release):
+    import json as _json
+    from scripts.lint_artifact import main
+    workspace, version = stage_release("d1_clean.md")
+    (workspace / "qa").mkdir(exist_ok=True)
+    (workspace / "qa" / "datalog-defects.json").write_text(
+        _json.dumps({"defects": [{"class": "D10", "severity": "critical",
+                                  "detail": "transitive contradiction"}]}),
+        encoding="utf-8")
+    assert main(["lint_artifact", str(workspace), version]) == 1
+
+
+def test_main_exits_0_when_clean(stage_release):
+    from scripts.lint_artifact import main
+    workspace, version = stage_release("d1_clean.md")
+    assert main(["lint_artifact", str(workspace), version]) == 0

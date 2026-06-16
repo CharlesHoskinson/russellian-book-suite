@@ -266,3 +266,99 @@ def test_defeasible_exception_queries_guard(tmp_path, monkeypatch):
     })
     with pytest.raises(NotImplementedError, match="exception_queries"):
         mod.run_competency_queries(layout)
+
+
+# --- KG_BACKEND cross-backend equivalence (REQ-KG-006, P1.5) -----------------
+
+import json
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BERMUDA = REPO_ROOT / "examples" / "bermuda-manual"
+
+
+def _competency_signature(findings: dict) -> dict:
+    """Canonical, backend-independent view of a competency result.
+
+    The per-query rows are an unordered multiset; canonicalize each query's rows
+    to a sorted list of stringified-cell JSON, and the warnings to a sorted list
+    of (query, severity, canonical-bindings). This is exactly the meaningful
+    fire/defect output — which queries fired and with what rows — independent of
+    row order or which backend produced them.
+    """
+    sig: dict = {}
+    for name, rows in findings.items():
+        if name == "warnings":
+            continue
+        sig[name] = sorted(
+            json.dumps([str(c) for c in row], sort_keys=True) for row in rows
+        )
+    warnings = []
+    for w in findings.get("warnings", []):
+        warnings.append(
+            (
+                w["query"],
+                w["severity"],
+                sorted(
+                    json.dumps([str(c) for c in row], sort_keys=True)
+                    for row in w["bindings"]
+                ),
+            )
+        )
+    sig["__warnings__"] = sorted(warnings)
+    return sig
+
+
+def test_default_backend_is_rdflib(monkeypatch, tmp_path):
+    """With no flag set, the runner uses the rdflib path (no behavior change)."""
+    monkeypatch.delenv("KG_BACKEND", raising=False)
+    layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
+    append_claim(layout, _verified("clm-2026-000001"))
+    project_graph(layout)
+    findings = run_competency_queries(layout)
+    # rdflib path returns the established shape.
+    assert findings["unsupported_claims"] == []
+    assert "warnings" in findings
+
+
+def test_cozo_backend_matches_rdflib(monkeypatch):
+    """The EDN->Cozo path drives the competency gate equivalently to SPARQL.
+
+    Run the competency check on the bermuda workspace under the DEFAULT (rdflib)
+    path and again under KG_BACKEND=cozo, then assert the two produce the SAME
+    competency result — same fired queries / same defect rows, compared
+    canonically. On bermuda most queries are empty and chapter_evidence_coverage
+    carries data, so this is a real cross-backend equivalence check, not vacuous.
+    """
+    import scripts.run_competency_queries as mod
+
+    assert BERMUDA.exists(), f"bermuda workspace missing at {BERMUDA}"
+    layout = WorkspaceLayout(BERMUDA)
+
+    monkeypatch.delenv("KG_BACKEND", raising=False)
+    rdflib_findings = run_competency_queries(layout)
+
+    # The cozo path must NOT read the RDF dataset.trig — it sources facts from
+    # the ledger via the projector. Spy on _load_dataset to prove the flag
+    # actually switches code paths (otherwise both calls run rdflib and the
+    # equivalence is vacuous).
+    called = {"rdflib": 0}
+    real_load = mod._load_dataset
+
+    def _spy(layout):
+        called["rdflib"] += 1
+        return real_load(layout)
+
+    monkeypatch.setattr(mod, "_load_dataset", _spy)
+    monkeypatch.setenv("KG_BACKEND", "cozo")
+    cozo_findings = run_competency_queries(layout)
+    assert called["rdflib"] == 0, "cozo backend must not load the RDF dataset"
+
+    rdflib_sig = _competency_signature(rdflib_findings)
+    cozo_sig = _competency_signature(cozo_findings)
+
+    # Same set of query names on both sides.
+    assert set(rdflib_sig) == set(cozo_sig)
+    # Non-vacuity: bermuda's chapter coverage actually carries rows.
+    assert rdflib_sig["chapter_evidence_coverage"], "expected coverage rows on bermuda"
+    # Full canonical equivalence of fire/defect output across backends.
+    assert cozo_sig == rdflib_sig

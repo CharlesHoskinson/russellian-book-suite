@@ -152,6 +152,39 @@
       (is (= '~=             (first (:assert c))))
       (is (= 0.03            (:tolerance c))))))
 
+(deftest assert-form-approx-recognises-both-spellings
+  ;; The approximate-equality recogniser must accept BOTH the `approx=`
+  ;; spelling used in rules/booklogic/constraints.edn AND the `~=` alias.
+  (let [approx? #'adsc-clinical.booklogic/assert-form-approx?
+        tol     #'adsc-clinical.booklogic/extract-tolerance]
+    (is (approx? (list 'approx= :lhs :rhs))
+        "(approx= LHS RHS) must be recognised as approximate")
+    (is (approx? (list '~= :lhs :rhs))
+        "(~= LHS RHS) must be recognised as approximate")
+    (is (= 0.03 (tol (list 'approx= :lhs :rhs :tolerance 0.03)))
+        "tolerance must extract from an approx= form")
+    (is (= 0.03 (tol (list '~= :lhs :rhs :tolerance 0.03)))
+        "tolerance must extract from a ~= form")))
+
+(deftest expand-defconstraint-approx-spelling-yields-tolerance
+  ;; A constraints.edn-style (approx= …) constraint must carry a non-nil
+  ;; :tolerance through expansion (regression for the silently-dropped
+  ;; tolerance when only `~=` was recognised).
+  (let [src      {:sorts [] :predicates [] :lifts [] :rules []
+                  :constraints
+                    [(list 'defconstraint 'C002-vant-hoff
+                           :backend :z3
+                           :assert (list 'approx= (list :osmotic-pressure-pa :sample)
+                                            (list '* (list :vant-hoff-i :sample) 8.314)
+                                            :tolerance 0.03)
+                           :on-unsat {:defect :D13 :severity :critical
+                                      :message "van 't Hoff violated"})]
+                  :queries [] :remedies []}
+        expanded (bl/expand src)
+        c        (first (:constraint-decls expanded))]
+    (is (= 'approx= (first (:assert c))))
+    (is (= 0.03     (:tolerance c)))))
+
 (deftest expand-defconstraint-missing-backend-throws
   (is (thrown-with-msg?
         js/Error #"defconstraint.*:backend"

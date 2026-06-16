@@ -22,6 +22,20 @@
     (is (re-find #":primary-endpoint-met" text))
     (is (re-find #":value-kind :bool" text))))
 
+(deftest assert-form-approx-recognises-both-spellings
+  ;; The approximate-equality recogniser must accept BOTH the `approx=`
+  ;; spelling used in rules/booklogic/constraints.edn AND the `~=` alias.
+  (let [approx? #'bermuda.booklogic/assert-form-approx?
+        tol     #'bermuda.booklogic/extract-tolerance]
+    (is (approx? (list 'approx= :lhs :rhs))
+        "(approx= LHS RHS) must be recognised as approximate")
+    (is (approx? (list '~= :lhs :rhs))
+        "(~= LHS RHS) must be recognised as approximate")
+    (is (= 0.03 (tol (list 'approx= :lhs :rhs :tolerance 0.03)))
+        "tolerance must extract from an approx= form")
+    (is (= 0.03 (tol (list '~= :lhs :rhs :tolerance 0.03)))
+        "tolerance must extract from a ~= form")))
+
 (deftest predicates-edn-merges-multiple-lifts-per-predicate
   ;; Two lifts targeting the same predicate accumulate their :patterns.
   (let [src      {:sorts      [(list 'defsort :entity)]

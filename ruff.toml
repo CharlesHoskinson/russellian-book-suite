@@ -9,6 +9,10 @@
 #     literals on one line in EDN/JSON pretty-printers).
 
 line-length = 120
+# Skills declare requires-python >=3.11; pin ruff's floor to match so
+# version-gated lint rules judge against the supported interpreter range
+# rather than ruff's built-in default (py39).
+target-version = "py311"
 
 [lint]
 extend-select = []

@@ -262,9 +262,15 @@
 ;; ----- defconstraint expansion -----
 
 (defn- assert-form-approx?
-  "True iff the :assert form uses the ~= (approximate-equality) head."
+  "True iff the :assert form uses the approx= (approximate-equality) head.
+   In BookLogic source files the operator is written as `approx=` (a valid
+   EDN symbol); `~=` is accepted as an alias for back-compat. adsc's own
+   rules/booklogic/constraints.edn documents and uses `approx=`, so the
+   recogniser must accept it or the constraint's :tolerance is silently
+   dropped from codegen."
   [assert-form]
-  (and (sequential? assert-form) (= '~= (first assert-form))))
+  (and (sequential? assert-form)
+       (contains? #{'approx= '~=} (first assert-form))))
 
 (defn- extract-tolerance
   "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.

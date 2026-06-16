@@ -55,14 +55,18 @@ swappable (REQ-KG-007) and consolidates the two Datalog engines into one.
 
 ### Requirement: REQ-KG-002b — No direct backend access (Unwanted)
 
-No module other than `cozo_store` SHALL import `pycozo` or emit CozoScript text.
+No module other than `cozo_store` SHALL import `pycozo`. CozoScript *text* MAY be
+produced by the pure EDN→CozoScript compiler (REQ-KG-003); only the `pycozo`
+engine dependency is isolated to the seam, since that — not the query language —
+is what the Cozo→Asami swap must replace.
 
-Rationale: routing all backend access through the seam is what makes the Cozo→
-Asami swap a one-module change.
+Rationale: routing the backend *engine* through the seam is what makes the Cozo→
+Asami swap a one-module change; the compiler emitting CozoScript strings does not
+bind the system to Cozo (a different backend gets a different compile target).
 
-#### Scenario: nothing bypasses the seam
+#### Scenario: nothing imports pycozo except the seam
 
-- **WHEN** the source tree is scanned for `import pycozo` / CozoScript emission
+- **WHEN** the source tree is scanned for `import pycozo` / `from pycozo`
 - **THEN** only `cozo_store` matches
 - **AND** `tests/test_cozo_store_contract.py::test_no_module_bypasses_seam` passes
 

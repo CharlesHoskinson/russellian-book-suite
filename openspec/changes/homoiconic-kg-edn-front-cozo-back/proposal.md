@@ -62,7 +62,7 @@ See `specs/homoiconic-kg/spec.md` (EARS). Summary:
 |---|---|
 | REQ-KG-001 | Unified graph schema authored as one EDN document (8 entities) |
 | REQ-KG-002 | Single Cozo store behind one Python (`pycozo`) seam (`query`/`load`) |
-| REQ-KG-002b | No module other than the seam imports `pycozo`/emits CozoScript |
+| REQ-KG-002b | No module other than the seam imports `pycozo` (the compiler MAY emit CozoScript) |
 | REQ-KG-003 | Pure EDN→CozoScript compiler (byte-identical, no store I/O) |
 | REQ-KG-004 | Ledger projects latest-per-id verified claims into Cozo; ledger untouched |
 | REQ-KG-005 | Characterization golden fixtures committed before each port lands |

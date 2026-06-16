@@ -16,7 +16,7 @@
 (defn verify [formulas]
   {:pre  (m/validate [:vector ir/Formula] formulas)
    :post (m/validate ir/Verdict %)}
-  (b/verify-formulas (pr-str formulas)))
+  (b/verify-formulas (pr-str {:version 1 :atoms formulas})))
 
 (defn typeset [report-path out-path]
   (b/render-pdf (.toString (.readFileSync fs report-path)) out-path))

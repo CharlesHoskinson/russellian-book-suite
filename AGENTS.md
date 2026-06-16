@@ -6,7 +6,7 @@ Conventions and operating guidance for autonomous coding agents (Codex, Claude C
 
 A monorepo of Python skills that compose into a non-fiction book pipeline. Nine core skills (Python ≥3.11 baseline):
 `book-knowledge`, `russellian-style`, `feynman-style`, `halmos`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`.
-Plus an optional `neurosym-forge` (Python ≥3.11), that scaffolds verifier projects but does not gate the book pipeline; `paragraph-weaver` for standalone paragraph threading; `iacr-math-prose` for standalone IACR notation, amsthm environments, and proof-style templates (no Python, reference/template-only); and `iacr-review` for a standalone EC22-grounded IACR review rubric with ten-persona dispatch and a consolidation ledger (Python, with a pytest suite).
+Plus an optional `neurosym-forge` (Python ≥3.11), that scaffolds verifier projects but does not gate the book pipeline; `paragraph-weaver` for standalone paragraph threading; `triadic-voice` for a standalone three-pass voice review; `iacr-math-prose` for standalone IACR notation, amsthm environments, and proof-style templates (no Python, reference/template-only); `iacr-review` for a standalone EC22-grounded IACR review rubric with ten-persona dispatch and a consolidation ledger (Python, with a pytest suite); and the support skills `scrapling-fetch` (sanctioned HTTP fetch surface) and `syntopical-metabook` (cross-source synthesis).
 Each skill ships its own pytest suite. RDF/SPARQL/SHACL via rdflib + pyshacl. LLM tooling is parameterized — production code accepts a `Callable[[str], str]` so tests pass stub responses.
 
 For human-targeted context and design conventions, also read `CLAUDE.md` at repo root.
@@ -43,10 +43,13 @@ cd skills/<skill>
 Run all suites:
 
 ```bash
-for s in book-knowledge russellian-style feynman-style halmos book-compose book-review review-conductor book-qa book-thesis neurosym-forge paragraph-weaver iacr-review; do
-  (cd skills/$s && .venv/Scripts/python.exe -m pytest tests/ -q --tb=no || echo "FAIL: $s")
+# Glob every skill so a newly added one is never silently omitted. Skills with
+# no Python tests (e.g. iacr-math-prose, reference/template-only) just report no
+# tests collected.
+for d in skills/*/; do
+  s=$(basename "$d")
+  (cd "$d" && .venv/Scripts/python.exe -m pytest tests/ -q --tb=no || echo "FAIL: $s")
 done
-# iacr-math-prose has no Python tests (reference/template-only skill)
 ```
 
 ## Project structure
@@ -65,7 +68,10 @@ docs/                    human-targeted documentation
   operations/            operator runbooks
   retros/                retrospectives
 verifiers/               optional neurosym-forge projects (one per workspace; opt-in via qa-config.yaml)
-tools/                   one-shot scripts (workspace synthesis, tagging, etc.)
+tools/                   one-shot scripts (root) + built sub-projects (build-russell-corpus, build-voice-corpus); root tools/tests run in CI
+ci/                      cross-skill invariant linters + the python-skill matrix builder (compute_matrix.py)
+nix/                     flake checks (treefmt, clj-kondo, invariant linters) — one definition serves CI + `nix flake check` + hooks
+scripts/                 repo-level operational scripts (ruleset-apply, required-name guard, etc.)
 CLAUDE.md                repo-level conventions for AI agents
 AGENTS.md                this file
 ```

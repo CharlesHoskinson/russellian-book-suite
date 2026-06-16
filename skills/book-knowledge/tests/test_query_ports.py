@@ -236,6 +236,76 @@ def test_contradiction_scan_fires_on_conflict(tmp_path: Path) -> None:
     )
 
 
+def test_orphan_wiki_pages_matches_golden() -> None:
+    """The EDN port reproduces the bermuda golden exactly (both empty).
+
+    bermuda has no ``wiki/`` directory, so project_graph emits zero
+    ``tbf:WikiPage`` nodes and the projector loads zero ``wiki_page`` rows.
+    With no pages there are no orphans, so the golden is ``[]``. The match is
+    vacuous on its own -- the synthetic firing test below carries the proof.
+    """
+    golden = json.loads((GOLDEN_DIR / "orphan_wiki_pages.json").read_text("utf-8"))
+    assert _run("orphan_wiki_pages", BERMUDA) == _canonical_golden(golden)
+
+
+def test_orphan_wiki_pages_fires_on_orphan(tmp_path: Path) -> None:
+    """The MEANINGFUL firing test: ONLY the unreferenced page returns.
+
+    A workspace with a ``wiki/`` dir holding two ``.md`` pages. One page's
+    relative path is the ``doc_id`` of a verified claim's source span (so a
+    claim's ``hasSourceSpan`` lands on that page -- it is referenced); the other
+    page is cited by nothing. The projector mints one ``wiki_page`` row per md
+    file (mirroring project_graph's ``tbf:WikiPage`` emission) and back-links a
+    source span to its page when the span's ``doc_id`` equals the page path. The
+    orphan query must return exactly the unreferenced page, proving both the page
+    projection and the two negations fire.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    referenced_rel = "concepts/referenced.md"
+    orphan_rel = "concepts/orphan.md"
+    for rel in (referenced_rel, orphan_rel):
+        page = layout.wiki / rel
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(f"# {rel}\n", encoding="utf-8")
+
+    # One verified claim whose source span cites the *referenced* page (its
+    # doc_id is that page's relative path), so the page is a claim source.
+    append_claim(
+        layout,
+        {
+            "claim_id": "clm-2026-000001",
+            "canonical_text": "a verified claim sourced from a wiki page",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [
+                {"doc_id": referenced_rel, "locator_text": "the cited locator text"}
+            ],
+            "created_at": "2026-06-16T00:00:00+00:00",
+        },
+    )
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "orphan_wiki_pages.edn").read_text("utf-8"), SCHEMA_PATH
+    )
+    returned = {r[0] for r in store.query(script)}
+
+    # project_graph mints page URIs from the path RELATIVE TO ROOT (which already
+    # starts with ``wiki/``), giving the doubled ``wiki/wiki/`` prefix; the
+    # projector mirrors that minting exactly. (init_workspace also seeds skeleton
+    # pages -- index/log/current-status -- which are themselves unreferenced
+    # orphans; we assert ONLY on the page pair we control.)
+    base = "https://example.org/book-knowledge/wiki/wiki/"
+    assert f"{base}{orphan_rel}" in returned, "the unreferenced page must be an orphan"
+    assert f"{base}{referenced_rel}" not in returned, (
+        "the claim-sourced page must NOT be an orphan"
+    )
+
+
 def test_posterior_floor_matches_golden() -> None:
     """The EDN port reproduces the bermuda golden exactly (both empty).
 

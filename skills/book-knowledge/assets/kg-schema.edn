@@ -39,10 +39,19 @@
   ;; to the owning claim: spans are nested under a claim record in the ledger,
   ;; so the relational projection (REQ-KG-004) carries the parent claim id here
   ;; to make the claim<->span join expressible.
+  ;; :wiki-page-id is an OPTIONAL back-reference to a wiki page (when this span's
+  ;; source IS a wiki page rather than an external doc). The RDF projection's
+  ;; orphan_wiki_pages query keys off ``?claim tbf:hasSourceSpan ?page``, i.e. a
+  ;; claim whose source span lands on a WikiPage URI; this column is the
+  ;; relational form of that link. The projector sets it (to the page's full URI)
+  ;; when a span's ``doc_id`` resolves to a wiki/*.md page path, else leaves it
+  ;; null. Spans citing ordinary docs keep it null, so the orphan negation only
+  ;; clears pages that a claim actually sources.
   :source-span
-  {:attrs [:id :claim-id :doc-id :node-id :page-index :locator-text]
+  {:attrs [:id :claim-id :doc-id :node-id :page-index :locator-text :wiki-page-id]
    :types {:page-index :int}
-   :relations [[:of-claim :claim]]}
+   :relations [[:of-claim :claim]
+               [:cites-page :wiki-page]]}
 
   ;; Claim->chapter coverage edge — the relational form of a claim's
   ;; supports_chapters list (claim-record schema). The RDF projection
@@ -91,9 +100,26 @@
                [:advanced-by :wiki-page]]}
 
   ;; Wiki page — a *.md page under wiki/ (tbf:WikiPage in the RDF projection).
+  ;; The projector mints one row per wiki/**/*.md file, mirroring project_graph's
+  ;; per-file ``tbf:WikiPage`` emission: :id is the full page URI
+  ;; (https://example.org/book-knowledge/wiki/<rel-path>), :path the
+  ;; forward-slashed path relative to the workspace root, :title the file stem.
   :wiki-page
   {:attrs [:id :path :title]
    :relations []}
+
+  ;; Chapter->wiki-page reference edge — the relational form of project_graph's
+  ;; tbf:referencesPage triple (a chapter pointing at a wiki page). It is the
+  ;; second negation arm of orphan_wiki_pages (a page referenced by a chapter is
+  ;; not an orphan). project_graph emits NO referencesPage triples today, so the
+  ;; projector currently loads this relation empty; it exists so the orphan port
+  ;; expresses both negation arms faithfully and so a future chapter->page
+  ;; signal has a home. :chapter is the full chapter URI, :wiki-page-id the full
+  ;; page URI; the identity column is the synthetic (chapter . page) pair id.
+  :chapter-wiki-ref
+  {:attrs [:id :chapter :wiki-page-id]
+   :relations [[:of-chapter :chapter]
+               [:references-page :wiki-page]]}
 
   ;; Code node — graphify graph.json node (id, label) plus its rank and
   ;; community assignment.

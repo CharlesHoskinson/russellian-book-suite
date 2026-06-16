@@ -70,6 +70,47 @@ def _chapter_uri(chapter: str) -> str:
     """Full chapter URI, identical to project_graph's ``{BASE}chapters/<id>``."""
     return f"{_BASE}chapters/{quote(chapter)}"
 
+
+def _wiki_page_uri(rel_to_root: str) -> str:
+    """Full wiki-page URI, identical to project_graph's minting.
+
+    project_graph computes ``rel = md_file.relative_to(layout.root)`` (so ``rel``
+    already starts with ``wiki/``) and emits
+    ``{BASE}wiki/{quote(forward_slashed(rel))}``, yielding the (intentional)
+    doubled ``wiki/`` prefix. We reproduce it byte-for-byte so the relational
+    ``wiki_page`` node set equals the RDF ``tbf:WikiPage`` node set.
+    """
+    return f"{_BASE}wiki/{quote(rel_to_root.replace(chr(92), '/'))}"
+
+
+def _collect_wiki_pages(layout: WorkspaceLayout) -> tuple[list[dict], dict[str, str]]:
+    """Scan ``wiki/**/*.md`` and return (wiki_page rows, doc_id->page_uri index).
+
+    Mirrors :func:`project_graph.project_graph`'s per-file ``tbf:WikiPage``
+    emission: one row per md file, ``id`` the full page URI, ``path`` the
+    forward-slashed path relative to the workspace root, ``title`` the file stem.
+
+    The second return value maps a page's path RELATIVE TO THE WIKI DIR (e.g.
+    ``concepts/foo.md``) to its full URI. That relative path is the natural
+    identifier a claim's source span ``doc_id`` carries when the claim is sourced
+    from a wiki page, so it is the key used to back-link a span to its page (the
+    relational form of ``?claim tbf:hasSourceSpan ?page``).
+    """
+    rows: list[dict] = []
+    by_doc_id: dict[str, str] = {}
+    wiki_dir = layout.wiki
+    if not wiki_dir.exists():
+        return rows, by_doc_id
+    for md_file in sorted(wiki_dir.rglob("*.md")):
+        rel_to_root = str(md_file.relative_to(layout.root)).replace(chr(92), "/")
+        rel_to_wiki = str(md_file.relative_to(wiki_dir)).replace(chr(92), "/")
+        page_uri = _wiki_page_uri(rel_to_root)
+        rows.append(
+            {"id": page_uri, "path": rel_to_root, "title": md_file.stem}
+        )
+        by_doc_id[rel_to_wiki] = page_uri
+    return rows, by_doc_id
+
 # claim-relation columns we copy verbatim from the ledger record (snake spelling
 # matches the schema attrs). ``id`` is mapped from ``claim_id`` separately.
 _CLAIM_FIELDS = (
@@ -113,6 +154,10 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     apply their own per-status filtering.
     """
     latest = latest_per(read_jsonl(layout.ledger), "claim_id")
+
+    # Wiki pages are scanned from wiki/**/*.md, mirroring project_graph. The
+    # doc_id index lets a span back-link to a page it sources (see _SPAN below).
+    wiki_page_rows, page_by_doc_id = _collect_wiki_pages(layout)
 
     claim_rows: list[dict] = []
     span_rows: list[dict] = []
@@ -161,6 +206,13 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
             for field in _SPAN_FIELDS:
                 if field in span:
                     span_row[field] = span[field]
+            # Back-link the span to a wiki page when its doc_id names one: this
+            # is the relational form of ``?claim tbf:hasSourceSpan ?page`` that
+            # orphan_wiki_pages negates against. Spans citing ordinary docs leave
+            # wiki_page_id null.
+            page_uri = page_by_doc_id.get(doc_id)
+            if page_uri is not None:
+                span_row["wiki_page_id"] = page_uri
             span_rows.append(span_row)
 
     store.load("claim", claim_rows)
@@ -168,6 +220,11 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     store.load("claim-chapter", claim_chapter_rows)
     store.load("chapter", list(chapter_rows.values()))
     store.load("claim-conflict", claim_conflict_rows)
+    store.load("wiki-page", wiki_page_rows)
+    # chapter_wiki_ref has no ledger-derived source today (project_graph emits no
+    # tbf:referencesPage triples), so it is loaded empty. The relation exists so
+    # the orphan port can express the chapter-reference negation arm faithfully.
+    store.load("chapter-wiki-ref", [])
 
 
 def main(argv: list[str]) -> int:

@@ -28,6 +28,7 @@ EXPECTED_ENTITIES = {
     "thesis-node",
     "sub-argument",
     "wiki-page",
+    "chapter-wiki-ref",
     "code-node",
     "code-edge",
     "community",

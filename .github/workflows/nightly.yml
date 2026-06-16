@@ -59,6 +59,19 @@ jobs:
           purge-primary-key: never
       - run: nix flake check -L
 
+  # Best-effort darwin coverage (5.7): macOS nix builds are slower and occasionally
+  # flaky on hosted runners, so this leg is advisory (continue-on-error) — it
+  # surfaces darwin-specific breakage without gating the nightly.
+  flake-check-darwin:
+    name: flake check (aarch64-darwin, best-effort)
+    runs-on: macos-15
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - run: nix flake check -L
+
   # Both nightly matrices come from .github/ci/skills-matrix.json — the same
   # registry the PR-time matrix uses (REQ-CI-045), so the nightly can never
   # again drift out of sync with the skill list (the static copy here was

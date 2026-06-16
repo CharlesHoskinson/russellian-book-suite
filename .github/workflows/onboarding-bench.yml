@@ -4,9 +4,15 @@ on:
     - cron: '0 6 * * 1'   # Mondays 06:00 UTC
   workflow_dispatch:
 
+# Least privilege at the workflow default; issues:write is granted only to the
+# alert-on-failure job below, so the code-executing `run` job stays read-only.
 permissions:
   contents: read
-  issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
+
+# Don't let a manual dispatch overlapping the Monday schedule double-run the bench.
+concurrency:
+  group: onboarding-bench
+  cancel-in-progress: false
 
 jobs:
   run:
@@ -55,6 +61,8 @@ jobs:
     if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:

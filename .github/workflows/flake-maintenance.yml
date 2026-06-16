@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+# Don't let a manual dispatch overlapping the weekly schedule open two
+# competing flake.lock bump PRs.
+concurrency:
+  group: flake-maintenance
+  cancel-in-progress: true
+
 jobs:
   # Advisory: warns when flake.lock pins a nixpkgs that is stale (>30 days)
   # or off a supported branch. Does not fail the run.

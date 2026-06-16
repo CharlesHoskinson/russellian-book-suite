@@ -282,6 +282,10 @@ class _Parser:
         # characters (=, +, -, *, /, <, >, !, ?, &, %, ~, ^, .). We accept any
         # non-empty token that isn't a number or boolean as a symbol so that
         # operator heads like `=`, `~=`, `*`, `+`, `-` parse correctly.
+        # Bare `/` is the division operator (Clojure's core `/` symbol);
+        # EDN treats this as a special-case symbol whose name is "/".
+        if token == "/":
+            return Symbol(name="/")
         if token and "/" not in token:
             return Symbol(name=token)
         if token and "/" in token:

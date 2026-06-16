@@ -40,11 +40,18 @@ def score_text(text: str, profile: dict | None = None) -> float:
     if not tokens:
         return 0.0
 
-    total = len(tokens)
     counts = Counter(tokens)
 
     vocab = list(freq_map.keys())
-    sample_freqs = [counts.get(w, 0) / total for w in vocab]
+    # H-07: normalize the sample over IN-VOCAB tokens, not the full token count.
+    # The profile frequencies are relative over its own vocabulary; dividing the
+    # sample by len(tokens) (which includes out-of-vocab words) made the delta
+    # drift as OOV padding grew. Counting only vocab tokens puts both
+    # distributions on the same denominator, so OOV words don't move the score.
+    in_vocab_total = sum(counts.get(w, 0) for w in vocab)
+    if in_vocab_total == 0:
+        return 0.0
+    sample_freqs = [counts.get(w, 0) / in_vocab_total for w in vocab]
     profile_freqs = [freq_map[w] for w in vocab]
 
     # Build per-word signed differences; manhattan_delta returns mean of |x|,

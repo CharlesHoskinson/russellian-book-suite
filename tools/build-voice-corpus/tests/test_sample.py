@@ -34,7 +34,6 @@ def test_sample_spans_multiple_strata():
 
 
 def test_publish_year_handles_relative_and_iso():
-    from scripts.sample import publish_year, stratum_key
     assert publish_year("2 years ago") == "unknown"
     assert publish_year("2024-06-15") == "2024"
     assert publish_year("2021") == "2021"

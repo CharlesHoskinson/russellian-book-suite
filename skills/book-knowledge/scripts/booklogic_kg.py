@@ -30,9 +30,16 @@ SAME variable to one of their columns therefore unify on it -- that is a join,
 expressed by Cozo's same-named-binding rule, not by emitting two independent
 columns.
 
-* ``:find`` lists the head/output variables (EDN symbols like ``?id``). Each
-  find var must be bound somewhere in the body; the emitted head is
-  ``?[<vars>]`` with the leading ``?`` stripped.
+* ``:find`` lists the head/output terms. A term is either a plain variable
+  (EDN symbol like ``?id``) or an AGGREGATION form ``(<op> ?var)`` where ``op``
+  is ``count`` (-> Cozo ``count(var)``) or ``count-distinct`` (-> Cozo
+  ``count_unique(var)``, the SPARQL ``COUNT(DISTINCT ...)`` semantics). Every
+  referenced var must be bound somewhere in the body. The emitted head is
+  ``?[<terms>]`` with each plain var's leading ``?`` stripped and each
+  aggregation lowered to ``<fn>(<var>)``. Cozo treats the non-aggregated head
+  vars as the implicit GROUP BY, so e.g.
+  ``:find [?chapter (count-distinct ?claim)]`` groups by ``chapter`` and counts
+  distinct ``claim`` per group.
 * ``:where`` is a vector of triples ``[?evar :entity/attr value]``. Triples
   that share the same entity var ``?evar`` collapse into ONE atom
   ``*<snake_entity>{...}``. A triple whose value is a ``?var`` binds the column
@@ -71,6 +78,11 @@ __all__ = ["compile_query"]
 _FIND = edn_format.Keyword("find")
 _WHERE = edn_format.Keyword("where")
 _NOT = edn_format.Keyword("not")
+
+# Aggregation forms allowed in :find, mapping the booklogic operator symbol to
+# its CozoScript head-aggregation function. ``count`` is the plain row count;
+# ``count-distinct`` lowers to Cozo's ``count_unique`` (SPARQL COUNT(DISTINCT)).
+_AGGREGATES = {"count": "count", "count-distinct": "count_unique"}
 
 
 def _load_schema_attrs(schema_path: Path) -> dict[str, set[str]]:
@@ -250,16 +262,56 @@ def compile_query(edn: str, schema_path: Path) -> str:
     if _NOT in sections:
         negations = _compile_clauses(sections[_NOT], schema, env, negate=True)
 
-    find_vars = [_var_name(v) for v in sections[_FIND]]
-    for v in find_vars:
-        if v not in env:
-            raise ValueError(
-                f":find variable '?{v}' is not bound by the :where body"
-            )
+    # :find may mix plain output vars (?x) with aggregation forms
+    # ((count ?x) / (count-distinct ?x)). Each lowers to a head term; the
+    # aggregated/output var must be bound by the body in every case.
+    head_terms = [_compile_find_term(term, env) for term in sections[_FIND]]
 
     # Order in CozoScript body: positive atoms, then negation atoms. Each atom
     # already carries its column renames and inline literal matches, so no
     # trailing equality filters are needed.
     body_str = ", ".join(positive + negations)
-    head_str = f"?[{', '.join(find_vars)}]"
+    head_str = f"?[{', '.join(head_terms)}]"
     return f"{head_str} := {body_str}"
+
+
+def _compile_find_term(term: Any, env: set[str]) -> str:
+    """Lower one :find element into a CozoScript head term.
+
+    A plain ``?var`` symbol becomes its snake name (a grouping/output column).
+    An aggregation list ``(<op> ?var)`` becomes ``<cozo_fn>(<var>)`` where ``op``
+    is one of :data:`_AGGREGATES`. In either case the referenced var must be
+    bound by the :where body (Cozo would otherwise reject an unbound head var).
+    """
+    if _is_var(term):
+        var = _var_name(term)
+        if var not in env:
+            raise ValueError(
+                f":find variable '?{var}' is not bound by the :where body"
+            )
+        return var
+
+    if isinstance(term, (tuple, list)) and len(term) == 2 and not _is_var(term):
+        op = term[0]
+        op_name = op.name if hasattr(op, "name") else str(op)
+        if op_name not in _AGGREGATES:
+            raise ValueError(
+                f"unknown aggregation '{op_name}' in :find term {term!r} "
+                f"(supported: {', '.join(sorted(_AGGREGATES))})"
+            )
+        if not _is_var(term[1]):
+            raise ValueError(
+                f"aggregation {term!r} must take a single ?var argument"
+            )
+        var = _var_name(term[1])
+        if var not in env:
+            raise ValueError(
+                f":find aggregation variable '?{var}' is not bound by the "
+                f":where body"
+            )
+        return f"{_AGGREGATES[op_name]}({var})"
+
+    raise ValueError(
+        f"malformed :find term {term!r}: expected a ?var or an "
+        f"aggregation form (<op> ?var)"
+    )

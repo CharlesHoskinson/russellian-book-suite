@@ -116,3 +116,64 @@ def test_unsupported_claims_fires_on_sourceless_claim(tmp_path: Path) -> None:
     rows = store.query(script)
 
     assert _canonical(rows) == _canonical([["clm-2026-000002"]])
+
+
+def test_chapter_evidence_coverage_matches_golden() -> None:
+    """The EDN port reproduces the non-empty bermuda golden exactly.
+
+    This is the meaningful end-to-end proof: bermuda's golden has 10 rows (one
+    per chapter, each with one verified supporting claim). The COUNT-aggregating
+    SPARQL must reproduce identically through the EDN->Cozo path.
+    """
+    golden = json.loads(
+        (GOLDEN_DIR / "chapter_evidence_coverage.json").read_text("utf-8")
+    )
+    assert _run("chapter_evidence_coverage", BERMUDA) == _canonical_golden(golden)
+
+
+def test_chapter_evidence_coverage_counts_distinct_verified(tmp_path: Path) -> None:
+    """The MEANINGFUL firing test: count is DISTINCT-verified, grouped by chapter.
+
+    Two chapters with a known mix:
+      - ch-aaa: two verified claims (counts 2) plus one proposed claim (excluded).
+      - ch-bbb: one verified claim (counts 1).
+    A verified claim supporting BOTH chapters must contribute to each group.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    def _claim(cid: str, status: str, chapters: list[str]) -> dict:
+        return {
+            "claim_id": cid,
+            "canonical_text": f"claim {cid}",
+            "status": status,
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [
+                {"doc_id": "doc-1", "locator_text": "locator text"}
+            ],
+            "supports_chapters": chapters,
+            "created_at": "2026-06-16T00:00:00+00:00",
+        }
+
+    base = "https://example.org/book-knowledge/chapters/"
+    # ch-aaa: clm 1 (verified), clm 2 (verified, also supports ch-bbb),
+    #         clm 3 (proposed -> excluded). ch-bbb: clm 2 only.
+    for record in (
+        _claim("clm-2026-000001", "verified", ["ch-aaa"]),
+        _claim("clm-2026-000002", "verified", ["ch-aaa", "ch-bbb"]),
+        _claim("clm-2026-000003", "proposed", ["ch-aaa"]),
+    ):
+        append_claim(layout, record)
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "chapter_evidence_coverage.edn").read_text("utf-8"),
+        SCHEMA_PATH,
+    )
+    rows = store.query(script)
+
+    assert _canonical(rows) == _canonical(
+        [[f"{base}ch-aaa", 2], [f"{base}ch-bbb", 1]]
+    )

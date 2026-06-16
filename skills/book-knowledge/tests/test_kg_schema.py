@@ -22,6 +22,8 @@ SCHEMA_PATH = Path(__file__).resolve().parents[1] / "assets" / "kg-schema.edn"
 EXPECTED_ENTITIES = {
     "claim",
     "source-span",
+    "claim-chapter",
+    "chapter",
     "thesis-node",
     "sub-argument",
     "wiki-page",
@@ -59,7 +61,7 @@ def entities(schema) -> dict:
 
 
 def test_schema_declares_all_entities_attrs_relations(entities):
-    # All eight named entities are present.
+    # All named entities are present.
     assert set(entities) == EXPECTED_ENTITIES, (
         f"entity set mismatch: {set(entities) ^ EXPECTED_ENTITIES}"
     )

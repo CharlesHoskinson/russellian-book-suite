@@ -44,6 +44,26 @@
    :types {:page-index :int}
    :relations [[:of-claim :claim]]}
 
+  ;; Claim->chapter coverage edge — the relational form of a claim's
+  ;; supports_chapters list (claim-record schema). The RDF projection
+  ;; (project_graph) emits one tbf:supportsChapter triple per (claim, chapter)
+  ;; plus a tbf:Chapter type on each chapter URI; this entity is its relational
+  ;; counterpart: one row per (claim, chapter). :chapter holds the full chapter
+  ;; URI (https://example.org/book-knowledge/chapters/<id>) so the Cozo
+  ;; chapter_evidence_coverage port reproduces the SPARQL bindings exactly.
+  ;; The identity column is the synthetic (claim-id . chapter) pair id.
+  :claim-chapter
+  {:attrs [:id :claim-id :chapter]
+   :relations [[:of-claim :claim]
+               [:supports-chapter :chapter]]}
+
+  ;; Chapter — a book chapter that claims may support (tbf:Chapter in the RDF
+  ;; projection). :id is the full chapter URI; the projector mints one row per
+  ;; distinct chapter referenced by a projected claim's supports_chapters list.
+  :chapter
+  {:attrs [:id]
+   :relations []}
+
   ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
   :thesis-node
   {:attrs [:id :statement :polarity :scope]

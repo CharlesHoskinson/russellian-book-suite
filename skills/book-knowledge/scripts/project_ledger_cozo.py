@@ -29,6 +29,16 @@ projected span gets:
   - a deterministic minted ``id`` = a hash of (claim_id, doc_id, locator_text),
     stable across runs so re-projection upserts rather than duplicates.
 
+Chapter coverage (REQ-KG-006): a claim's ``supports_chapters`` list is the
+ledger form of project_graph's ``tbf:supportsChapter`` triples. It is projected
+into two relations so a chapter can be grouped/counted relationally:
+  - ``claim-chapter`` gets one row per (claim, chapter), with ``chapter`` set to
+    the SAME full chapter URI project_graph mints
+    (``{BASE}chapters/<id>``) so the Cozo coverage query reproduces the SPARQL
+    bindings exactly, plus the owning ``claim_id`` for the status join.
+  - ``chapter`` gets one row per distinct chapter URI referenced (the relational
+    counterpart of the ``?chapter a tbf:Chapter`` declaration).
+
 Typed values pass through untouched: ``cozo_store`` columns are typed from the
 schema ``:types`` (Float/Int/Bool), and ``load`` preserves the Python value, so
 floats/bools/ints from the ledger land as real typed cells.
@@ -38,9 +48,19 @@ from __future__ import annotations
 import hashlib
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 from .io_utils import latest_per, read_jsonl
 from .workspace import WorkspaceLayout
+
+# Mirror project_graph's chapter URI minting so the relational chapter
+# coverage facts carry the same identifiers as the RDF projection.
+_BASE = "https://example.org/book-knowledge/"
+
+
+def _chapter_uri(chapter: str) -> str:
+    """Full chapter URI, identical to project_graph's ``{BASE}chapters/<id>``."""
+    return f"{_BASE}chapters/{quote(chapter)}"
 
 # claim-relation columns we copy verbatim from the ledger record (snake spelling
 # matches the schema attrs). ``id`` is mapped from ``claim_id`` separately.
@@ -88,6 +108,8 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
 
     claim_rows: list[dict] = []
     span_rows: list[dict] = []
+    claim_chapter_rows: list[dict] = []
+    chapter_rows: dict[str, dict] = {}  # uri -> row (dedup distinct chapters)
 
     for record in latest.values():
         if record.get("status") == "superseded":
@@ -99,6 +121,17 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
             if field in record:
                 row[field] = record[field]
         claim_rows.append(row)
+
+        for chapter in record.get("supports_chapters", []):
+            chapter_uri = _chapter_uri(chapter)
+            claim_chapter_rows.append(
+                {
+                    "id": f"{claim_id}\x1f{chapter_uri}",
+                    "claim_id": claim_id,
+                    "chapter": chapter_uri,
+                }
+            )
+            chapter_rows.setdefault(chapter_uri, {"id": chapter_uri})
 
         for span in record.get("source_spans", []):
             doc_id = span.get("doc_id", "")
@@ -114,6 +147,8 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
 
     store.load("claim", claim_rows)
     store.load("source-span", span_rows)
+    store.load("claim-chapter", claim_chapter_rows)
+    store.load("chapter", list(chapter_rows.values()))
 
 
 def main(argv: list[str]) -> int:

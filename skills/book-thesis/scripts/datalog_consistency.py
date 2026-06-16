@@ -15,6 +15,7 @@ Exit codes: 0 clean, 1 D10/D11 finding (gate fail), 2 CLI error.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,8 @@ from typing import Any, Iterable
 
 from pyDatalog import pyDatalog
 from rdflib import Graph, Namespace, URIRef
+
+_log = logging.getLogger(__name__)
 
 NS = Namespace("https://russellian.book/thesis/")
 THESIS_URI = URIRef(NS["Thesis"])
@@ -86,9 +89,16 @@ def _resolve_claims_path(workspace: Path) -> Path | None:
 
 
 def _iter_claims(path: Path) -> Iterable[dict[str, Any]]:
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         line = line.strip()
-        if line: yield json.loads(line)
+        if not line:
+            continue
+        try:
+            yield json.loads(line)
+        except json.JSONDecodeError as e:
+            # A corrupt ledger line must not crash the whole consistency pass;
+            # skip it with a warning (4.2 / robustness).
+            _log.warning("skipping malformed ledger line %d in %s: %s", n, path, e)
 
 
 def load_claim_facts(workspace: Path) -> dict[str, dict]:

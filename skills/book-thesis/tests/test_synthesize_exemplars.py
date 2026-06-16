@@ -102,3 +102,12 @@ def test_missing_thesis_raises(tmp_path: Path) -> None:
     workspace.mkdir()
     with pytest.raises(FileNotFoundError):
         build_pack(workspace, "ch-01")
+
+
+def test_load_claims_skips_corrupt_ledger_line(tmp_path: Path) -> None:
+    """4.2: a malformed JSONL line must not crash exemplar synthesis."""
+    workspace = _make_workspace(tmp_path, claim_count=6)
+    with (workspace / ".knowledge" / "claims.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write("{ corrupt json line\n")
+    pack = build_pack(workspace, "ch-01")  # must not raise
+    assert pack["exemplars"]

@@ -12,12 +12,15 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import random
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 from rdflib import Graph, Namespace, URIRef
 from rdflib.namespace import RDF
@@ -80,11 +83,17 @@ def _load_claims(workspace: Path) -> list[ClaimRec]:
     rows: dict[str, dict[str, Any]] = {}
     superseded: set[str] = set()
     with _ledger_path(workspace).open("r", encoding="utf-8") as fh:
-        for line in fh:
+        for n, line in enumerate(fh, 1):
             line = line.strip()
             if not line:
                 continue
-            rec = json.loads(line)
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError as e:
+                # Skip a corrupt ledger line rather than crash exemplar synthesis
+                # (4.2 / robustness).
+                _log.warning("skipping malformed ledger line %d: %s", n, e)
+                continue
             cid = rec.get("claim_id")
             if not cid:
                 continue

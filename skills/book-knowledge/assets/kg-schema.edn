@@ -25,6 +25,8 @@
   {:attrs [:id :canonical-text :status :claim-type :semantic-class
            :confidence :p-prior :p-posterior :load-bearing :axiom
            :pin-low-confidence :created-at :last-verified-at]
+   :types {:confidence :float :p-prior :float :p-posterior :float
+           :load-bearing :bool :axiom :bool :pin-low-confidence :bool}
    :relations [[:has-source :source-span]
                [:supports :thesis-node]
                [:advances :sub-argument]
@@ -36,6 +38,7 @@
   ;; (claim-record.schema.json source_spans[]).
   :source-span
   {:attrs [:id :doc-id :node-id :page-index :locator-text]
+   :types {:page-index :int}
    :relations []}
 
   ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
@@ -60,12 +63,14 @@
   ;; community assignment.
   :code-node
   {:attrs [:id :label :rank :community]
+   :types {:rank :float}
    :relations [[:edge :code-edge]
                [:member-of :community]]}
 
   ;; Code edge — graphify graph.json link (source, target, relation, weight).
   :code-edge
   {:attrs [:source-id :target-id :relationship :weight]
+   :types {:weight :float}
    :relations [[:from :code-node]
                [:to :code-node]]}
 

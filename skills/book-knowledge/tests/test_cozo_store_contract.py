@@ -48,3 +48,24 @@ def test_relations_conform_to_schema() -> None:
     # The kebab-original of a schema entity must NOT exist (only snake-cased).
     assert "code-node" not in relations
     assert "code_node" in relations
+
+
+def test_numeric_column_supports_comparison() -> None:
+    """A column typed :float in the schema must compare against a Float literal.
+
+    Regression: when every column was created as String, a numeric comparison
+    (`confidence < 0.4`) raised a Cozo QueryException because a String cell
+    cannot be compared to a Float. The schema :types map must drive the Cozo
+    column type so numeric queries (P1 posterior-floor, confidence thresholds)
+    work.
+    """
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    store.load(
+        "claim",
+        [
+            {"id": "clm-low", "canonical-text": "x", "confidence": 0.3},
+            {"id": "clm-high", "canonical-text": "y", "confidence": 0.9},
+        ],
+    )
+    rows = store.query("?[id] := *claim{id, confidence}, confidence < 0.4")
+    assert rows == [["clm-low"]]

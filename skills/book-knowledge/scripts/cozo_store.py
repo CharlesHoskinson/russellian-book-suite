@@ -44,23 +44,58 @@ def _kw_name(keyword: Any) -> str:
     return keyword.name
 
 
-def _parse_schema(schema_path: Path) -> dict[str, list[str]]:
-    """Parse kg-schema.edn into ``{snake_entity: [snake_col, ...]}``.
+# EDN :types keyword -> Cozo value-column type (key columns drop the trailing
+# ``?``; value columns keep it). Absent from the map => String.
+_COZO_TYPE = {"float": "Float", "int": "Int", "bool": "Bool", "string": "String"}
 
-    The first attr of each entity is its identity (key) column; the rest are
-    value columns. Names are snake-cased here so callers never see kebab.
+
+def _cozo_type(type_kw: str | None) -> str:
+    """Map an EDN :types value (bare name, or None) to a Cozo base type name."""
+    if type_kw is None:
+        return "String"
+    return _COZO_TYPE.get(type_kw, "String")
+
+
+def _parse_schema(
+    schema_path: Path,
+) -> tuple[dict[str, list[str]], dict[str, dict[str, str]]]:
+    """Parse kg-schema.edn into columns + per-column Cozo types.
+
+    Returns ``(relations, types)`` where ``relations`` is
+    ``{snake_entity: [snake_col, ...]}`` (first attr is the identity/key column)
+    and ``types`` is ``{snake_entity: {snake_col: cozo_base_type}}`` carrying
+    only the columns whose EDN type is non-string. Columns absent from a
+    relation's type map default to ``String``. Names are snake-cased here so
+    callers never see kebab.
     """
     doc = edn_format.loads(schema_path.read_text(encoding="utf-8"))
     entities = doc[edn_format.Keyword("entities")]
     items = entities.dict.items() if hasattr(entities, "dict") else entities.items()
     attrs_kw = edn_format.Keyword("attrs")
+    types_kw = edn_format.Keyword("types")
 
     out: dict[str, list[str]] = {}
+    types: dict[str, dict[str, str]] = {}
     for ent_kw, body in items:
         attrs = body[attrs_kw]
         cols = [to_snake(_kw_name(a)) for a in attrs]
-        out[to_snake(_kw_name(ent_kw))] = cols
-    return out
+        ent = to_snake(_kw_name(ent_kw))
+        out[ent] = cols
+
+        raw_types = body.get(types_kw) if hasattr(body, "get") else None
+        if raw_types is not None:
+            t_items = (
+                raw_types.dict.items()
+                if hasattr(raw_types, "dict")
+                else raw_types.items()
+            )
+            types[ent] = {
+                to_snake(_kw_name(col_kw)): _cozo_type(_kw_name(type_kw))
+                for col_kw, type_kw in t_items
+            }
+        else:
+            types[ent] = {}
+    return out, types
 
 
 class CozoStore:
@@ -71,11 +106,21 @@ class CozoStore:
     P0.6, query ports P1) and is what P0.4 lifts into a Backend protocol.
     """
 
-    def __init__(self, client: Any, relations: Mapping[str, list[str]]) -> None:
+    def __init__(
+        self,
+        client: Any,
+        relations: Mapping[str, list[str]],
+        types: Mapping[str, Mapping[str, str]] | None = None,
+    ) -> None:
         # client is a pycozo.client.Client; typed Any so no pycozo type leaks.
         self._client = client
         # snake relation name -> ordered snake column names (key first).
         self._relations: dict[str, list[str]] = dict(relations)
+        # snake relation name -> {snake col -> cozo base type}; cols not present
+        # default to String. Drives _create's column type spec.
+        self._types: dict[str, dict[str, str]] = {
+            k: dict(v) for k, v in (types or {}).items()
+        }
 
     # -- construction ------------------------------------------------------
 
@@ -85,8 +130,8 @@ class CozoStore:
         from pycozo.client import Client  # only this module imports pycozo
 
         client = Client("mem", "", "")
-        relations = _parse_schema(Path(schema_path))
-        store = cls(client, relations)
+        relations, types = _parse_schema(Path(schema_path))
+        store = cls(client, relations, types)
         for name, cols in relations.items():
             store._create(name, cols)
         return store
@@ -123,11 +168,20 @@ class CozoStore:
     # -- private pycozo-touching helpers (P0.4 swap boundary) ---------------
 
     def _create(self, relation: str, cols: list[str]) -> None:
-        """Emit ``:create`` for ``relation`` with the first col as the key."""
+        """Emit ``:create`` for ``relation`` with the first col as the key.
+
+        Column base types come from the schema ``:types`` map (carried in
+        ``self._types``); columns without an entry default to String. The key
+        column is non-nullable (``String`` / ``Float`` / ...); value columns are
+        nullable (trailing ``?``) so a missing field stores as null.
+        """
+        col_types = self._types.get(relation, {})
         key, *values = cols
-        spec = f"{key}: String"
+        spec = f"{key}: {col_types.get(key, 'String')}"
         if values:
-            spec += " => " + ", ".join(f"{c}: String?" for c in values)
+            spec += " => " + ", ".join(
+                f"{c}: {col_types.get(c, 'String')}?" for c in values
+            )
         self._run(f":create {relation} {{ {spec} }}")
 
     def _put(self, relation: str, cols: list[str], matrix: list[list[Any]]) -> None:

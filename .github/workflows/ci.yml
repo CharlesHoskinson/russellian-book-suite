@@ -86,6 +86,25 @@ jobs:
       - name: run actionlint (.github/workflows/**)
         run: actionlint -color
 
+  # tools/build-voice-corpus is a tool, not a skill, so the skills-matrix never
+  # covered it — its 14 test files ran nowhere and its deps got no Dependabot
+  # bumps. Pure-Python and fast, so it runs always (like lint/actionlint) and
+  # feeds the ci-required gate.
+  tools-test:
+    name: tools (build-voice-corpus)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.13'
+      - name: install + test build-voice-corpus
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "tools/build-voice-corpus[test]"
+          python -m pytest tools/build-voice-corpus/tests -q
+
   # Detect whether the PR diff touches anything that could affect the Rust
   # verifiers / Nix preflight. Pure-Python PRs skip the rust-gated jobs;
   # pushes to main always run them. (The python-skill matrix has its own
@@ -255,7 +274,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15]
-        verifier: [bermuda, osmotic_pressure]
+        # All four verifiers expose the smt feature and inline #[cfg(test)]
+        # unit tests. adsc-clinical and epidemiology are cdylib-only (no tests/
+        # dir) but their unit tests still run under `cargo test`; previously
+        # they were built/tested by no CI job while Dependabot bumped them.
+        verifier: [adsc-clinical, bermuda, epidemiology, osmotic_pressure]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
@@ -336,6 +359,7 @@ jobs:
     needs:
       - lint
       - actionlint
+      - tools-test
       - compute-matrix
       - preflight
       - python-skill-matrix
@@ -355,6 +379,7 @@ jobs:
         env:
           LINT: ${{ needs.lint.result }}
           ACTIONLINT: ${{ needs.actionlint.result }}
+          TOOLS_TEST: ${{ needs.tools-test.result }}
           COMPUTE_MATRIX: ${{ needs.compute-matrix.result }}
           PYTHON_SKILL: ${{ needs.python-skill-matrix.result }}
           DIVERGENCE: ${{ needs.ci-divergence-summary.result }}
@@ -376,6 +401,7 @@ jobs:
           }
           require_success lint "$LINT"
           require_success actionlint "$ACTIONLINT"
+          require_success tools-test "$TOOLS_TEST"
           require_success compute-matrix "$COMPUTE_MATRIX"
           require_success ci-divergence-summary "$DIVERGENCE"
           require_not_failed python-skill-matrix "$PYTHON_SKILL"

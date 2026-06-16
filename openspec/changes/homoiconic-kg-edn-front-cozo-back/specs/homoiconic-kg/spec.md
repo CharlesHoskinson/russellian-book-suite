@@ -98,19 +98,23 @@ homoiconicity lives.
 
 ### Requirement: REQ-KG-004 — Ledger projects into Cozo (Event-driven)
 
-The framework SHALL load every latest-per-id verified claim and its source-spans
-into Cozo relations matching `kg-schema.edn` when the `ledger→cozo` projection
-step runs, and SHALL leave the ledger file unmodified.
+The framework SHALL load every latest-per-id non-superseded claim (the same claim
+set `project_graph` emits) and its source-spans into Cozo relations matching
+`kg-schema.edn` when the `ledger→cozo` projection step runs, and SHALL leave the
+ledger file unmodified. The `claim` rows carry their `status`, so each query
+applies its own status filter (matching the SPARQL it replaces).
 
-Rationale: the projector replaces `project_graph`'s RDF emit while preserving the
-ledger as the immutable write path.
+Rationale: the projector replaces `project_graph`'s RDF emit, so it must hold the
+same node set the SPARQL queries saw (all non-superseded, not verified-only) —
+otherwise the no-status-filter queries (`contradiction_scan`, `posterior-floor`)
+would diverge from their goldens on any fixture with non-verified claims.
 
-#### Scenario: bermuda ledger projects to latest-per-id claim rows
+#### Scenario: bermuda ledger projects to latest-per-id non-superseded claim rows
 
 - **WHEN** the `ledger→cozo` projector runs on the bermuda workspace
-- **THEN** Cozo holds exactly one `claim` row per latest-per-id verified claim, with its source-spans
+- **THEN** Cozo holds exactly one `claim` row per latest-per-id non-superseded claim, each with its `status` and source-spans
 - **AND** the ledger file is byte-identical before and after
-- **AND** `tests/test_ledger_projector.py::test_projects_latest_verified_claims` passes
+- **AND** `tests/test_ledger_projector.py::test_projects_latest_nonsuperseded_claims` passes
 
 ### Requirement: REQ-KG-005 — Characterization fixtures precede a port (Event-driven)
 

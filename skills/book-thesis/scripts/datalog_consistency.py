@@ -91,6 +91,28 @@ def _iter_claims(path: Path) -> Iterable[dict[str, Any]]:
         if line: yield json.loads(line)
 
 
+def load_claim_facts(workspace: Path) -> dict[str, dict]:
+    """Typed thesis-side projection of structured claim facts (H-05).
+
+    The claim schema is ``additionalProperties: false`` — subject/value/implies
+    cannot live on a claim record. Authors declare them in
+    ``<workspace>/thesis/claim-facts.yaml`` keyed by claim id::
+
+        claim_facts:
+          clm-a: {subject: parish_count, value: 9, implies: [clm-b]}
+
+    This projection is what feeds the contradiction detectors. A missing file
+    yields an empty projection (detectors simply find no structured subjects).
+    """
+    path = workspace / "thesis" / "claim-facts.yaml"
+    if not path.exists():
+        return {}
+    import yaml
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    facts = data.get("claim_facts", {}) if isinstance(data, dict) else {}
+    return {str(k): v for k, v in facts.items() if isinstance(v, dict)}
+
+
 def _value_str(value: Any) -> str:
     """Canonical string form of a claim value, for comparison against
     authored invariant literals (which are strings in the thesis YAML)."""
@@ -125,9 +147,17 @@ def _assert_thesis_facts(graph: Graph) -> None:
             pyDatalog.assert_fact("invariant_forbid", inv, str(subject), str(val))
 
 
-def _assert_claim_facts(records: Iterable[dict[str, Any]]) -> bool:
+def _assert_claim_facts(records: Iterable[dict[str, Any]],
+                        claim_facts: dict[str, dict] | None = None) -> bool:
     """Assert claim-derived facts. Returns True if any ``claim_subject`` fact
-    was asserted (i.e. the ledger carries structured subject data)."""
+    was asserted (i.e. structured subject data is available).
+
+    Structured subject/value/implies come from the typed thesis-side projection
+    ``claim_facts`` (H-05) — the claim schema cannot carry them. A record-level
+    fallback is kept so legacy/synthetic records that inline those fields still
+    work; schema-valid claims never have them, so the projection is the real
+    source."""
+    claim_facts = claim_facts or {}
     seen: set[str] = set()
     any_subject = False
     for rec in records:
@@ -135,6 +165,7 @@ def _assert_claim_facts(records: Iterable[dict[str, Any]]) -> bool:
         if not cid or rec.get("status", "verified") != "verified" or cid in seen:
             continue
         seen.add(cid)
+        proj = claim_facts.get(str(cid), {})
         pyDatalog.assert_fact("claim", cid)
         # Only claims that actually carry a supports edge participate in the
         # orphan/reachability check. A bare ledger record (the real schema has
@@ -144,16 +175,18 @@ def _assert_claim_facts(records: Iterable[dict[str, Any]]) -> bool:
         if supports_nodes:
             pyDatalog.assert_fact("paragraph", cid)
             _multi_assert("supports", cid, supports_nodes)
-        if (subject := rec.get("subject") or rec.get("semantic_class")):
+        if (subject := proj.get("subject") or rec.get("subject") or rec.get("semantic_class")):
             pyDatalog.assert_fact("claim_subject", cid, str(subject))
             any_subject = True
-        if "value" in rec:
-            # Stringify so values compare cleanly against invariant literals
-            # (which are authored as strings in the thesis YAML).
+        # Stringify values so they compare cleanly against invariant literals
+        # (which are authored as strings in the thesis YAML).
+        if "value" in proj:
+            pyDatalog.assert_fact("claim_value", cid, _value_str(proj["value"]))
+        elif "value" in rec:
             pyDatalog.assert_fact("claim_value", cid, _value_str(rec["value"]))
         _multi_assert("claim_chapter", cid, rec.get("supports_chapters"))
         _multi_assert("conflict_decl", cid, rec.get("conflicts_with"))
-        _multi_assert("implies", cid, rec.get("implies"))
+        _multi_assert("implies", cid, proj.get("implies") or rec.get("implies"))
     return any_subject
 
 
@@ -202,7 +235,8 @@ def run(workspace: Path) -> DefectReport:
     have_subjects = False
     claims_path = _resolve_claims_path(workspace)
     if claims_path is not None:
-        have_subjects = _assert_claim_facts(_iter_claims(claims_path))
+        claim_facts = load_claim_facts(workspace)
+        have_subjects = _assert_claim_facts(_iter_claims(claims_path), claim_facts)
 
     pyDatalog.load(RULES_FILE.read_text(encoding="utf-8"))
 

@@ -12,7 +12,7 @@
 //! `crate::axioms::assert_axioms` (the backward-compat aggregator) and
 //! is no longer used by `check_all`.
 
-use crate::ir::{Atom, ClaimId, CorpusDefect, Error, Verdict};
+use crate::ir::{Atom, Claim, ClaimId, CorpusDefect, Error, Verdict};
 
 #[cfg(feature = "smt")]
 use std::collections::BTreeMap;
@@ -163,6 +163,10 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
         }
     }
     verdict.corpus_defects = corpus_defects;
+    // H-03: carry the asserted claims out so lib.rs's kg block ingests
+    // real claims instead of an empty slice (claim_count was always 0,
+    // so bermuda's Q001 contradiction query could never fire).
+    verdict.verified = collect_verified(formulas);
     Ok(verdict)
 }
 
@@ -336,10 +340,19 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
         }
         let predicate = match atom.get(":predicate") {
             Some(Edn::Key(k)) => k.clone(),
+            // The contract permits a string-form predicate atom; accept
+            // it alongside the keyword form (mirrors adsc/epidemiology).
+            // Without this arm a string predicate falls through to
+            // `_ => continue`, the atom is silently skipped, the
+            // partition is under-constrained, and a real contradiction
+            // comes out a false `:sat`. The value flows through
+            // `canonical_var_name` below just like the keyword form.
+            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let subject = match atom.get(":subject") {
             Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let var_name = crate::var_name::canonical_var_name(&predicate, &subject);
@@ -452,6 +465,46 @@ fn atom_subject(atom: &Atom) -> Option<String> {
     }
 }
 
+/// H-03: the claims the kg layer should ingest — the `:expression`
+/// atoms that carry a bindable `:predicate`, `:subject`, and `:value`
+/// (the same structural gate `bind_atoms` applies before asserting an
+/// atom into the solver).
+///
+/// Computed once as a pure function of the parsed `formulas` rather than
+/// threaded out of every partition's `bind_atoms` call: the partitioned
+/// engine binds each atom in BOTH its per-subject partition and the
+/// corpus partition, so collecting from the bind walk would double-count.
+/// This pure pass counts each asserted claim exactly once.
+///
+/// Atoms have no `:source` key in the IR (only
+/// :id/:kind/:predicate/:subject/:value), so `source` is empty; only the
+/// claim id and count matter to the kg `claim {id, source}` relation.
+#[cfg(feature = "smt")]
+fn collect_verified(formulas: &[(ClaimId, Atom)]) -> Vec<Claim> {
+    use edn_rs::Edn;
+    let mut out: Vec<Claim> = Vec::with_capacity(formulas.len());
+    for (id, atom) in formulas {
+        let kind = match atom.get(":kind") {
+            Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
+            _ => String::new(),
+        };
+        if kind != ":expression" {
+            continue;
+        }
+        let has_predicate = matches!(atom.get(":predicate"), Some(Edn::Key(_) | Edn::Str(_)));
+        let has_subject = matches!(atom.get(":subject"), Some(Edn::Key(_) | Edn::Str(_)));
+        let has_value = atom.get(":value").is_some();
+        if has_predicate && has_subject && has_value {
+            out.push(Claim {
+                id: id.clone(),
+                source: String::new(),
+            });
+        }
+    }
+    out
+}
+
 #[cfg(feature = "smt")]
 fn merge_verdicts(per_subject: &[PartitionVerdict], shared: &PartitionVerdict) -> Verdict {
     let all: Vec<&PartitionVerdict> = per_subject.iter().chain(std::iter::once(shared)).collect();
@@ -514,4 +567,34 @@ fn merge_verdicts(per_subject: &[PartitionVerdict], shared: &PartitionVerdict) -
 #[cfg(not(feature = "smt"))]
 pub fn check_all(_formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
     Err(Error::Smt("compiled without `smt` feature".into()))
+}
+
+#[cfg(all(test, feature = "smt"))]
+mod tests {
+    use crate::ir::parse_formulas;
+
+    // The contract permits a STRING-form `:predicate` atom (not just a
+    // `:`-keyword). `bind_atoms` must bind it; otherwise the atom falls
+    // through `_ => continue`, the partition is under-constrained, and a
+    // real contradiction comes out a false `:sat`.
+    //
+    // Two atoms pin the same string predicate/subject pair to two
+    // distinct integers. If the string-form arm binds them, the
+    // conjunction on the shared Z3 symbol `some-string-pred_s` is
+    // `:unsat`. Without the arm both atoms are skipped and Z3 reports
+    // `:sat`.
+    #[test]
+    fn string_form_predicate_binds_and_contradiction_is_unsat() {
+        let edn = r#"{:atoms [
+            {:id "s1" :kind :expression :predicate "some-string-pred" :subject "s" :value 5}
+            {:id "s2" :kind :expression :predicate "some-string-pred" :subject "s" :value 6}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse");
+        let verdict = super::check_all(&formulas).expect("check");
+        assert_eq!(
+            verdict.status, "unsat",
+            "a string-form predicate atom must bind; the contradiction \
+             5 != 6 on `some-string-pred_s` must be unsat; got {verdict:?}"
+        );
+    }
 }

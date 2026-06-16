@@ -11,7 +11,7 @@ cargo signal locally.
 
 ## Matrix snapshot
 
-| Job                  | Linux (ubuntu-24.04) | macOS (macos-latest) | Windows (windows-2022)        |
+| Job                  | Linux (ubuntu-24.04) | macOS (macos-15) | Windows (windows-2022)        |
 |----------------------|----------------------|----------------------|-------------------------------|
 | `python-skill-matrix`| nix-supplied Python  | `actions/setup-python` | `actions/setup-python`      |
 | `preflight` (nix)    | yes                  | no (Linux-only)      | no (Linux-only)               |

@@ -6,14 +6,16 @@ place the seam's behaviour is exercised end to end against the embedded store.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import edn_format
 import pytest
 
-from scripts.cozo_store import CozoStore
+from scripts.cozo_store import CozoStore, StubBackend
 
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "assets" / "kg-schema.edn"
+SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 
 
 def _schema_entity_names_snake() -> set[str]:
@@ -69,3 +71,32 @@ def test_numeric_column_supports_comparison() -> None:
     )
     rows = store.query("?[id] := *claim{id, confidence}, confidence < 0.4")
     assert rows == [["clm-low"]]
+
+
+def test_no_module_bypasses_seam() -> None:
+    """REQ-KG-002b: only cozo_store.py may import pycozo.
+
+    Cozo->Asami stays a one-module swap only if no other script reaches around
+    the seam. Scan the scripts tree offline and fail on any pycozo import found
+    outside cozo_store.py.
+    """
+    pat = re.compile(r"^\s*(?:import\s+pycozo|from\s+pycozo)\b", re.MULTILINE)
+    offenders: list[str] = []
+    for py in SCRIPTS_DIR.rglob("*.py"):
+        if py.name == "cozo_store.py":
+            continue
+        if pat.search(py.read_text(encoding="utf-8")):
+            offenders.append(str(py))
+    assert not offenders, f"pycozo imported outside the seam: {offenders}"
+
+
+def test_stub_backend_satisfies_contract() -> None:
+    """REQ-KG-007: the same public calls work against the in-memory StubBackend.
+
+    The stub lets later tasks unit-test without the embedded Cozo and proves the
+    Backend protocol is honoured: identical load/query calls, identical result.
+    """
+    store = CozoStore(backend=StubBackend(), schema_path=SCHEMA_PATH)
+    store.load("claim", [{"id": "clm-1", "status": "verified"}])
+    rows = store.query('?[id] := *claim{id, status}, status == "verified"')
+    assert rows == [["clm-1"]]

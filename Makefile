@@ -5,7 +5,10 @@
 
 .PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean install-hooks readme-lint
 
-preflight: scaffold-bake regression smoke-bermuda smoke-osmotic
+# `lint` (nix flake check) is included so that a green local `make preflight`
+# is a true superset of the CI gates — previously a pure-Python or formatting
+# change could pass `make preflight` and still red the always-on `lint` job.
+preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
 
 # `nextest` is not part of preflight because there is no top-level cargo
 # workspace; per-verifier cargo nextest can be added when a verifier ships

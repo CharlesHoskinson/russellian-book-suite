@@ -46,6 +46,8 @@ updates:
       - /skills/russellian-style
       - /skills/scrapling-fetch
       - /skills/syntopical-metabook
+      # tools/ (not a skill, but has a pyproject + its own CI test job)
+      - /tools/build-voice-corpus
     schedule:
       interval: weekly
     groups:

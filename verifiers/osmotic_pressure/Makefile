@@ -7,7 +7,7 @@ MANUSCRIPT ?= fixtures/prose.md
 ci: build extract smoke
 
 build:
-	npm install
+	npm ci
 	npm run build
 
 extract:

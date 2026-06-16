@@ -200,7 +200,7 @@ _ANTITHESIS_PATTERNS = [
     re.compile(r"\bnot\s+[^.!?,;]{1,60}?\s+but\s+", re.IGNORECASE),
     re.compile(r"\brather than\b", re.IGNORECASE),
     re.compile(r"\binstead of\b", re.IGNORECASE),
-    re.compile(r"\bis\s+not\s+[^.!?]+?\s+but\b", re.IGNORECASE),
+    re.compile(r"\bis\s+not\s+[^.!?]{1,80}?\s+but\b", re.IGNORECASE),
 ]
 
 

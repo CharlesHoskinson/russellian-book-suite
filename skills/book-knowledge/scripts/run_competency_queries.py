@@ -70,7 +70,7 @@ def run_competency_queries(layout: WorkspaceLayout) -> dict:
             ],
         }
 
-    Defeasible fires are non-blocking by default (``BLOCKING_DEFEASIBLE = False``).
+    Defeasible fires are blocking by default (``BLOCKING_DEFEASIBLE = True``).
     When ``BLOCKING_DEFEASIBLE`` is ``True`` and a defeasible query with
     ``severity == "critical"`` returns rows, the function raises ``RuntimeError``.
     """

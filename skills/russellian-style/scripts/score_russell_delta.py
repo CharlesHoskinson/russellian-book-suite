@@ -39,14 +39,17 @@ def score(text: str, profile: dict, min_words: int = MIN_WORDS) -> dict:
     freqs = relative_frequencies(tokens, profile["mfw"])
     delta = round(manhattan_delta(zscore(freqs, profile["mean"], profile["stdev"])), 6)
     band = profile["centroid_delta"]
-    verdict = _verdict(delta, band)
+    reliable = len(tokens) >= min_words
+    # Below the minimum word count the Delta is statistically meaningless, so
+    # abstain rather than report a band verdict that reads as authoritative (4.4).
+    verdict = _verdict(delta, band) if reliable else "insufficient text to assess"
     return {
         "metric": "russell-burrows-delta",
         "delta": delta,
         "band": {"p10": band["p10"], "p50": band["p50"], "p90": band["p90"]},
         "verdict": verdict,
         "n_words": len(tokens),
-        "reliable": len(tokens) >= min_words,
+        "reliable": reliable,
     }
 
 

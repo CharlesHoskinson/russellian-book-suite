@@ -99,3 +99,10 @@ def test_report_dict_includes_russell_delta(tmp_path):
     rep = generate_report_dict(md)
     assert rep["russell_delta"]["metric"] == "russell-burrows-delta"
     assert "verdict" in rep["russell_delta"]
+
+
+def test_insufficient_text_abstains():
+    """4.4: below min_words the verdict abstains rather than reporting a band."""
+    r = score("the of and to", STUB, min_words=1000)
+    assert r["reliable"] is False
+    assert r["verdict"] == "insufficient text to assess"

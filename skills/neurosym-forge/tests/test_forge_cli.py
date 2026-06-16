@@ -842,3 +842,43 @@ def test_theory_has_no_dry_run_flag(runner: CliRunner) -> None:
 def teardown_module(_module: object) -> None:  # pragma: no cover — env hygiene
     import os
     os.environ.pop("FORGE_DEBUG", None)
+
+
+# REQ-NSI-002 / H-02 — constraint-id allowlist
+def test_add_constraint_rejects_malicious_id(runner: CliRunner, fake_project: Path) -> None:
+    """A constraint id with characters outside the keyword allowlist (spaces,
+    quotes, parens) is rejected before it reaches the EDN/Rust template."""
+    result = runner.invoke(
+        forge_cli.cli,
+        [
+            "add-constraint",
+            str(fake_project),
+            "--non-interactive",
+            "--id", ':C1") (evil',
+            "--backend", ":z3",
+            "--scope", ":subject",
+            "--assert", "(>= (:trial-n ?s) 10)",
+            "--on-unsat-defect", ":D001",
+            "--on-unsat-severity", ":advisory",
+            "--skip-ci",
+        ],
+    )
+    assert result.exit_code != 0, result.output
+    assert "id" in result.output.lower()
+    body = (fake_project / "rules" / "booklogic" / "constraints.edn").read_text(encoding="utf-8")
+    assert "evil" not in body
+
+
+def test_add_constraint_accepts_valid_keyword_id(runner: CliRunner, fake_project: Path) -> None:
+    """A normal kebab-case keyword id is accepted."""
+    result = runner.invoke(
+        forge_cli.cli,
+        [
+            "add-constraint", str(fake_project), "--non-interactive",
+            "--id", ":C042-trial-n", "--backend", ":z3", "--scope", ":subject",
+            "--assert", "(>= (:trial-n ?s) 10)",
+            "--on-unsat-defect", ":D001", "--on-unsat-severity", ":advisory",
+            "--skip-ci",
+        ],
+    )
+    assert result.exit_code == 0, result.output

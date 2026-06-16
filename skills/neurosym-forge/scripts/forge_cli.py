@@ -35,6 +35,7 @@ if _SYNTOPICAL_DIR.is_dir() and str(_SYNTOPICAL_DIR) not in _sys.path:
 import functools
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -123,6 +124,10 @@ def cli(ctx: click.Context, debug: bool) -> None:
 _VALID_BACKENDS = (":z3", ":cozo", ":egg")
 _VALID_SCOPES = (":subject", ":corpus")
 _VALID_SEVERITIES = (":critical", ":hard", ":advisory", ":info")
+# REQ-NSI-002 / H-02: a constraint id is an EDN keyword — an optional leading
+# ':' then a letter followed by letters/digits/hyphens. Nothing else may reach
+# the constraints.edn template or the generated Rust tracker name.
+_CONSTRAINT_ID_RE = re.compile(r"^:?[A-Za-z][A-Za-z0-9-]*$")
 
 
 def _constraints_path(project_root: Path) -> Path:
@@ -231,6 +236,14 @@ def add_constraint(
         return str(result)
 
     constraint_id = _need("id", constraint_id)
+    # REQ-NSI-002 / H-02: the id is interpolated into the EDN template and, via
+    # codegen, into Rust tracker names. Restrict it to a keyword allowlist so a
+    # value carrying quotes/parens/whitespace cannot inject downstream.
+    if not _CONSTRAINT_ID_RE.match(constraint_id):
+        raise click.UsageError(
+            f"--id {constraint_id!r} is not a valid constraint id; expected a "
+            "keyword like :C042-trial-n (letters, digits, hyphens; optional ':')"
+        )
     backend = _need("backend", backend, default=":z3", choices=_VALID_BACKENDS)
     scope = _need("scope", scope, default=":subject", choices=_VALID_SCOPES)
     assert_form = _need("assert_form", assert_form)

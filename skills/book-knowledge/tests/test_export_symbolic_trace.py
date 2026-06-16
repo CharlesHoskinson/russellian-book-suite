@@ -107,3 +107,23 @@ def test_export_idempotent(tmp_path: Path) -> None:
     export_trace(workspace, out)
     second = out.read_text(encoding="utf-8")
     assert first == second
+
+
+def test_export_skips_corrupt_ledger_line(tmp_path: Path) -> None:
+    """4.2: a malformed ledger line is skipped (read_jsonl), not fatal."""
+    workspace = _seed_workspace(tmp_path)
+    with (workspace / "claims" / "ledger.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write("{ this is not valid json\n")
+    out = tmp_path / "trace.edn"
+    count = export_trace(workspace, out)  # must not raise
+    assert count >= 1
+    assert out.exists()
+
+
+def test_export_skips_corrupt_manifest(tmp_path: Path) -> None:
+    """4.2: a malformed manifest JSON is skipped, not fatal."""
+    workspace = _seed_workspace(tmp_path)
+    (workspace / "raw" / "manifests" / "bad.json").write_text("{ broken", encoding="utf-8")
+    out = tmp_path / "trace.edn"
+    count = export_trace(workspace, out)  # must not raise
+    assert count >= 1

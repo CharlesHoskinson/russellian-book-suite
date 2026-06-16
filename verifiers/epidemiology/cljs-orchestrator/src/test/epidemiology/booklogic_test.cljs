@@ -2,6 +2,7 @@
   "Live nbb test fixture for the BookLogic compiler.
    Invoked by the Python integration harness via nbb."
   (:require [cljs.test :refer-macros [deftest is run-tests]]
+            [cljs.reader]
             [epidemiology.booklogic :as bl]
             ["fs" :as fs]
             ["path" :as path]))
@@ -43,6 +44,32 @@
     (is (re-find #":parishes-count" text))
     (is (re-find #":value-kind :int" text))
     (is (re-find #"\"nine\" 9" text))))
+
+(deftest predicates-edn-merges-multiple-lifts-per-predicate
+  ;; Two lifts targeting the same predicate must accumulate their :patterns
+  ;; rather than the last lift overwriting the first.
+  (let [src      {:sorts      [(list 'defsort :entity)]
+                  :predicates [(list 'defpredicate :parishes-count [:entity] :int)]
+                  :lifts      [(list 'deflift 'L001
+                                     :from :claim/canonical-text
+                                     :when "(?i)(?<n>\\d+)\\s+parishes?"
+                                     :emit (list 'fact '?claim-id :Bermuda :parishes-count
+                                                 (list 'parse-int '?n)))
+                               (list 'deflift 'L002
+                                     :from :claim/canonical-text
+                                     :when "(?i)(?<n>\\d+)\\s+civil\\s+parishes?"
+                                     :emit (list 'fact '?claim-id :Bermuda :parishes-count
+                                                 (list 'parse-int '?n)))]
+                  :rules       []
+                  :constraints []
+                  :queries     []
+                  :remedies    []}
+        expanded (bl/expand src)
+        text     (#'epidemiology.booklogic/emit-predicates-edn-string expanded)
+        parsed   (cljs.reader/read-string text)
+        entry    (get-in parsed [:predicates :parishes-count])]
+    (is (= 2 (count (:patterns entry)))
+        "both lift patterns must be retained for the shared predicate")))
 
 (deftest expand-defrule-basic
   (let [src      {:sorts      []

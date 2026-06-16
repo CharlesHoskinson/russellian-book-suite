@@ -80,7 +80,21 @@ def dispatch_halmos_review(workspace: Path, chapter_id: str,
     if dispatcher is None:
         raise ValueError("dispatch_halmos_review requires a dispatcher (Task-tool call or stub)")
     findings = dispatcher(payload)
+    # The dispatcher is an untrusted boundary (a Task-tool agent in production):
+    # validate its output shape before rollup so a malformed return fails loud
+    # rather than as a raw AttributeError/TypeError downstream.
+    if not isinstance(findings, dict):
+        raise ValueError(
+            f"halmos dispatcher must return a findings dict, got "
+            f"{type(findings).__name__}"
+        )
     findings.setdefault("spiral_coherence", "acceptable")
     findings.setdefault("findings", [])
     findings.setdefault("per_prior_chapter", {})
+    if not isinstance(findings["spiral_coherence"], str):
+        raise ValueError("halmos dispatcher: spiral_coherence must be a string")
+    if not isinstance(findings["findings"], list):
+        raise ValueError("halmos dispatcher: findings must be a list")
+    if not isinstance(findings["per_prior_chapter"], dict):
+        raise ValueError("halmos dispatcher: per_prior_chapter must be a dict")
     return findings

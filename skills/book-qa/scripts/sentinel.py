@@ -73,12 +73,34 @@ def _is_hard_fail(class_: str, severity: str) -> bool:
     return False
 
 
+def _corrupt_input_ticket(path: Path, exc: Exception) -> "Ticket":
+    """A synthetic hard-fail ticket for a malformed QA input file (4.2).
+
+    Corruption in a QA input must block the gate — not crash the run, and not be
+    silently skipped (which would pass a chapter whose findings were unreadable).
+    """
+    return Ticket(
+        ticket_id=f"corrupt-{path.stem}",
+        source="sentinel",
+        chapter=path.stem,
+        class_="C-CORRUPT",
+        severity="critical",
+        where=str(path),
+        detail=f"malformed QA input JSON: {exc}",
+        fix_hint="regenerate this QA artifact; it is not valid JSON",
+        hard_fail=True,
+    )
+
+
 def _load_stage1(workspace: Path) -> list[Ticket]:
     """Pull D1-D8 defects from ``qa/defects.json`` produced by lint_artifact."""
     path = workspace / "qa" / "defects.json"
     if not path.exists():
         return []
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return [_corrupt_input_ticket(path, e)]
     out: list[Ticket] = []
     for i, entry in enumerate(payload.get("defects", [])):
         cls = entry.get("class") or entry.get("class_") or "D?"
@@ -104,7 +126,11 @@ def _load_stage2(workspace: Path) -> list[Ticket]:
         return []
     out: list[Ticket] = []
     for path in sorted(tix_dir.glob("ch-*.json")):
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            out.append(_corrupt_input_ticket(path, e))
+            continue
         chapter = payload.get("chapter", path.stem)
         for i, t in enumerate(payload.get("tickets", [])):
             cls = t.get("check", "C?")

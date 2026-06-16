@@ -238,3 +238,56 @@ def test_clean_pass(tmp_path: Path) -> None:
     assert payload["summary"]["invariant_violations"] == 0
     assert payload["summary"]["orphans"] == 0
     assert not report.gate_failed()
+
+
+# H-05 (3.1/3.2): structured subject/value come from a thesis-side projection,
+# NOT from non-schema fields on the claim record (the schema is
+# additionalProperties:false, so subject/value/implies cannot live on a claim).
+def _valid_claim(cid: str, text: str) -> dict:
+    return {"claim_id": cid, "canonical_text": text, "status": "verified",
+            "claim_type": "fact", "confidence": 0.9,
+            "source_spans": [{"doc_id": "d", "locator_text": "loc1"}],
+            "created_at": "2026-05-11T00:00:00Z"}
+
+
+def _write_claim_facts(workspace: Path, mapping: dict) -> None:
+    import yaml
+    thesis_dir = workspace / "thesis"
+    thesis_dir.mkdir(parents=True, exist_ok=True)
+    (thesis_dir / "claim-facts.yaml").write_text(
+        yaml.safe_dump({"claim_facts": mapping}), encoding="utf-8")
+
+
+def test_schema_valid_claims_trip_d10_via_projection(tmp_path: Path) -> None:
+    """A schema-valid record carrying no subject/value must still trip D10 when a
+    claim-facts projection supplies the structured (subject, value)."""
+    ws = _make_workspace(tmp_path, [
+        _valid_claim("clm-a", "Bermuda has nine parishes."),
+        _valid_claim("clm-b", "Bermuda has ten parishes."),
+    ])
+    _write_claim_facts(ws, {
+        "clm-a": {"subject": "parish_count", "value": 9},
+        "clm-b": {"subject": "parish_count", "value": 10},
+    })
+    run(ws)
+    payload = _load_payload(ws)
+    assert payload["summary"]["contradictions"] >= 1
+    d10 = {d["rule"] for d in payload["defects"] if d["class"] == "D10"}
+    assert "direct_contradiction" in d10
+
+
+def test_projection_claims_are_schema_valid(tmp_path: Path) -> None:
+    """3.2: the records driving the projection-based D10 test carry only
+    schema-allowed keys (claim-record.schema.json is additionalProperties:false)
+    and all required keys — i.e. no subject/value/implies smuggled onto the record."""
+    schema = json.loads(
+        (ROOT.parent / "book-knowledge" / "assets" / "claim-record.schema.json")
+        .read_text(encoding="utf-8"))
+    allowed = set(schema["properties"])
+    required = set(schema["required"])
+    assert schema.get("additionalProperties") is False
+    for c in (_valid_claim("clm-a", "Bermuda has nine parishes."),
+              _valid_claim("clm-b", "Bermuda has ten parishes.")):
+        extra = set(c) - allowed
+        assert not extra, f"non-schema keys on claim record: {extra}"
+        assert required <= set(c), f"missing required keys: {required - set(c)}"

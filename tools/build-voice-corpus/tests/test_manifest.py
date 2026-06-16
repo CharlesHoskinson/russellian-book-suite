@@ -32,3 +32,15 @@ def test_pending_excludes_completed_and_skipped(tmp_path: Path):
 
 def test_stage_order_is_canonical():
     assert STAGES.index("discovered") < STAGES.index("tagged")
+
+
+def test_latest_state_skips_corrupt_line(tmp_path):
+    from pathlib import Path
+    from scripts.manifest import record, latest_state
+    p = Path(tmp_path) / "state.jsonl"
+    record(p, "vid-1", "discovered")
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write("{ corrupt state line\n")
+    record(p, "vid-2", "sampled")
+    state = latest_state(p)  # must not raise
+    assert set(state) == {"vid-1", "vid-2"}

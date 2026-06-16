@@ -47,6 +47,20 @@ project_graph's once-per-target emission exactly. ``claim_id`` is the declaring
 claim, ``other_id`` the conflicting target; the synthetic ``(claim_id . other_id)``
 pair id is the identity so re-projection upserts.
 
+Counter-claims (REQ-KG-006): the parallel counter-claim ledger
+(``claims/counter-claims.jsonl``) is the ledger form of project_graph's
+``tbf:CounterClaim`` emission. project_graph iterates EVERY record (no
+latest-per-id dedup, no status filter) and emits ``tbf:rebuts`` + ``tbf:ccStatus``
+per record; since RDF triples form a SET, the distinct facts that survive are the
+distinct ``(cc, target, status)`` tuples — a cc that went ``open -> addressed`` in
+the ledger keeps BOTH ccStatus facts. The projector reproduces that distinct set
+into the ``counter-claim`` relation, one row per distinct ``(cc-id, status)``,
+keyed by the synthetic ``(cc-id . cc-status)`` identity (so the open->addressed
+history is preserved, not collapsed). The record ``status`` maps to the
+``cc-status`` column (renamed so it does not collide with a claim's status);
+``target_claim_id`` (the ``tbf:rebuts`` target) is kept bare so it joins
+``claim.id``.
+
 Typed values pass through untouched: ``cozo_store`` columns are typed from the
 schema ``:types`` (Float/Int/Bool), and ``load`` preserves the Python value, so
 floats/bools/ints from the ledger land as real typed cells.
@@ -58,6 +72,7 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
+from .counter_claims import read_counter_claims
 from .io_utils import latest_per, read_jsonl
 from .workspace import WorkspaceLayout
 
@@ -215,16 +230,55 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
                 span_row["wiki_page_id"] = page_uri
             span_rows.append(span_row)
 
+    # Counter-claims (REQ-KG-006): the relational form of project_graph's
+    # per-record tbf:CounterClaim emission. project_graph iterates EVERY
+    # counter-claim record (no latest-per-id dedup, no status filter) and emits
+    # <cc> a tbf:CounterClaim ; tbf:rebuts <target> ; tbf:ccStatus <status>.
+    # Because RDF triples form a SET, the surviving distinct facts are the
+    # distinct (cc, target, status) tuples: a cc that went open -> addressed in
+    # the ledger contributes BOTH a "open" and an "addressed" ccStatus triple. We
+    # reproduce that distinct set exactly — one row per distinct (cc-id, target,
+    # status), keyed by the synthetic (cc-id . cc-status) identity so re-projection
+    # upserts. The ledger field ``status`` maps to the ``cc-status`` column
+    # (renamed to disambiguate from a claim's status). This is what lets the
+    # rebuttal-presence negation see the "addressed" fact even after a later
+    # revision (keying by the bare cc id would collapse the history and lose it).
+    counter_claim_rows: list[dict] = []
+    seen_cc: set[str] = set()
+    for cc in read_counter_claims(layout.root):
+        cc_id = cc["id"]
+        status = cc.get("status")
+        key = f"{cc_id}\x1f{status}"
+        if key in seen_cc:
+            continue
+        seen_cc.add(key)
+        row = {
+            "id": key,
+            "cc_id": cc_id,
+            "target_claim_id": cc.get("target_claim_id"),
+            "cc_status": status,
+        }
+        if "created_at" in cc:
+            row["created_at"] = cc["created_at"]
+        counter_claim_rows.append(row)
+
     store.load("claim", claim_rows)
     store.load("source-span", span_rows)
     store.load("claim-chapter", claim_chapter_rows)
     store.load("chapter", list(chapter_rows.values()))
     store.load("claim-conflict", claim_conflict_rows)
+    store.load("counter-claim", counter_claim_rows)
     store.load("wiki-page", wiki_page_rows)
     # chapter_wiki_ref has no ledger-derived source today (project_graph emits no
     # tbf:referencesPage triples), so it is loaded empty. The relation exists so
     # the orphan port can express the chapter-reference negation arm faithfully.
     store.load("chapter-wiki-ref", [])
+    # rebuttal_window_ok likewise has no ledger-derived source today (project_graph
+    # emits no tbf:rebuttalWindowOk triples), so it is loaded empty. The relation
+    # exists so the contested-rebuttal-window port can express its FILTER NOT
+    # EXISTS arm faithfully: a never-emitted predicate => the negation clears
+    # nothing => every disputed chapter-supporting claim surfaces.
+    store.load("rebuttal-window-ok", [])
 
 
 def main(argv: list[str]) -> int:

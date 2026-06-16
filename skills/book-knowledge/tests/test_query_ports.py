@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 
 from scripts.booklogic_kg import compile_query
+from scripts.counter_claims import append_counter_claim
 from scripts.cozo_store import CozoStore
 from scripts.ledger import append_claim
 from scripts.project_ledger_cozo import project_ledger
@@ -375,3 +376,155 @@ def test_posterior_floor_fires_below_threshold(tmp_path: Path) -> None:
     rows = store.query(script)
 
     assert _canonical(rows) == _canonical([["clm-2026-000001", 0.3]])
+
+
+# --- counter-claim projection ports (REQ-KG-006) -------------------------------
+
+
+def _cc(cc_id: str, target: str, status: str) -> dict:
+    """A schema-valid counter-claim record targeting ``target`` with ``status``."""
+    return {
+        "id": cc_id,
+        "target_claim_id": target,
+        "text": "a counter-claim that rebuts the target claim",
+        "disagreement_vector": "mechanism",
+        "status": status,
+        "provenance": {"generator": "test", "prompt_sha256": "0" * 64},
+        "created_at": "2026-06-16T00:00:00+00:00",
+    }
+
+
+def test_rebuttal_presence_matches_golden() -> None:
+    """The EDN port reproduces the bermuda golden exactly (both empty).
+
+    bermuda's golden is ``[]``: every load-bearing, non-axiom claim that
+    supports a chapter carries an ``addressed`` rebutting counter-claim, so the
+    negation excludes them all. The empty match is vacuous on its own -- the
+    synthetic firing test below carries the real proof.
+    """
+    golden = json.loads((GOLDEN_DIR / "rebuttal-presence.json").read_text("utf-8"))
+    assert _run("rebuttal-presence", BERMUDA) == _canonical_golden(golden)
+
+
+def test_rebuttal_presence_fires_on_unaddressed_rebuttal(tmp_path: Path) -> None:
+    """The MEANINGFUL firing test: ONLY the exposed load-bearing claim returns.
+
+    Four load-bearing claims, each supporting a chapter (so the supportsChapter
+    join holds) and non-superseded (so they project):
+      - clm 1: an OPEN rebutting counter-claim     -> exposed, MUST return.
+      - clm 2: an ADDRESSED rebutting counter-claim -> excluded by the
+               counter-claim negation arm.
+      - clm 3: no counter-claim at all              -> exposed, MUST return.
+      - clm 4: an axiom with an OPEN rebuttal       -> excluded by the axiom
+               negation arm (axioms are exempt).
+    Proves both negation arms (addressed-rebuttal AND axiom) fire independently.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    def _claim(cid: str, axiom: bool = False) -> dict:
+        record = {
+            "claim_id": cid,
+            "canonical_text": f"a load-bearing claim {cid}",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "load_bearing": True,
+            "source_spans": [{"doc_id": "doc-1", "locator_text": "locator text"}],
+            "supports_chapters": ["ch-aaa"],
+            "created_at": "2026-06-16T00:00:00+00:00",
+        }
+        if axiom:
+            record["axiom"] = True
+        return record
+
+    for record in (
+        _claim("clm-2026-000001"),
+        _claim("clm-2026-000002"),
+        _claim("clm-2026-000003"),
+        _claim("clm-2026-000004", axiom=True),
+    ):
+        append_claim(layout, record)
+
+    append_counter_claim(root, _cc("cc-2026-000001", "clm-2026-000001", "open"))
+    append_counter_claim(root, _cc("cc-2026-000002", "clm-2026-000002", "addressed"))
+    append_counter_claim(root, _cc("cc-2026-000004", "clm-2026-000004", "open"))
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "rebuttal-presence.edn").read_text("utf-8"), SCHEMA_PATH
+    )
+    rows = store.query(script)
+
+    assert _canonical(rows) == _canonical(
+        [["clm-2026-000001"], ["clm-2026-000003"]]
+    )
+
+
+def test_contested_rebuttal_window_matches_golden() -> None:
+    """The EDN port reproduces the bermuda golden exactly (both empty).
+
+    bermuda's golden is ``[]``: it has no ``disputed`` claims, so the positive
+    body binds nothing. The empty match is vacuous on its own -- the synthetic
+    firing test below carries the real proof.
+    """
+    golden = json.loads(
+        (GOLDEN_DIR / "contested-rebuttal-window.json").read_text("utf-8")
+    )
+    assert _run("contested-rebuttal-window", BERMUDA) == _canonical_golden(golden)
+
+
+def test_contested_rebuttal_window_fires_on_disputed_claim(tmp_path: Path) -> None:
+    """The MEANINGFUL firing test: ONLY disputed chapter-supporting claims return.
+
+    project_graph emits NO ``tbf:rebuttalWindowOk`` triple, so the SPARQL
+    ``FILTER NOT EXISTS { ?claim tbf:rebuttalWindowOk ?chapter }`` never excludes
+    anything: the query returns every disputed claim that supports a chapter. The
+    relational ``rebuttal-window-ok`` relation is loaded empty (mirroring that
+    never-emitted predicate), so the negation arm clears nothing.
+
+      - clm 1: disputed, supports ch-aaa  -> MUST return (one row per chapter).
+      - clm 2: disputed, supports ch-aaa AND ch-bbb -> two rows.
+      - clm 3: verified, supports ch-aaa  -> excluded by status != disputed.
+      - clm 4: disputed, supports no chapter -> excluded (no supportsChapter join).
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    def _claim(cid: str, status: str, chapters: list[str]) -> dict:
+        return {
+            "claim_id": cid,
+            "canonical_text": f"claim {cid}",
+            "status": status,
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [{"doc_id": "doc-1", "locator_text": "locator text"}],
+            "supports_chapters": chapters,
+            "created_at": "2026-06-16T00:00:00+00:00",
+        }
+
+    base = "https://example.org/book-knowledge/chapters/"
+    for record in (
+        _claim("clm-2026-000001", "disputed", ["ch-aaa"]),
+        _claim("clm-2026-000002", "disputed", ["ch-aaa", "ch-bbb"]),
+        _claim("clm-2026-000003", "verified", ["ch-aaa"]),
+        _claim("clm-2026-000004", "disputed", []),
+    ):
+        append_claim(layout, record)
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "contested-rebuttal-window.edn").read_text("utf-8"),
+        SCHEMA_PATH,
+    )
+    rows = store.query(script)
+
+    assert _canonical(rows) == _canonical(
+        [
+            ["clm-2026-000001", f"{base}ch-aaa"],
+            ["clm-2026-000002", f"{base}ch-aaa"],
+            ["clm-2026-000002", f"{base}ch-bbb"],
+        ]
+    )

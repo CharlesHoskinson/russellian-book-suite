@@ -86,6 +86,42 @@
    :relations [[:of-claim :claim]
                [:conflicts-with :claim]]}
 
+  ;; Counter-claim — a rebuttal targeting a claim (counter-claim.schema.json).
+  ;; The RDF projection (project_graph) iterates EVERY counter-claim record in the
+  ;; append-only ledger (no latest-per-id dedup, no status filter) and emits, per
+  ;; record:
+  ;;   <cc> a tbf:CounterClaim ; tbf:rebuts <target-claim> ; tbf:ccStatus <status>.
+  ;; Because RDF triples are a SET, the distinct facts that survive are the
+  ;; distinct (cc, target, status) tuples — crucially, a cc that transitioned
+  ;; open -> addressed in the ledger contributes BOTH a ccStatus "open" AND a
+  ;; ccStatus "addressed" triple. The rebuttal-presence port's negation keys off
+  ;; the "addressed" fact, so the relational model MUST preserve every distinct
+  ;; status a cc has held, not just its latest. Keying the relation by the bare cc
+  ;; id would collapse that history to one row and lose the "addressed" fact.
+  ;; Therefore the identity column :id is the SYNTHETIC (cc-id . cc-status) pair,
+  ;; one row per distinct (cc, status) — the exact distinct set project_graph's
+  ;; triples reduce to. :cc-id is the original cc id, :target-claim-id the rebutted
+  ;; claim id (the tbf:rebuts target, kept bare so it joins claim.id), :cc-status
+  ;; the lifecycle status ("open"/"addressed"/"dismissed"). :created-at rides along
+  ;; (ISO-8601 string; Cozo compares ISO-8601 lexically, no :types coercion).
+  :counter-claim
+  {:attrs [:id :cc-id :target-claim-id :cc-status :created-at]
+   :relations [[:rebuts :claim]]}
+
+  ;; Rebuttal-window-ok marker — the relational form of project_graph's
+  ;; tbf:rebuttalWindowOk triple (a disputed claim whose rebuttal landed inside
+  ;; the allowed window for a chapter). project_graph emits NO rebuttalWindowOk
+  ;; triple today, so the projector loads this relation EMPTY; it exists so the
+  ;; contested-rebuttal-window port can express its ``FILTER NOT EXISTS { ?claim
+  ;; tbf:rebuttalWindowOk ?chapter }`` negation arm faithfully (a never-emitted
+  ;; predicate => the negation clears nothing => every disputed chapter-supporting
+  ;; claim surfaces). :claim-id is the disputed claim, :chapter the full chapter
+  ;; URI; the identity column is the synthetic (claim-id . chapter) pair id.
+  :rebuttal-window-ok
+  {:attrs [:id :claim-id :chapter]
+   :relations [[:of-claim :claim]
+               [:for-chapter :chapter]]}
+
   ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
   :thesis-node
   {:attrs [:id :statement :polarity :scope]

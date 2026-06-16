@@ -25,6 +25,8 @@ EXPECTED_ENTITIES = {
     "claim-chapter",
     "chapter",
     "claim-conflict",
+    "counter-claim",
+    "rebuttal-window-ok",
     "thesis-node",
     "sub-argument",
     "wiki-page",

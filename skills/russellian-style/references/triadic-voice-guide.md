@@ -22,8 +22,10 @@ still defects.
 - Open with **Hoskinson**: state the stakes plainly and address the reader.
 - Develop with **Feynman**: ground the abstract claim in a concrete case or
   analogy before the formal statement.
-- Close each unit with **Russell**: compress to the exact claim, drop every
-  hedge, leave one load-bearing sentence.
+- Close each unit with **Russell**: compress to the exact claim and drop every
+  hedge. Vary the closing move across a sequence - an exact definition, a boundary
+  condition, a causal claim, a necessary condition, a consequence, or an exception -
+  rather than ending on the same aphorism every time.
 
 ## How to use the corpora
 

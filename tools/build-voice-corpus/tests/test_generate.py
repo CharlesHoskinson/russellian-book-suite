@@ -51,3 +51,24 @@ def test_generate_uses_injected_llm():
 def test_generate_rejects_bad_mode():
     with pytest.raises(ValueError):
         generate("x", mode="bogus", llm_call=lambda p: "")
+
+
+def test_triadic_prompt_has_variation_and_economy():
+    from scripts.generate import build_generation_prompt, select_exemplars, load_exemplars
+    ex = select_exemplars(load_exemplars(), n=4, seed=1)
+    p = build_generation_prompt("x", mode="triadic", exemplars=ex, guide="G")
+    # Feynman is now a method menu, not a single analogy slot
+    assert "worked example" in p and "counterexample" in p
+    # opening + closing rotation present
+    assert "Vary the opening move" in p
+    assert "Rotate the close type" in p
+    # Elements-of-Style economy pressure present
+    assert "omit needless words" in p.lower()
+
+
+def test_hoskinson_prompt_has_tic_budget_and_economy():
+    from scripts.generate import build_generation_prompt, select_exemplars, load_exemplars
+    ex = select_exemplars(load_exemplars(), n=3, seed=1)
+    p = build_generation_prompt("x", mode="hoskinson", exemplars=ex, guide="G")
+    assert "at most one overt catchphrase" in p
+    assert "omit needless words" in p.lower()

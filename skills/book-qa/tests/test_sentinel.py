@@ -45,3 +45,19 @@ def test_corrupt_chapter_ticket_is_hard_fail(tmp_path: Path):
     (tix / "ch-01.json").write_text("{ broken json", encoding="utf-8")
     report = aggregate(tmp_path)
     assert any(t["class"] == "C-CORRUPT" for t in report.hard_fail_tickets)
+
+
+# 5.1: gate exit-code coverage for the CLI entry point.
+def test_main_exits_1_on_hard_fail(tmp_path: Path):
+    from scripts.sentinel import main
+    qa = tmp_path / "qa"; qa.mkdir()
+    (qa / "defects.json").write_text(json.dumps({"defects": [
+        {"class": "D9", "severity": "critical", "detail": "orphan"}]}), encoding="utf-8")
+    assert main(["sentinel", str(tmp_path)]) == 1
+
+
+def test_main_exits_0_when_clean(tmp_path: Path):
+    from scripts.sentinel import main
+    qa = tmp_path / "qa"; qa.mkdir()
+    (qa / "defects.json").write_text(json.dumps({"defects": []}), encoding="utf-8")
+    assert main(["sentinel", str(tmp_path)]) == 0

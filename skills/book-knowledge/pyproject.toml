@@ -15,6 +15,7 @@ dependencies = [
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
     "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
 ]
 
 [project.optional-dependencies]
@@ -26,12 +27,14 @@ ci = [
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
     "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
     "pytest>=8.0,<10.0",
 ]
 dev = [
     "pytest>=8.0,<10.0",
     "reportlab>=4.0,<5.0",
     "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
 ]
 
 [tool.setuptools]

@@ -1,0 +1,6 @@
+# Substrings stripped from cleaned transcripts (intros, outros, ASR noise).
+fragments:
+  - "Welcome back everybody to another AMA."
+  - "Don't forget to like and subscribe."
+  - "[Music]"
+  - "[Applause]"

@@ -62,11 +62,19 @@ will fail on genuine analytic prose. Calibrate the contract, not the prose:
 
 When prose is compliant but lifeless, read `references/russell-corpus-map.md` and compare against the 50-paragraph Russell corpus indexed in `assets/russell-corpus/index.json`.
 
+For a fused target that adds Feynman's intuition and Hoskinson's momentum to
+Russell's rigor, read `references/triadic-voice-guide.md`. It draws on three
+exemplar corpora: `assets/russell-corpus/index.json`,
+`assets/feynman-corpus/index.json` (pointers only), and
+`assets/hoskinson-corpus/index.json` (built by `tools/build-voice-corpus`). The
+discipline linters remain the quality floor for all three voices.
+
 ## References index
 
 - `references/russellian-style-guide.md` — authoritative style catalog.
 - `references/russellian-vitality-guide.md` — vitality and rhythm rules for compliant-but-lifeless prose.
 - `references/russell-corpus-map.md` — guide to the 50-paragraph Russell corpus.
+- `references/triadic-voice-guide.md` — Russell × Feynman × Hoskinson fusion guide for the three-voice target.
 - `references/how-i-write-maxims.md` — Russell's seven sentence-craft maxims.
 - `references/logical-atomism-for-writers.md` — IF/AND IF/THEN decomposition for tangled conditionals.
 - `references/before-after-examples.md` — worked rewrites paired with the rule each one applies.

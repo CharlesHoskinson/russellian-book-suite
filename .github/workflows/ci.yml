@@ -305,6 +305,46 @@ jobs:
       - name: cargo test
         run: nix develop .#rust -c cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
 
+  # Per-verifier ClojureScript test (shadow-cljs compile test + node run), gated
+  # like cargo-test on verifier/rust changes. Moved here from the nightly's
+  # bermuda-only cljs-bermuda-test: running all four at PR time is what catches a
+  # cljs->Rust bridge regression in any verifier. The epi/osmotic bridge break
+  # shipped precisely because only bermuda's cljs ran in CI.
+  cljs-test:
+    name: cljs-test (${{ matrix.verifier }})
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        verifier: [adsc-clinical, bermuda, epidemiology, osmotic_pressure]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: verifiers/${{ matrix.verifier }}/package-lock.json
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: npm ci (strict lockfile install)
+        working-directory: verifiers/${{ matrix.verifier }}
+        run: |
+          for i in 1 2 3; do
+            npm ci --no-audit --no-fund && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+      - name: shadow-cljs compile + node test
+        working-directory: verifiers/${{ matrix.verifier }}
+        run: |
+          npx shadow-cljs compile test
+          node cljs-orchestrator/dist/test.js
+
   # Divergence summary (REQ-CI-042). Runs regardless of upstream status so
   # the summary is published even on red runs. Emits a markdown table to
   # $GITHUB_STEP_SUMMARY with each matrix job's *aggregate* result. The
@@ -364,6 +404,7 @@ jobs:
       - preflight
       - python-skill-matrix
       - cargo-test
+      - cljs-test
       - ci-divergence-summary
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -385,6 +426,7 @@ jobs:
           DIVERGENCE: ${{ needs.ci-divergence-summary.result }}
           PREFLIGHT: ${{ needs.preflight.result }}
           CARGO_TEST: ${{ needs.cargo-test.result }}
+          CLJS_TEST: ${{ needs.cljs-test.result }}
         run: |
           fail=0
           require_success() {
@@ -407,6 +449,7 @@ jobs:
           require_not_failed python-skill-matrix "$PYTHON_SKILL"
           require_not_failed preflight "$PREFLIGHT"
           require_not_failed cargo-test "$CARGO_TEST"
+          require_not_failed cljs-test "$CLJS_TEST"
           if [ "$fail" -ne 0 ]; then
             echo "ci-required: one or more required jobs did not pass"
             exit 1

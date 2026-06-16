@@ -207,50 +207,15 @@ jobs:
             examples/bermuda-manual/qa/datalog-defects.json
           if-no-files-found: warn
 
-  # shadow-cljs test compile + node run for the bermuda orchestrator (moved
-  # from ci-legacy on its retirement). preflight's `make -C verifiers/bermuda
-  # ci` builds the cljs release bundle but does not run the cljs test suite.
-  cljs-bermuda-test:
-    name: cljs-bermuda-test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: verifiers/bermuda/package-lock.json
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          distribution: temurin
-          java-version: "21"
-      - name: npm ci (strict lockfile install)
-        working-directory: verifiers/bermuda
-        # `npm ci` installs strictly from package-lock.json so transitive deps
-        # cannot resolve to newer/unintended versions at CI time. If the lockfile
-        # genuinely drifts from package.json, fix the lockfile (npm install
-        # locally + commit) rather than masking it with `npm install`, which
-        # silently mutates the resolved dependency set. 3-try backoff around the
-        # registry (P2-network-retries).
-        run: |
-          for i in 1 2 3; do
-            npm ci --no-audit --no-fund && break
-            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
-            sleep $((i * 5))
-          done
-      - name: shadow-cljs compile + node test
-        working-directory: verifiers/bermuda
-        run: |
-          npx shadow-cljs compile test
-          node cljs-orchestrator/dist/test.js
+  # (cljs tests run per-verifier at PR time in ci.yml's cljs-test matrix —
+  # the bermuda-only nightly job was retired when that landed.)
 
   # P2-nightly-alerting-and-drift: a red scheduled run used to fail silently.
   # On failure, open (or update) a single dedup-by-title tracking issue so the
   # regression is actionable. Runs only on schedule (not on manual dispatch or
   # self-edit pushes) to avoid issue spam during workflow iteration.
   alert-on-failure:
-    needs: [drift-check, flake-check-arm, windows-full-canary, python-compat, bermuda-example-pipeline, cljs-bermuda-test]
+    needs: [drift-check, flake-check-arm, windows-full-canary, python-compat, bermuda-example-pipeline]
     if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

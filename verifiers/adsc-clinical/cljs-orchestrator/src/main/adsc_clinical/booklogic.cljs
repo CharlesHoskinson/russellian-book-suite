@@ -153,8 +153,7 @@
    The shape mirrors v0.2's rules.edn entries; downstream meander code in
    `phases.cljs` consumes :lhs / :rhs directly."
   [form]
-  (let [[_ name equation & options] form
-        opts (if (seq options) (option-map options) {})]
+  (let [[_ name equation & options] form]
     (when-not (symbol? name)
       (throw (ex-info "defrule: name must be a symbol" {:form form})))
     (when-not (and (sequential? equation)
@@ -162,7 +161,11 @@
                    (= 3 (count equation)))
       (throw (ex-info "defrule: must contain an equation of form (= LHS RHS)"
                       {:form form})))
-    (let [[_ lhs rhs] equation]
+    ;; Parse options only after the equation validates, so a defrule whose
+    ;; equation slot is an option keyword (e.g. (defrule R :tags [...])) reports
+    ;; the missing equation rather than an even-arity option error.
+    (let [opts (if (seq options) (option-map options) {})
+          [_ lhs rhs] equation]
       {:name name
        :lhs  lhs
        :rhs  rhs

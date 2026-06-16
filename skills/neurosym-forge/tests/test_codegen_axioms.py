@@ -762,3 +762,21 @@ def test_mod_operator_emits_rem_call() -> None:
     assert "C-MOD" in src
     # The mod operator emits Int::rem(&...).
     assert ".rem(&" in src
+
+
+def test_structural_one_tracker_per_constraint() -> None:
+    """5.5: toolchain-free structural validation — N z3 constraints emit exactly
+    N assert_and_track calls (no constraint silently dropped) and the generated
+    source has balanced delimiters."""
+    cs = [
+        _constraint(name="C001", assert_form="(= (:parishes-count :Bermuda) 9)"),
+        _constraint(name="C002", assert_form="(>= (:trial-n :Study) 10)"),
+        _constraint(name="C003", assert_form="(< (:f-stake :Validator) 0.3)"),
+    ]
+    src = generate_axioms_source(cs)
+    assert src.count("assert_and_track(") == len(cs)
+    for cid in ("C001", "C002", "C003"):
+        assert f'"{cid}"' in src
+    assert src.count("{") == src.count("}")
+    assert src.count("(") == src.count(")")
+    assert src.count("[") == src.count("]")

@@ -64,6 +64,19 @@
   {:attrs [:id]
    :relations []}
 
+  ;; Claim->claim conflict edge — the relational form of a claim's
+  ;; conflicts_with list (claim-record schema). The RDF projection
+  ;; (project_graph) emits one tbf:conflictsWith triple per (claim, target),
+  ;; directional (NOT symmetric — the reverse edge is only present if the target
+  ;; declares it too); this entity is its relational counterpart: one row per
+  ;; (claim, conflicts_with target). :claim-id is the declaring claim, :other-id
+  ;; the conflicting target. The identity column is the synthetic
+  ;; (claim-id . other-id) pair id so re-projection upserts rather than dups.
+  :claim-conflict
+  {:attrs [:id :claim-id :other-id]
+   :relations [[:of-claim :claim]
+               [:conflicts-with :claim]]}
+
   ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
   :thesis-node
   {:attrs [:id :statement :polarity :scope]

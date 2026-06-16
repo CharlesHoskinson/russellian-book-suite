@@ -24,6 +24,7 @@ EXPECTED_ENTITIES = {
     "source-span",
     "claim-chapter",
     "chapter",
+    "claim-conflict",
     "thesis-node",
     "sub-argument",
     "wiki-page",

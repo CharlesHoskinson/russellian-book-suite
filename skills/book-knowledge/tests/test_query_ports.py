@@ -179,6 +179,63 @@ def test_chapter_evidence_coverage_counts_distinct_verified(tmp_path: Path) -> N
     )
 
 
+def test_contradiction_scan_matches_golden() -> None:
+    """The EDN port reproduces the bermuda golden exactly (both empty).
+
+    bermuda is a healthy book: no projected claim declares a ``conflicts_with``
+    target, so the conflict-edge relation is empty and the scan returns nothing.
+    The empty match is therefore vacuous on its own -- the synthetic firing test
+    below carries the real proof.
+    """
+    golden = json.loads((GOLDEN_DIR / "contradiction_scan.json").read_text("utf-8"))
+    assert _run("contradiction_scan", BERMUDA) == _canonical_golden(golden)
+
+
+def test_contradiction_scan_fires_on_conflict(tmp_path: Path) -> None:
+    """The MEANINGFUL firing test: a declared conflict edge surfaces the pair.
+
+    Two verified (non-superseded, so they project) claims where clm 1 declares
+    ``conflicts_with: [clm 2]``. The projector emits one directional
+    ``claim_conflict`` row (claim_id=clm1, other_id=clm2), mirroring
+    project_graph's once-per-target ``tbf:conflictsWith`` emission. The scan must
+    return exactly the (clm1, clm2) pair -- and ONLY that direction, proving the
+    edge projection and the join fire.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    def _claim(cid: str, conflicts: list[str]) -> dict:
+        record = {
+            "claim_id": cid,
+            "canonical_text": f"claim {cid}",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [{"doc_id": "doc-1", "locator_text": "locator"}],
+            "created_at": "2026-06-16T00:00:00+00:00",
+        }
+        if conflicts:
+            record["conflicts_with"] = conflicts
+        return record
+
+    for record in (
+        _claim("clm-2026-000001", ["clm-2026-000002"]),
+        _claim("clm-2026-000002", []),
+    ):
+        append_claim(layout, record)
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "contradiction_scan.edn").read_text("utf-8"), SCHEMA_PATH
+    )
+    rows = store.query(script)
+
+    assert _canonical(rows) == _canonical(
+        [["clm-2026-000001", "clm-2026-000002"]]
+    )
+
+
 def test_posterior_floor_matches_golden() -> None:
     """The EDN port reproduces the bermuda golden exactly (both empty).
 

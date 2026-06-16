@@ -39,6 +39,14 @@ into two relations so a chapter can be grouped/counted relationally:
   - ``chapter`` gets one row per distinct chapter URI referenced (the relational
     counterpart of the ``?chapter a tbf:Chapter`` declaration).
 
+Conflict edges (REQ-KG-006): a claim's ``conflicts_with`` list is the ledger
+form of project_graph's ``tbf:conflictsWith`` triples. It is projected into the
+``claim-conflict`` relation, one row per (claim, target), DIRECTIONAL — the
+reverse edge appears only if the target itself declares the conflict — mirroring
+project_graph's once-per-target emission exactly. ``claim_id`` is the declaring
+claim, ``other_id`` the conflicting target; the synthetic ``(claim_id . other_id)``
+pair id is the identity so re-projection upserts.
+
 Typed values pass through untouched: ``cozo_store`` columns are typed from the
 schema ``:types`` (Float/Int/Bool), and ``load`` preserves the Python value, so
 floats/bools/ints from the ledger land as real typed cells.
@@ -110,6 +118,7 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     span_rows: list[dict] = []
     claim_chapter_rows: list[dict] = []
     chapter_rows: dict[str, dict] = {}  # uri -> row (dedup distinct chapters)
+    claim_conflict_rows: list[dict] = []
 
     for record in latest.values():
         if record.get("status") == "superseded":
@@ -133,6 +142,15 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
             )
             chapter_rows.setdefault(chapter_uri, {"id": chapter_uri})
 
+        for other_id in record.get("conflicts_with", []):
+            claim_conflict_rows.append(
+                {
+                    "id": f"{claim_id}\x1f{other_id}",
+                    "claim_id": claim_id,
+                    "other_id": other_id,
+                }
+            )
+
         for span in record.get("source_spans", []):
             doc_id = span.get("doc_id", "")
             locator_text = span.get("locator_text", "")
@@ -149,6 +167,7 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     store.load("source-span", span_rows)
     store.load("claim-chapter", claim_chapter_rows)
     store.load("chapter", list(chapter_rows.values()))
+    store.load("claim-conflict", claim_conflict_rows)
 
 
 def main(argv: list[str]) -> int:

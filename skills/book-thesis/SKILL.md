@@ -3,8 +3,8 @@ name: book-thesis
 description: |
   Metabook reasoning layer for the book-* skill suite. Owns the intent
   substrate: a thesis tree, paragraph back-pointers to thesis nodes,
-  per-paragraph entailment checks, and a Datalog pass over claim triples
-  for transitive cross-chapter contradictions.
+  per-paragraph entailment checks, and an EDN/Cozo consistency pass over
+  claim facts for transitive cross-chapter contradictions.
 
   Use when a book needs to enforce three properties simultaneously:
   factual accuracy, cross-chapter consistency, and preservation of the
@@ -27,7 +27,7 @@ The metabook reasoning layer. Owns the *intent substrate* of a book — the thes
 - The thesis tree: a YAML/RDF graph rooted at `:Thesis`, with sub-arguments and required-evidence slots.
 - Paragraph back-pointers: every paragraph in a draft carries a `supports:` field naming a tree node.
 - The entailment loop: a per-paragraph LLM-critic dispatch that asks "does this paragraph actually advance its declared supports node?"
-- The Datalog consistency pass: a small rule set that derives transitive contradictions across chapter-level claim triples.
+- The consistency pass: a recursive CozoScript rule set (compiled from booklogic EDN) that derives transitive contradictions across chapter-level claim facts.
 - The exemplar pack: synthetic (supports-node, claim, paragraph) triples injected into the drafting prompt.
 
 ## What it does NOT own
@@ -44,8 +44,8 @@ The metabook reasoning layer. Owns the *intent substrate* of a book — the thes
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Layer 4  Datalog consistency pass                            │
-│          rules/consistency.dl over claim triples             │
+│ Layer 4  EDN/Cozo consistency pass                           │
+│          rules/consistency.cozo over claim facts             │
 └────────────────────────┬────────────────────────────────────┘
 ┌────────────────────────▼────────────────────────────────────┐
 │ Layer 3  Verifier-generator entailment loop                  │
@@ -56,7 +56,7 @@ The metabook reasoning layer. Owns the *intent substrate* of a book — the thes
 │          YAML / RDF tree + paragraph back-pointers           │
 └────────────────────────┬────────────────────────────────────┘
 ┌────────────────────────▼────────────────────────────────────┐
-│ Layer 1  Claim ledger + RDF + SHACL (book-knowledge)         │
+│ Layer 1  Claim ledger + EDN/Cozo store (book-knowledge)      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,15 +65,15 @@ The metabook reasoning layer. Owns the *intent substrate* of a book — the thes
 - `scripts/compile_thesis.py` — read `thesis/<book-id>.yaml`, emit RDF triples into the book-knowledge graph.
 - `scripts/lint_supports.py` — walk every paragraph in the manuscript; flag orphans (no `supports:`), broken supports (node doesn't exist), and chains that don't transitively reach `:Thesis`.
 - `scripts/dispatch_entailment.py` — prepare per-paragraph payloads for an LLM entailment critic. Returns `entailed | weakly-entailed | unrelated | contradicts`.
-- `scripts/datalog_consistency.py` — load claim triples + thesis tree into pyDatalog, run `rules/consistency.dl`, emit derived contradictions.
+- `scripts/consistency_cozo.py` — project the thesis spine + claim facts into book-knowledge's Cozo store, run the recursive `rules/consistency.cozo` program, emit derived contradictions (D9–D11) and write the `qa/datalog-defects.json` gate artifact.
 - `scripts/synthesize_exemplars.py` — Symbolic→LLM exemplar pack generator. Given the thesis tree + claim slice for a chapter, writes a few-shot exemplar bundle used by the drafting agent.
-- `rules/consistency.dl` — the initial Datalog rule set (~15 rules) covering transitive contradiction, orphan paragraphs, thesis-reachability.
+- `rules/consistency.cozo` — the recursive CozoScript consistency program (compiled from booklogic EDN) covering transitive contradiction, orphan paragraphs, thesis-reachability.
 
 ## Composes with
 
-- [`book-knowledge`](../book-knowledge/SKILL.md) — fact substrate. `book-thesis` reads claim triples from book-knowledge's RDF graph and writes thesis triples back into it.
+- [`book-knowledge`](../book-knowledge/SKILL.md) — fact substrate. `book-thesis` projects claim facts into book-knowledge's Cozo store for the consistency pass, and `compile_thesis` emits the thesis spine as triples.
 - [`book-compose`](../book-compose/SKILL.md) — the chapter contract gains a `thesis_advances:` field naming sub-arguments. `compile_thesis.py` runs at the start of `build_book`.
-- [`book-qa`](../book-qa/SKILL.md) — defines four new defect classes (D9 orphan-paragraph, D10 transitive-contradiction, D11 failed-entailment, D12 unadvanced-sub-argument). `lint_supports.py` and `datalog_consistency.py` feed those gates.
+- [`book-qa`](../book-qa/SKILL.md) — defines four new defect classes (D9 orphan-paragraph, D10 transitive-contradiction, D11 failed-entailment, D12 unadvanced-sub-argument). `lint_supports.py` and `consistency_cozo.py` feed those gates.
 - [`book-review`](../book-review/SKILL.md) — orthogonal. `book-review`'s personas do qualitative review; `book-thesis` does formal-structural check.
 - [`russellian-style`](../russellian-style/SKILL.md) — orthogonal. `russellian-style` polices sentence-grain; `book-thesis` polices argument-level.
 
@@ -86,8 +86,8 @@ python scripts/compile_thesis.py <workspace> <book-id>
 # Lint paragraph back-pointers against the thesis tree
 python scripts/lint_supports.py <workspace> <release-version>
 
-# Run the Datalog consistency pass
-python scripts/datalog_consistency.py <workspace>
+# Run the EDN/Cozo consistency pass (writes qa/datalog-defects.json, nonzero exit on gate failure)
+python scripts/consistency_cozo.py <workspace>
 
 # Generate an exemplar pack for a chapter
 python scripts/synthesize_exemplars.py <workspace> <chapter-id>
@@ -107,6 +107,6 @@ python -m pytest tests/ -v
 Coverage:
 - compile_thesis: round-trip YAML → triples → SPARQL query
 - lint_supports: known-orphan paragraph fixture; known-good paragraph fixture
-- datalog_consistency: contradicting-claim fixture (A→B in ch-1, B→¬A in ch-2)
+- consistency_cozo: contradicting-claim fixture (A→B in ch-1, B→¬A in ch-2), frozen against the C0.3 goldens
 - dispatch_entailment: payload-shape contract
 - synthesize_exemplars: exemplar pack shape contract

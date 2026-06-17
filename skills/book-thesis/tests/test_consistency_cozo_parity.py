@@ -3,15 +3,15 @@
 REQ-KG-015. ``consistency_cozo.run_consistency_cozo(workspace)`` projects the
 thesis spine (P3.1) + claim facts into book-knowledge's Cozo store, runs the
 recursive CozoScript consistency program (rules/consistency.cozo), and assembles
-the SAME ``DefectReport.as_payload()`` the pyDatalog pass (datalog_consistency.run)
-emits — proven equal on the two frozen C0.3 goldens:
+the same canonically-sorted ``DefectReport.as_payload()`` shape the (now deleted,
+P5.4b) pyDatalog pass emitted — frozen into the two C0.3 goldens:
 
 * violating: build_violating_thesis -> 6 defects (D9 orphan, D10 direct x2 +
   transitive, D11 invariant_violation + unreachable_supports).
 * bermuda: examples/bermuda-manual -> 0 defects (clean baseline).
 
-The Cozo pass also runs as the parity oracle directly against the live pyDatalog
-pass, so the equivalence is not merely golden-vs-golden.
+Before pyDatalog was removed, the Cozo pass was proven equal to the LIVE pyDatalog
+run on these workspaces (not merely golden-vs-golden); the goldens are now the oracle.
 """
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ import pytest
 
 from scripts.compile_thesis import compile_thesis
 from scripts.consistency_cozo import run_consistency_cozo
-from scripts.datalog_consistency import run as run_pydatalog
 
 from tests.fixtures.violating_thesis import build_violating_thesis
 
@@ -36,15 +35,11 @@ def _golden(name: str) -> dict:
 
 
 def test_violating_matches_golden(tmp_path):
+    # The golden was the live pyDatalog output, frozen in C0.3; the Cozo pass was
+    # proven equal to the LIVE pyDatalog run before that pass was deleted in P5.4b
+    # (see the run log). The frozen golden is now the oracle.
     ws = build_violating_thesis(tmp_path)
     assert run_consistency_cozo(ws) == _golden("d9_d11_violating")
-
-
-def test_violating_matches_live_pydatalog(tmp_path):
-    """Non-tautological: the Cozo payload equals the LIVE pyDatalog payload on the
-    same workspace, not just the frozen golden."""
-    ws = build_violating_thesis(tmp_path)
-    assert run_consistency_cozo(ws) == run_pydatalog(ws).as_payload()
 
 
 @pytest.mark.skipif(not BERMUDA.exists(), reason="bermuda workspace not present")
@@ -86,13 +81,11 @@ def _build_missing_evidence_workspace(tmp_path) -> Path:
     return ws
 
 
-def test_missing_evidence_end_to_end_matches_live(tmp_path):
-    """Closes the end-to-end gap for the have_subjects-gated missing_evidence
-    branch (rule-level coverage exists in test_consistency_cozo_rules; this drives
-    it through run_consistency_cozo and proves equality with the live pyDatalog)."""
+def test_missing_evidence_end_to_end(tmp_path):
+    """End-to-end coverage of the have_subjects-gated missing_evidence branch through
+    run_consistency_cozo (rule-level coverage is in test_consistency_cozo_rules)."""
     ws = _build_missing_evidence_workspace(tmp_path)
     cozo = run_consistency_cozo(ws)
-    assert cozo == run_pydatalog(ws).as_payload()
     assert "missing_evidence" in {d["rule"] for d in cozo["defects"]}
 
 
@@ -132,8 +125,6 @@ def test_cli_gates_and_writes_artifact_on_defects(tmp_path):
     artifact = ws / "qa" / "datalog-defects.json"
     assert artifact.exists(), "CLI must write qa/datalog-defects.json"
     assert json.loads(artifact.read_text(encoding="utf-8")) == _golden("d9_d11_violating")
-    # exit code matches the live pyDatalog gate on the same workspace.
-    assert (rc != 0) == run_pydatalog(ws).gate_failed()
 
 
 def test_cli_returns_zero_on_clean(tmp_path):
@@ -154,15 +145,3 @@ def test_run_consistency_cozo_is_pure_without_write_flag(tmp_path):
     run_consistency_cozo(ws)
     assert not (ws / "qa" / "datalog-defects.json").exists()
 
-
-def test_cozo_artifact_byte_identical_to_legacy(tmp_path):
-    """The qa/datalog-defects.json the Cozo CLI writes must be byte-for-byte identical
-    to the legacy pyDatalog pass's (same json.dumps + newline/encoding), so consumers
-    see no drift — a JSON-parse comparison would miss newline/sort/encoding drift
-    (audit MINOR; a P5.3 gate requirement)."""
-    ws = build_violating_thesis(tmp_path)
-    artifact = ws / "qa" / "datalog-defects.json"
-    run_pydatalog(ws)  # legacy writer
-    legacy_bytes = artifact.read_bytes()
-    run_consistency_cozo(ws, write_artifact=True)  # cozo writer overwrites
-    assert artifact.read_bytes() == legacy_bytes

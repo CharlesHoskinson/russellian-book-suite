@@ -1,10 +1,9 @@
-"""Capture a byte-stable golden of the current Datalog D9/D10/D11 behaviour.
+"""Capture a byte-stable golden of the D9/D10/D11 consistency behaviour.
 
-This freezes the pyDatalog consistency pass (``datalog_consistency.run``) result
-for a workspace into a deterministic JSON golden, so the later pyDatalog -> EDN
--> Cozo port (Phase P3) can be proven equivalent (REQ-KG-014). It changes no
-production behaviour -- it only calls ``run`` and serializes its canonical
-payload.
+This freezes the EDN/Cozo consistency pass (``consistency_cozo.run_consistency_cozo``;
+the pyDatalog pass it originally captured was deleted in P5.4b) result for a workspace
+into a deterministic JSON golden (REQ-KG-014). It changes no production behaviour --
+it only calls the pass and serializes its canonical payload.
 
 The payload is ``DefectReport.as_payload()``: ``{"summary": {...}, "defects":
 [...]}`` already sorted canonically by ``(class, rule, json.dumps(facts))``, so
@@ -30,18 +29,17 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from datalog_consistency import run  # noqa: E402
+from consistency_cozo import run_consistency_cozo  # noqa: E402
 
 
 def capture_consistency(workspace: Path) -> dict:
     """Return the canonical defect payload for ``workspace``.
 
-    Delegates to ``datalog_consistency.run`` and returns
-    ``report.as_payload()`` -- the same canonically-sorted dict the production
-    pass writes to ``qa/datalog-defects.json``.
+    Delegates to the EDN/Cozo consistency pass (``consistency_cozo``; the pyDatalog
+    pass was deleted in P5.4b) and returns the canonically-sorted payload — the same
+    shape the gate writes to ``qa/datalog-defects.json``.
     """
-    report = run(Path(workspace))
-    return report.as_payload()
+    return run_consistency_cozo(Path(workspace))
 
 
 def write_consistency_golden(workspace: Path, out_path: Path) -> dict:

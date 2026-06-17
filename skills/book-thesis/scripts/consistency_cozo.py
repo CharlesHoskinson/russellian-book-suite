@@ -19,8 +19,11 @@ ledger yields the identical defect set.
 from __future__ import annotations
 
 import json
+import logging
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Iterable
 
 import yaml
 
@@ -28,17 +31,92 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from datalog_consistency import (  # noqa: E402  — reuse for exact parity
-    DefectReport,
-    _emit_pairs,
-    _iter_claims,
-    _resolve_claims_path,
-    _value_str,
-    load_claim_facts,
-)
 from project_thesis_cozo import _book_id, project_thesis  # noqa: E402
 
 RULES = Path(__file__).resolve().parent.parent / "rules" / "consistency.cozo"
+_log = logging.getLogger(__name__)
+
+
+# -- report assembly + ledger helpers ------------------------------------------
+# Extracted from the (deleted, P5.4b) pyDatalog datalog_consistency so this Cozo
+# pass is self-contained. These are pure (no pyDatalog/rdflib) — the defect-report
+# shape + the claim-fact projection both passes shared.
+
+
+@dataclass
+class DefectReport:
+    contradictions: list[dict] = field(default_factory=list)
+    orphans: list[dict] = field(default_factory=list)
+    invariants: list[dict] = field(default_factory=list)
+
+    def as_payload(self) -> dict[str, Any]:
+        defects = self.contradictions + self.orphans + self.invariants
+        defects.sort(key=lambda d: (d["class"], d["rule"], json.dumps(d["facts"], sort_keys=True)))
+        return {"summary": {"contradictions": len(self.contradictions),
+                            "orphans": len(self.orphans),
+                            "invariant_violations": len(self.invariants)},
+                "defects": defects}
+
+    def gate_failed(self) -> bool:
+        return bool(self.contradictions) or bool(self.invariants)
+
+
+def _resolve_claims_path(workspace: Path) -> Path | None:
+    path = workspace / "claims" / "ledger.jsonl"
+    if path.exists() and path.stat().st_size > 0:
+        return path
+    return None
+
+
+def _iter_claims(path: Path) -> Iterable[dict[str, Any]]:
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            yield json.loads(line)
+        except json.JSONDecodeError as e:
+            # A corrupt ledger line must not crash the pass; skip it with a warning.
+            _log.warning("skipping malformed ledger line %d in %s: %s", n, path, e)
+
+
+def load_claim_facts(workspace: Path) -> dict[str, dict]:
+    """Typed thesis-side projection of structured claim facts (subject/value/implies).
+
+    The claim schema is additionalProperties:false, so these are authored in
+    ``<workspace>/thesis/claim-facts.yaml`` keyed by claim id. A missing file yields
+    an empty projection (the detectors then find no structured subjects).
+    """
+    path = workspace / "thesis" / "claim-facts.yaml"
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    facts = data.get("claim_facts", {}) if isinstance(data, dict) else {}
+    return {str(k): v for k, v in facts.items() if isinstance(v, dict)}
+
+
+def _value_str(value: Any) -> str:
+    """Canonical string form of a claim value (compared against authored invariant
+    literals, which are strings in the thesis YAML)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (str, int, float)):
+        return str(value)
+    return json.dumps(value, sort_keys=True)
+
+
+def _emit_pairs(rule: str, cls: str, pairs: Iterable[tuple], detail_fmt: str,
+                bucket: list[dict], skip: set) -> set:
+    """Append pair-defects to bucket, deduped by sorted (a, b)."""
+    added: set = set()
+    for a, b in pairs:
+        key = tuple(sorted([str(a), str(b)]))
+        if key in skip or key in added:
+            continue
+        added.add(key)
+        bucket.append({"class": cls, "rule": rule, "facts": [a, b],
+                       "detail": detail_fmt.format(a=a, b=b)})
+    return added
 
 
 def project_consistency_facts(workspace: Path, store, book_id: str | None = None) -> bool:

@@ -35,12 +35,48 @@ projected base — still programmatic, no committed raw RDF. Flagged for the aud
 | P2 | P2.3 Cozo-backed validate_shacl + parity | DONE | b1cfbc6 | KG_BACKEND dispatch; canonical-form normalization; chapter-section entity + 6th constraint; parity rdflib==golden==cozo (non-tautological); 304 passed default + cozo smoke clean; both reviews |
 
 **Phase P2 (PR #2) gate:** default rdflib suite 304 passed; validate_shacl parity proven on both backends; KG_BACKEND default stays rdflib (P5.3 flips). book-compose contract preserved (callers use only .conforms; verified by reading — book-compose venv not built). Recursive-SHACL N/A (neither shape recursive). **KNOWN P5.3 INPUT:** RDF-injection test fixtures are now rdflib-pinned; the full suite under KG_BACKEND=cozo is NOT yet all-green (other consumers like run_competency_queries) — P5.3 must flip default + fix remaining consumers + rework/retire RDF-only fixtures.
-| P3 | P3.1 thesis→cozo projector | pending | — | — |
-| P3 | P3.2 D9-D11 EDN→Cozo + parity | pending | — | — |
-| P5 | P5.1 port remaining RDF readers | pending | — | — |
-| P5 | P5.2 reconcile 3 divergences | pending | — | — |
-| P5 | P5.3 default flip + cutover gate | pending | — | — |
-| Z | Phase Z adversarial audit | pending | — | — |
-| P5 | P5.4 deletion (PREPARED, not executed) | deferred | — | human review |
+| Z | Phase Z adversarial audit | DONE | 06d2d54 | internal audit: 1 CRIT + 3 IMP + 5 MIN; verdict "sound to build P3 on" |
+| Z | Audit remediation C-1/I-1/I-3 | DONE | 53572e6 | confidence lower bound ported (engines agree); raw-pyshacl golden + normalizer test; chapter constraint marked unwired; 309 passed |
+| Z | External GPT-5.5 audit prompt | DONE | (this commit) | docs/audits/2026-06-17-...-external-audit-prompt.md |
+| P3 | P3.1 thesis→cozo projector | DEFERRED | — | BLOCKED — cross-skill import architecture decision (see Handoff) |
+| P3 | P3.2 D9-D11 EDN→Cozo + parity | DEFERRED | — | depends on P3.1 |
+| P5 | P5.1 port remaining RDF readers | DEFERRED | — | depends on P3 |
+| P5 | P5.2 reconcile 3 divergences | DEFERRED | — | query-port divergences (P1 scope) |
+| P5 | P5.3 default flip + cutover gate | DEFERRED | — | needs full cozo suite green + RDF-fixture rework |
+| P5 | P5.4 deletion | DEFERRED | — | last step; human review |
+
+---
+
+## RUN SUMMARY & HANDOFF (run ended here — clean stop before P3)
+
+**Completed & reviewed (all on branch `feat/homoiconic-kg-cutover`, local only — NOT pushed/merged):**
+- **PR #1 / Phase C0** — three equivalence-oracle goldens frozen (SHACL bermuda+violating, D9–D11 bermuda+violating), each non-vacuous, each through implementer + spec-review + code-quality-review + fix loop.
+- **PR #2 / Phase P2** — status single-source (P2.1), pure `defconstraint`→Cozo compiler + 5→6→7 constraint EDN (P2.2), Cozo-backed `validate_shacl` behind `KG_BACKEND` with non-tautological parity (P2.3). Default backend stays `rdflib`.
+- **Phase Z** — internal adversarial audit + remediation of its CRITICAL (C-1) and key IMPORTANTs + an external GPT-5.5 audit prompt.
+- **Gates:** book-knowledge **309 passed**, book-thesis **43 passed** on the default backend; cozo smoke clean for touched files.
+
+**Why the run stopped before P3 (a real decision, not a failure):** P3 (retire pyDatalog) requires **book-thesis to import book-knowledge's Cozo modules**, which hits a cross-cutting architecture choice the run should not make unilaterally:
+- `sibling_skills` resolves book-knowledge to `~/.claude/skills/book-knowledge` — a **distinct, stale** copy (no P2 changes; its venv has no pycozo), NOT the repo copy.
+- Both skills define a top-level `scripts` package (name collision); book-knowledge has at least one absolute `from scripts.cozo_store import …` that breaks aliased cross-skill loading.
+- book-thesis's venv lacks `pycozo` + `edn_format`.
+
+**Decision needed (pick one), then P3 can proceed:**
+1. **Sync `~/.claude/skills/book-knowledge` ← repo** and load via `sibling_skills` (matches book-compose's model; but the repo is no longer self-contained — depends on installed-copy state).
+2. **Add a repo-relative aliased loader** (point the `_book_knowledge_scripts` alias at `skills/book-knowledge/scripts`) — repo self-contained; diverges from the installed-skill model; must also fix the absolute `from scripts.…` import.
+3. **Refactor the shared Cozo code** (cozo_store, compile_constraint, project_ledger, kg-schema) into a common importable location both skills depend on — cleanest long-term; largest blast radius.
+Whichever is chosen: add `pycozo[embedded]` + `edn_format` to book-thesis's pyproject + venv. The external audit prompt asks GPT-5.5 to weigh in on this too.
+
+**Open audit findings deliberately deferred (documented, none affect real bermuda data):**
+- **I-2 residual** — the path-keyed message remap can mislabel/collapse multiple pyshacl violations sharing one path, and the Cozo path *crashes* on a wrong-datatype confidence (typed-column load). Synthetic-only (JSON schema forbids on real data). Fix when convenient: key on `(path, sh:sourceConstraintComponent)` or drop message from the parity contract.
+- **M-1** — `status-enum` + `text-cardinality` constraints are correct but unexercised by the violating golden (both engines verified to agree). Add a frobnicated-status + text-less row to the fixtures to exercise all 7.
+- **M-2** — `test_callers_import_unchanged` is hollow (doesn't import the 3 book-compose callers; the contract does hold in practice).
+- **M-3** — `_validate_cozo` derives `conforms = not violations`; `_validate_rdflib` uses pyshacl's own flag. They line up for all shipped cases; consider unifying.
+- **M-4** — `capture_consistency` docstring claims side-effect-free, but `run()` writes `qa/datalog-defects.json`; regeneration needs `compile_thesis` first.
+- **M-5** — compiler emits a redundant `!is_null(var)` per filter clause (cosmetic; in golden bytes).
+- **REQ-KG-012/013 are PARTIAL** until a real `chapter-section` projector exists (chapter-cites-verified has no production data path).
+
+**A pre-existing property worth a product decision:** the JSON-schema record contract is strictly stronger than the SHACL/EDN constraints, so `validate_shacl` conforms on ALL real (ledger-sourced) workspaces — the constraint gate only ever fires on synthetic fixtures. The migration faithfully preserves this; but the team may want to decide whether the SHACL gate earns its keep post-cutover or should be retired rather than ported.
+
+**To resume:** `git switch feat/homoiconic-kg-cutover`; venvs are built at `skills/book-knowledge/.venv` and `skills/book-thesis/.venv` (Python 3.14). Nothing pushed; review/squash/split into PRs as desired.
 
 (Updated as the run proceeds.)

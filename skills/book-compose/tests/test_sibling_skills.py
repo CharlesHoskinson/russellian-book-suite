@@ -79,7 +79,7 @@ def test_failed_exec_does_not_cache_partial_module(tmp_path, monkeypatch, reques
     (skill / "scripts" / "boom.py").write_text(
         "before = 1\nraise RuntimeError('boom')\n", encoding="utf-8"
     )
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setattr("scripts.sibling_skills.russellian_style_root", lambda: skill)
     monkeypatch.delitem(sys.modules, "_russellian_style_scripts", raising=False)
     request.addfinalizer(lambda: sys.modules.pop("_russellian_style_scripts", None))
     request.addfinalizer(lambda: sys.modules.pop("_russellian_style_scripts.boom", None))

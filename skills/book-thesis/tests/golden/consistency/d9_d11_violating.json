@@ -1,0 +1,61 @@
+{
+  "defects": [
+    {
+      "class": "D10",
+      "detail": "claims 'clm-b' and 'clm-c' assert different values for the same subject",
+      "facts": [
+        "clm-b",
+        "clm-c"
+      ],
+      "rule": "direct_contradiction"
+    },
+    {
+      "class": "D10",
+      "detail": "claims 'clm-bad-parish' and 'clm-ok-parish' assert different values for the same subject",
+      "facts": [
+        "clm-bad-parish",
+        "clm-ok-parish"
+      ],
+      "rule": "direct_contradiction"
+    },
+    {
+      "class": "D10",
+      "detail": "claim 'clm-a' transitively contradicts 'clm-c'",
+      "facts": [
+        "clm-a",
+        "clm-c"
+      ],
+      "rule": "transitive_contradiction"
+    },
+    {
+      "class": "D11",
+      "detail": "claim 'clm-bad-parish' violates authored invariant 'parish-count'",
+      "facts": [
+        "clm-bad-parish",
+        "parish-count"
+      ],
+      "rule": "invariant_violation"
+    },
+    {
+      "class": "D11",
+      "detail": "'clm-orphan' supports a node that is neither :Thesis nor a SubArgument",
+      "facts": [
+        "clm-orphan"
+      ],
+      "rule": "unreachable_supports"
+    },
+    {
+      "class": "D9",
+      "detail": "paragraph 'clm-orphan' does not reach :Thesis through supports edges",
+      "facts": [
+        "clm-orphan"
+      ],
+      "rule": "orphan_paragraph"
+    }
+  ],
+  "summary": {
+    "contradictions": 3,
+    "invariant_violations": 2,
+    "orphans": 1
+  }
+}

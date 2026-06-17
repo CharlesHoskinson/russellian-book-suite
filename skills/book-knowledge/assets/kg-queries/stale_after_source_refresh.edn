@@ -10,20 +10,28 @@
 ;;     FILTER (?src_date > ?claim_date)
 ;;   }
 ;;
-;; The :where binds a verified claim's id and created_at (schema:dateCreated),
-;; then walks the claim->source derivation: a claim's source span carries the
-;; source's doc_id (the natural key project_graph mints prov:wasDerivedFrom from),
-;; so ?span joins the span back to the claim (claim-id) and its doc-id unifies
-;; with the source row's id (?src) -- the relational form of
-;; ``?claim prov:wasDerivedFrom ?src``. The source's ingested_at is the
-;; schema:dateCreated of the RDF source URI.
+;; The :where binds a verified claim's id and created_at, then joins
+;; claim -> source-span (claim-id) -> source (the span's doc-id unifies with the
+;; source row's id) and reads the source's ingested_at.
 ;;
-;; :filter applies the var-vs-var ordered comparison ``?src_date > ?claim_date``:
-;; the source was ingested/refreshed strictly AFTER the claim was created, so the
-;; claim may be stale against newer source material. Both are ISO-8601 strings,
-;; which Cozo compares lexically -- the same total order the SPARQL date compare
-;; uses. bermuda's golden is empty: its one manifest-backed claim was created at
-;; the same instant the source was ingested (equal, not strictly later).
+;; DIVERGENCE FROM THE RDF QUERY — reconcile at P5 cutover. The .rq join is in
+;; fact STRUCTURALLY DEAD over the current RDF projection: project_graph mints
+;; prov:wasDerivedFrom to the source-SPAN URI (.../sources/<doc>#<locator>, with a
+;; fragment) while schema:dateCreated lands on the BARE manifest URI
+;; (.../sources/<doc>). Those are different nodes, so `?src schema:dateCreated
+;; ?src_date` never binds and the SPARQL query always returns empty (verified: all
+;; 14 bermuda wasDerivedFrom targets have dateCreated = nil). This EDN port
+;; implements the INTENDED semantics — join on the underlying doc_id, which
+;; actually connects — so the two agree on bermuda ONLY because every claim there
+;; was created at the same instant its source was ingested (equal, not strictly
+;; later). On a workspace with a genuinely refreshed source the Cozo port WILL
+;; fire while the broken SPARQL stays silent. P5 must choose: fix project_graph's
+;; URI minting, or adopt this corrected join as canonical.
+;;
+;; :filter applies the var-vs-var ordered comparison `?src_date > ?claim_date`
+;; (source refreshed strictly after the claim was created). Both are ISO-8601
+;; strings, which Cozo compares lexically — the same total order the date compare
+;; intends.
 (defquery :stale-after-source-refresh
   :find   [?claim ?claim-date ?src-date]
   :where  [[?c :claim/id ?claim]

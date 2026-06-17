@@ -56,6 +56,16 @@ minimal impl → green → commit. Verify Rust/cljs via CI.
 - [ ] REQ-KG-010 — cutover gate: all characterization fixtures reproduced
 - [ ] Delete `rdflib`/SPARQL/SHACL/`project_graph` RDF emit; Cozo sole store
 - [ ] Update README/AGENTS/CLAUDE + docs/operations to the single-graph model
+- [ ] Reconcile RDF↔Cozo divergences surfaced during P1 (documented inline in the
+      kg-queries EDN), deciding the canonical semantics for each:
+  - `stale_after_source_refresh`: project_graph's `wasDerivedFrom`(span-URI) vs
+    `dateCreated`(bare-manifest-URI) never join → the SPARQL is structurally dead;
+    the Cozo port joins on `doc_id` (intended). Fix RDF URI minting or adopt Cozo's.
+  - `unsupported_claims`: SPARQL negates `wasDerivedFrom` (span OR `derived_from`);
+    the Cozo port negates only the source-span. Decide if `derived_from` counts.
+  - project_graph quirks the projector faithfully mirrors: the doubled `wiki/wiki/`
+    page-URI prefix; counter-claim `ccStatus` emitted per-record with no
+    latest-per-id dedup (open+addressed both present).
 
 ## Phase Z — PR
 - [ ] Push + open PR per phase (P0+P1 first).

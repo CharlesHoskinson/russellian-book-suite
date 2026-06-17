@@ -233,13 +233,17 @@ Skill: `book-thesis` (+ `book-knowledge` for the consistency compiler if shared)
 
 ## Task P5.4: delete the legacy stack (REQ-KG-018) — PR #5
 
-**Files (delete):** `project_graph.py` RDF emit (or the whole module if nothing else uses it), `assets/shapes.ttl`, `assets/queries/*.rq`, `compile_thesis.py`'s TTL emit, `book-thesis/rules/consistency.dl`, the rdflib-based internals of `validate_shacl`/`datalog_consistency`.
-**Files (modify):** the three pyproject.toml — drop `rdflib`/`pyshacl`/`pyDatalog` deps + the `filterwarnings` lines.
-**Files (docs):** README.md, AGENTS.md, CLAUDE.md, `docs/operations/*`, the skill SKILL.md files — update to the single-graph model.
+**SCOPE CORRECTED at the P5.4 recon (2026-06-17) — the original "delete rdflib/pyshacl/pyDatalog" was over-broad and would break the codebase. rdflib is NOT removable:**
+- **rdflib STAYS** in `book-knowledge` (`audit_taxonomy` — the RDFS linter kept out of cutover scope) AND in `book-thesis`: `compile_thesis` emits `thesis-triples.ttl`, which the entailment/lint/exemplar layer (`dispatch_entailment`, `lint_supports`, `synthesize_exemplars`) parses via rdflib — none migrated to Cozo. So **`compile_thesis`'s TTL emit STAYS too.** The no-legacy-import scan therefore bans `pyshacl`/`pyDatalog` + TriG-dataset parsing, NOT rdflib (allowlist: the modules above).
+- **`consistency_cozo` imports `DefectReport`/`_emit_pairs`/`_value_str` from `datalog_consistency`** (which imports pyDatalog at module load). So pyDatalog removal REQUIRES first extracting those helpers out of `datalog_consistency` into `consistency_cozo` (or a shared module). Then delete `datalog_consistency` + `consistency.dl` + `capture_consistency` (pyDatalog golden capturer).
 
-- [ ] **Step 1:** delete; rebuild each venv WITHOUT rdflib/pyshacl/pyDatalog (`pip install -e .[dev]`); confirm `test_no_legacy_import_after_cutover` green and nothing imports the deleted modules.
-- [ ] **Step 2:** full suite green across book-knowledge / book-compose / book-thesis / book-qa with the legacy deps UNINSTALLED (proves no hidden dependency).
-- [ ] **Step 3:** update docs. Commit `kg(P5.4): delete rdflib/pyshacl/pyDatalog + RDF/SHACL/TTL stack; Cozo sole store (REQ-KG-018)`.
+**Split into two PRs.** P5.4a (pyshacl / SHACL-SPARQL rdflib stack — self-contained); P5.4b (pyDatalog consistency stack — needs the helper extraction + QA-gate wiring).
+
+**P5.4a — delete:** `validate_shacl`'s rdflib internals (`_validate_rdflib`/`_load_data`/`_load_shapes`/`_parse_violations`/`_normalize_*`/`_build_canonical_messages`), `run_competency_queries`'s `_run_queries_rdflib`/`_load_dataset`, `assets/shapes.ttl`, `assets/queries/*.rq`, and `project_graph` (TriG emit — sole remaining consumers are the deleted rdflib paths + the rdflib-pinned tests). Rework the rdflib-pinned tests (`test_violating_workspace`, the rdflib legs of `test_constraint_ports`/`test_presence_ports`/`test_validate_shacl`, book-compose's release-bundle non-conforming test) to LEDGER-based fixtures, or delete them with the path. Drop `pyshacl` from book-knowledge + book-compose pyproject. KEEP rdflib.
+**P5.4b — extract** `DefectReport`/`_emit_pairs`/`_value_str`/`_collect`-shape into `consistency_cozo` (self-contained); **delete** `datalog_consistency`, `rules/consistency.dl`, `capture_consistency`; **wire** the QA gate (book-qa / book-thesis caller) to `consistency_cozo`; drop `pyDatalog` from book-thesis pyproject. KEEP `compile_thesis` (+ its TTL) and the entailment/lint/exemplar layer.
+**Both:** add `test_no_legacy_import_after_cutover` (no `pyshacl`/`pyDatalog` import; no `format="trig"`/`.parse(layout.dataset` outside the rdflib-allowlisted modules). Update docs (README/AGENTS/CLAUDE/SKILL.md) to the single-store model where the RDF claim graph is gone but the thesis TTL + audit_taxonomy remain.
+
+- [ ] Step 1: P5.4a (RED→GREEN→commit). Step 2: P5.4b. Step 3: rebuild venvs WITHOUT pyshacl/pyDatalog; full multi-skill suite green; docs.
 
 ---
 

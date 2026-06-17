@@ -1,0 +1,77 @@
+{
+  "nodes": [
+    {
+      "id": "mod_alpha",
+      "label": "alpha.py",
+      "file_type": "code",
+      "source_file": "src/alpha.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "mod_beta",
+      "label": "beta.py",
+      "file_type": "code",
+      "source_file": "src/beta.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "fn_gamma",
+      "label": "gamma()",
+      "file_type": "code",
+      "source_file": "src/alpha.py",
+      "source_location": "L12",
+      "_origin": "ast"
+    },
+    {
+      "id": "fn_delta",
+      "label": "delta()",
+      "file_type": "code",
+      "source_file": "src/beta.py",
+      "source_location": "L20",
+      "_origin": "ast"
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "links": [
+    {
+      "source": "mod_alpha",
+      "target": "fn_gamma",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/alpha.py",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "mod_beta",
+      "target": "fn_delta",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/beta.py",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "fn_gamma",
+      "target": "fn_delta",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/alpha.py",
+      "source_location": "L15",
+      "weight": 2.0
+    },
+    {
+      "source": "mod_alpha",
+      "target": "mod_beta",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "src/alpha.py",
+      "source_location": "L3",
+      "weight": 1.0
+    }
+  ]
+}

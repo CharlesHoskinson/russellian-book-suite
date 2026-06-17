@@ -181,8 +181,17 @@
                [:member-of :community]]}
 
   ;; Code edge — graphify graph.json link (source, target, relation, weight).
+  ;; The identity column :id is the SYNTHETIC (source-id . target-id .
+  ;; relationship) triple key, not the bare :source-id. graphify is a multigraph:
+  ;; one node has many outgoing links (e.g. a module that both ``contains`` a
+  ;; function and ``imports`` another module), so keying on :source-id alone would
+  ;; collapse every edge out of a node to one row. The synthetic triple id is the
+  ;; minimal key that keeps each distinct (source, target, relationship) edge while
+  ;; staying upsert-stable across re-projection. :source-id / :target-id are kept
+  ;; bare so they join :code-node/id and so the in-engine PageRank/Louvain pass
+  ;; (P4.2) reads the edge endpoints directly.
   :code-edge
-  {:attrs [:source-id :target-id :relationship :weight]
+  {:attrs [:id :source-id :target-id :relationship :weight]
    :types {:weight :float}
    :relations [[:from :code-node]
                [:to :code-node]]}
@@ -190,4 +199,19 @@
   ;; Community — a detected cluster of code nodes (graphify community structure).
   :community
   {:attrs [:id :members]
-   :relations [[:has-member :code-node]]}}}
+   :relations [[:has-member :code-node]]}
+
+  ;; Code<->claim link — the join edge that fuses the code graph and the claims
+  ;; graph in ONE store (the homoiconic KG's headline ability: a single query can
+  ;; reach from a code node to the claims it supports, something the parallel
+  ;; RDF/SPARQL path could not do — that path holds only claims, not the code
+  ;; graph). :code-id references a :code-node/id, :claim-id a :claim/id; the
+  ;; synthetic (code-id . claim-id) pair is the identity so re-projection upserts.
+  ;; PRODUCTION semantics for deriving these links from real data (e.g. a claim's
+  ;; source file resolving to a code module, or a symbol reference) are a FOLLOW-ON
+  ;; — today the link is an explicit relation, which is sufficient to prove the
+  ;; cross-graph join works (see tests/test_kg_capability.py).
+  :code-claim-link
+  {:attrs [:id :code-id :claim-id]
+   :relations [[:of-code :code-node]
+               [:of-claim :claim]]}}}

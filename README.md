@@ -359,13 +359,13 @@ The stub returns `"0.0.0-stub"` and the adapter strips the JSON quote layer, han
 ### Tier 2 — Drafting pipeline
 
 <details>
-<summary><strong>book-knowledge</strong> — epistemic compiler: claim ingestion, provenance, RDF graph</summary>
+<summary><strong>book-knowledge</strong> — epistemic compiler: claim ingestion, provenance, EDN/Cozo graph</summary>
 
-**What it does.** The claim ledger starts here. `book-knowledge` reads local PDF and Markdown sources, extracts claims with PROV-O provenance, projects them into an RDF dataset, validates the graph with SHACL, and runs competency queries that confirm the knowledge base answers the questions the book contract requires. The ledger appends; nothing deletes. A claim enters `claims/ledger.jsonl` once, then its state advances through `proposed → verified → disputed → superseded` and stops there. Belief propagation runs a Bayesian damping pass over the provenance DAG so a single source cannot double-count by appearing twice in the witness chain. The metabook reads this ledger as ground truth; no other skill writes to it. Three services sit below the public API: `verify_claim.py` promotes a proposed claim to verified by checking the locator text against the raw source; `detect_conflicts.py` runs antonym-pair contradiction detection across the ledger; `project_graph.py` and `validate_shacl.py` together write and check the TriG dataset that downstream skills treat as authoritative. Every SPARQL competency query ships in `assets/` alongside the SHACL shapes, so the entire gate configuration travels with the skill.
+**What it does.** The claim ledger starts here. `book-knowledge` reads local PDF and Markdown sources, extracts claims with PROV-O provenance, projects them into an embedded Cozo store, validates the graph with EDN constraints, and runs competency queries that confirm the knowledge base answers the questions the book contract requires. The ledger appends; nothing deletes. A claim enters `claims/ledger.jsonl` once, then its state advances through `proposed → verified → disputed → superseded` and stops there. Belief propagation runs a Bayesian damping pass over the provenance DAG so a single source cannot double-count by appearing twice in the witness chain. The metabook reads this ledger as ground truth; no other skill writes to it. Three services sit below the public API: `verify_claim.py` promotes a proposed claim to verified by checking the locator text against the raw source; `detect_conflicts.py` runs antonym-pair contradiction detection across the ledger; `project_ledger_cozo.py` and `validate_shacl.py` together populate and check the Cozo store that downstream skills treat as authoritative. Every EDN competency query ships in `assets/kg-queries/` alongside `assets/kg-constraints/`, so the entire gate configuration travels with the skill.
 
 **Inputs / outputs.** Four public functions cross the skill boundary (IF-BK-1..4): `ingest_pdf(path, workspace)` adds a source and returns an `IngestResult`; `query_claims(filter, workspace)` returns filtered `ClaimRecord` objects from the ledger; `is_source_ingested(sha256, workspace)` checks deduplication by content hash; `list_concepts(workspace)` returns every `ConceptRef` from `wiki/concepts/`. The skill owns `raw/`, `wiki/`, `claims/`, and `graph/` exclusively — no sibling writes there.
 
-**When to invoke.** `book-knowledge` handles source ingestion, claim queries, RDF graph revalidation, and the Bayesian belief pass. Invoke it at each of those four checkpoints.
+**When to invoke.** `book-knowledge` handles source ingestion, claim queries, EDN/Cozo graph validation, and the Bayesian belief pass. Invoke it at each of those four checkpoints.
 
 **When NOT to invoke.** Skip `book-knowledge` for chapter drafting — that is `book-compose`. Skip it for sentence-grain voice checks — that is `russellian-style`. Skip it for casual document Q&A that needs no persistent claim record; reach the source directly.
 
@@ -387,7 +387,7 @@ print(len(verified), "verified claims in ledger")
 # 312 verified claims in ledger
 ```
 
-`ingest_pdf` computes a sha256 before writing anything; a second call with the same file returns `already_present` without touching the ledger. The release gate blocks on SHACL conformance and zero `unsupported_claims` before any chapter ships.
+`ingest_pdf` computes a sha256 before writing anything; a second call with the same file returns `already_present` without touching the ledger. The release gate blocks on Cozo constraint conformance and zero `unsupported_claims` before any chapter ships.
 
 **Where to dive deeper.**
 - `skills/book-knowledge/SKILL.md` — component inventory, workspace layout, release-gate criteria.
@@ -397,13 +397,13 @@ print(len(verified), "verified claims in ledger")
 
 </details>
 <details>
-<summary><strong>book-thesis</strong> — argument spine: thesis tree, entailment loop, Datalog consistency</summary>
+<summary><strong>book-thesis</strong> — argument spine: thesis tree, entailment loop, Cozo consistency</summary>
 
-**What it does.** Every paragraph in a manuscript must earn its place. `book-thesis` owns the intent substrate — the thesis tree, paragraph back-pointers to thesis nodes, a per-paragraph entailment loop, and a Datalog consistency pass that derives transitive contradictions across chapter-level claim triples. It sits as Layer 2–4 above `book-knowledge`'s Layer 1: Layer 2 holds the YAML/RDF thesis spine; Layer 3 dispatches an LLM critic per paragraph that returns `entailed | weakly-entailed | unrelated | contradicts`; Layer 4 runs Datalog rules against the full claim set to surface contradictions that span chapter boundaries. Four defect classes flow from here into `book-qa`: D9 orphan-paragraph, D10 transitive-contradiction, D11 failed-entailment, D12 unadvanced sub-argument. `book-thesis` does not ingest claims or draft prose; those belong elsewhere.
+**What it does.** Every paragraph in a manuscript must earn its place. `book-thesis` owns the intent substrate — the thesis tree, paragraph back-pointers to thesis nodes, a per-paragraph entailment loop, and a CozoScript consistency pass that derives transitive contradictions across chapter-level claim facts. It sits as Layer 2–4 above `book-knowledge`'s Layer 1: Layer 2 holds the YAML/RDF thesis spine retained for entailment; Layer 3 dispatches an LLM critic per paragraph that returns `entailed | weakly-entailed | unrelated | contradicts`; Layer 4 runs EDN-authored Cozo rules against the full claim set to surface contradictions that span chapter boundaries. Four defect classes flow from here into `book-qa`: D9 orphan-paragraph, D10 transitive-contradiction, D11 failed-entailment, D12 unadvanced sub-argument. `book-thesis` does not ingest claims or draft prose; those belong elsewhere.
 
 **Inputs / outputs.** One public function (IF-BT-1): `read_thesis_tree(chapter_id, workspace) → ThesisTree`. It reads `chapters/<chapter_id>/thesis-tree.yaml` and returns a `ThesisTree` dataclass holding a list of `ThesisNode` objects, each carrying `node_id`, `statement`, `tags`, `required_evidence_kind`, and `parent_id`. The function raises `ThesisNotDefined` when no tree file exists for the requested chapter. Each chapter owns its own `thesis-tree.yaml`; the tree is the interface between intent and evidence.
 
-**When to invoke.** `book-thesis` owns argument structure, not facts. Invoke it to compile a new thesis spec into RDF triples, lint paragraph back-pointers against the tree, run the Datalog consistency pass after a ledger update, generate exemplar packs for the drafter, or prepare entailment payloads for an LLM critic.
+**When to invoke.** `book-thesis` owns argument structure, not facts. Invoke it to compile a new thesis spec into retained RDF triples, lint paragraph back-pointers against the tree, run the Cozo consistency pass after a ledger update, generate exemplar packs for the drafter, or prepare entailment payloads for an LLM critic.
 
 **When NOT to invoke.** Skip `book-thesis` for claim ingestion or ledger writes — that is `book-knowledge`. Skip it for sentence-grain linting (hedges, passive voice) — that is `russellian-style`. Skip it for chapter orchestration — that is `book-compose`. And skip it for qualitative editorial review by personas — that is `book-review`.
 
@@ -437,14 +437,14 @@ python scripts/lint_supports.py my-workspace v0.1
 **Where to dive deeper.**
 - `skills/book-thesis/SKILL.md` — architecture diagram, layer inventory, usage commands.
 - `skills/book-thesis/skill_api.py` — IF-BT-1 public surface.
-- `skills/book-thesis/tests/` — fixture cases for compile, lint, Datalog, and entailment dispatch.
+- `skills/book-thesis/tests/` — fixture cases for compile, lint, Cozo consistency, and entailment dispatch.
 - `skills/book-qa/` — D9–D12 defect definitions and gate configuration.
 
 </details>
 <details>
 <summary><strong>book-compose</strong> — chapter orchestrator: contract in, gated release out</summary>
 
-**What it does.** A chapter contract enters; a gated release bundle exits. `book-compose` drives nine pipeline stages: it loads `chapters/contracts/<chapter_id>.yaml`, runs a pre-flight SHACL check, slices verified claims from the ledger, produces a section outline for user approval, drafts each section by loading a `russellian-style` system prompt, applies the `humanizer` sibling for a final AI-pattern pass, dispatches the seven-persona editorial panel, assembles a chapter bundle, and — on explicit request — builds the book-level release: `manuscript.md`, a React/Tailwind HTML browser, and a Playwright PDF. No stage reaches backwards; stage N reads only what stage N-1 wrote.
+**What it does.** A chapter contract enters; a gated release bundle exits. `book-compose` drives nine pipeline stages: it loads `chapters/contracts/<chapter_id>.yaml`, runs a pre-flight Cozo constraint check, slices verified claims from the ledger, produces a section outline for user approval, drafts each section by loading a `russellian-style` system prompt, applies the `humanizer` sibling for a final AI-pattern pass, dispatches the seven-persona editorial panel, assembles a chapter bundle, and — on explicit request — builds the book-level release: `manuscript.md`, a React/Tailwind HTML browser, and a Playwright PDF. No stage reaches backwards; stage N reads only what stage N-1 wrote.
 
 **Inputs / outputs.** The skill reads `chapters/contracts/<chapter_id>.yaml` for the chapter contract, `syntopical/lenses/<chapter_id>.md` for the world-model slice, and `claims/ledger.jsonl` for the verified claim set. It writes drafts and review artefacts under `chapters/drafts/<chapter_id>/`, release bundles under `chapters/releases/<chapter_id>-<version>/`, and book-level releases under `book/releases/<version>/`. The public API function `read_lens(chapter_id, workspace)` — defined in `skill_api.py` as interface contract IF-BC-1 — reads and validates the lens file, enforcing the section order `## Topics` → `## Disputed Questions` → `## Concept Reconciliation` → `## Coverage`; any deviation raises `LensContractViolation`.
 
@@ -454,7 +454,7 @@ python scripts/lint_supports.py my-workspace v0.1
 
 **Trigger phrases.** The frontmatter lists: `"draft chapter X"`, `"compile chapter from contract"`, `"build release bundle for chapter X"`, `"render chapter to PDF"`, `"build the book release"`, `"publish the book"`.
 
-**Example walkthrough.** The user says "draft chapter ch-01". `book-compose` loads `chapters/contracts/ch-01.yaml`, verifies claims against the SHACL shapes, queries the ledger for the ch-01 claim slice, and presents a section outline. On approval it drafts each section: loads the `technical-exposition` system prompt via `system_prompt_loader.load("technical-exposition")`, generates a first-pass draft, calls `russellian-style` for voice discipline, calls `humanizer` for AI-pattern removal. Section drafting complete, `review-conductor` dispatches the seven-persona panel and aggregates findings into `verdict.json`. If `verdict.verdict != "soft-gate-fail"`, the bundle lands at `chapters/drafts/ch-01/draft.md`. Any gating persona — Gottlieb, Domain Expert, Copyeditor, or AI-Slop Detector — can raise a critical finding that sends the chapter back to drafting.
+**Example walkthrough.** The user says "draft chapter ch-01". `book-compose` loads `chapters/contracts/ch-01.yaml`, verifies claims against the Cozo constraints, queries the ledger for the ch-01 claim slice, and presents a section outline. On approval it drafts each section: loads the `technical-exposition` system prompt via `system_prompt_loader.load("technical-exposition")`, generates a first-pass draft, calls `russellian-style` for voice discipline, calls `humanizer` for AI-pattern removal. Section drafting complete, `review-conductor` dispatches the seven-persona panel and aggregates findings into `verdict.json`. If `verdict.verdict != "soft-gate-fail"`, the bundle lands at `chapters/drafts/ch-01/draft.md`. Any gating persona — Gottlieb, Domain Expert, Copyeditor, or AI-Slop Detector — can raise a critical finding that sends the chapter back to drafting.
 
 **Where to dive deeper.**
 - `skills/book-compose/SKILL.md`
@@ -677,7 +677,7 @@ python scripts/healer.py workspaces/bermuda --apply qa/healer-payloads/D6-ch-03.
 
 **Inputs / outputs.** `scaffold_project.py` takes a workspace name and an optional `--book-knowledge-bridge` flag; with the flag set, it accepts `claims/ledger.jsonl` from `book-knowledge` as Phase-1 input and seeds the atomspace from the claim ledger. Without it, the scaffold is a blank slate. `add_sort.py`, `add_rewrite_rule.py`, and `add_grounded_atom.py` each extend an existing scaffold in-place. The verifier emits `qa/verification-defects.json`. When the workspace sets `enable_verification: true` in `qa-config.yaml`, `book-qa` reads that file and raises D13 (claim-set-unsatisfiable) on any unsatisfied constraint.
 
-**When to invoke.** Use when a workspace needs logical verification beyond what prose linters catch — Z3 constraints on date arithmetic, e-graph rewriting for algebraic claims, or Datalog consistency over cross-chapter assertions. Off by default; explicit opt-in per workspace.
+**When to invoke.** Use when a workspace needs logical verification beyond what prose linters catch — Z3 constraints on date arithmetic, e-graph rewriting for algebraic claims, or Cozo consistency over cross-chapter assertions. Off by default; explicit opt-in per workspace.
 
 **When NOT to invoke.** Skip `neurosym-forge` for prose reviews, claim ingestion, or chapter drafting. Skip it for any workspace where the prose linters and persona reviews are sufficient — most manuscripts do not need this tier.
 
@@ -779,7 +779,7 @@ Inline `<!-- lint-disable: <rule>[, <rule>] reason=<short> -->` comments mark le
 
 ### The book workspace
 
-A workspace is a directory. Ten subtrees, four append-only ledgers, one RDF graph: cloning the directory clones the book.
+A workspace is a directory. Ten subtrees, four append-only ledgers, one graph workspace: cloning the directory clones the book.
 
 ```mermaid
 graph TD
@@ -813,13 +813,13 @@ graph TD
     book --> book_rel[releases/<version>/]
 ```
 
-Five ownership invariants hold by skill contract and by test. `book-knowledge` is the only writer of `raw/`, `wiki/`, `claims/`, `graph/`. `book-compose` is the only writer of `chapters/` and `book/`. `book-qa` is the only writer of `qa/`. `book-thesis` is the only writer of `thesis/`. `syntopical-metabook` is the only writer of `syntopical/`, and its CI plugin enforces this by failing any test that opens a write handle on the other four subtrees. The SHACL shapes file (`shapes.ttl`) and the JSON Schema for the source manifest stay in lockstep: an off-by-one in the status enum would break both gates silently, so the test suite checks that the SHACL `sh:in` list and the JSON Schema enum match exactly.
+Five ownership invariants hold by skill contract and by test. `book-knowledge` is the only writer of `raw/`, `wiki/`, `claims/`, `graph/`. `book-compose` is the only writer of `chapters/` and `book/`. `book-qa` is the only writer of `qa/`. `book-thesis` is the only writer of `thesis/`. `syntopical-metabook` is the only writer of `syntopical/`, and its CI plugin enforces this by failing any test that opens a write handle on the other four subtrees. The EDN status enum, `kg-schema.edn`, `kg-constraints/status-enum.edn`, and the JSON Schema contract stay in lockstep: an off-by-one in the status enum would break gates silently, so the test suite checks that the authored copies match exactly.
 
 ### The claim ledger and PROV-O provenance
 
 A claim is a statement extracted from a source: subject, predicate, object, plus a source pointer, a span, a status, and a Bayesian posterior. PROV-O is the W3C provenance ontology, which records for every fact the source, the extractor, and the timestamp. Every claim in the manuscript traces back to a specific line in a specific source because PROV-O is what makes that trace possible.
 
-The ledger is an append-only JSONL log. Each line is either a new claim or a state transition on an existing claim. `project_graph.py` projects the claim ledger into an RDF dataset in the TriG format, a flavour of Turtle with named graphs. `validate_shacl.py` runs SHACL — the W3C Shapes Constraint Language — against `shapes.ttl` to enforce the structural rules.
+The ledger is an append-only JSONL log. Each line is either a new claim or a state transition on an existing claim. `project_ledger_cozo.py` projects the claim ledger into Cozo relations declared by `kg-schema.edn`. `validate_shacl.py` keeps the public compatibility name while enforcing structural rules through EDN constraints over that Cozo store.
 
 The status field follows a five-state machine. New claims arrive `proposed`. `verify_claim.py` promotes a proposed claim to `verified` once it cross-checks the locator text against the source span. `detect_conflicts.py` flips a verified claim to `disputed` when it finds an antonym-pair contradiction; if a later ingest resolves the contradiction, the claim returns to `verified`. A newer source can supersede an older claim about the same triple, sending the older one to `superseded`. When post-build QA finds a verified claim that a later source contradicts, the write-back proposes a transition to `refuted`. Both `superseded` and `refuted` are terminal.
 
@@ -835,7 +835,7 @@ stateDiagram-v2
     refuted --> [*]
 ```
 
-Every claim carries PROV-O provenance: which source, which extractor, which version, when. A SHACL violation surfaces as a warning at ingest time and as a hard fail at the release gate.
+Every claim carries PROV-O provenance: which source, which extractor, which version, when. A Cozo constraint violation surfaces as a warning at ingest time and as a hard fail at the release gate.
 
 ### Bayesian belief propagation
 
@@ -851,11 +851,11 @@ graph LR
     proposed --> apply[book-knowledge.apply_writeback]
     apply --> ledger[(claims/ledger.jsonl)]
     apply --> events[(claims/events.jsonl)]
-    ledger --> preflight[next chapter preflight<br/>SHACL + competency queries]
+    ledger --> preflight[next chapter preflight<br/>constraints + competency queries]
     preflight --> qa
 ```
 
-`apply_writeback` is the only mutator of `claims/` outside book-knowledge's own ingest path; it lives in book-knowledge to preserve the ledger-ownership invariant. The writeback transitions a verified claim to `refuted` (post-QA evidence against it) or `superseded` (a newer source addressing the same triple). The next chapter's preflight runs against the corrected state, and the SHACL gate rejects any chapter that still cites the refuted claim.
+`apply_writeback` is the only mutator of `claims/` outside book-knowledge's own ingest path; it lives in book-knowledge to preserve the ledger-ownership invariant. The writeback transitions a verified claim to `refuted` (post-QA evidence against it) or `superseded` (a newer source addressing the same triple). The next chapter's preflight runs against the corrected state, and the Cozo constraint gate rejects any chapter that still cites the refuted claim.
 
 ### Russellian prose discipline
 
@@ -926,12 +926,11 @@ A book has a thesis. The thesis decomposes into sub-arguments; each sub-argument
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Layer 4  Datalog consistency pass                            │
-│          (Datalog = a declarative logic-programming language │
-│          for deriving facts from rules; the pass runs ~15    │
-│          rules over the claim graph to find transitive       │
-│          contradictions like "ch-1 says A → B, ch-2 says    │
-│          B → ¬A")                                            │
+│ Layer 4  EDN/Cozo consistency pass                           │
+│          (CozoScript derives facts from rules authored as    │
+│          EDN; the pass runs over claim facts to find         │
+│          transitive contradictions like "ch-1 says A → B,    │
+│          ch-2 says B → ¬A")                                  │
 └────────────────────────┬────────────────────────────────────┘
 ┌────────────────────────▼────────────────────────────────────┐
 │ Layer 3  Verifier-generator entailment loop                  │
@@ -947,11 +946,11 @@ A book has a thesis. The thesis decomposes into sub-arguments; each sub-argument
 │          a `supports: <node>` back-pointer                   │
 └────────────────────────┬────────────────────────────────────┘
 ┌────────────────────────▼────────────────────────────────────┐
-│ Layer 1  Claim ledger + RDF + SHACL  (book-knowledge)        │
+│ Layer 1  Claim ledger + EDN/Cozo store  (book-knowledge)     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Each layer contributes a defect class to `book-qa`. D9 fires when a paragraph carries no `supports:` field. D10 fires when the Datalog pass derives a transitive contradiction across chapters — a chain the per-chapter linter would miss because it only sees one chapter at a time. D11 fires when the entailment critic returns `contradicts` or `unrelated`. D12 fires when a node has no paragraphs advancing it.
+Each layer contributes a defect class to `book-qa`. D9 fires when a paragraph carries no `supports:` field. D10 fires when the Cozo consistency pass derives a transitive contradiction across chapters — a chain the per-chapter linter would miss because it only sees one chapter at a time. D11 fires when the entailment critic returns `contradicts` or `unrelated`. D12 fires when a node has no paragraphs advancing it.
 
 D9, D10, and D11 are critical and hard-gate the release. D12 is important and surfaces in the post-build report, but the chapter can still ship with a documented waiver — though a sub-argument with nothing advancing it is a structural admission that the book has not earned its own thesis node.
 
@@ -1027,7 +1026,7 @@ Mechanical defects:
 | D7 | CSS reset clobber (Tailwind preflight overriding heading sizes) | book-qa linter | crit |
 | D8 | asset 404s | book-qa linter | crit |
 | D9 | paragraph-orphan: missing `supports:` | book-thesis | crit |
-| D10 | transitive-contradiction | book-thesis (Datalog) | crit |
+| D10 | transitive-contradiction | book-thesis (Cozo consistency) | crit |
 | D11 | failed-entailment: `contradicts` or `unrelated` | book-thesis (entailment) | crit |
 | D12 | unadvanced sub-argument | book-thesis | imp |
 
@@ -1232,7 +1231,7 @@ The stylometric scorer uses a relative-frequency L1 distance over a closed, offl
 | ID | Catches | Severity |
 | --- | --- | --- |
 | D9 | Paragraph orphan — no `supports:` chain reaches `:Thesis` | critical |
-| D10 | Transitive contradiction via Datalog | critical |
+| D10 | Transitive contradiction via Cozo consistency | critical |
 | D11 | LLM-critic entailment verdict of `contradicts` or `unrelated` | critical |
 | D12 | Unadvanced sub-argument (thesis node with no supporting paragraph) | important |
 
@@ -1260,11 +1259,11 @@ The stylometric scorer uses a relative-frequency L1 distance over a closed, offl
 
 All `book-thesis` linters are CLI-only; no `skill_api` entry point exists. §13 recommendation 5 notes this gap.
 
-### book-knowledge — SHACL + SPARQL + Bayesian
+### book-knowledge — EDN/Cozo + Bayesian
 
-Three layers enforce claim-shape integrity. SHACL validates graph structure first: `tbf:ClaimShape` requires one `schema:text`, a status drawn from a five-state enum, a confidence value in [0, 1], and at least one source span; verified claims must also carry `prov:wasDerivedFrom`. `tbf:ChapterSectionShape` constrains sections to cite only verified claims. Either shape violation blocks the stage-2 preflight gate in `book-compose`.
+Three layers enforce claim-shape integrity. EDN constraints validate graph structure first: each claim requires canonical text, a status drawn from a five-state enum, a confidence value in [0, 1], and at least one source span; verified claims must also derive from a source span. Chapter sections constrain sections to cite only verified claims. Any constraint violation blocks the stage-2 preflight gate in `book-compose`.
 
-Eight SPARQL competency queries exercise the claim graph after SHACL passes. Four coverage queries confirm at least one verified claim per topic area. One consistency query checks for simultaneous `verified` and `refuted` status on the same claim. Three defeasible queries carry severity metadata; under `BLOCKING_DEFEASIBLE = True` (the default), the first two are hard-failures.
+Eight EDN/Cozo competency queries exercise the claim graph after constraints pass. Four coverage queries confirm at least one verified claim per topic area. One consistency query checks for simultaneous `verified` and `refuted` status on the same claim. Three defeasible queries carry severity metadata; under `BLOCKING_DEFEASIBLE = True` (the default), the first two are hard-failures.
 
 Bayesian belief propagation (`propagate_belief.py`) damps claim posteriors by ×0.95, ×0.85, or 1.0 based on counter-claim status, running up to 20 rounds. Advisory, not blocking. Antonym-pair contradiction detection (`detect_conflicts.py`) scans twelve antonym pairs over verified claims, flips matches to `disputed`, and appends findings to `claims/conflicts.jsonl`. Locator verification (`verify_claim.py`) cross-checks proposed claim text against its declared source span before promoting the claim to `verified`.
 
@@ -1300,10 +1299,10 @@ graph LR
     end
     subgraph bt[book-thesis — 5 classes]
         bts[lint_supports]
-        btd[7 datalog rules]
+        btd[Cozo consistency rules]
     end
-    subgraph bk[book-knowledge — SHACL + SPARQL]
-        bks[2 SHACL shapes]
+    subgraph bk[book-knowledge — EDN/Cozo]
+        bks[EDN constraints]
         bkq[8 competency queries]
         bkb[Bayesian belief]
         bkc[antonym detection]
@@ -1385,12 +1384,11 @@ cp -r skills/iacr-review ~/.claude/skills/iacr-review
 .venv/Scripts/python -m scripts.workspace init /path/to/my-book
 ```
 
-4. **Drop source PDFs into `<workspace>/raw/`.** Ingest each source and project the claim graph.
+4. **Drop source PDFs into `<workspace>/raw/`.** Ingest each source and validate the Cozo-backed claim graph.
 
 ```bash
 .venv/Scripts/python -m scripts.ingest_pdf source.pdf /path/to/my-book
 .venv/Scripts/python -m scripts.verify_claim /path/to/my-book
-.venv/Scripts/python -m scripts.project_graph /path/to/my-book
 .venv/Scripts/python -m scripts.validate_shacl /path/to/my-book
 ```
 
@@ -1496,7 +1494,7 @@ The Python-side API call is the current architectural boundary. The proposed MCP
 
 Charles opens `examples/bermuda-manual/` and finds a workspace whose work is already done. The release sits in `book/releases/6.0.0/manuscript.md`: ten chapters, twenty-eight thousand words on contemporary Bermuda, committed in May 2026. He did not write it. He is reading what his suite wrote.
 
-He opens `book-manifest.yaml`. Two booleans declare the gates the manuscript cleared on its way out: `shacl_conforms: true`, `competency_clean: true`. The first says the projected RDF graph satisfies every shape in `shapes.ttl` — every claim carries a status from the five-state enum, every chapter section cites only verified claims, every required field holds a value. Eight competency queries returned zero rows for the second: no orphan wiki pages, no unsupported claims, no transitive contradictions, no posterior-floor violations, no open rebuttals against load-bearing claims. Both gates fired clean and the release-builder let the manuscript ship.
+He opens `book-manifest.yaml`. Two booleans declare the gates the manuscript cleared on its way out: `shacl_conforms: true`, `competency_clean: true`. The first is a retained manifest field whose current producer checks EDN constraints over Cozo — every claim carries a status from the five-state enum, every chapter section cites only verified claims, every required field holds a value. Eight competency queries returned zero rows for the second: no orphan wiki pages, no unsupported claims, no transitive contradictions, no posterior-floor violations, no open rebuttals against load-bearing claims. Both gates fired clean and the release-builder let the manuscript ship.
 
 One further line in the manifest deserves the operator's careful attention. `sources_bibliography: [thesis]`. Not a corpus of PDFs. Not Bermuda Government statistics, not Department of Tourism reports, not the ABIR data tables. A single source named `thesis`, which points back to a YAML file in `thesis/` that lays out the argument structure of the book. From that YAML, `tools/synthesize_bermuda_ledger.py` produced the Bermuda claim ledger. Everything downstream — drafting, persona review, QA swarm, release — ran end-to-end against the synthesized ledger. Tier 1's acquisition chain (`scrapling-fetch` harvesting sources, `syntopical-metabook` building a world-model from primary documents) sat out this build.
 
@@ -1512,9 +1510,9 @@ On those same fifteen acres, Wingate brought back a bird the colony had given up
 
 Open `claims-bibliography.jsonl`. Each line carries one claim cited in the manuscript, with its canonical text, its posterior probability, its source spans, its counter-claim ids, and its supports_chapters array. The bibliography projects the ledger down to exactly the claims the release cites. Every footnote in the manuscript that points to a claim id resolves here; every claim here turns up at least once in the manuscript. By construction the mapping is bijective, and the release-builder refuses to ship if it isn't.
 
-The workspace tree carries the rest of the story. `chapters/contracts/` holds the ten chapter contracts. `graph/dataset.trig` holds the projected RDF graph that the SHACL validator chewed through. `graph/reports/competency-*.md` holds the eight competency-query result tables, each with a zero-row body. `qa/` holds the swarm findings and the per-chapter tickets the earlier release iterations closed. `book/releases/` holds 3.0.0 alongside 6.0.0 — three release attempts the gates rejected, and the one they accepted. The history sits on disk; Charles can scroll through every version that did not ship.
+The workspace tree carries the rest of the story. `chapters/contracts/` holds the ten chapter contracts. `graph/` holds graph artifacts and reports; `graph/reports/competency-*.md` holds the eight competency-query result tables, each with a zero-row body. `qa/` holds the swarm findings and the per-chapter tickets the earlier release iterations closed. `book/releases/` holds 3.0.0 alongside 6.0.0 — three release attempts the gates rejected, and the one they accepted. The history sits on disk; Charles can scroll through every version that did not ship.
 
-What the Bermuda manual proves is bounded and exact. It proves the SHACL shapes work; it proves the competency queries work; it proves the chapter contracts admit a real drafting workload; it proves the bibliography projection stays faithful to the manuscript; it proves the suite refuses to ship a release whose gates have not fired clean. What the manual does not yet prove is that the same gates fire correctly on a workspace built from PDF primary sources instead of a synthesized ledger. That validation belongs to the next example — the one that runs Tier 1 at Bermuda scale against ABIR data and government statistics the suite has never previously touched.
+What the Bermuda manual proves is bounded and exact. It proves the Cozo constraints work; it proves the competency queries work; it proves the chapter contracts admit a real drafting workload; it proves the bibliography projection stays faithful to the manuscript; it proves the suite refuses to ship a release whose gates have not fired clean. What the manual does not yet prove is that the same gates fire correctly on a workspace built from PDF primary sources instead of a synthesized ledger. That validation belongs to the next example — the one that runs Tier 1 at Bermuda scale against ABIR data and government statistics the suite has never previously touched.
 
 ## Auditing the suite
 
@@ -1589,7 +1587,7 @@ The booklogic CLI runs locally, against EDN rules on disk. There is no remote se
 
 The full dependency stack:
 
-- **Python**: pdfplumber (PDF ingest), markdown-it-py (Markdown ingest), rdflib (graph), pyshacl (SHACL validation), jsonschema (claim validation), spaCy (dependency parsing for Russellian linters), pypdf (PDF post-processing), matplotlib (figures), geopandas (maps), great_tables and plottable (tables), css-inline (HTML rendering), pyDatalog (the consistency pass in book-thesis).
+- **Python**: pdfplumber (PDF ingest), markdown-it-py (Markdown ingest), pycozo + edn_format (EDN-front/Cozo-back knowledge graph), rdflib (retained only for thesis entailment and `audit_taxonomy`), jsonschema (claim validation), spaCy (dependency parsing for Russellian linters), pypdf (PDF post-processing), matplotlib (figures), geopandas (maps), great_tables and plottable (tables), css-inline (HTML rendering). `pyshacl` and `pyDatalog` were removed in v0.4.0.
 - **Node**: `@mermaid-js/mermaid-cli` for Mermaid diagrams, called from Playwright's bundled Chromium.
 - **Playwright**: HTML → PDF rendering with Chromium.
 
@@ -1698,6 +1696,6 @@ Acknowledgements:
 - **The Tufte CSS family** — typography reference for the v4.3 prose-furniture treatment
 - **The W3C PROV-O working group** — the provenance ontology the claim ledger projects into
 - **OpenStreetMap contributors (ODbL)** — base data for the parish and ferry-route maps
-- **The pyShacl, rdflib, spaCy, and pyDatalog maintainers** — the validation and parsing stack
+- **The pycozo, edn_format, rdflib, and spaCy maintainers** — the validation and parsing stack
 - **The Wikipedia editors of "Signs of AI writing"** — the AI-fingerprint catalog the `humanizer` skill encodes and the AI-Slop Detector persona delegates to
 - **Charles Hoskinson** — the operator who pushed every PR in the suite's evolution and named the audit pattern

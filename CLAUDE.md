@@ -51,7 +51,7 @@ Per the user's `~/.claude/CLAUDE.md`:
 - All schema changes touch BOTH the JSON Schema in `assets/` AND the validator in `scripts/`
 - New optional fields with defaults are backward-compatible; required fields require migration
 - The state machine for `tbf:status` is enforced in `claim_validator.VALID_TRANSITIONS`. Five states: `proposed`, `verified`, `disputed`, `superseded`, `refuted`. `superseded` and `refuted` are terminal.
-- The SHACL `shapes.ttl` `sh:in` list must match the schema enum exactly. Off-by-one is a silent SHACL failure.
+- The EDN status enum, `kg-schema.edn`, `kg-constraints/status-enum.edn`, and `claim_validator.VALID_TRANSITIONS` must stay in lockstep. Off-by-one state drift is a silent gate failure.
 
 ## Documentation contracts
 

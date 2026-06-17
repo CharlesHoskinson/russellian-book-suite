@@ -16,7 +16,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+
+pytestmark = pytest.mark.windows_canary
 
 # Files allowed to import rdflib: the TTL emitter + the entailment layer that reads it.
 RDFLIB_ALLOWLIST = {

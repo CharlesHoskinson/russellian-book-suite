@@ -25,6 +25,8 @@ from scripts.consistency_cozo import run_consistency_cozo
 
 from tests.fixtures.violating_thesis import build_violating_thesis
 
+pytestmark = pytest.mark.windows_canary
+
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "tests" / "golden" / "consistency"
 BERMUDA = ROOT.parents[1] / "examples" / "bermuda-manual"

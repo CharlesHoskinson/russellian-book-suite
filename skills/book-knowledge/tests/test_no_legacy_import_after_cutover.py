@@ -17,7 +17,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+
+pytestmark = pytest.mark.windows_canary
 
 # The RDFS taxonomy linter is the only sanctioned rdflib user (not a claim path).
 RDFLIB_ALLOWLIST = {"audit_taxonomy.py"}

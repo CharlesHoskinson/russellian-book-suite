@@ -32,6 +32,8 @@ from scripts.ledger import append_claim
 from scripts.workspace import WorkspaceLayout, init_workspace
 from scripts.validate_shacl import Violation, _evaluate_constraints
 
+pytestmark = pytest.mark.windows_canary
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "assets" / "kg-schema.edn"
 GOLDEN = ROOT / "tests" / "golden" / "kg"

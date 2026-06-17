@@ -20,6 +20,8 @@ import pytest
 
 from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
 
+pytestmark = pytest.mark.windows_canary
+
 # book-thesis/tests/ -> book-thesis -> skills -> skills/book-knowledge
 REPO_BK = Path(__file__).resolve().parents[2] / "book-knowledge"
 

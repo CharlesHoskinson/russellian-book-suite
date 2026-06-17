@@ -69,13 +69,30 @@ def test_relations_conform_to_schema() -> None:
     relations = store.relations()
 
     expected = _schema_entity_names_snake()
-    assert expected <= relations, f"missing relations: {expected - relations}"
+    # REQ-KG-011: a fresh store has EXACTLY the declared relations -- no more,
+    # no fewer. Equality, not superset.
+    assert relations == expected, (
+        f"missing: {expected - relations}; extra: {relations - expected}"
+    )
 
     # A name absent from the schema does not exist as a relation.
     assert "not_an_entity" not in relations
     # The kebab-original of a schema entity must NOT exist (only snake-cased).
     assert "code-node" not in relations
     assert "code_node" in relations
+
+
+def test_rejects_rogue_relation() -> None:
+    """REQ-KG-011: a relation absent from kg-schema.edn must not survive init.
+
+    Seeding a backend with an extra relation and constructing a store over it
+    must fail loudly, naming the offending relation, rather than silently
+    adopting a rogue/stale relation as a false dependency.
+    """
+    backend = StubBackend()
+    backend.create("rogue_relation", ["id"], {})
+    with pytest.raises(ValueError, match="rogue_relation"):
+        CozoStore(backend=backend, schema_path=SCHEMA_PATH)
 
 
 def test_numeric_column_supports_comparison() -> None:

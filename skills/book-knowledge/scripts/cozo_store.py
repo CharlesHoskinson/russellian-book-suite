@@ -366,8 +366,18 @@ class CozoStore:
         self._types: dict[str, dict[str, str]] = {
             k: dict(v) for k, v in (types or {}).items()
         }
-        # Create one relation per declared entity (REQ-KG-011).
+        # REQ-KG-011: the store holds EXACTLY the declared relations. Reject any
+        # pre-existing relation absent from kg-schema.edn before creating the
+        # missing declared ones -- a stale/rogue relation must not survive init
+        # and become a false dependency for later queries/constraints.
         existing = self._backend.list_relations()
+        declared = set(self._relations)
+        extra = existing - declared
+        if extra:
+            raise ValueError(
+                f"relations absent from kg-schema.edn: {sorted(extra)}"
+            )
+        # Create one relation per declared entity (REQ-KG-011).
         for name, cols in self._relations.items():
             if name not in existing:
                 self._backend.create(name, cols, self._types.get(name, {}))

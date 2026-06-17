@@ -199,4 +199,19 @@
   ;; Community — a detected cluster of code nodes (graphify community structure).
   :community
   {:attrs [:id :members]
-   :relations [[:has-member :code-node]]}}}
+   :relations [[:has-member :code-node]]}
+
+  ;; Code<->claim link — the join edge that fuses the code graph and the claims
+  ;; graph in ONE store (the homoiconic KG's headline ability: a single query can
+  ;; reach from a code node to the claims it supports, something the parallel
+  ;; RDF/SPARQL path could not do — that path holds only claims, not the code
+  ;; graph). :code-id references a :code-node/id, :claim-id a :claim/id; the
+  ;; synthetic (code-id . claim-id) pair is the identity so re-projection upserts.
+  ;; PRODUCTION semantics for deriving these links from real data (e.g. a claim's
+  ;; source file resolving to a code module, or a symbol reference) are a FOLLOW-ON
+  ;; — today the link is an explicit relation, which is sufficient to prove the
+  ;; cross-graph join works (see tests/test_kg_capability.py).
+  :code-claim-link
+  {:attrs [:id :code-id :claim-id]
+   :relations [[:of-code :code-node]
+               [:of-claim :claim]]}}}

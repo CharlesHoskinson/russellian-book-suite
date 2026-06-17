@@ -35,6 +35,7 @@ EXPECTED_ENTITIES = {
     "code-node",
     "code-edge",
     "community",
+    "code-claim-link",
 }
 
 

@@ -17,7 +17,7 @@ def _spacy_model_available() -> bool:
         return False
 
 
-# Computed once at collection import: loading the model per test would be wasteful.
+# Computed once at conftest import: loading the model per test would be wasteful.
 _SPACY_MODEL_AVAILABLE = _spacy_model_available()
 
 

@@ -73,7 +73,7 @@ def test_failed_exec_does_not_cache_partial_module(tmp_path, monkeypatch, reques
     # A module whose body raises must not stay in sys.modules: the second
     # load would otherwise return the half-executed module and surface as a
     # misleading "cannot import name ..." instead of the original error.
-    skill = tmp_path / ".claude" / "skills" / "russellian-style"
+    skill = tmp_path / "russellian-style"
     (skill / "scripts").mkdir(parents=True)
     (skill / "SKILL.md").write_text("stub", encoding="utf-8")
     (skill / "scripts" / "boom.py").write_text(

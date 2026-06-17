@@ -86,18 +86,27 @@ import edn_format
 
 from scripts.cozo_store import to_snake
 
-__all__ = ["compile_query"]
+__all__ = ["compile_query", "compile_constraint"]
 
 _FIND = edn_format.Keyword("find")
 _WHERE = edn_format.Keyword("where")
 _NOT = edn_format.Keyword("not")
 _FILTER = edn_format.Keyword("filter")
+_MESSAGE = edn_format.Keyword("message")
+_PATH = edn_format.Keyword("path")
+
+# The variable a defconstraint :where MUST bind: it is the violation's focus node
+# (the SHACL focusNode), projected as the first column of every violation row.
+_FOCUS = "focus"
 
 # Ordered-comparison operators allowed in :filter, mapping the booklogic operator
 # symbol to its CozoScript spelling (identical text -- Cozo uses the same glyphs).
 # These lower to an inline expression atom ``<var> <op> <literal>`` on a variable
-# already bound by :where, so e.g. ``[< ?p 0.4]`` -> ``p < 0.4``.
-_COMPARATORS = {"<": "<", "<=": "<=", ">": ">", ">=": ">="}
+# already bound by :where, so e.g. ``[< ?p 0.4]`` -> ``p < 0.4``. ``!=`` is the
+# inequality used by the status-enum constraint (status matches none of the
+# vocabulary values); the ``!is_null`` guard already emitted is correct for it
+# (Cozo skips a null cell rather than reporting it != a literal).
+_COMPARATORS = {"<": "<", "<=": "<=", ">": ">", ">=": ">=", "!=": "!="}
 
 # Aggregation forms allowed in :find, mapping the booklogic operator symbol to
 # its CozoScript head-aggregation function. ``count`` is the plain row count;
@@ -405,3 +414,254 @@ def _compile_find_term(term: Any, env: set[str]) -> str:
         f"malformed :find term {term!r}: expected a ?var or an "
         f"aggregation form (<op> ?var)"
     )
+
+
+# -- defconstraint -> violation rule (REQ-KG-003 / REQ-KG-012) -------------
+
+_DEFCONSTRAINT = "defconstraint"
+
+
+def _edn_string(value: Any, label: str) -> str:
+    """Coerce a double-quoted EDN string section value to a Python ``str``.
+
+    ``:message`` / ``:path`` MUST be EDN strings. edn_format parses a
+    double-quoted EDN string straight to ``str``; anything else (a symbol,
+    keyword, number) is a contract error the author should fix.
+    """
+    if not isinstance(value, str):
+        raise ValueError(
+            f"defconstraint {label} must be a double-quoted string, "
+            f"got {value!r}"
+        )
+    return value
+
+
+def _compile_constraint_negations(
+    clauses: Any,
+    schema: dict[str, set[str]],
+    env: set[str],
+    name: str,
+) -> tuple[list[str], list[str]]:
+    """Lower a defconstraint :not vector, returning ``(helper_rules, atoms)``.
+
+    Like :func:`_compile_clauses` with ``negate=True``, triples sharing an
+    entity var collapse into one group. The difference is FREE variables:
+
+    * A group whose columns bind only variables ALREADY in ``env`` (e.g.
+      ``[[?s :source-span/claim-id ?focus]]`` where ``focus`` is bound by
+      :where) lowers to an inline ``not *relation{...}`` atom — identical to the
+      defquery negation.
+    * A group that introduces a variable NOT in ``env`` (e.g. text-cardinality's
+      ``[[?c2 :claim/id ?focus] [?c2 :claim/canonical-text ?text]]`` where
+      ``text`` is free) CANNOT be an inline negation: Cozo would either reject it
+      as an unbound atom OR — when the column is nullable — bind the free var to a
+      NULL cell, so the inner relation matches a row whose value is *absent* and
+      the outer ``not`` wrongly excludes that row. SHACL ``minCount >= 1`` means
+      "a NON-NULL value EXISTS", so such a group is lifted into a named helper
+      rule that projects the bound vars and guards every free var with
+      ``!is_null``::
+
+          <name>_present_0[focus] := *claim{id: focus, canonical_text: text},
+                                     !is_null(text)
+
+      and the body carries ``not <name>_present_0[focus]``. This reproduces
+      minCount existence semantics exactly (an empty-string value is non-null, so
+      it conforms; only a truly absent value fires the violation). Verified
+      against a live store: a free-var inline negation returns the empty set for
+      both present- and absent-value rows, whereas the helper-rule form fires on
+      exactly the absent-value row.
+
+    ``helper_rules`` are full CozoScript rule lines (newline-joined ahead of the
+    main rule); ``atoms`` are body atoms for the main rule. Helper rules are named
+    ``<snake_name>_present_<n>`` where ``n`` is a monotonic ``0,1,2,...`` index
+    over FREE-VAR groups only (bound-only groups that lower to inline negations
+    do not consume a suffix), so a mixed :not block of a bound-only group
+    followed by a free-var group still names the latter ``_present_0``. The
+    output is deterministic and collision-free across a single compile.
+    """
+    order: list[str] = []
+    groups: dict[str, _Atom] = {}
+    free: dict[str, list[str]] = {}  # evar key -> free var names (source order)
+
+    for triple in clauses:
+        if (
+            isinstance(triple, (str, bytes))
+            or not isinstance(triple, Sequence)
+            or len(triple) != 3
+        ):
+            raise ValueError(
+                f"malformed triple {triple!r}: expected "
+                f"[?evar :entity/attr value] (arity 3)"
+            )
+        evar, attr_kw, value = triple[0], triple[1], triple[2]
+        entity, attr = _split_attr(attr_kw)
+        if entity not in schema:
+            raise ValueError(
+                f"unknown entity ':{entity}' in clause {triple!r} "
+                f"(not declared in kg-schema.edn)"
+            )
+        if attr not in schema[entity]:
+            raise ValueError(
+                f"unknown attr ':{entity}/{attr}' in clause {triple!r} "
+                f"(not an attr of entity ':{entity}' in kg-schema.edn)"
+            )
+        key = _var_name(evar)
+        if key not in groups:
+            order.append(key)
+            groups[key] = _Atom(to_snake(entity))
+            free[key] = []
+        col = to_snake(attr)
+        if _is_var(value):
+            var = _var_name(value)
+            groups[key].bind(col, var)
+            if var not in env and var not in free[key]:
+                free[key].append(var)
+        else:
+            groups[key].bind(col, _format_literal(value))
+
+    snake_name = to_snake(name)
+    helper_rules: list[str] = []
+    atoms: list[str] = []
+    free_idx = 0  # monotonic suffix counter over FREE-VAR groups only
+    for key in order:
+        atom = groups[key]
+        if not free[key]:
+            # No free var: a plain safe negation over already-bound vars.
+            atoms.append(atom.render(negate=True))
+            continue
+        # Free var(s): lift into a named helper rule guarded by !is_null, then
+        # negate the helper over the bound (env) vars it projects. Dedupe the
+        # projected bound vars (first-seen order): a group binding the SAME env
+        # var in two columns must not emit ``present_0[focus, focus]``.
+        seen: set[str] = set()
+        bound_vars: list[str] = []
+        for c in atom._order:
+            v = atom._binding[c]
+            if v in env and v not in seen:
+                bound_vars.append(v)
+                seen.add(v)
+        if not bound_vars:
+            raise ValueError(
+                f"unsafe negation in defconstraint :not group {key!r}: no "
+                f"variable bound by the positive :where body to thread the "
+                f"negation through"
+            )
+        guards = ", ".join(f"!is_null({v})" for v in free[key])
+        helper = f"{snake_name}_present_{free_idx}"
+        free_idx += 1
+        helper_rules.append(
+            f"{helper}[{', '.join(bound_vars)}] := "
+            f"{atom.render(negate=False)}, {guards}"
+        )
+        atoms.append(f"not {helper}[{', '.join(bound_vars)}]")
+    return helper_rules, atoms
+
+
+def compile_constraint(edn: str, schema_path: Path) -> str:
+    """Compile a booklogic ``defconstraint`` EDN string into a CozoScript rule.
+
+    The rule yields VIOLATION rows ``[focus_node, path, message]`` — the columns
+    a SHACL validation report carries — so a Cozo-backed validator (P2.3) can run
+    each constraint and assemble a report identical to pyshacl's. Pure: reads
+    only ``schema_path`` (the kg-schema.edn contract); never imports pycozo or
+    touches a store. Deterministic: body atoms and helper rules emit in source
+    order.
+
+    Form (flat EDN, mirroring ``defquery`` but with a fixed head)::
+
+        (defconstraint <name-keyword>
+          :message "<human message>"     ; REQUIRED, double-quoted EDN string
+          :path    "<SHACL path or \"\">" ; REQUIRED, double-quoted EDN string
+          :where   [[?evar :entity/attr value] ...]   ; REQUIRED, must bind ?focus
+          :filter  [[<op> ?var <rhs>] ...]            ; optional
+          :not     [[?evar :entity/attr value] ...])  ; optional
+
+    There is NO ``:find`` — the head is fixed; a ``:find`` section is a contract
+    error. The ``:where`` MUST bind a variable named ``?focus`` (the SHACL focus
+    node); it is the first column of every violation row.
+
+    Head convention
+    ---------------
+    The emitted rule head is the fixed::
+
+        ?[focus_node, path_node, message] := <positive>, <filters>, <negations>,
+            focus_node = focus, path_node = "<path>", message = "<message>"
+
+    ``focus_node`` is bound to the ``?focus`` body var by an inline equality atom;
+    ``path_node`` and ``message`` are bound to the constant ``:path`` / ``:message``
+    string literals (``_format_literal``-quoted). The column is named ``path_node``
+    (NOT ``path``) to avoid any CozoScript keyword clash. The OUTPUT column order
+    is therefore ``(focus-node value, path, message)`` — exactly the SHACL
+    violation tuple. Verified to compile and execute against a live
+    ``CozoStore.in_memory`` (see tests/test_booklogic_constraint_compile.py).
+
+    A ``:not`` group that introduces a free variable (minCount-via-negation, e.g.
+    text-cardinality) is lifted into a named ``<name>_present_<n>`` helper rule
+    guarded by ``!is_null`` and emitted ahead of the main rule; see
+    :func:`_compile_constraint_negations`.
+
+    Raises ``ValueError`` for: a non-``defconstraint`` head, a missing
+    ``:message`` / ``:path`` / ``:where``, a present ``:find``, a ``:where`` that
+    does not bind ``?focus``, a malformed triple/filter, an unknown comparator, an
+    unbound filter var, an unsafe negation, or an entity/attr not in the schema.
+    """
+    schema = _load_schema_attrs(Path(schema_path))
+    form = edn_format.loads(edn)
+
+    if not isinstance(form, (tuple, list)) or len(form) < 1:
+        raise ValueError("constraint must be a (defconstraint ...) form")
+    head = form[0]
+    if not (hasattr(head, "name") and head.name == _DEFCONSTRAINT):
+        raise ValueError(f"expected a defconstraint form, got {head!r}")
+
+    # Flat form: defconstraint <name> :message ".." :path ".." :where [..] ...
+    sections: dict[Any, Any] = {}
+    i = 2  # skip 'defconstraint' and the name keyword
+    while i + 1 < len(form):
+        sections[form[i]] = form[i + 1]
+        i += 2
+
+    if _FIND in sections:
+        raise ValueError(
+            "defconstraint has no :find clause (the head is the fixed "
+            "violation tuple); remove the :find section"
+        )
+    if _WHERE not in sections:
+        raise ValueError("defconstraint missing :where clause")
+    if _MESSAGE not in sections:
+        raise ValueError("defconstraint missing :message clause")
+    if _PATH not in sections:
+        raise ValueError("defconstraint missing :path clause")
+
+    message = _edn_string(sections[_MESSAGE], ":message")
+    path = _edn_string(sections[_PATH], ":path")
+
+    # Variable environment: the set of body variables bound by :where atoms.
+    env: set[str] = set()
+    positive = _compile_clauses(sections[_WHERE], schema, env, negate=False)
+    if _FOCUS not in env:
+        raise ValueError(
+            "defconstraint :where must bind a ?focus variable"
+        )
+    filters: list[str] = []
+    if _FILTER in sections:
+        filters = _compile_filters(sections[_FILTER], env)
+    helper_rules: list[str] = []
+    negations: list[str] = []
+    if _NOT in sections:
+        name = form[1].name if hasattr(form[1], "name") else str(form[1])
+        helper_rules, negations = _compile_constraint_negations(
+            sections[_NOT], schema, env, name
+        )
+
+    # Fixed head + constant-binding atoms. focus_node = focus threads the bound
+    # focus var into the output; path_node / message are the constant SHACL
+    # path/message string literals.
+    constants = [
+        f"focus_node = {_FOCUS}",
+        f"path_node = {_format_literal(path)}",
+        f"message = {_format_literal(message)}",
+    ]
+    body_str = ", ".join(positive + filters + negations + constants)
+    main_rule = f"?[focus_node, path_node, message] := {body_str}"
+    return "\n".join(helper_rules + [main_rule])

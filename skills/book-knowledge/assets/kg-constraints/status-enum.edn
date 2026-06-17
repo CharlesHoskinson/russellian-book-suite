@@ -1,0 +1,27 @@
+;; status-enum — a claim's status must be one of the SHACL sh:in vocabulary
+;; (REQ-KG-003 / REQ-KG-012).
+;;
+;; Booklogic port of the tbf:status sh:in constraint in assets/shapes.ttl:
+;;   sh:path tbf:status ; sh:in ( "proposed" "verified" "disputed"
+;;                                "superseded" "refuted" ) .
+;;
+;; A violation is a claim whose status equals NONE of the five vocabulary
+;; values. The :filter ANDs five != clauses together, so the rule fires only
+;; when status differs from every allowed value (an out-of-vocabulary status).
+;; The compiler guards each comparison with !is_null, so a claim with a null
+;; status is dropped rather than erroring (a missing status is the minCount
+;; concern of a separate shape, not this one).
+;;
+;; MESSAGE NOTE: pyshacl auto-generates the sh:in message
+;; ("Value ... not in ..."); EXACT pyshacl-message parity is a P2.3 concern.
+;; The human message below is clear and stable for P2.2.
+(defconstraint :status-enum
+  :message "Claim status must be one of: proposed, verified, disputed, superseded, refuted."
+  :path "https://example.org/book-knowledge#status"
+  :where [[?c :claim/id ?focus]
+          [?c :claim/status ?status]]
+  :filter [[!= ?status "proposed"]
+           [!= ?status "verified"]
+           [!= ?status "disputed"]
+           [!= ?status "superseded"]
+           [!= ?status "refuted"]])

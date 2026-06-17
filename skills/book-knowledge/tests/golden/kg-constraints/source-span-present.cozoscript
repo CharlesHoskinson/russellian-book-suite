@@ -1,0 +1,1 @@
+?[focus_node, path_node, message] := *claim{id: focus}, not *source_span{claim_id: focus}, focus_node = focus, path_node = "https://example.org/book-knowledge#hasSourceSpan", message = "Claim must have at least one source-span (minCount 1 on hasSourceSpan)."

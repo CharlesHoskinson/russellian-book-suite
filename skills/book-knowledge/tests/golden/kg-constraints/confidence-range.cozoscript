@@ -1,0 +1,1 @@
+?[focus_node, path_node, message] := *claim{id: focus, confidence: conf}, !is_null(conf), conf > 1.0, focus_node = focus, path_node = "https://example.org/book-knowledge#confidence", message = "Claim confidence must be <= 1.0."

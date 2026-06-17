@@ -116,6 +116,26 @@ def test_numeric_column_supports_comparison() -> None:
     assert rows == [["clm-low"]]
 
 
+def test_in_memory_does_not_emit_pandas_traceback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A successful Cozo run must not log a pandas ModuleNotFoundError.
+
+    pycozo's Client defaults to ``dataframe=True`` and logs a pandas import
+    traceback when pandas is absent, even though the run succeeds. Constructing
+    the store with ``dataframe=False`` suppresses that noise. We capture the
+    ``pycozo.client`` logger at the source (robust to pytest's stderr capture)
+    and assert no pandas record was emitted, plus a working trivial query.
+    """
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="pycozo.client"):
+        store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+        rows = store.query("?[x] <- [[1]]")
+    assert rows == [[1]]
+    assert "pandas" not in caplog.text
+
+
 def test_no_module_bypasses_seam() -> None:
     """REQ-KG-002b: only cozo_store.py may import pycozo.
 

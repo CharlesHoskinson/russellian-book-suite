@@ -149,7 +149,10 @@ class CozoBackend:
         if client is None:
             from pycozo.client import Client  # only this module imports pycozo
 
-            client = Client("mem", "", "")
+            # dataframe=False: pycozo defaults to True and logs a pandas
+            # ModuleNotFoundError traceback when pandas is absent, even on a
+            # successful run. We return plain rows, so pandas is never needed.
+            client = Client("mem", "", "", dataframe=False)
         self._client = client
 
     def create(

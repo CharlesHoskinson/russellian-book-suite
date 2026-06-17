@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
 
 # book-thesis/tests/ -> book-thesis -> skills -> skills/book-knowledge
@@ -85,3 +87,21 @@ def test_compiled_constraint_fires_on_violating_row():
            / "status-present.edn").read_text(encoding="utf-8")
     rows = store.query(booklogic.compile_constraint(edn, schema))
     assert [r[0] for r in rows] == ["c-no-status"]
+
+
+def test_alias_collision_raises_instead_of_serving_wrong_root(monkeypatch):
+    """If the process-global _book_knowledge_scripts alias was already registered
+    for a DIFFERENT book-knowledge (e.g. book-compose's installed-first loader ran
+    in the same interpreter), the loader must fail loud rather than silently serve
+    the wrong (stale) copy (audit IMPORTANT)."""
+    import sys as _sys
+    import types as _types
+
+    from scripts import sibling_skills as ss
+
+    bogus = _types.ModuleType(ss._BK_PACKAGE_ALIAS)
+    bogus.__path__ = [r"C:\not\the\repo\book-knowledge\scripts"]
+    monkeypatch.setitem(_sys.modules, ss._BK_PACKAGE_ALIAS, bogus)
+
+    with pytest.raises(ss.SiblingNotFoundError):
+        ss.load_book_knowledge_module("cozo_store")

@@ -161,7 +161,15 @@ def _build_canonical_messages() -> dict[tuple[str, str], str]:
                 f"constraint EDN '{name}' has a non-empty :path but no "
                 f":component (needed to key the rdflib message remap)"
             )
-        canonical[(path, component)] = message
+        key = (path, component)
+        if key in canonical:
+            # Two constraints claim the same (path, component): the remap would
+            # silently collapse them (the bug this keying exists to prevent).
+            raise ValueError(
+                f"duplicate canonical key {key!r} (constraint '{name}' collides "
+                f"with an earlier one); give one a distinct :component or :path"
+            )
+        canonical[key] = message
     return canonical
 
 

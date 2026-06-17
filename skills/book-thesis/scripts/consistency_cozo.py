@@ -18,6 +18,7 @@ ledger yields the identical defect set.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -130,11 +131,25 @@ def _build_store():
     return cozo_store.CozoStore.in_memory(schema_path=schema)
 
 
-def run_consistency_cozo(workspace, book_id: str | None = None) -> dict:
+def gate_failed(payload: dict) -> bool:
+    """Mirror datalog_consistency.DefectReport.gate_failed() from a payload: the
+    QA gate fails when there are contradictions (D10) or D11 invariants."""
+    summary = payload["summary"]
+    return bool(summary["contradictions"]) or bool(summary["invariant_violations"])
+
+
+def run_consistency_cozo(workspace, book_id: str | None = None,
+                         write_artifact: bool = False) -> dict:
     """Project + run the Cozo consistency program; return the canonical payload.
 
     Same shape as ``datalog_consistency.DefectReport.as_payload()`` (summary +
     canonically-sorted defects), so it is byte-comparable to the C0.3 goldens.
+
+    Pure by default (no filesystem writes), so a parity call against a real
+    workspace has no side effects. ``write_artifact=True`` additionally writes
+    ``<workspace>/qa/datalog-defects.json`` in the legacy shape — the artifact the
+    QA gate consumes; the CLI sets this so the Cozo pass is a drop-in for
+    ``datalog_consistency`` (which writes it in ``run``).
     """
     workspace = Path(workspace)
     store = _build_store()
@@ -176,7 +191,14 @@ def run_consistency_cozo(workspace, book_id: str | None = None) -> dict:
             report.invariants.append({"class": "D11", "rule": "missing_evidence", "facts": [n, e],
                 "detail": f"sub-argument {n!r} requires evidence {e!r} that no claim's subject meets"})
 
-    return report.as_payload()
+    payload = report.as_payload()
+    if write_artifact:
+        out = workspace / "qa" / "datalog-defects.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        # Same write as datalog_consistency.run so the artifact is shape-identical.
+        out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                       encoding="utf-8")
+    return payload
 
 
 def main(argv: list[str]) -> int:
@@ -184,11 +206,12 @@ def main(argv: list[str]) -> int:
         print("usage: consistency_cozo.py <workspace> [book-id]", file=sys.stderr)
         return 2
     book_id = argv[2] if len(argv) > 2 else None
-    payload = run_consistency_cozo(Path(argv[1]), book_id)
+    payload = run_consistency_cozo(Path(argv[1]), book_id, write_artifact=True)
     s = payload["summary"]
     print(f"cozo consistency: contradictions={s['contradictions']} "
           f"orphans={s['orphans']} invariant_violations={s['invariant_violations']}")
-    return 0
+    # Preserve the legacy gate contract: nonzero exit when the gate fails.
+    return 1 if gate_failed(payload) else 0
 
 
 if __name__ == "__main__":

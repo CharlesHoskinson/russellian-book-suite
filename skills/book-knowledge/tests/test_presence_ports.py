@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from rdflib import Dataset, Literal, URIRef, XSD
 from rdflib.namespace import RDF
 
@@ -29,6 +30,7 @@ from scripts.cozo_store import CozoStore
 from scripts.ledger import append_claim
 from scripts.project_graph import BASE, PROV, SCHEMA as SCH, TBF, project_graph
 from scripts.workspace import WorkspaceLayout, init_workspace
+from scripts import validate_shacl as _vs
 from scripts.validate_shacl import _evaluate_constraints, validate_shacl
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -171,3 +173,24 @@ def test_status_minCount_and_sh_in_messages_do_not_collide(tmp_path, monkeypatch
     status_msgs = {v.message for v in report.violations if v.path == _STATUS_PATH}
     assert _STATUS_ENUM_MSG in status_msgs, report.violations
     assert _STATUS_PRESENT_MSG not in status_msgs  # sh:in must NOT get the minCount message
+
+
+def test_wrong_typed_confidence_raises_on_load():
+    """Characterize the datatype-subsumption contract (audit IMPORTANT): a
+    non-decimal confidence cannot enter the typed Float? column — CozoStore.load
+    RAISES rather than silently conforming. This is a deliberate divergence from
+    the rdflib path (which reports an sh:datatype violation); only synthetic/corrupt
+    data reaches it since claim-record.schema.json types confidence on every real
+    write. Pinned so the behaviour can't silently change to a silent-conform."""
+    store = CozoStore.in_memory(schema_path=SCHEMA)
+    with pytest.raises(Exception):  # pycozo QueryException, surfaced via the seam
+        store.load("claim", [{"id": "c-bad", "status": "verified",
+                              "confidence": "not-a-number", "canonical-text": "x"}])
+
+
+def test_canonical_message_map_rejects_duplicate_key(monkeypatch):
+    """Defensive guard (audit suggestion): two constraints sharing (path, component)
+    would silently collapse in the remap — _build_canonical_messages must refuse."""
+    monkeypatch.setattr(_vs, "ACTIVE_CONSTRAINTS", ["status-enum", "status-enum"])
+    with pytest.raises(ValueError, match="duplicate canonical key"):
+        _vs._build_canonical_messages()

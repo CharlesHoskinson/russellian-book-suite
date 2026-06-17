@@ -74,15 +74,25 @@ def _ensure_bk_package() -> types.ModuleType:
     directory under the alias _book_knowledge_scripts instead, with __path__ set
     so its modules' relative imports resolve against the alias package.
     """
-    # N.B. the alias is process-global and shared with book-compose's loader. If
-    # book-compose registered it first (pointing at its own resolved
-    # book-knowledge), that wins. Harmless here: each skill runs in its own venv /
-    # process, so the two loaders never share an interpreter.
-    if _BK_PACKAGE_ALIAS in sys.modules:
-        return sys.modules[_BK_PACKAGE_ALIAS]
     bk_scripts = book_knowledge_root() / "scripts"
     if not bk_scripts.is_dir():
         raise SiblingNotFoundError(f"book-knowledge scripts dir missing: {bk_scripts}")
+    # The alias is process-global and shared with book-compose's loader (which
+    # resolves installed-first). If that loader registered it first, pointing at a
+    # DIFFERENT book-knowledge, silently returning it would load the wrong (stale)
+    # copy. Validate the cached __path__ and fail loud on mismatch rather than serve
+    # the wrong root (audit IMPORTANT — shared-interpreter safety).
+    existing = sys.modules.get(_BK_PACKAGE_ALIAS)
+    if existing is not None:
+        existing_path = list(getattr(existing, "__path__", []) or [])
+        if existing_path != [str(bk_scripts)]:
+            raise SiblingNotFoundError(
+                f"{_BK_PACKAGE_ALIAS} is already registered for a different "
+                f"book-knowledge ({existing_path!r} != {[str(bk_scripts)]!r}); "
+                f"another skill's loader resolved a different root in this "
+                f"interpreter."
+            )
+        return existing
     pkg = types.ModuleType(_BK_PACKAGE_ALIAS)
     pkg.__path__ = [str(bk_scripts)]  # type: ignore[attr-defined]
     sys.modules[_BK_PACKAGE_ALIAS] = pkg

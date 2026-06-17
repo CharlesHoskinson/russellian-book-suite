@@ -204,6 +204,14 @@ Skill: `book-thesis` (+ `book-knowledge` for the consistency compiler if shared)
 
 **Prerequisite (audit):** **P2.4 must be complete** — flipping the default to cozo while the Cozo gate skips status/confidence presence + datatype ships a runtime gate strictly weaker than the pyshacl one it replaces. The cutover-gate test below must therefore also assert presence/datatype parity, not just the 8-query + range goldens.
 
+**Cutover-gate assertions (from the P2.4+P3 external audit, 2026-06-17 — the gate MUST check all of these):**
+1. Cozo and legacy **consistency** produce identical defect payloads on a non-vacuous violating fixture AND a real clean workspace (not just the all-zero bermuda golden, which is a clean smoke test, not proof).
+2. **CLI exit codes match** the legacy gate: clean → 0, defects → nonzero. (`consistency_cozo.main` now does this + writes `qa/datalog-defects.json` in the legacy shape — P2.4/P3.2 audit fix; the gate must keep asserting it.)
+3. `qa/datalog-defects.json` is written in the same shape by whichever pass the gate invokes.
+4. **SHACL parity** explicitly covers missing-status, missing-confidence, AND the wrong-type confidence/text behaviour. NB: wrong-type is a DOCUMENTED contract DIVERGENCE, not equivalence — Cozo raises a load-time `QueryException` where rdflib reports an `sh:datatype` violation; the gate must assert the *intended* behaviour for each engine, not assume equality.
+5. **Cross-skill imports** are tested in ONE interpreter with conflicting repo/installed roots (the `_book_knowledge_scripts` alias now validates its `__path__` and raises on mismatch — P3.0 audit fix).
+6. Cutover CI must **FAIL (not silently skip)** if the real `examples/bermuda-manual` fixture is absent — a skipped real-data leg is not parity proof.
+
 **Files:**
 - Modify: `run_competency_queries.py`, `validate_shacl.py`, `datalog_consistency.py` — flip `KG_BACKEND` default to `cozo`.
 - Create: `skills/book-knowledge/tests/test_cutover_gate.py` — `test_blocks_until_all_fixtures_pass` (every characterization golden — 8 queries + SHACL + D9-D11 — reproduced by the Cozo path); `test_no_legacy_import_after_cutover` (whole-suite scan: no `import rdflib|pyshacl|pyDatalog`, no `format="trig"`/`.parse(layout.dataset` in any non-deleted source); mirror the F4 no-bypass scan widened across all three skills).

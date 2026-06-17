@@ -94,3 +94,62 @@ def test_missing_evidence_end_to_end_matches_live(tmp_path):
     cozo = run_consistency_cozo(ws)
     assert cozo == run_pydatalog(ws).as_payload()
     assert "missing_evidence" in {d["rule"] for d in cozo["defects"]}
+
+
+_CLEAN_YAML = """\
+book_id: clean
+thesis:
+  statement: A clean thesis with no defects.
+  polarity: descriptive
+  scope: test fixture
+sub_arguments:
+  - id: leg
+    parent: thesis
+    statement: The sole, chapter-advanced leg.
+    polarity: descriptive
+    advanced_by_chapters: [ch-01]
+"""
+
+
+def _build_clean_workspace(tmp_path) -> Path:
+    ws = Path(tmp_path)
+    (ws / "thesis").mkdir(parents=True, exist_ok=True)
+    (ws / "thesis" / "clean.yaml").write_text(_CLEAN_YAML, encoding="utf-8", newline="\n")
+    compile_thesis(ws, "clean")
+    return ws
+
+
+def test_cli_gates_and_writes_artifact_on_defects(tmp_path):
+    """The Cozo CLI must preserve the legacy QA-gate contract (audit CRITICAL):
+    nonzero exit when defects exist + a qa/datalog-defects.json in the legacy
+    shape. datalog_consistency.main returns 1 on gate failure and run() writes the
+    artifact."""
+    import scripts.consistency_cozo as cc
+
+    ws = build_violating_thesis(tmp_path)
+    rc = cc.main(["consistency_cozo.py", str(ws)])
+    assert rc == 1, "violating workspace must fail the gate (nonzero exit)"
+    artifact = ws / "qa" / "datalog-defects.json"
+    assert artifact.exists(), "CLI must write qa/datalog-defects.json"
+    assert json.loads(artifact.read_text(encoding="utf-8")) == _golden("d9_d11_violating")
+    # exit code matches the live pyDatalog gate on the same workspace.
+    assert (rc != 0) == run_pydatalog(ws).gate_failed()
+
+
+def test_cli_returns_zero_on_clean(tmp_path):
+    import scripts.consistency_cozo as cc
+
+    ws = _build_clean_workspace(tmp_path)
+    rc = cc.main(["consistency_cozo.py", str(ws)])
+    assert rc == 0
+    assert run_consistency_cozo(ws)["summary"] == {
+        "contradictions": 0, "orphans": 0, "invariant_violations": 0,
+    }
+
+
+def test_run_consistency_cozo_is_pure_without_write_flag(tmp_path):
+    """The library function must NOT write the artifact unless asked (so a parity
+    call against a real workspace, e.g. bermuda, has no side effects)."""
+    ws = _build_clean_workspace(tmp_path)
+    run_consistency_cozo(ws)
+    assert not (ws / "qa" / "datalog-defects.json").exists()

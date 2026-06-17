@@ -2,10 +2,18 @@
 ;; (REQ-KG-012). P2.4 closure of the external-audit gap: the EDN->Cozo port
 ;; carried tbf:confidence's range arms (confidence-range / confidence-range-low)
 ;; but NOT its sh:minCount 1, so under KG_BACKEND=cozo a confidence-less claim
-;; CONFORMED while pyshacl flagged it. (A WRONG-TYPED confidence is a separate
-;; concern: :confidence is a typed Float? column, so a non-decimal value cannot
-;; load — that surfaces as a load-time error, not a silent conform, and so needs
-;; no datatype constraint here; see docs/audits/...-c0-p2-external-audit-prompt.)
+;; CONFORMED while pyshacl flagged it.
+;;
+;; WRONG-TYPED confidence — a DELIBERATE contract divergence, not equivalence:
+;; :confidence is a typed Float? column, so a non-decimal value cannot load —
+;; CozoStore.load raises a QueryException (verified in
+;; tests/test_presence_ports.py::test_wrong_typed_confidence_raises_on_load). The
+;; rdflib/pyshacl path instead reports an sh:datatype ShaclReport violation. So the
+;; two engines do NOT agree on a wrong-typed value: Cozo CRASHES at load, rdflib
+;; REPORTS. This is acceptable because only synthetic/corrupt or hand-edited ledger
+;; data can reach it (claim-record.schema.json types confidence as a number on
+;; every real write), but the P5.3 cutover gate must record it, not treat datatype
+;; as silently "ported". Hence no datatype constraint here.
 ;;
 ;; Booklogic port of the tbf:confidence minCount constraint in assets/shapes.ttl:
 ;;   sh:path tbf:confidence ; sh:minCount 1 .

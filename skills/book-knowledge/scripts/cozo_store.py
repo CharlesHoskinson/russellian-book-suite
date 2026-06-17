@@ -349,6 +349,10 @@ class CozoStore:
     ) -> None:
         # The store talks only to this backend; no pycozo type leaks here.
         self._backend = backend
+        # Retain the schema path so the public EDN seam can compile EDN to
+        # CozoScript internally (REQ-KG-002/007). May be None when the store is
+        # built from explicit `relations` (e.g. some StubBackend unit tests).
+        self._schema_path = Path(schema_path) if schema_path is not None else None
         if relations is None:
             if schema_path is None:
                 raise ValueError("CozoStore needs either relations or schema_path")
@@ -393,8 +397,34 @@ class CozoStore:
             matrix.append([norm.get(c) for c in cols])
         self._backend.put(rel, cols, matrix)
 
+    def query_edn(self, edn_text: str) -> list[list[Any]]:
+        """Run a booklogic ``defquery`` EDN against the store (REQ-KG-002/007).
+
+        This is the public consumer seam: callers pass EDN, never CozoScript.
+        The EDN is compiled to CozoScript INTERNALLY here, so the compile target
+        never leaks past the store and the Cozo->Asami backend swap stays a
+        one-module change. ``booklogic_kg`` is imported locally to avoid an
+        import cycle and to keep its cost off code paths that never query.
+        """
+        if self._schema_path is None:
+            raise ValueError(
+                "query_edn needs a schema_path; this store was built from "
+                "explicit relations without one"
+            )
+        from .booklogic_kg import compile_query  # local: avoid import cycle
+
+        script = compile_query(edn_text, self._schema_path)
+        return self._backend.run(script)
+
     def query(self, cozoscript: str) -> list[list[Any]]:
-        """Run a read-only query and return its rows (list of lists)."""
+        """Run a raw CozoScript query (INTERNAL).
+
+        This executes CozoScript directly and is the internal raw-script runner
+        used by the projector, compiler-execution tests, and other in-tree code
+        that legitimately works at the CozoScript layer. Consumers MUST use
+        :meth:`query_edn` instead — passing CozoScript here leaks the compile
+        target and breaks the backend-swap property (REQ-KG-002/007).
+        """
         return self._backend.run(cozoscript)
 
     def relations(self) -> set[str]:

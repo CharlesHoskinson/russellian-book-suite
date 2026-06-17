@@ -99,13 +99,13 @@ def _run_queries_cozo(
     Builds one in-memory Cozo store from ``kg-schema.edn``, projects the claim
     ledger into it (the relational counterpart of the RDF emit), then for each
     query loads ``assets/kg-queries/<name>.edn`` — the file name is the SAME stem
-    as the ``.rq`` query name :func:`discover_queries` yields — compiles it to
-    CozoScript and runs it. Rows are stringified through :func:`_rows_str` so the
-    returned shape is identical to the rdflib path. The booklogic ``:find`` order
-    matches the SPARQL ``SELECT`` order, so per-row cell order matches too.
+    as the ``.rq`` query name :func:`discover_queries` yields — and runs it
+    through the EDN seam ``store.query_edn``, which compiles to CozoScript
+    internally. Rows are stringified through :func:`_rows_str` so the returned
+    shape is identical to the rdflib path. The booklogic ``:find`` order matches
+    the SPARQL ``SELECT`` order, so per-row cell order matches too.
     """
     # Local imports keep pycozo/edn off the default (rdflib) path's import cost.
-    from .booklogic_kg import compile_query
     from .cozo_store import CozoStore
     from .project_ledger_cozo import project_ledger
 
@@ -115,8 +115,7 @@ def _run_queries_cozo(
     findings: dict[str, list[tuple]] = {}
     for _cls, name, _query_path in queries:
         edn = (_EDN_QUERIES_DIR / f"{name}.edn").read_text(encoding="utf-8")
-        script = compile_query(edn, _SCHEMA_PATH)
-        findings[name] = _rows_str(store.query(script))
+        findings[name] = _rows_str(store.query_edn(edn))
     return findings
 
 

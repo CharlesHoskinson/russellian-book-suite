@@ -26,6 +26,7 @@ def _schema_entity_names_snake() -> set[str]:
 
 
 def test_query_returns_rows() -> None:
+    """The public seam returns rows for an EDN query (REQ-KG-002/007)."""
     store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
     store.load(
         "claim",
@@ -34,7 +35,32 @@ def test_query_returns_rows() -> None:
             {"id": "clm-2", "canonical-text": "y", "status": "proposed"},
         ],
     )
-    rows = store.query('?[id] := *claim{id, status}, status == "verified"')
+    rows = store.query_edn(
+        "(defquery :v :find [?id] "
+        ':where [[?c :claim/id ?id] [?c :claim/status "verified"]])'
+    )
+    assert rows == [["clm-1"]]
+
+
+def test_query_edn_compiles_and_runs() -> None:
+    """REQ-KG-002/007: the public seam accepts EDN, not CozoScript.
+
+    ``query_edn`` compiles the booklogic EDN to CozoScript INTERNALLY (the
+    compile target never leaks to the consumer) and runs it. A consumer holding
+    only EDN must get the right rows back.
+    """
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    store.load(
+        "claim",
+        [
+            {"id": "clm-1", "canonical-text": "x", "status": "verified"},
+            {"id": "clm-2", "canonical-text": "y", "status": "proposed"},
+        ],
+    )
+    rows = store.query_edn(
+        "(defquery :v :find [?id] "
+        ':where [[?c :claim/id ?id] [?c :claim/status "verified"]])'
+    )
     assert rows == [["clm-1"]]
 
 
@@ -95,6 +121,9 @@ def test_stub_backend_satisfies_contract() -> None:
 
     The stub lets later tasks unit-test without the embedded Cozo and proves the
     Backend protocol is honoured: identical load/query calls, identical result.
+    This exercises the INTERNAL raw-script runner (``query``) — the StubBackend
+    is a narrow query-shape oracle that does not parse compiled-EDN CozoScript,
+    so it is the retained internal-script coverage alongside the EDN seam.
     """
     store = CozoStore(backend=StubBackend(), schema_path=SCHEMA_PATH)
     store.load("claim", [{"id": "clm-1", "status": "verified"}])

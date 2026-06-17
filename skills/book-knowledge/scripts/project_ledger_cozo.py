@@ -48,18 +48,13 @@ claim, ``other_id`` the conflicting target; the synthetic ``(claim_id . other_id
 pair id is the identity so re-projection upserts.
 
 Counter-claims (REQ-KG-006): the parallel counter-claim ledger
-(``claims/counter-claims.jsonl``) is the ledger form of project_graph's
-``tbf:CounterClaim`` emission. project_graph iterates EVERY record (no
-latest-per-id dedup, no status filter) and emits ``tbf:rebuts`` + ``tbf:ccStatus``
-per record; since RDF triples form a SET, the distinct facts that survive are the
-distinct ``(cc, target, status)`` tuples — a cc that went ``open -> addressed`` in
-the ledger keeps BOTH ccStatus facts. The projector reproduces that distinct set
-into the ``counter-claim`` relation, one row per distinct ``(cc-id, status)``,
-keyed by the synthetic ``(cc-id . cc-status)`` identity (so the open->addressed
-history is preserved, not collapsed). The record ``status`` maps to the
-``cc-status`` column (renamed so it does not collide with a claim's status);
-``target_claim_id`` (the ``tbf:rebuts`` target) is kept bare so it joins
-``claim.id``.
+(``claims/counter-claims.jsonl``) projects into the ``counter-claim`` relation as
+ONE row per cc carrying its LATEST status (P5.2 canonical: dedupe-to-latest-per-id
+via ``latest_per``), keyed by the bare cc id. A cc that went ``open -> addressed``
+lands as ``addressed``; an ``addressed -> open`` reopen lands as ``open`` (the
+rebuttal-presence gate acts on the current status). The record ``status`` maps to
+the ``cc-status`` column (renamed so it does not collide with a claim's status);
+``target_claim_id`` (the rebut target) is kept bare so it joins ``claim.id``.
 
 Typed values pass through untouched: ``cozo_store`` columns are typed from the
 schema ``:types`` (Float/Int/Bool), and ``load`` preserves the Python value, so

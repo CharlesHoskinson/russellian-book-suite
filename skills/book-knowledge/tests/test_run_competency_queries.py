@@ -5,15 +5,9 @@ pytestmark = pytest.mark.windows_canary
 from datetime import datetime, timezone
 from pathlib import Path
 
-from rdflib import Dataset, URIRef, Namespace
-from rdflib.namespace import RDF
-from urllib.parse import quote
-
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.ledger import append_claim
 from scripts.run_competency_queries import run_competency_queries
-
-TBF = Namespace("https://example.org/book-knowledge#")
 
 
 def _verified(cid: str, **kwargs) -> dict:
@@ -28,17 +22,6 @@ def _verified(cid: str, **kwargs) -> dict:
     }
     base.update(kwargs)
     return base
-
-
-def _add_chapter_typing(layout: WorkspaceLayout, chapters: list[str]) -> None:
-    """Add rdf:type Chapter triples to the workspace dataset for the given chapters."""
-    ds = Dataset(default_union=True)
-    ds.parse(layout.dataset, format="trig")
-    default = ds.graph(URIRef("https://example.org/book-knowledge/graphs/chapters"))
-    for ch in chapters:
-        default.add((URIRef(f"https://example.org/book-knowledge/chapters/{quote(ch)}"),
-                     RDF.type, TBF.Chapter))
-    ds.serialize(destination=str(layout.dataset), format="trig")
 
 
 def test_unsupported_claims_query_returns_nothing_when_clean(tmp_path):

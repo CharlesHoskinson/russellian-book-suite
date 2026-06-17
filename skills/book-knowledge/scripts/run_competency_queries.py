@@ -52,8 +52,16 @@ def discover_queries(assets_root: Path) -> list[tuple[str, str, Path]]:
     for f in sorted(edn_dir.glob("*.edn")):
         if f.stem.startswith("_"):
             continue
-        cls = (manifest.get(f.stem) or {}).get("class", "coverage")
-        out.append((cls, f.stem, f))
+        entry = manifest.get(f.stem)
+        # Fail LOUD on a missing/incomplete manifest entry rather than silently
+        # defaulting the class (which could downgrade a future blocking query to a
+        # non-gating one). Every query MUST declare its class; a defeasible one MUST
+        # also declare a severity (checked in run_competency_queries).
+        if not entry or "class" not in entry:
+            raise ValueError(
+                f"competency query {f.stem!r} has no 'class' in kg-queries/_meta.yaml"
+            )
+        out.append((entry["class"], f.stem, f))
     return out
 
 
@@ -107,8 +115,14 @@ def run_competency_queries(layout: WorkspaceLayout) -> dict:
         findings[name] = rows
 
         if cls == "defeasible" and rows:
-            severity = (manifest.get(name) or {}).get("severity", "minor")
-            exc = (manifest.get(name) or {}).get("exception_queries", [])
+            entry = manifest.get(name) or {}
+            severity = entry.get("severity")
+            if severity is None:
+                # No silent downgrade to "minor": a defeasible query must declare it.
+                raise ValueError(
+                    f"defeasible query {name!r} missing 'severity' in kg-queries/_meta.yaml"
+                )
+            exc = entry.get("exception_queries", [])
             if exc:
                 raise NotImplementedError(
                     f"Defeasible query {name!r} declares exception_queries={exc} but the "

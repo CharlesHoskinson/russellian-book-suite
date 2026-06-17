@@ -1,29 +1,25 @@
-"""Capture golden fixtures of the current RDF/SPARQL competency-query behavior.
+"""Capture golden fixtures of the competency-query + SHACL behaviour (Cozo).
 
-This script freezes the result set of every existing ``.rq`` competency query
-into a deterministic JSON golden under ``tests/golden/kg/``. These goldens are
-the equivalence oracle for the homoiconic EDN -> Cozo migration (REQ-KG-005):
-each later EDN->Cozo port must reproduce its golden exactly.
-
-It changes no production behavior -- it only reads the projected RDF dataset and
-runs the queries, reusing the existing machinery in ``run_competency_queries``.
+This script freezes the result set of every EDN competency query
+(``assets/kg-queries/*.edn``) into a deterministic JSON golden under
+``tests/golden/kg/``, plus the SHACL conformance goldens. These are the
+equivalence oracle for the homoiconic store (REQ-KG-005). Since the P5.4a cutover
+it runs the queries over a Cozo projection of the claim LEDGER
+(``project_ledger`` + ``store.query_edn``) — the rdflib/SPARQL/.rq path is gone.
 
 Workspace choice
 ----------------
 The goldens are captured from ``examples/bermuda-manual`` (relative to the repo
-root). That workspace ships a committed, non-empty ``graph/dataset.trig`` (the
-projected RDF of the bermuda book ledger), so ``_load_dataset`` returns a
-populated dataset with no projection step required. It is the canonical example
-book in the suite and yields representative, non-empty results for the coverage
-and defeasible queries -- making it the right equivalence baseline.
+root) — the canonical example book — whose committed ledger yields representative,
+non-empty results for the coverage and defeasible queries.
 
 Determinism (REQ-KG-008)
 ------------------------
-Each query result is captured as a list of binding dicts whose values are coerced
-to strings, then sorted by a canonical JSON key (``json.dumps(d, sort_keys=True)``)
-and serialized with ``sort_keys=True``. SPARQL does not guarantee row order, so
-this canonical sort makes the goldens byte-stable across runs and the basis for
-"result-set equal" comparison.
+Each query result is captured as a list of binding dicts (positional keys
+``c0..cN``; the comparator compares cell VALUES in sorted-key order) whose values
+are coerced to strings, then sorted by a canonical JSON key
+(``json.dumps(d, sort_keys=True)``) and serialized with ``sort_keys=True`` so the
+goldens are byte-stable across runs and the basis for "result-set equal".
 
 Usage
 -----
@@ -47,16 +43,6 @@ from .workspace import WorkspaceLayout
 _SCHEMA = Path(__file__).resolve().parent.parent / "assets" / "kg-schema.edn"
 
 _ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
-
-
-def _canonical_rows(result) -> list[dict[str, str]]:
-    """Coerce an rdflib SPARQL result to a canonically-sorted list of str dicts."""
-    rows: list[dict[str, str]] = []
-    for binding in result:
-        row = {str(k): str(v) for k, v in binding.asdict().items()}
-        rows.append(row)
-    rows.sort(key=lambda d: json.dumps(d, sort_keys=True))
-    return rows
 
 
 def _write_golden(payload, out_path: Path) -> None:
@@ -113,28 +99,40 @@ def capture(workspace: Path, out_dir: Path) -> dict[str, int]:
     ledger and write a canonical golden per query (P5.4a-2: the .rq/rdflib capture
     is gone). Returns a mapping of query name -> row count for reporting.
     """
+    from .cozo_store import CozoStore
+    from .project_ledger_cozo import project_ledger
+
     layout = WorkspaceLayout(Path(workspace).resolve())
     if not layout.ledger.exists() or layout.ledger.stat().st_size == 0:
         raise SystemExit(
             f"ERROR: no claims at {layout.ledger}; refusing to write empty goldens"
         )
-    from .cozo_store import CozoStore
-    from .project_ledger_cozo import project_ledger
-
     store = CozoStore.in_memory(schema_path=_SCHEMA)
     project_ledger(layout, store)
+    # Stronger than the file-size guard: refuse when the PROJECTION yields no
+    # claims (e.g. a ledger of only-superseded claims), which would otherwise write
+    # all-empty goldens — a vacuous oracle. (Faithfully replaces the old "0 triples
+    # in the dataset" guard.)
+    if not store.query("?[id] := *claim{id}"):
+        raise SystemExit(
+            f"ERROR: ledger at {layout.ledger} projects zero claims; refusing empty goldens"
+        )
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     counts: dict[str, int] = {}
     for _cls, name, edn_path in discover_queries(_ASSETS_ROOT):
-        rows = [
-            [str(c) if c is not None else "" for c in row]
+        # Write SPARQL-binding-dict-shaped goldens (positional keys c0..cN). The
+        # query-golden comparator (test_query_ports) compares cell VALUES in
+        # sorted-key order, so positional keys reproduce the :find cell order — and
+        # keep the committed dict format (a list-of-cells golden would break it).
+        golden = [
+            {f"c{i}": (str(c) if c is not None else "") for i, c in enumerate(row)}
             for row in store.query_edn(edn_path.read_text(encoding="utf-8"))
         ]
-        rows.sort(key=lambda r: json.dumps(r, sort_keys=True))
-        _write_golden(rows, out_dir / f"{name}.json")
-        counts[name] = len(rows)
+        golden.sort(key=lambda d: json.dumps(d, sort_keys=True))
+        _write_golden(golden, out_dir / f"{name}.json")
+        counts[name] = len(golden)
     return counts
 
 

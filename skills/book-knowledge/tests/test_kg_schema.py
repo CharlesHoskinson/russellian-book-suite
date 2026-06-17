@@ -30,6 +30,7 @@ EXPECTED_ENTITIES = {
     "source",
     "thesis-node",
     "sub-argument",
+    "invariant",
     "wiki-page",
     "chapter-wiki-ref",
     "code-node",

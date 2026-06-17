@@ -150,6 +150,21 @@
                [:supports :sub-argument]
                [:advanced-by :wiki-page]]}
 
+  ;; Invariant — a thesis-level manual invariant (book-thesis :Invariant), the
+  ;; relational form of compile_thesis's ``:<id> a :Invariant ; :rule ; :formal``
+  ;; emit. :rule is the human statement, :formal the authored Datalog clause. The
+  ;; P3.1 thesis projector also stores the MACHINE-READABLE comparison parsed from
+  ;; :formal (the same parse compile_thesis does for its invariantSubject /
+  ;; invariantPinnedValue / invariantForbiddenValue triples): :subject is the
+  ;; claim subject the invariant constrains, and exactly one of :pinned-value
+  ;; (the `!= lit` form — claims about :subject MUST equal it) or :forbidden-value
+  ;; (the `== lit` form — claims MUST NOT equal it) is set; the other stays null.
+  ;; These feed the P3.2 D11 invariant_violation check. No production projector
+  ;; emits these from book-knowledge's claim ledger; book-thesis loads them.
+  :invariant
+  {:attrs [:id :rule :formal :subject :pinned-value :forbidden-value]
+   :relations []}
+
   ;; Wiki page — a *.md page under wiki/ (tbf:WikiPage in the RDF projection).
   ;; The projector mints one row per wiki/**/*.md file, mirroring project_graph's
   ;; per-file ``tbf:WikiPage`` emission: :id is the full page URI

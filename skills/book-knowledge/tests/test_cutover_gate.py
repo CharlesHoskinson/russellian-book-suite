@@ -18,8 +18,10 @@ CLI/artifact contract and cross-skill alias safety (book-thesis
 ``query_chapter_evidence`` quoting/superseded parity (book-compose
 ``test_query_chapter_evidence``).
 
-The NO-LEGACY-IMPORT scan (no ``rdflib``/``pyshacl``/``pyDatalog`` imports) is a P5.4
-gate — the imports are intentionally still present now so the cutover is revertable.
+The NO-LEGACY-IMPORT scan now lives in ``test_no_legacy_import_after_cutover`` (this
+skill bans pyshacl/pyDatalog and allowlists rdflib to ``audit_taxonomy``; book-thesis
+bans pyDatalog and allowlists rdflib to the TTL/entailment layer) — added once P5.4
+deleted the legacy stack.
 """
 from __future__ import annotations
 

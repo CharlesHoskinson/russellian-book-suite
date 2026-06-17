@@ -1,0 +1,21 @@
+;; chapter_evidence_coverage — verified-claim count per chapter (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/coverage/chapter_evidence_coverage.rq:
+;;   SELECT ?chapter (COUNT(DISTINCT ?claim) AS ?verified_count) WHERE {
+;;     ?chapter a tbf:Chapter .
+;;     ?claim tbf:supportsChapter ?chapter ;
+;;            tbf:status "verified" .
+;;   }
+;;   GROUP BY ?chapter
+;;
+;; The :where joins the claim->chapter coverage edge (projected from each
+;; claim's supports_chapters list; ?chapter is the full chapter URI, matching
+;; the RDF projection) to the claim row, pinning status = "verified". :find
+;; groups by ?chapter and counts DISTINCT supporting claims via count-distinct
+;; (Cozo count_unique), reproducing the SPARQL COUNT(DISTINCT ?claim) exactly.
+(defquery :chapter-evidence-coverage
+  :find  [?chapter (count-distinct ?claim)]
+  :where [[?cc :claim-chapter/chapter ?chapter]
+          [?cc :claim-chapter/claim-id ?claim]
+          [?c :claim/id ?claim]
+          [?c :claim/status "verified"]])

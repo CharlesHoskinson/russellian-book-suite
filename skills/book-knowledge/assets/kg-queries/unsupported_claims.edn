@@ -1,0 +1,27 @@
+;; unsupported_claims — verified claims with NO source span (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/coverage/unsupported_claims.rq:
+;;   SELECT ?claim WHERE {
+;;     ?claim tbf:status "verified" .
+;;     FILTER NOT EXISTS { ?claim prov:wasDerivedFrom ?src . }
+;;   }
+;;
+;; The :where binds the claim id and pins status = "verified". The :not negates
+;; a source-span joined on the claim id (the projector populates
+;; source-span/claim-id as the back-reference to the owning claim), so this
+;; lowers to a safe Cozo negation: "verified claims for which no source-span
+;; row shares the claim id". A claim with no provenance is the data-quality gap
+;; this query audits.
+;;
+;; DIVERGENCE FROM THE RDF QUERY — reconcile at P5 cutover. The .rq negates
+;; `prov:wasDerivedFrom`, which project_graph emits for BOTH source spans and
+;; `derived_from` claim refs. This port negates only the source-span back-ref, so
+;; a verified claim whose only provenance is a `derived_from` link would be
+;; flagged unsupported by Cozo but not by SPARQL. Bermuda has zero `derived_from`
+;; claims, so the goldens coincide; P5 should either project a derived-from edge
+;; into the negation or confirm source-span is the intended provenance signal.
+(defquery :unsupported-claims
+  :find  [?claim]
+  :where [[?c :claim/id ?claim]
+          [?c :claim/status "verified"]]
+  :not   [[?s :source-span/claim-id ?claim]])

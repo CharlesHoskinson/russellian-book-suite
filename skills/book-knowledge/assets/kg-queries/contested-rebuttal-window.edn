@@ -1,0 +1,29 @@
+;; contested-rebuttal-window — disputed claims outside the rebuttal window (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/defeasible/contested-rebuttal-window.rq:
+;;   SELECT ?claim ?chapter WHERE {
+;;     ?claim a tbf:Claim ;
+;;            tbf:status "disputed" ;
+;;            tbf:supportsChapter ?chapter .
+;;     FILTER NOT EXISTS { ?claim tbf:rebuttalWindowOk ?chapter . }
+;;   }
+;;
+;; The :where binds disputed claims (status = "disputed") that support a chapter
+;; (joining the claim->chapter coverage edge, the relational form of
+;; tbf:supportsChapter), yielding one (claim, chapter) row per supported chapter.
+;; The :not arm is the FILTER NOT EXISTS clause: no rebuttal-window-ok marker for
+;; this (claim, chapter). project_graph emits NO tbf:rebuttalWindowOk triple, so
+;; the relational rebuttal-window-ok relation is loaded empty (the projector
+;; mirrors the never-emitted predicate); the negation therefore clears nothing and
+;; every disputed chapter-supporting claim surfaces — exactly the SPARQL behaviour
+;; over the never-emitted predicate. Both ?claim and ?chapter are bound by the
+;; positive body, so the negation is safe. bermuda's golden is empty: it has no
+;; disputed claims, so the positive body binds nothing.
+(defquery :contested-rebuttal-window
+  :find  [?claim ?chapter]
+  :where [[?c :claim/id ?claim]
+          [?c :claim/status "disputed"]
+          [?cc :claim-chapter/claim-id ?claim]
+          [?cc :claim-chapter/chapter ?chapter]]
+  :not   [[?w :rebuttal-window-ok/claim-id ?claim]
+          [?w :rebuttal-window-ok/chapter ?chapter]])

@@ -1,0 +1,19 @@
+;; contradiction_scan — pairs of claims that conflict (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/consistency/contradiction_scan.rq:
+;;   SELECT ?a ?b WHERE {
+;;     ?a a tbf:Claim ; tbf:conflictsWith ?b .
+;;   }
+;;
+;; The :where binds the directional conflict edge (projected from each claim's
+;; conflicts_with list, one row per (claim, target), mirroring project_graph's
+;; once-per-target tbf:conflictsWith emission — NOT symmetric) and joins ?a back
+;; to the claim row so the SPARQL ``?a a tbf:Claim`` type assertion holds (?a
+;; must be a projected claim). ?b is the conflicting target id. The result is one
+;; row per declared conflict edge, in the SAME direction the declaring claim
+;; recorded it.
+(defquery :contradiction-scan
+  :find  [?a ?b]
+  :where [[?cf :claim-conflict/claim-id ?a]
+          [?cf :claim-conflict/other-id ?b]
+          [?c :claim/id ?a]])

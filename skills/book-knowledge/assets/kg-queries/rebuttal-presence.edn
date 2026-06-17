@@ -1,0 +1,38 @@
+;; rebuttal-presence — load-bearing claims exposed by an open rebuttal (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/defeasible/rebuttal-presence.rq:
+;;   SELECT ?claim WHERE {
+;;     ?claim a tbf:Claim ;
+;;            tbf:loadBearing true ;
+;;            tbf:supportsChapter ?chapter .
+;;     FILTER NOT EXISTS { ?cc tbf:rebuts ?claim ; tbf:ccStatus "addressed" . }
+;;     FILTER NOT EXISTS { ?claim tbf:axiom true . }
+;;   }
+;;
+;; The :where binds load-bearing claims (load-bearing = true, the relational form
+;; of tbf:loadBearing true) that support a chapter (joining the claim->chapter
+;; coverage edge, the relational form of tbf:supportsChapter — only claims with a
+;; supporting chapter qualify, matching the .rq). The two :not arms are the two
+;; FILTER NOT EXISTS clauses, lowered to two independent safe Cozo negations on
+;; the already-bound ?claim:
+;;   - no ADDRESSED counter-claim rebuts the claim: a counter-claim row whose
+;;     target-claim-id = ?claim AND cc-status = "addressed". Counter-claims are
+;;     projected one row per record (mirroring project_graph's per-record
+;;     tbf:CounterClaim/tbf:rebuts/tbf:ccStatus emission), so this drops a claim
+;;     whose rebuttal has already been addressed; a claim with only OPEN (or no)
+;;     rebuttals survives.
+;;   - the claim is not an axiom (axiom = true): axioms are exempt from the
+;;     rebuttal audit.
+;; A load-bearing, non-axiom, chapter-supporting claim with no addressed rebuttal
+;; surfaces -> it is exposed. bermuda's golden is empty: every such claim there
+;; carries an addressed rebuttal.
+(defquery :rebuttal-presence
+  :find  [?claim]
+  :where [[?c :claim/id ?claim]
+          [?c :claim/load-bearing true]
+          [?cc :claim-chapter/claim-id ?claim]
+          [?cc :claim-chapter/chapter ?chapter]]
+  :not   [[?r :counter-claim/target-claim-id ?claim]
+          [?r :counter-claim/cc-status "addressed"]
+          [?ax :claim/id ?claim]
+          [?ax :claim/axiom true]])

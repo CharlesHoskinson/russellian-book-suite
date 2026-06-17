@@ -1,6 +1,21 @@
-"""Run SPARQL competency queries against the workspace dataset."""
+"""Run competency queries against the workspace.
+
+Two backends produce the SAME competency fire/defect result (REQ-KG-006):
+
+* ``rdflib`` (DEFAULT) — runs the eight SPARQL ``.rq`` queries over the
+  workspace's RDF dataset (``graph/dataset.trig``). Unchanged behavior.
+* ``cozo`` — runs the eight homoiconic booklogic EDN ports
+  (``assets/kg-queries/<name>.edn``) compiled to CozoScript over a projection of
+  the claim ledger into an in-memory Cozo store. Selected by ``KG_BACKEND=cozo``.
+
+The backend is parallel-run, not a cutover: the RDF path stays the default and is
+untouched unless the flag is set. Both paths return the identical result shape
+(``{query_name: [row_tuple, ...], "warnings": [...]}``) so the BLOCKING_DEFEASIBLE
+gate and every downstream consumer are backend-agnostic.
+"""
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +26,8 @@ from rdflib import Dataset
 from .workspace import WorkspaceLayout
 
 _ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
+_SCHEMA_PATH = _ASSETS_ROOT / "kg-schema.edn"
+_EDN_QUERIES_DIR = _ASSETS_ROOT / "kg-queries"
 
 QUERY_CLASSES = ("coverage", "consistency", "defeasible")
 
@@ -52,6 +69,56 @@ def _load_defeasible_meta(assets_root: Path) -> dict:
     return yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
 
 
+def _rows_str(rows) -> list[tuple]:
+    """Stringify cells the way the rdflib path does (None -> "").
+
+    Both backends route their per-query rows through this so the result shape is
+    identical: a list of tuples of strings, in the backend's natural row order.
+    """
+    return [
+        tuple(str(v) if v is not None else "" for v in row) for row in rows
+    ]
+
+
+def _run_queries_rdflib(
+    layout: WorkspaceLayout, queries: list[tuple[str, str, Path]]
+) -> dict[str, list[tuple]]:
+    """Run the eight SPARQL ``.rq`` queries over the RDF dataset (default path)."""
+    ds = _load_dataset(layout)
+    findings: dict[str, list[tuple]] = {}
+    for _cls, name, query_path in queries:
+        findings[name] = _rows_str(ds.query(query_path.read_text(encoding="utf-8")))
+    return findings
+
+
+def _run_queries_cozo(
+    layout: WorkspaceLayout, queries: list[tuple[str, str, Path]]
+) -> dict[str, list[tuple]]:
+    """Run the eight EDN ports over a Cozo projection of the ledger.
+
+    Builds one in-memory Cozo store from ``kg-schema.edn``, projects the claim
+    ledger into it (the relational counterpart of the RDF emit), then for each
+    query loads ``assets/kg-queries/<name>.edn`` — the file name is the SAME stem
+    as the ``.rq`` query name :func:`discover_queries` yields — and runs it
+    through the EDN seam ``store.query_edn``, which compiles to CozoScript
+    internally. Rows are stringified through :func:`_rows_str` so the returned
+    shape is identical to the rdflib path. The booklogic ``:find`` order matches
+    the SPARQL ``SELECT`` order, so per-row cell order matches too.
+    """
+    # Local imports keep pycozo/edn off the default (rdflib) path's import cost.
+    from .cozo_store import CozoStore
+    from .project_ledger_cozo import project_ledger
+
+    store = CozoStore.in_memory(schema_path=_SCHEMA_PATH)
+    project_ledger(layout, store)
+
+    findings: dict[str, list[tuple]] = {}
+    for _cls, name, _query_path in queries:
+        edn = (_EDN_QUERIES_DIR / f"{name}.edn").read_text(encoding="utf-8")
+        findings[name] = _rows_str(store.query_edn(edn))
+    return findings
+
+
 def run_competency_queries(layout: WorkspaceLayout) -> dict:
     """Execute all competency queries and return results.
 
@@ -74,18 +141,29 @@ def run_competency_queries(layout: WorkspaceLayout) -> dict:
     When ``BLOCKING_DEFEASIBLE`` is ``True`` and a defeasible query with
     ``severity == "critical"`` returns rows, the function raises ``RuntimeError``.
     """
-    ds = _load_dataset(layout)
     meta = _load_defeasible_meta(_ASSETS_ROOT)
+    queries = discover_queries(_ASSETS_ROOT)
+
+    # Backend select (REQ-KG-006). Default rdflib = existing SPARQL path,
+    # untouched. ``KG_BACKEND=cozo`` runs the homoiconic EDN ports over a Cozo
+    # projection of the ledger. Both return the identical per-query row shape, so
+    # the defeasible/BLOCKING logic below is backend-agnostic.
+    backend = os.environ.get("KG_BACKEND", "rdflib").strip().lower()
+    if backend == "cozo":
+        per_query = _run_queries_cozo(layout, queries)
+    elif backend == "rdflib":
+        per_query = _run_queries_rdflib(layout, queries)
+    else:
+        raise ValueError(
+            f"unknown KG_BACKEND {backend!r} (expected 'rdflib' or 'cozo')"
+        )
 
     findings: dict[str, list[tuple]] = {}
     warnings: list[dict] = []
     hard_failures: list[dict] = []
 
-    for cls, name, query_path in discover_queries(_ASSETS_ROOT):
-        rows = [
-            tuple(str(v) if v is not None else "" for v in row)
-            for row in ds.query(query_path.read_text(encoding="utf-8"))
-        ]
+    for cls, name, _query_path in queries:
+        rows = per_query[name]
         findings[name] = rows
 
         if cls == "defeasible" and rows:

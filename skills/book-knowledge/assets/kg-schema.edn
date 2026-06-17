@@ -1,0 +1,193 @@
+;; kg-schema.edn — unified knowledge-graph schema (REQ-KG-001)
+;;
+;; Homoiconic source of truth for the unified graph: claims + thesis + code
+;; graph. The projectors (ledger->cozo) and the EDN->CozoScript compiler read
+;; this contract; cozo_store creates one Cozo relation per entity from it
+;; (REQ-KG-011) and the compiler validates query references against it
+;; (REQ-KG-003).
+;;
+;; This is DISTINCT from assets/claim-record.schema.json (JSON-Schema), which
+;; still guards ledger-write shape. Do not conflate the two.
+;;
+;; Conventions:
+;;   - One map {:entities {...}}.
+;;   - Each entity is {<name> {:attrs [<keyword>...] :relations [[<verb> <target>]...]}}.
+;;   - All names are kebab-case keywords; relation targets reference declared
+;;     entities. The first attr of each entity is its identity column.
+;;   - Attr names are derived from the real field sources (claim-record schema,
+;;     book-thesis compile_thesis / RDF projection, graphify graph.json), not a
+;;     sketch — normalized to stable kebab-case keywords.
+
+{:entities
+ {;; Claim — derived from claim-record.schema.json (latest-per-id verified
+  ;; claims land here via the ledger->cozo projector, REQ-KG-004).
+  :claim
+  {:attrs [:id :canonical-text :status :claim-type :semantic-class
+           :confidence :p-prior :p-posterior :load-bearing :axiom
+           :pin-low-confidence :created-at :last-verified-at]
+   :types {:confidence :float :p-prior :float :p-posterior :float
+           :load-bearing :bool :axiom :bool :pin-low-confidence :bool}
+   :relations [[:has-source :source-span]
+               [:supports :thesis-node]
+               [:advances :sub-argument]
+               [:derived-from :claim]
+               [:conflicts-with :claim]
+               [:supersedes :claim]]}
+
+  ;; Source span — the provenance anchor for a claim
+  ;; (claim-record.schema.json source_spans[]). :claim-id is the back-reference
+  ;; to the owning claim: spans are nested under a claim record in the ledger,
+  ;; so the relational projection (REQ-KG-004) carries the parent claim id here
+  ;; to make the claim<->span join expressible.
+  ;; :wiki-page-id is an OPTIONAL back-reference to a wiki page (when this span's
+  ;; source IS a wiki page rather than an external doc). The RDF projection's
+  ;; orphan_wiki_pages query keys off ``?claim tbf:hasSourceSpan ?page``, i.e. a
+  ;; claim whose source span lands on a WikiPage URI; this column is the
+  ;; relational form of that link. The projector sets it (to the page's full URI)
+  ;; when a span's ``doc_id`` resolves to a wiki/*.md page path, else leaves it
+  ;; null. Spans citing ordinary docs keep it null, so the orphan negation only
+  ;; clears pages that a claim actually sources.
+  :source-span
+  {:attrs [:id :claim-id :doc-id :node-id :page-index :locator-text :wiki-page-id]
+   :types {:page-index :int}
+   :relations [[:of-claim :claim]
+               [:cites-page :wiki-page]]}
+
+  ;; Claim->chapter coverage edge — the relational form of a claim's
+  ;; supports_chapters list (claim-record schema). The RDF projection
+  ;; (project_graph) emits one tbf:supportsChapter triple per (claim, chapter)
+  ;; plus a tbf:Chapter type on each chapter URI; this entity is its relational
+  ;; counterpart: one row per (claim, chapter). :chapter holds the full chapter
+  ;; URI (https://example.org/book-knowledge/chapters/<id>) so the Cozo
+  ;; chapter_evidence_coverage port reproduces the SPARQL bindings exactly.
+  ;; The identity column is the synthetic (claim-id . chapter) pair id.
+  :claim-chapter
+  {:attrs [:id :claim-id :chapter]
+   :relations [[:of-claim :claim]
+               [:supports-chapter :chapter]]}
+
+  ;; Chapter — a book chapter that claims may support (tbf:Chapter in the RDF
+  ;; projection). :id is the full chapter URI; the projector mints one row per
+  ;; distinct chapter referenced by a projected claim's supports_chapters list.
+  :chapter
+  {:attrs [:id]
+   :relations []}
+
+  ;; Claim->claim conflict edge — the relational form of a claim's
+  ;; conflicts_with list (claim-record schema). The RDF projection
+  ;; (project_graph) emits one tbf:conflictsWith triple per (claim, target),
+  ;; directional (NOT symmetric — the reverse edge is only present if the target
+  ;; declares it too); this entity is its relational counterpart: one row per
+  ;; (claim, conflicts_with target). :claim-id is the declaring claim, :other-id
+  ;; the conflicting target. The identity column is the synthetic
+  ;; (claim-id . other-id) pair id so re-projection upserts rather than dups.
+  :claim-conflict
+  {:attrs [:id :claim-id :other-id]
+   :relations [[:of-claim :claim]
+               [:conflicts-with :claim]]}
+
+  ;; Counter-claim — a rebuttal targeting a claim (counter-claim.schema.json).
+  ;; The RDF projection (project_graph) iterates EVERY counter-claim record in the
+  ;; append-only ledger (no latest-per-id dedup, no status filter) and emits, per
+  ;; record:
+  ;;   <cc> a tbf:CounterClaim ; tbf:rebuts <target-claim> ; tbf:ccStatus <status>.
+  ;; Because RDF triples are a SET, the distinct facts that survive are the
+  ;; distinct (cc, target, status) tuples — crucially, a cc that transitioned
+  ;; open -> addressed in the ledger contributes BOTH a ccStatus "open" AND a
+  ;; ccStatus "addressed" triple. The rebuttal-presence port's negation keys off
+  ;; the "addressed" fact, so the relational model MUST preserve every distinct
+  ;; status a cc has held, not just its latest. Keying the relation by the bare cc
+  ;; id would collapse that history to one row and lose the "addressed" fact.
+  ;; Therefore the identity column :id is the SYNTHETIC (cc-id . cc-status) pair,
+  ;; one row per distinct (cc, status) — the exact distinct set project_graph's
+  ;; triples reduce to. :cc-id is the original cc id, :target-claim-id the rebutted
+  ;; claim id (the tbf:rebuts target, kept bare so it joins claim.id), :cc-status
+  ;; the lifecycle status ("open"/"addressed"/"dismissed"). :created-at rides along
+  ;; (ISO-8601 string; Cozo compares ISO-8601 lexically, no :types coercion).
+  :counter-claim
+  {:attrs [:id :cc-id :target-claim-id :cc-status :created-at]
+   :relations [[:rebuts :claim]]}
+
+  ;; Rebuttal-window-ok marker — the relational form of project_graph's
+  ;; tbf:rebuttalWindowOk triple (a disputed claim whose rebuttal landed inside
+  ;; the allowed window for a chapter). project_graph emits NO rebuttalWindowOk
+  ;; triple today, so the projector loads this relation EMPTY; it exists so the
+  ;; contested-rebuttal-window port can express its ``FILTER NOT EXISTS { ?claim
+  ;; tbf:rebuttalWindowOk ?chapter }`` negation arm faithfully (a never-emitted
+  ;; predicate => the negation clears nothing => every disputed chapter-supporting
+  ;; claim surfaces). :claim-id is the disputed claim, :chapter the full chapter
+  ;; URI; the identity column is the synthetic (claim-id . chapter) pair id.
+  :rebuttal-window-ok
+  {:attrs [:id :claim-id :chapter]
+   :relations [[:of-claim :claim]
+               [:for-chapter :chapter]]}
+
+  ;; Source — an ingested source document (raw/manifests/*.json). The RDF
+  ;; projection (project_graph) reads each manifest and emits
+  ;; ``<source> schema:dateCreated <ingested_at>`` keyed by the manifest's
+  ;; ``doc_id``; this entity is its relational counterpart, one row per manifest.
+  ;; :id is the manifest ``doc_id`` (the natural key a claim's source-span carries
+  ;; in its :doc-id column, so claim->span->source joins on it — the relational
+  ;; form of ``?claim prov:wasDerivedFrom ?src``). :ingested-at is the manifest's
+  ;; ``ingested_at`` (ISO-8601 string; Cozo compares ISO-8601 lexically, no :types
+  ;; coercion — schema:dateCreated in the .rq). :path and :title ride along from
+  ;; the manifest; :trust is the manifest's numeric trust score.
+  :source
+  {:attrs [:id :ingested-at :path :title :trust]
+   :types {:trust :float}
+   :relations [[:derives :claim]]}
+
+  ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
+  :thesis-node
+  {:attrs [:id :statement :polarity :scope]
+   :relations []}
+
+  ;; Sub-argument — a thesis sub-claim (book-thesis :SubArgument);
+  ;; supports its parent (thesis-node or another sub-argument).
+  :sub-argument
+  {:attrs [:id :statement :polarity :parent]
+   :relations [[:supports :thesis-node]
+               [:supports :sub-argument]
+               [:advanced-by :wiki-page]]}
+
+  ;; Wiki page — a *.md page under wiki/ (tbf:WikiPage in the RDF projection).
+  ;; The projector mints one row per wiki/**/*.md file, mirroring project_graph's
+  ;; per-file ``tbf:WikiPage`` emission: :id is the full page URI
+  ;; (https://example.org/book-knowledge/wiki/<rel-path>), :path the
+  ;; forward-slashed path relative to the workspace root, :title the file stem.
+  :wiki-page
+  {:attrs [:id :path :title]
+   :relations []}
+
+  ;; Chapter->wiki-page reference edge — the relational form of project_graph's
+  ;; tbf:referencesPage triple (a chapter pointing at a wiki page). It is the
+  ;; second negation arm of orphan_wiki_pages (a page referenced by a chapter is
+  ;; not an orphan). project_graph emits NO referencesPage triples today, so the
+  ;; projector currently loads this relation empty; it exists so the orphan port
+  ;; expresses both negation arms faithfully and so a future chapter->page
+  ;; signal has a home. :chapter is the full chapter URI, :wiki-page-id the full
+  ;; page URI; the identity column is the synthetic (chapter . page) pair id.
+  :chapter-wiki-ref
+  {:attrs [:id :chapter :wiki-page-id]
+   :relations [[:of-chapter :chapter]
+               [:references-page :wiki-page]]}
+
+  ;; Code node — graphify graph.json node (id, label) plus its rank and
+  ;; community assignment.
+  :code-node
+  {:attrs [:id :label :rank :community]
+   :types {:rank :float}
+   :relations [[:edge :code-edge]
+               [:member-of :community]]}
+
+  ;; Code edge — graphify graph.json link (source, target, relation, weight).
+  :code-edge
+  {:attrs [:source-id :target-id :relationship :weight]
+   :types {:weight :float}
+   :relations [[:from :code-node]
+               [:to :code-node]]}
+
+  ;; Community — a detected cluster of code nodes (graphify community structure).
+  :community
+  {:attrs [:id :members]
+   :relations [[:has-member :code-node]]}}}

@@ -153,3 +153,16 @@ def test_run_consistency_cozo_is_pure_without_write_flag(tmp_path):
     ws = _build_clean_workspace(tmp_path)
     run_consistency_cozo(ws)
     assert not (ws / "qa" / "datalog-defects.json").exists()
+
+
+def test_cozo_artifact_byte_identical_to_legacy(tmp_path):
+    """The qa/datalog-defects.json the Cozo CLI writes must be byte-for-byte identical
+    to the legacy pyDatalog pass's (same json.dumps + newline/encoding), so consumers
+    see no drift — a JSON-parse comparison would miss newline/sort/encoding drift
+    (audit MINOR; a P5.3 gate requirement)."""
+    ws = build_violating_thesis(tmp_path)
+    artifact = ws / "qa" / "datalog-defects.json"
+    run_pydatalog(ws)  # legacy writer
+    legacy_bytes = artifact.read_bytes()
+    run_consistency_cozo(ws, write_artifact=True)  # cozo writer overwrites
+    assert artifact.read_bytes() == legacy_bytes

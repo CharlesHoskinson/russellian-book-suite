@@ -13,6 +13,12 @@ class SiblingNotFoundError(Exception):
     pass
 
 
+def _canon(p) -> str:
+    """Canonical path key: realpath + normcase, so the same directory reached via a
+    junction/symlink or different Windows casing compares equal."""
+    return os.path.normcase(os.path.realpath(str(p)))
+
+
 def _skills_root() -> Path:
     home = Path(os.environ.get("USERPROFILE") or os.path.expanduser("~"))
     return home / ".claude" / "skills"
@@ -82,11 +88,13 @@ def _ensure_bk_package() -> types.ModuleType:
     # wrong copy; validate the cached __path__ and fail loud on mismatch.
     existing = sys.modules.get(_BK_PACKAGE_ALIAS)
     if existing is not None:
-        existing_path = list(getattr(existing, "__path__", []) or [])
-        if existing_path != [str(bk_scripts)]:
+        # Canonical (realpath + normcase) compare so a junction/symlink or Windows
+        # casing difference to the SAME dir is not a false mismatch.
+        existing_path = [_canon(p) for p in (getattr(existing, "__path__", []) or [])]
+        if existing_path != [_canon(bk_scripts)]:
             raise SiblingNotFoundError(
                 f"{_BK_PACKAGE_ALIAS} is already registered for a different "
-                f"book-knowledge ({existing_path!r} != {[str(bk_scripts)]!r})"
+                f"book-knowledge ({existing_path!r} != {[_canon(bk_scripts)]!r})"
             )
         return existing
     pkg = types.ModuleType(_BK_PACKAGE_ALIAS)

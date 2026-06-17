@@ -11,11 +11,15 @@ the repo-sibling-first ``sibling_skills`` bridge.
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import quote
 
 from .sibling_skills import book_knowledge_root, load_book_knowledge_module
 
-# Mirrors project_ledger_cozo's chapter-URI minting so the literal we match equals
-# the value stored in the claim-chapter.chapter column.
+# Mirrors project_ledger_cozo._chapter_uri / project_graph's chapter-URI minting
+# (base + urllib.quote(id), default safe="/") so the literal we match equals the
+# value stored in the claim-chapter.chapter column for ANY chapter id — not just
+# URL-safe slugs. Using quote() also makes the EDN string literal injection-safe
+# (a stray '"' in the id is percent-encoded).
 _CHAPTER_BASE = "https://example.org/book-knowledge/chapters/"
 
 
@@ -45,7 +49,7 @@ def query_chapter_evidence(workspace: Path, chapter_id: str) -> dict:
     store = cozo_store.CozoStore.in_memory(schema_path=schema)
     project_ledger_cozo.project_ledger(layout, store)
 
-    chapter_uri = f"{_CHAPTER_BASE}{chapter_id}"
+    chapter_uri = f"{_CHAPTER_BASE}{quote(chapter_id)}"
     rows = store.query_edn(_chapter_evidence_edn(chapter_uri))
     claims = sorted({row[0] for row in rows})
     return {"chapter_id": chapter_id, "claims": claims}

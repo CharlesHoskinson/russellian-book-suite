@@ -72,3 +72,14 @@ def test_query_chapter_evidence_reads_ledger_not_trig(tmp_path):
         layout.dataset.unlink()  # remove the TriG so only the ledger remains
     result = query_chapter_evidence(workspace, "ch-07")
     assert sorted(result["claims"]) == ["clm-2026-000001", "clm-2026-000002", "clm-2026-000003"]
+
+
+def test_query_chapter_evidence_matches_escape_needing_chapter_id(tmp_path):
+    """The query must mint the chapter URI the SAME way the projector does
+    (urllib quote), so a chapter id needing escaping (here, a space) still joins —
+    the projector stores .../chapters/ch%2003, so a raw .../chapters/ch 03 lookup
+    would miss it (audit IMPORTANT). Also guards the EDN literal against a stray
+    quote in the id."""
+    workspace = _seed(tmp_path, "ch 03")
+    result = query_chapter_evidence(workspace, "ch 03")
+    assert len(result["claims"]) == 3

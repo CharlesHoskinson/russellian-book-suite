@@ -217,6 +217,12 @@ Skill: `book-thesis` (+ `book-knowledge` for the consistency compiler if shared)
 5. **Cross-skill imports** are tested in ONE interpreter with conflicting repo/installed roots (the `_book_knowledge_scripts` alias now validates its `__path__` and raises on mismatch — P3.0 audit fix).
 6. Cutover CI must **FAIL (not silently skip)** if the real `examples/bermuda-manual` fixture is absent — a skipped real-data leg is not parity proof.
 
+**Added by the remediation+P5.1 external audit (2026-06-17):**
+7. **`qa/datalog-defects.json` byte/text comparison** — assert the Cozo CLI's artifact is byte-identical to the legacy pass's (a JSON-parse compare misses newline/sort/encoding drift; book-thesis `test_cozo_artifact_byte_identical_to_legacy` already does this — extend to the gate).
+8. **`query_chapter_evidence` parity cases** — escaped/non-slug chapter ids, a claim supporting MULTIPLE chapters, non-verified claims, and duplicate/latest + verified-then-superseded records (project_ledger drops only the latest-superseded, deduped latest-per-id — assert the Cozo result matches that, not the raw ledger).
+9. **Chapter-id URI contract — DECIDED:** the query mints the chapter URI with `urllib.quote()` exactly as `project_ledger_cozo._chapter_uri` / `project_graph` do (P5.1 fix), so ANY chapter id (not just URL-safe slugs) joins correctly and the EDN literal is injection-safe. The gate asserts an escape-needing id resolves; do NOT reintroduce a raw-id lookup.
+10. **`audit_taxonomy` no-bypass allowlist is NARROW** — the scan exempts ONLY `audit_taxonomy.py` (a standalone RDFS-ontology linter), not any claim/thesis-graph reader; every other module must be rdflib/TriG-free.
+
 **Files:**
 - Modify: `run_competency_queries.py`, `validate_shacl.py`, `datalog_consistency.py` — flip `KG_BACKEND` default to `cozo`.
 - Create: `skills/book-knowledge/tests/test_cutover_gate.py` — `test_blocks_until_all_fixtures_pass` (every characterization golden — 8 queries + SHACL + D9-D11 — reproduced by the Cozo path); `test_no_legacy_import_after_cutover` (whole-suite scan: no `import rdflib|pyshacl|pyDatalog`, no `format="trig"`/`.parse(layout.dataset` in any non-deleted source); mirror the F4 no-bypass scan widened across all three skills).

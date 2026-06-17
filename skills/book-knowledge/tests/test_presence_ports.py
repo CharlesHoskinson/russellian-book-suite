@@ -143,7 +143,7 @@ def test_both_engines_agree_on_missing_status(tmp_path, monkeypatch):
 
     # rdflib leg (default backend), normalized inside validate_shacl
     layout = _missing_status_workspace(tmp_path)
-    monkeypatch.delenv("KG_BACKEND", raising=False)
+    monkeypatch.setenv("KG_BACKEND", "rdflib")  # rdflib leg of the parity proof; pin the legacy path
     report = validate_shacl(layout)
     rdflib = {(v.focus_node, v.path, v.message) for v in report.violations}
     assert ("inj-missing-status", _STATUS_PATH, _STATUS_PRESENT_MSG) in rdflib
@@ -168,7 +168,7 @@ def test_status_minCount_and_sh_in_messages_do_not_collide(tmp_path, monkeypatch
         (bsrc, RDF.type, PROV.Entity),
         (bogus, PROV.wasDerivedFrom, bsrc), (bogus, TBF.hasSourceSpan, bsrc),
     ])
-    monkeypatch.delenv("KG_BACKEND", raising=False)
+    monkeypatch.setenv("KG_BACKEND", "rdflib")  # rdflib leg of the parity proof; pin the legacy path
     report = validate_shacl(layout)
     status_msgs = {v.message for v in report.violations if v.path == _STATUS_PATH}
     assert _STATUS_ENUM_MSG in status_msgs, report.violations

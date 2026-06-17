@@ -308,14 +308,26 @@ def _competency_signature(findings: dict) -> dict:
     return sig
 
 
-def test_default_backend_is_rdflib(monkeypatch, tmp_path):
-    """With no flag set, the runner uses the rdflib path (no behavior change)."""
-    monkeypatch.delenv("KG_BACKEND", raising=False)
+def test_default_backend_is_cozo(monkeypatch, tmp_path):
+    """P5.3 cutover: with no flag set, the runner uses the COZO path — it sources
+    facts from the ledger projection and must NOT load the RDF dataset."""
+    import scripts.run_competency_queries as mod
+
     layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
     append_claim(layout, _verified("clm-2026-000001"))
     project_graph(layout)
+    monkeypatch.delenv("KG_BACKEND", raising=False)  # exercise the DEFAULT
+
+    called = {"rdflib": 0}
+    real_load = mod._load_dataset
+
+    def _spy(layout):
+        called["rdflib"] += 1
+        return real_load(layout)
+
+    monkeypatch.setattr(mod, "_load_dataset", _spy)
     findings = run_competency_queries(layout)
-    # rdflib path returns the established shape.
+    assert called["rdflib"] == 0, "default backend must be cozo (no RDF dataset load)"
     assert findings["unsupported_claims"] == []
     assert "warnings" in findings
 
@@ -334,7 +346,7 @@ def test_cozo_backend_matches_rdflib(monkeypatch):
     assert BERMUDA.exists(), f"bermuda workspace missing at {BERMUDA}"
     layout = WorkspaceLayout(BERMUDA)
 
-    monkeypatch.delenv("KG_BACKEND", raising=False)
+    monkeypatch.setenv("KG_BACKEND", "rdflib")  # pin the legacy leg (default is now cozo)
     rdflib_findings = run_competency_queries(layout)
 
     # The cozo path must NOT read the RDF dataset.trig — it sources facts from

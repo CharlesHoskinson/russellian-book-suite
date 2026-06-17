@@ -319,10 +319,11 @@ def _validate_cozo(layout: WorkspaceLayout) -> ShaclReport:
 def validate_shacl(layout: WorkspaceLayout) -> ShaclReport:
     """Validate ``layout``'s graph, dispatching on the ``KG_BACKEND`` env var.
 
-    Default is ``rdflib`` (the pyshacl path); ``cozo`` runs the booklogic
-    constraints over a Cozo store. Both return an equivalent :class:`ShaclReport`.
+    DEFAULT is ``cozo`` (P5.3 cutover): the booklogic constraints run over a Cozo
+    store. ``KG_BACKEND=rdflib`` still selects the legacy pyshacl path (present
+    until the P5.4 deletion). Both return an equivalent :class:`ShaclReport`.
     """
-    backend = os.environ.get("KG_BACKEND", "rdflib")
+    backend = os.environ.get("KG_BACKEND", "cozo")
     if backend not in ("rdflib", "cozo"):
         raise ValueError(
             f"unknown KG_BACKEND {backend!r} (expected 'rdflib' or 'cozo')"

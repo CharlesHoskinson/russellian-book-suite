@@ -65,8 +65,13 @@ def test_release_bundle_records_conforming_workspace(tmp_path):
     assert manifest["competency_clean"] is True
 
 
-def test_release_bundle_records_non_conforming_workspace(tmp_path):
+def test_release_bundle_records_non_conforming_workspace(tmp_path, monkeypatch):
     import yaml
+    # This fixture injects non-conformance as raw RDF into the TriG dataset, which
+    # only the legacy pyshacl path reads; pin it (the default is now cozo, which
+    # validates the ledger projection). Reworked to ledger-based non-conformance
+    # when the rdflib path is deleted in P5.4.
+    monkeypatch.setenv("KG_BACKEND", "rdflib")
     workspace_mod = load_book_knowledge_module("workspace")
     workspace = _seed(tmp_path)
     layout = workspace_mod.WorkspaceLayout(workspace)

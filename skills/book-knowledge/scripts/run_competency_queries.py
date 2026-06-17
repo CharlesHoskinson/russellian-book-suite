@@ -144,11 +144,12 @@ def run_competency_queries(layout: WorkspaceLayout) -> dict:
     meta = _load_defeasible_meta(_ASSETS_ROOT)
     queries = discover_queries(_ASSETS_ROOT)
 
-    # Backend select (REQ-KG-006). Default rdflib = existing SPARQL path,
-    # untouched. ``KG_BACKEND=cozo`` runs the homoiconic EDN ports over a Cozo
-    # projection of the ledger. Both return the identical per-query row shape, so
-    # the defeasible/BLOCKING logic below is backend-agnostic.
-    backend = os.environ.get("KG_BACKEND", "rdflib").strip().lower()
+    # Backend select (REQ-KG-006). DEFAULT cozo (P5.3 cutover): the homoiconic EDN
+    # ports run over a Cozo projection of the ledger. ``KG_BACKEND=rdflib`` still
+    # selects the legacy SPARQL path (present until the P5.4 deletion). Both return
+    # the identical per-query row shape, so the defeasible/BLOCKING logic below is
+    # backend-agnostic.
+    backend = os.environ.get("KG_BACKEND", "cozo").strip().lower()
     if backend == "cozo":
         per_query = _run_queries_cozo(layout, queries)
     elif backend == "rdflib":

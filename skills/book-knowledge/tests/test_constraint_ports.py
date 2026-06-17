@@ -129,7 +129,7 @@ def test_constraints_match_shacl_golden(tmp_path, monkeypatch):
     #    violating fixture, normalized to canonical form, equals the SAME golden.
     #    This proves rdflib(normalized) == golden == cozo.
     vlayout = build_violating_workspace(tmp_path)
-    monkeypatch.delenv("KG_BACKEND", raising=False)
+    monkeypatch.setenv("KG_BACKEND", "rdflib")  # rdflib leg of the parity proof; pin the legacy path
     rdflib_report = validate_shacl(vlayout)  # default backend = rdflib
     normalized = _normalize_pyshacl_violations(rdflib_report.violations)
     assert _violation_set(normalized) == _golden_set("shacl_report_violating")
@@ -212,7 +212,7 @@ def test_both_engines_flag_confidence_below_zero(tmp_path, monkeypatch):
     #    via pyshacl (default backend) -> non-conforming with a #confidence
     #    violation present.
     layout = _build_low_confidence_workspace(tmp_path)
-    monkeypatch.delenv("KG_BACKEND", raising=False)
+    monkeypatch.setenv("KG_BACKEND", "rdflib")  # rdflib leg of the parity proof; pin the legacy path
     rdflib_report = validate_shacl(layout)
     assert rdflib_report.conforms is False
     rdflib_conf = [

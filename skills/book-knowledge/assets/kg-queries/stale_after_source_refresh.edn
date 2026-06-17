@@ -14,7 +14,9 @@
 ;; claim -> source-span (claim-id) -> source (the span's doc-id unifies with the
 ;; source row's id) and reads the source's ingested_at.
 ;;
-;; DIVERGENCE FROM THE RDF QUERY — reconcile at P5 cutover. The .rq join is in
+;; DIVERGENCE FROM THE RDF QUERY — RESOLVED (P5.2): adopt this corrected doc_id
+;; join as canonical. The structurally-dead RDF join is retired with project_graph
+;; in P5.4; no project_graph URI-minting fix is warranted. The .rq join is in
 ;; fact STRUCTURALLY DEAD over the current RDF projection: project_graph mints
 ;; prov:wasDerivedFrom to the source-SPAN URI (.../sources/<doc>#<locator>, with a
 ;; fragment) while schema:dateCreated lands on the BARE manifest URI
@@ -25,8 +27,8 @@
 ;; actually connects — so the two agree on bermuda ONLY because every claim there
 ;; was created at the same instant its source was ingested (equal, not strictly
 ;; later). On a workspace with a genuinely refreshed source the Cozo port WILL
-;; fire while the broken SPARQL stays silent. P5 must choose: fix project_graph's
-;; URI minting, or adopt this corrected join as canonical.
+;; fire while the broken SPARQL stays silent — which is the intended behaviour, now
+;; the canonical one.
 ;;
 ;; :filter applies the var-vs-var ordered comparison `?src_date > ?claim_date`
 ;; (source refreshed strictly after the claim was created). Both are ISO-8601

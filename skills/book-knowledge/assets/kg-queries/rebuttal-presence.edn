@@ -17,10 +17,10 @@
 ;; the already-bound ?claim:
 ;;   - no ADDRESSED counter-claim rebuts the claim: a counter-claim row whose
 ;;     target-claim-id = ?claim AND cc-status = "addressed". Counter-claims are
-;;     projected one row per record (mirroring project_graph's per-record
-;;     tbf:CounterClaim/tbf:rebuts/tbf:ccStatus emission), so this drops a claim
-;;     whose rebuttal has already been addressed; a claim with only OPEN (or no)
-;;     rebuttals survives.
+;;     projected one row per cc carrying its LATEST status (P5.2 canonical:
+;;     dedupe-to-latest-per-id), so this drops a claim whose rebuttal's CURRENT
+;;     status is addressed; a claim whose rebuttal is open (including an addressed
+;;     rebuttal later reopened) or has no rebuttal survives.
 ;;   - the claim is not an axiom (axiom = true): axioms are exempt from the
 ;;     rebuttal audit.
 ;; A load-bearing, non-axiom, chapter-supporting claim with no addressed rebuttal

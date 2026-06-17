@@ -87,23 +87,19 @@
                [:conflicts-with :claim]]}
 
   ;; Counter-claim — a rebuttal targeting a claim (counter-claim.schema.json).
-  ;; The RDF projection (project_graph) iterates EVERY counter-claim record in the
-  ;; append-only ledger (no latest-per-id dedup, no status filter) and emits, per
-  ;; record:
-  ;;   <cc> a tbf:CounterClaim ; tbf:rebuts <target-claim> ; tbf:ccStatus <status>.
-  ;; Because RDF triples are a SET, the distinct facts that survive are the
-  ;; distinct (cc, target, status) tuples — crucially, a cc that transitioned
-  ;; open -> addressed in the ledger contributes BOTH a ccStatus "open" AND a
-  ;; ccStatus "addressed" triple. The rebuttal-presence port's negation keys off
-  ;; the "addressed" fact, so the relational model MUST preserve every distinct
-  ;; status a cc has held, not just its latest. Keying the relation by the bare cc
-  ;; id would collapse that history to one row and lose the "addressed" fact.
-  ;; Therefore the identity column :id is the SYNTHETIC (cc-id . cc-status) pair,
-  ;; one row per distinct (cc, status) — the exact distinct set project_graph's
-  ;; triples reduce to. :cc-id is the original cc id, :target-claim-id the rebutted
-  ;; claim id (the tbf:rebuts target, kept bare so it joins claim.id), :cc-status
-  ;; the lifecycle status ("open"/"addressed"/"dismissed"). :created-at rides along
-  ;; (ISO-8601 string; Cozo compares ISO-8601 lexically, no :types coercion).
+  ;; P5.2 canonical decision: ONE row per cc carrying its LATEST status
+  ;; (dedupe-to-latest-per-id; project_ledger_cozo uses latest_per over the
+  ;; append-only counter-claims ledger). A cc that went open -> addressed lands as
+  ;; "addressed"; an addressed -> open reopen lands as "open" — the rebuttal-presence
+  ;; gate acts on the CURRENT status, so a reopened rebuttal counts as unaddressed.
+  ;; (This replaces the earlier history-preserving model that kept every distinct
+  ;; (cc, status) tuple to mirror project_graph's per-record tbf:ccStatus SET emit;
+  ;; the legacy RDF emit keeps that full set until it is deleted in P5.4.) Identity
+  ;; column :id is the bare cc id. :cc-id duplicates it for continuity;
+  ;; :target-claim-id is the rebutted claim id (the tbf:rebuts target, kept bare so
+  ;; it joins claim.id); :cc-status the latest lifecycle status
+  ;; ("open"/"addressed"/"dismissed"); :created-at rides along (ISO-8601 string;
+  ;; Cozo compares ISO-8601 lexically, no :types coercion).
   :counter-claim
   {:attrs [:id :cc-id :target-claim-id :cc-status :created-at]
    :relations [[:rebuts :claim]]}

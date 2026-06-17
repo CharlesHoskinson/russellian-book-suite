@@ -295,12 +295,11 @@ def test_orphan_wiki_pages_fires_on_orphan(tmp_path: Path) -> None:
     )
     returned = {r[0] for r in store.query(script)}
 
-    # project_graph mints page URIs from the path RELATIVE TO ROOT (which already
-    # starts with ``wiki/``), giving the doubled ``wiki/wiki/`` prefix; the
-    # projector mirrors that minting exactly. (init_workspace also seeds skeleton
-    # pages -- index/log/current-status -- which are themselves unreferenced
-    # orphans; we assert ONLY on the page pair we control.)
-    base = "https://example.org/book-knowledge/wiki/wiki/"
+    # P5.2 canonical: page URIs are keyed on the path RELATIVE TO THE WIKI DIR, so a
+    # SINGLE ``wiki/`` prefix (project_graph's doubled ``wiki/wiki/`` quirk dropped).
+    # (init_workspace also seeds skeleton pages -- index/log/current-status -- which
+    # are themselves unreferenced orphans; we assert ONLY on the page pair we control.)
+    base = "https://example.org/book-knowledge/wiki/"
     assert f"{base}{orphan_rel}" in returned, "the unreferenced page must be an orphan"
     assert f"{base}{referenced_rel}" not in returned, (
         "the claim-sourced page must NOT be an orphan"
@@ -460,6 +459,59 @@ def test_rebuttal_presence_fires_on_unaddressed_rebuttal(tmp_path: Path) -> None
     assert _canonical(rows) == _canonical(
         [["clm-2026-000001"], ["clm-2026-000003"]]
     )
+
+
+def test_rebuttal_presence_uses_latest_counter_claim_status(tmp_path: Path) -> None:
+    """P5.2 canonical: counter-claims dedupe to LATEST status per cc id.
+
+    Two load-bearing chapter-supporting claims, each with a counter-claim that has
+    STATUS HISTORY:
+      - clm 1: cc went open -> addressed   -> latest 'addressed' -> EXCLUDED.
+      - clm 2: cc reopened addressed -> open -> latest 'open'    -> EXPOSED.
+    The reopened case is the discriminator: the OLD distinct-(cc,status) history set
+    would still carry clm 2's 'addressed' fact and exclude it; latest-per-id drops
+    it, so clm 2 surfaces. Counter-claim history is written directly to the ledger
+    (order = recency) to control the transition.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+
+    def _claim(cid: str) -> dict:
+        return {
+            "claim_id": cid,
+            "canonical_text": f"a load-bearing claim {cid}",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "load_bearing": True,
+            "source_spans": [{"doc_id": "doc-1", "locator_text": "locator text"}],
+            "supports_chapters": ["ch-aaa"],
+            "created_at": "2026-06-16T00:00:00+00:00",
+        }
+
+    append_claim(layout, _claim("clm-2026-000001"))
+    append_claim(layout, _claim("clm-2026-000002"))
+
+    # Write counter-claim history directly so file order = recency; latest_per keeps
+    # the last record per cc id.
+    records = [
+        _cc("cc-2026-00000a", "clm-2026-000001", "open"),
+        _cc("cc-2026-00000a", "clm-2026-000001", "addressed"),   # latest addressed
+        _cc("cc-2026-00000b", "clm-2026-000002", "addressed"),
+        _cc("cc-2026-00000b", "clm-2026-000002", "open"),        # reopened -> latest open
+    ]
+    (root / "claims" / "counter-claims.jsonl").write_text(
+        "".join(json.dumps(r, sort_keys=True) + "\n" for r in records),
+        encoding="utf-8", newline="\n",
+    )
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "rebuttal-presence.edn").read_text("utf-8"), SCHEMA_PATH
+    )
+    # Only clm 2 (latest = open) is exposed; clm 1 (latest = addressed) is excluded.
+    assert _canonical(store.query(script)) == _canonical([["clm-2026-000002"]])
 
 
 def test_contested_rebuttal_window_matches_golden() -> None:

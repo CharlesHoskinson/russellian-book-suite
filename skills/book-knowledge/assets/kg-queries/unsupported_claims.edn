@@ -13,13 +13,14 @@
 ;; row shares the claim id". A claim with no provenance is the data-quality gap
 ;; this query audits.
 ;;
-;; DIVERGENCE FROM THE RDF QUERY — reconcile at P5 cutover. The .rq negates
-;; `prov:wasDerivedFrom`, which project_graph emits for BOTH source spans and
-;; `derived_from` claim refs. This port negates only the source-span back-ref, so
-;; a verified claim whose only provenance is a `derived_from` link would be
-;; flagged unsupported by Cozo but not by SPARQL. Bermuda has zero `derived_from`
-;; claims, so the goldens coincide; P5 should either project a derived-from edge
-;; into the negation or confirm source-span is the intended provenance signal.
+;; DIVERGENCE FROM THE RDF QUERY — RESOLVED (P5.2): source-span is the canonical
+;; provenance signal. A verified claim whose only "provenance" is a `derived_from`
+;; link to another claim has NO source of its own, so it IS unsupported — the Cozo
+;; (source-span-only) negation is the intended semantics; `derived_from` is
+;; deliberately NOT projected into it. (The .rq negated `prov:wasDerivedFrom`, which
+;; project_graph emitted for BOTH source spans and derived_from refs; that broader
+;; negation is retired with project_graph in P5.4. Bermuda has zero derived_from
+;; claims, so the golden is unchanged.)
 (defquery :unsupported-claims
   :find  [?claim]
   :where [[?c :claim/id ?claim]

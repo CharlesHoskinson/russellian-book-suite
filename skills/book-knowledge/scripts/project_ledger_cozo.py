@@ -87,16 +87,19 @@ def _chapter_uri(chapter: str) -> str:
     return f"{_BASE}chapters/{quote(chapter)}"
 
 
-def _wiki_page_uri(rel_to_root: str) -> str:
-    """Full wiki-page URI, identical to project_graph's minting.
+def _wiki_page_uri(rel_to_wiki: str) -> str:
+    """Full wiki-page URI: ``{BASE}wiki/<path-relative-to-wiki-dir>``.
 
-    project_graph computes ``rel = md_file.relative_to(layout.root)`` (so ``rel``
-    already starts with ``wiki/``) and emits
-    ``{BASE}wiki/{quote(forward_slashed(rel))}``, yielding the (intentional)
-    doubled ``wiki/`` prefix. We reproduce it byte-for-byte so the relational
-    ``wiki_page`` node set equals the RDF ``tbf:WikiPage`` node set.
+    P5.2 canonical decision: drop project_graph's (intentional) doubled ``wiki/``
+    prefix. project_graph minted ``{BASE}wiki/{rel_to_ROOT}`` where rel_to_root
+    already started with ``wiki/`` (giving ``.../wiki/wiki/...``); the Cozo
+    projection used to mirror that quirk byte-for-byte. The canonical form keys the
+    page on its path RELATIVE TO THE WIKI DIR, so ``.../wiki/concepts/foo.md`` —
+    one ``wiki/``. The legacy RDF emit keeps the quirk until it is deleted in P5.4;
+    no test compares the two (the query-port goldens run the Cozo path only, and
+    bermuda has no wiki pages so its golden is unaffected).
     """
-    return f"{_BASE}wiki/{quote(rel_to_root.replace(chr(92), '/'))}"
+    return f"{_BASE}wiki/{quote(rel_to_wiki.replace(chr(92), '/'))}"
 
 
 def _collect_wiki_pages(layout: WorkspaceLayout) -> tuple[list[dict], dict[str, str]]:
@@ -120,7 +123,9 @@ def _collect_wiki_pages(layout: WorkspaceLayout) -> tuple[list[dict], dict[str, 
     for md_file in sorted(wiki_dir.rglob("*.md")):
         rel_to_root = str(md_file.relative_to(layout.root)).replace(chr(92), "/")
         rel_to_wiki = str(md_file.relative_to(wiki_dir)).replace(chr(92), "/")
-        page_uri = _wiki_page_uri(rel_to_root)
+        # Canonical (P5.2): key the page URI on its path relative to the WIKI dir,
+        # so a single ``wiki/`` prefix (not project_graph's doubled ``wiki/wiki/``).
+        page_uri = _wiki_page_uri(rel_to_wiki)
         rows.append(
             {"id": page_uri, "path": rel_to_root, "title": md_file.stem}
         )
@@ -273,33 +278,25 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
                 span_row["wiki_page_id"] = page_uri
             span_rows.append(span_row)
 
-    # Counter-claims (REQ-KG-006): the relational form of project_graph's
-    # per-record tbf:CounterClaim emission. project_graph iterates EVERY
-    # counter-claim record (no latest-per-id dedup, no status filter) and emits
-    # <cc> a tbf:CounterClaim ; tbf:rebuts <target> ; tbf:ccStatus <status>.
-    # Because RDF triples form a SET, the surviving distinct facts are the
-    # distinct (cc, target, status) tuples: a cc that went open -> addressed in
-    # the ledger contributes BOTH a "open" and an "addressed" ccStatus triple. We
-    # reproduce that distinct set exactly — one row per distinct (cc-id, target,
-    # status), keyed by the synthetic (cc-id . cc-status) identity so re-projection
-    # upserts. The ledger field ``status`` maps to the ``cc-status`` column
-    # (renamed to disambiguate from a claim's status). This is what lets the
-    # rebuttal-presence negation see the "addressed" fact even after a later
-    # revision (keying by the bare cc id would collapse the history and lose it).
+    # Counter-claims (REQ-KG-006). P5.2 canonical decision: one row per cc carrying
+    # its LATEST status (dedupe-to-latest-per-id), replacing the prior distinct-
+    # (cc-id, status) history set that mirrored project_graph's per-record
+    # tbf:ccStatus emission. ``latest_per`` keeps the last-written record per cc id,
+    # so a cc that went open -> addressed lands as "addressed"; an addressed -> open
+    # reopen lands as "open" (and the rebuttal-presence gate then treats it as
+    # unaddressed — the current lifecycle status is what the gate should act on).
+    # Identity is the bare cc id. The legacy RDF emit keeps the full-history set
+    # until it is deleted in P5.4; no test compares the two (the query-port goldens
+    # run the Cozo path only). ``status`` maps to ``cc-status`` (renamed to
+    # disambiguate from a claim's status).
     counter_claim_rows: list[dict] = []
-    seen_cc: set[str] = set()
-    for cc in read_counter_claims(layout.root):
+    for cc in latest_per(read_counter_claims(layout.root), "id").values():
         cc_id = cc["id"]
-        status = cc.get("status")
-        key = f"{cc_id}\x1f{status}"
-        if key in seen_cc:
-            continue
-        seen_cc.add(key)
         row = {
-            "id": key,
+            "id": cc_id,
             "cc_id": cc_id,
             "target_claim_id": cc.get("target_claim_id"),
-            "cc_status": status,
+            "cc_status": cc.get("status"),
         }
         if "created_at" in cc:
             row["created_at"] = cc["created_at"]

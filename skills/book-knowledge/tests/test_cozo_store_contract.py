@@ -14,8 +14,19 @@ import pytest
 
 from scripts.cozo_store import CozoStore, StubBackend
 
-SCHEMA_PATH = Path(__file__).resolve().parents[1] / "assets" / "kg-schema.edn"
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+SCHEMA_PATH = SKILL_ROOT / "assets" / "kg-schema.edn"
+
+# Directories never scanned for the pycozo-bypass guard: virtualenvs, caches,
+# and build artifacts hold third-party/generated code, not source we own.
+_SCAN_EXCLUDE_DIRS = {
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".git",
+    "build",
+    "dist",
+}
 
 
 def _schema_entity_names_snake() -> set[str]:
@@ -139,13 +150,20 @@ def test_in_memory_does_not_emit_pandas_traceback(
 def test_no_module_bypasses_seam() -> None:
     """REQ-KG-002b: only cozo_store.py may import pycozo.
 
-    Cozo->Asami stays a one-module swap only if no other script reaches around
-    the seam. Scan the scripts tree offline and fail on any pycozo import found
-    outside cozo_store.py.
+    Cozo->Asami stays a one-module swap only if NOTHING reaches around the seam.
+    Scan the WHOLE skill tree (scripts, skill_api.py, tests, siblings) offline,
+    skipping virtualenvs / caches / build artifacts and cozo_store.py itself, and
+    fail on any pycozo import found anywhere else. Widening past scripts/ closes
+    the gap where a future import in skill_api.py or a test would go unnoticed.
     """
     pat = re.compile(r"^\s*(?:import\s+pycozo|from\s+pycozo)\b", re.MULTILINE)
     offenders: list[str] = []
-    for py in SCRIPTS_DIR.rglob("*.py"):
+    for py in SKILL_ROOT.rglob("*.py"):
+        parts = set(py.relative_to(SKILL_ROOT).parts)
+        if parts & _SCAN_EXCLUDE_DIRS:
+            continue
+        if any(p.endswith(".egg-info") for p in py.relative_to(SKILL_ROOT).parts):
+            continue
         if py.name == "cozo_store.py":
             continue
         if pat.search(py.read_text(encoding="utf-8")):

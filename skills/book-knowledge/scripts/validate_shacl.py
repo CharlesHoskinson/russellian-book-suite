@@ -64,6 +64,7 @@ KG_CONSTRAINTS = ASSETS / "kg-constraints"
 ACTIVE_CONSTRAINTS = [
     "status-enum",
     "confidence-range",
+    "confidence-range-low",
     "text-cardinality",
     "source-span-present",
     "verified-derives",

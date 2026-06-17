@@ -28,12 +28,14 @@ SCHEMA = ROOT / "assets" / "kg-schema.edn"
 CONSTRAINTS = ROOT / "assets" / "kg-constraints"
 GOLDEN = ROOT / "tests" / "golden" / "kg-constraints"
 
-# The six active constraints. chapter-cites-verified was activated in P2.3 (the
+# The active constraints. chapter-cites-verified was activated in P2.3 (the
 # Cozo-backed validate_shacl) once kg-schema.edn gained a :chapter-section entity;
-# see assets/kg-constraints/_DEFERRED.md.
+# confidence-range-low was added in the C-1 audit fix to port the sh:minInclusive
+# 0.0 arm of the confidence range; see assets/kg-constraints/_DEFERRED.md.
 CONSTRAINT_NAMES = [
     "status-enum",
     "confidence-range",
+    "confidence-range-low",
     "text-cardinality",
     "source-span-present",
     "verified-derives",
@@ -180,6 +182,25 @@ def test_confidence_range_executes():
     rows = store.query(script)
     assert _focus_nodes(rows) == ["c-hi"]
     assert rows[0][1] == "https://example.org/book-knowledge#confidence"
+
+
+def test_confidence_range_low_executes():
+    # The sh:minInclusive 0.0 arm (C-1): fires on confidence < 0.0 (e.g. -0.5);
+    # the boundary 0.0 and an in-range 0.8 do NOT fire, and a null-confidence row
+    # is dropped by the !is_null guard.
+    script = compile_constraint(_edn("confidence-range-low"), SCHEMA)
+    store = CozoStore.in_memory(schema_path=SCHEMA)
+    store.load("claim", [
+        {"id": "c-low", "confidence": -0.5},   # violation
+        {"id": "c-zero", "confidence": 0.0},   # conforms (>= 0.0)
+        {"id": "c-ok", "confidence": 0.8},     # conforms
+        {"id": "c-null"},                      # null -> dropped
+    ])
+    rows = store.query(script)
+    assert _focus_nodes(rows) == ["c-low"]
+    assert rows[0][1] == "https://example.org/book-knowledge#confidence"
+    # Both arms share the single range message.
+    assert rows[0][2] == "Claim confidence must be in [0.0, 1.0]."
 
 
 def test_text_cardinality_executes():

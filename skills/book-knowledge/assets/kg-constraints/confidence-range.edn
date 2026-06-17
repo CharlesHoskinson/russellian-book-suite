@@ -11,17 +11,19 @@
 ;; the comparison with !is_null so a null-confidence claim is dropped (its
 ;; missing-value concern belongs to the minCount shape, not the range shape).
 ;;
-;; SCOPE NOTE: the sh:minInclusive 0.0 arm (confidence < 0.0) would need a
-;; SECOND rule (or a disjunction the compiler does not yet support). It is OUT
-;; OF SCOPE for P2.2 — the violating fixture injects only the > 1.0 case (1.5),
-;; so this single rule reproduces the golden. Add the < 0.0 rule when a fixture
-;; exercises it.
+;; The sh:minInclusive 0.0 arm (confidence < 0.0) is a SECOND rule
+;; (confidence-range-low.edn) — the compiler has no OR/disjunction within one
+;; rule, so each inequality is its own constraint. Both arms carry the SAME
+;; authored :message and the SAME :path so the canonical message-remap keyed on
+;; #confidence stays unambiguous (C-1: both engines now agree on the full
+;; [0.0, 1.0] range).
 ;;
 ;; MESSAGE NOTE: pyshacl auto-generates the range message
-;; ("Value is not <= Literal(\"1.0\", ...)"); EXACT pyshacl-message parity is a
-;; P2.3 concern. The human message below is clear and stable for P2.2.
+;; ("Value is not <= Literal(\"1.0\", ...)") / ("Value is not >= ...0.0..."); the
+;; rdflib path remaps both, keyed on the #confidence path, to the authored
+;; message below.
 (defconstraint :confidence-range
-  :message "Claim confidence must be <= 1.0."
+  :message "Claim confidence must be in [0.0, 1.0]."
   :path "https://example.org/book-knowledge#confidence"
   :where [[?c :claim/id ?focus]
           [?c :claim/confidence ?conf]]

@@ -3,7 +3,7 @@
   "violations": [
     {
       "focus_node": "inj-bad-confidence",
-      "message": "Claim confidence must be <= 1.0.",
+      "message": "Claim confidence must be in [0.0, 1.0].",
       "path": "https://example.org/book-knowledge#confidence"
     },
     {
@@ -13,13 +13,13 @@
     },
     {
       "focus_node": "inj-verified-no-source",
-      "message": "Verified claims must derive from at least one source-span entity.",
-      "path": ""
+      "message": "Claim must have at least one source-span (minCount 1 on hasSourceSpan).",
+      "path": "https://example.org/book-knowledge#hasSourceSpan"
     },
     {
       "focus_node": "inj-verified-no-source",
-      "message": "Claim must have at least one source-span (minCount 1 on hasSourceSpan).",
-      "path": "https://example.org/book-knowledge#hasSourceSpan"
+      "message": "Verified claims must derive from at least one source-span entity.",
+      "path": ""
     }
   ]
 }

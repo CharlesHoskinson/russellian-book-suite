@@ -100,3 +100,37 @@ three things against the SAME updated golden:
 
 So `rdflib(normalized) == golden == cozo` — both engines agree on the canonical
 representation, not merely on the conforms flag.
+
+## Post-audit status update (C-1 / I-3)
+
+Two corrections from the 2026-06-17 adversarial audit of C0+P2:
+
+- **Confidence range — now FULLY ported (C-1 closed).** P2.2/P2.3 ported only the
+  `sh:maxInclusive 1.0` arm (`confidence > 1.0`), while pyshacl enforces BOTH
+  `sh:minInclusive 0.0` and `sh:maxInclusive 1.0`. A `confidence < 0.0` claim was
+  therefore rdflib-non-conforming but Cozo-conforming — opposite verdicts. The
+  floor arm is now ported as `confidence-range-low.edn` (`:filter [[< ?conf 0.0]]`,
+  SAME `:message`/`:path` as the ceiling arm), added to `ACTIVE_CONSTRAINTS` right
+  after `confidence-range`. Both engines now flag a below-zero confidence on the
+  `#confidence` path
+  (`tests/test_constraint_ports.py::test_both_engines_flag_confidence_below_zero`).
+  Because both confidence constraints share one `:message`, the path-keyed
+  message-remap stays unambiguous. The C0.2 violating golden is unchanged in
+  count (still 4 — the floor arm clears the existing rows); only the confidence
+  violation's message becomes the range form `Claim confidence must be in
+  [0.0, 1.0].`. The normalizer is now an explicitly audited raw→canonical
+  transform: `shacl_report_violating_raw.json` freezes the pre-port pyshacl output
+  and `test_normalizer_maps_raw_pyshacl_to_canonical` asserts
+  `normalize(raw) == canonical` (de-circularizes the I-1 parity proof).
+
+- **REQ-KG-012 / REQ-KG-013 are PARTIAL for `chapter-cites-verified`.** That shape
+  compiles, executes, and is in `ACTIVE_CONSTRAINTS` under both engines, but it has
+  **no production data path**: `project_ledger` loads `:chapter-section` EMPTY (no
+  projector sources chapter→claim citation data from a real workspace). On a real
+  workspace it is a guaranteed no-op; it fires only on hand-loaded test rows. The
+  parity proof for this shape therefore rests on synthetic store rows, not a
+  projected workspace, until a real `chapter-section` projector exists (future
+  task). See `assets/kg-constraints/_DEFERRED.md`. The other constraints
+  (status-enum, both confidence arms, text-cardinality, source-span-present,
+  verified-derives) ARE exercised through the real projection path and remain
+  FULLY ported.

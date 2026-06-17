@@ -84,7 +84,7 @@ from typing import Any
 
 import edn_format
 
-from scripts.cozo_store import to_snake
+from .cozo_store import to_snake
 
 __all__ = ["compile_query", "compile_constraint"]
 

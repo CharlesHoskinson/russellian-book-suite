@@ -10,7 +10,7 @@ Produce a single, high-signal markdown review report covering the whole repo:
 
 1. Critical / Important / Minor findings, each with `file:line` precision and a concrete fix.
 2. Empirical baseline: did tests pass, did linters pass, what version of main was reviewed.
-3. Cross-cutting concerns that span multiple files (drift between docs and code, schema/query mismatches, unprojected RDF predicates).
+3. Cross-cutting concerns that span multiple files (drift between docs and code, schema/query mismatches, stale legacy-stack references).
 4. A short next-steps list, prioritized by leverage.
 
 The report is read by a human who will decide what to act on. The agent's job is to surface signal, not to fix.
@@ -57,13 +57,13 @@ Cover the seven dimensions below. Codex's strongest add is **correctness, securi
 - Network calls — the suite is local-only. Any `requests`, `urllib`, `httpx`, `http.client` in production code is a finding (test fixtures or developer tools are OK).
 - Subprocess calls — `shell=True`, user-controlled string interpolation
 - Path traversal — workspace-relative paths that don't enforce `is_relative_to(workspace_root)`
-- Dependency CVEs — note major dependency versions (`rdflib`, `pyshacl`, `jsonschema`, `pdfplumber`) and flag any known CVE
+- Dependency CVEs — note major dependency versions (`pycozo`, `rdflib` where retained, `jsonschema`, `pdfplumber`) and flag any known CVE
 - Pickled or eval'd input from untrusted sources (there should be none)
 
 ### 3. Tests (deep)
 
 - Untested code paths that could fail silently — particularly in `healer.py`, `generate_for_all_load_bearing`, state-machine recovery transitions
-- Positive-fire tests for SPARQL queries — every defeasible query in `assets/queries/defeasible/` should have a test that proves it fires when it should and skips when its exception escape is met
+- Positive-fire tests for EDN/Cozo queries and constraints — every defeasible query in `assets/kg-queries/` and every constraint in `assets/kg-constraints/` should have a test that proves it fires when it should and skips when its exception escape is met
 - Live-LLM calls in tests — there should be none; all LLM calls must inject a `Callable[[str], str]` stub
 - Test quality: assertions that test behavior, not implementation. `assert "pPosterior" in text or "0.42" in text` is too loose — flag.
 
@@ -71,9 +71,9 @@ Cover the seven dimensions below. Codex's strongest add is **correctness, securi
 
 - JSON Schema `additionalProperties: false` on all `.schema.json` files
 - ID pattern consistency — `^clm-[0-9]{4}-[0-9]{6}$` for claims, `^cc-[0-9]{4}-[0-9a-f]{6}$` for counter-claims
-- SHACL `sh:in` lists must match schema enums exactly
-- Every predicate referenced in `assets/queries/*.rq` must be projected by `project_graph.py`. The four predicates we project today are: `tbf:pPosterior`, `tbf:loadBearing`, `tbf:axiom`, `tbf:pinLowConfidence`, `tbf:conflictsWith`, `tbf:rebuts`, `tbf:ccStatus`. If a `.rq` file references a predicate not in this list, it is a critical finding (the query will always fire or never fire).
-- `tbf:rebuttalWindowOk` is a known gap — it is referenced by `contested-rebuttal-window.rq` but not asserted by any script. Note it as a known issue, not a new finding.
+- The status vocabulary must have one EDN source: `assets/status-enum.edn`, `assets/kg-schema.edn`, `assets/kg-constraints/status-enum.edn`, and `claim_validator.VALID_TRANSITIONS` must stay in lockstep.
+- Every entity/attribute referenced in `assets/kg-queries/*.edn` or `assets/kg-constraints/*.edn` must be declared in `assets/kg-schema.edn` and populated by the relevant Cozo projector (`project_ledger_cozo.py`, thesis projection, or code graph loader). If an EDN query references an undeclared or unprojected attribute, it is a critical finding because the query will always fire or never fire.
+- `validate_shacl.py` is a retained public contract name; its implementation is the Cozo constraint path. Do not require the deleted RDF shape files or engine dependency.
 
 ### 5. Documentation (medium)
 
@@ -216,11 +216,12 @@ where applicable. Skip nitpicks; flag only Critical and Important.
 For a focused review (e.g., just the schema dimension), use the same prompt structure but narrow the scope:
 
 ```
-Goal: Review the SPARQL queries and graph projection for correctness and consistency.
+Goal: Review the EDN/Cozo queries, constraints, and projection paths for correctness and consistency.
 Context: Apply docs/operations/codex-review-protocol.md "Schema and data" dimension only.
-Constraints: Read-only. Scope is `skills/book-knowledge/assets/queries/`,
-`skills/book-knowledge/scripts/project_graph.py`, and
-`skills/book-knowledge/assets/shapes.ttl`.
+Constraints: Read-only. Scope is `skills/book-knowledge/assets/kg-queries/`,
+`skills/book-knowledge/assets/kg-constraints/`, `skills/book-knowledge/assets/kg-schema.edn`,
+`skills/book-knowledge/scripts/project_ledger_cozo.py`, `skills/book-knowledge/scripts/booklogic_kg.py`,
+`skills/book-knowledge/scripts/validate_shacl.py`, and `skills/book-thesis/scripts/consistency_cozo.py`.
 Done when: A markdown findings block for the Schema dimension is complete, with
 file:line citations.
 ```

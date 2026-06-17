@@ -41,6 +41,7 @@ import sys
 from pathlib import Path
 
 from .run_competency_queries import _load_dataset, discover_queries
+from .validate_shacl import validate_shacl
 from .workspace import WorkspaceLayout
 
 _ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
@@ -54,6 +55,55 @@ def _canonical_rows(result) -> list[dict[str, str]]:
         rows.append(row)
     rows.sort(key=lambda d: json.dumps(d, sort_keys=True))
     return rows
+
+
+def _write_golden(payload, out_path: Path) -> None:
+    """Serialize ``payload`` as a byte-stable golden JSON file.
+
+    Matches the per-query writer's discipline: ``indent=2, sort_keys=True``, a
+    trailing newline, and ``newline="\\n"`` so LF is pinned on every platform
+    (the equivalence oracle must not drift on Windows CRLF translation).
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def capture_shacl(layout: WorkspaceLayout) -> dict[str, object]:
+    """Capture the current pyshacl conformance behaviour as a canonical dict.
+
+    Returns ``{"conforms": bool, "violations": [...]}`` where each violation is
+    ``{"focus_node": str, "message": str, "path": str}`` and the violation list
+    is sorted canonically by ``json.dumps(v, sort_keys=True)`` -- mirroring
+    :func:`_canonical_rows` so the golden is byte-stable across runs (pyshacl
+    does not guarantee violation order). This is the equivalence oracle for the
+    later SHACL -> EDN -> Cozo port (REQ-KG-014).
+    """
+    report = validate_shacl(layout)
+    violations = [
+        {
+            "focus_node": str(v.focus_node),
+            "message": str(v.message),
+            "path": str(v.path),
+        }
+        for v in report.violations
+    ]
+    violations.sort(key=lambda v: json.dumps(v, sort_keys=True))
+    return {"conforms": report.conforms, "violations": violations}
+
+
+def write_shacl_golden(layout: WorkspaceLayout, out_path: Path) -> dict:
+    """Capture the SHACL report for ``layout`` and write it to ``out_path``.
+
+    Returns the captured dict for reporting. The file is written with the same
+    byte-stable style as the per-query goldens.
+    """
+    payload = capture_shacl(layout)
+    _write_golden(payload, out_path)
+    return payload
 
 
 def capture(workspace: Path, out_dir: Path) -> dict[str, int]:
@@ -74,13 +124,7 @@ def capture(workspace: Path, out_dir: Path) -> dict[str, int]:
     for _cls, name, query_path in discover_queries(_ASSETS_ROOT):
         result = dataset.query(query_path.read_text(encoding="utf-8"))
         rows = _canonical_rows(result)
-        # newline="\n" pins LF on every platform so the goldens are byte-stable
-        # (the equivalence oracle must not drift on Windows CRLF translation).
-        (out_dir / f"{name}.json").write_text(
-            json.dumps(rows, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        _write_golden(rows, out_dir / f"{name}.json")
         counts[name] = len(rows)
     return counts
 

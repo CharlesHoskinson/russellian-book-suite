@@ -53,6 +53,39 @@ def _edge_id(source: str, target: str, relationship: str) -> str:
     return f"edge-{digest}"
 
 
+def _validate(doc) -> None:
+    """Fail fast on a structurally malformed graphify document.
+
+    Guards the real footgun: pointing the loader at a missing/non-graphify JSON
+    would otherwise produce a silently empty or partial projection. Validation is
+    deliberately calibrated against the REAL graph.json (39k nodes, 818k links),
+    which legitimately carries DUPLICATE node ids (collapsed last-write-wins under
+    Cozo ``:put``) and ~7.5k DANGLING edges whose target is a ``ref_*`` node
+    outside the node set. Those are graphify's own output, so they are tolerated,
+    not rejected — only structural malformation raises.
+    """
+    if not isinstance(doc, dict):
+        raise ValueError("graphify doc must be a JSON object")
+    for key in ("nodes", "links"):
+        if key not in doc:
+            raise ValueError(f"graphify doc missing required '{key}' key")
+        if not isinstance(doc[key], list):
+            raise ValueError(f"graphify doc '{key}' must be a list")
+    for i, node in enumerate(doc["nodes"]):
+        if not isinstance(node, dict) or not isinstance(node.get("id"), str) or not node["id"]:
+            raise ValueError(f"graphify node[{i}] missing non-empty string 'id'")
+    for i, link in enumerate(doc["links"]):
+        if not isinstance(link, dict):
+            raise ValueError(f"graphify link[{i}] must be an object")
+        for endpoint in ("source", "target"):
+            if not isinstance(link.get(endpoint), str) or not link[endpoint]:
+                raise ValueError(f"graphify link[{i}] missing non-empty string '{endpoint}'")
+        if not isinstance(link.get("relation"), str) or not link["relation"]:
+            raise ValueError(f"graphify link[{i}] missing non-empty string 'relation'")
+        if "weight" in link and not isinstance(link["weight"], (int, float)):
+            raise ValueError(f"graphify link[{i}] 'weight' must be numeric")
+
+
 def project_graphify(path: Path, store) -> None:
     """Load a graphify ``graph.json`` into the store's code-node/code-edge.
 
@@ -62,8 +95,12 @@ def project_graphify(path: Path, store) -> None:
     ``relationship`` from ``relation``, ``weight``). Deterministic: rows follow
     graph.json order. Re-projection upserts (Cozo ``:put`` keys on the identity
     columns) rather than duplicating.
+
+    Raises ``ValueError`` on a structurally malformed document (see ``_validate``);
+    duplicate node ids and dangling edges are tolerated as real graphify output.
     """
     doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    _validate(doc)
 
     node_rows: list[dict] = []
     for node in doc.get("nodes", []):
@@ -76,7 +113,7 @@ def project_graphify(path: Path, store) -> None:
     for link in doc.get("links", []):
         source = link["source"]
         target = link["target"]
-        relationship = link.get("relation", "")
+        relationship = link["relation"]
         row = {
             "id": _edge_id(source, target, relationship),
             "source_id": source,

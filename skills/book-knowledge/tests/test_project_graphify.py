@@ -8,13 +8,22 @@ P4.2, fills them). The loader is deterministic.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+import pytest
 
 from scripts.cozo_store import CozoStore
 from scripts.project_graphify import project_graphify
 
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "assets" / "kg-schema.edn"
 FIXTURE = Path(__file__).parent / "fixtures" / "graphify-sample.json"
+
+
+def _write(tmp_path: Path, doc) -> Path:
+    p = tmp_path / "graph.json"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    return p
 
 
 def test_loads_nodes_and_edges() -> None:
@@ -78,3 +87,98 @@ def test_idempotent_reprojection() -> None:
     assert n_nodes == [[4]]
     n_edges = store.query("?[count(source_id)] := *code_edge{source_id}")
     assert n_edges == [[4]]
+
+
+# --- F1: structural validation (fail fast on malformed graphify docs) ---------
+# A missing file or a non-graphify JSON must NOT produce a silently-empty/partial
+# projection. But validation is calibrated against the REAL graph.json (39k nodes,
+# 818k links), which legitimately carries duplicate node ids and ~7.5k dangling
+# edges (graphify's ``ref_*`` reference targets) — those are TOLERATED, not errors.
+
+
+def test_rejects_doc_missing_nodes_key(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    with pytest.raises(ValueError, match="nodes"):
+        project_graphify(_write(tmp_path, {"links": []}), store)
+
+
+def test_rejects_doc_missing_links_key(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    with pytest.raises(ValueError, match="links"):
+        project_graphify(_write(tmp_path, {"nodes": []}), store)
+
+
+def test_rejects_nodes_not_a_list(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    with pytest.raises(ValueError, match="nodes"):
+        project_graphify(_write(tmp_path, {"nodes": {}, "links": []}), store)
+
+
+def test_rejects_node_missing_id(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    doc = {"nodes": [{"label": "no id"}], "links": []}
+    with pytest.raises(ValueError, match="node.*id"):
+        project_graphify(_write(tmp_path, doc), store)
+
+
+def test_rejects_node_empty_id(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    doc = {"nodes": [{"id": ""}], "links": []}
+    with pytest.raises(ValueError, match="node.*id"):
+        project_graphify(_write(tmp_path, doc), store)
+
+
+def test_rejects_link_missing_endpoint(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    doc = {
+        "nodes": [{"id": "n1"}, {"id": "n2"}],
+        "links": [{"source": "n1", "relation": "calls"}],
+    }
+    with pytest.raises(ValueError, match="link.*target"):
+        project_graphify(_write(tmp_path, doc), store)
+
+
+def test_rejects_link_missing_relation(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    doc = {
+        "nodes": [{"id": "n1"}, {"id": "n2"}],
+        "links": [{"source": "n1", "target": "n2"}],
+    }
+    with pytest.raises(ValueError, match="link.*relation"):
+        project_graphify(_write(tmp_path, doc), store)
+
+
+def test_rejects_non_numeric_weight(tmp_path: Path) -> None:
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    doc = {
+        "nodes": [{"id": "n1"}, {"id": "n2"}],
+        "links": [{"source": "n1", "target": "n2", "relation": "calls", "weight": "heavy"}],
+    }
+    with pytest.raises(ValueError, match="weight"):
+        project_graphify(_write(tmp_path, doc), store)
+
+
+def test_tolerates_real_graphify_quirks(tmp_path: Path) -> None:
+    """Duplicate node ids and dangling edges are REAL graphify output — load, don't raise.
+
+    The real graph.json has duplicate ids (last-write-wins under :put) and ~7.5k
+    edges whose target is a ``ref_*`` node outside the node set. Rejecting these
+    would break ingestion of actual graphify output.
+    """
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    doc = {
+        "nodes": [
+            {"id": "dup", "label": "first"},
+            {"id": "dup", "label": "second"},
+            {"id": "n2", "label": "two"},
+        ],
+        "links": [
+            {"source": "n2", "target": "ref_external", "relation": "references", "weight": 1.0},
+        ],
+    }
+    project_graphify(_write(tmp_path, doc), store)  # must not raise
+
+    n_nodes = store.query("?[count(id)] := *code_node{id}")
+    assert n_nodes == [[2]]  # dup collapsed to one row
+    n_edges = store.query("?[count(source_id)] := *code_edge{source_id}")
+    assert n_edges == [[1]]  # dangling edge still loaded

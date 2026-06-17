@@ -82,6 +82,14 @@ def _unified_store(tmp_path: Path) -> CozoStore:
                 "code_id": "mod_beta",
                 "claim_id": "clm-2026-000002",
             },
+            {
+                # Link on a FUNCTION (fn_gamma), which mod_alpha `contains` via a
+                # code-edge — exercised by the edge-traversal capability test so a
+                # dropped code-edge is actually caught.
+                "id": "fn_gamma\x1fclm-2026-000001",
+                "code_id": "fn_gamma",
+                "claim_id": "clm-2026-000001",
+            },
         ],
     )
     return store
@@ -113,6 +121,7 @@ def test_code_and_claims_unified_query(tmp_path: Path) -> None:
     assert pairs == [
         ("alpha.py", "clm-2026-000001"),
         ("beta.py", "clm-2026-000002"),
+        ("gamma()", "clm-2026-000001"),
     ]
     # The near-miss (proposed) claim is excluded.
     assert ("alpha.py", "clm-2026-000003") not in pairs
@@ -139,4 +148,67 @@ def test_count_verified_claims_per_code_node(tmp_path: Path) -> None:
     )
 
     counts = {r[0]: r[1] for r in rows}
-    assert counts == {"alpha.py": 1, "beta.py": 1}
+    assert counts == {"alpha.py": 1, "beta.py": 1, "gamma()": 1}
+
+
+def test_code_edge_traversal_to_claims(tmp_path: Path) -> None:
+    """Full graph fusion: the query traverses a code-EDGE before the claim link.
+
+    Joins code-edge (a module ``contains`` a function) -> code-claim-link (the
+    function supports a claim) -> claim (verified). This touches code-edge, so a
+    regression that drops every code edge makes the result empty and FAILS here —
+    closing the gap where the node-only capability test stayed green with zero
+    edges. Returns the module whose contained function backs a verified claim.
+    """
+    store = _unified_store(tmp_path)
+
+    rows = store.query_edn(
+        "(defquery :modules-whose-functions-back-verified-claims "
+        " :find [?mod-label ?claim-id]"
+        " :where [[?e :code-edge/source-id ?mod-id]"
+        "         [?e :code-edge/relationship \"contains\"]"
+        "         [?e :code-edge/target-id ?fn-id]"
+        "         [?m :code-node/id ?mod-id]"
+        "         [?m :code-node/label ?mod-label]"
+        "         [?l :code-claim-link/code-id ?fn-id]"
+        "         [?l :code-claim-link/claim-id ?claim-id]"
+        "         [?cl :claim/id ?claim-id]"
+        "         [?cl :claim/status \"verified\"]])"
+    )
+
+    pairs = sorted(tuple(r) for r in rows)
+    # mod_alpha contains fn_gamma; fn_gamma backs verified clm-2026-000001.
+    assert pairs == [("alpha.py", "clm-2026-000001")]
+
+
+def test_capability_query_is_edge_sensitive(tmp_path: Path) -> None:
+    """Guard the F2 gap directly: with code-edges absent, the edge-traversal
+    query returns nothing — proving it genuinely depends on the code graph's edges.
+    """
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+    append_claim(layout, _claim("clm-2026-000001", status="verified"))
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    # Load code NODES but deliberately NO edges, then the function->claim link.
+    store.load("code-node", [{"id": "mod_alpha", "label": "alpha.py"},
+                             {"id": "fn_gamma", "label": "gamma()"}])
+    store.load("code-claim-link", [{"id": "fn_gamma\x1fclm-2026-000001",
+                                    "code_id": "fn_gamma",
+                                    "claim_id": "clm-2026-000001"}])
+
+    rows = store.query_edn(
+        "(defquery :modules-whose-functions-back-verified-claims "
+        " :find [?mod-label ?claim-id]"
+        " :where [[?e :code-edge/source-id ?mod-id]"
+        "         [?e :code-edge/relationship \"contains\"]"
+        "         [?e :code-edge/target-id ?fn-id]"
+        "         [?m :code-node/id ?mod-id]"
+        "         [?m :code-node/label ?mod-label]"
+        "         [?l :code-claim-link/code-id ?fn-id]"
+        "         [?l :code-claim-link/claim-id ?claim-id]"
+        "         [?cl :claim/id ?claim-id]"
+        "         [?cl :claim/status \"verified\"]])"
+    )
+    assert list(rows) == []

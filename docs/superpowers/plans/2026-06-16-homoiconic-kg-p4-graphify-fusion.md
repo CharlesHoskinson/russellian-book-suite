@@ -61,6 +61,7 @@ This is the **test of the abilities of the skill** — it must demonstrate somet
 ---
 
 ## Self-review
-- Spec coverage: P4 implements the umbrella change's P4 task list (graph.json loader, in-engine recompute, code↔claim joins). REQ-KG-006-style golden equivalence does not apply (no SPARQL original for the code graph); correctness is by the capability test + recompute-match.
-- The capability test (P4.3) is the explicit "test of the abilities of the skill."
-- Follow-on (note, don't build): production semantics for the code↔claim link (derive from claim source files / symbol references); P2/P3/P5 unchanged.
+- Spec coverage: this sprint landed P4.1 (graph.json loader) and P4.3 (code↔claim cross-graph joins + capability test). **P4.2 (in-engine PageRank/Louvain recompute) and P4.4 (CLI) are deferred follow-on — NOT implemented here**; `kg_graph_algos.py` does not exist and `rank`/`community` are left null by the loader. REQ-KG-006-style golden equivalence does not apply (no SPARQL original for the code graph); correctness of the landed work is by the capability test, not recompute-match (that gate arrives with P4.2).
+- The capability test (P4.3) is the explicit "test of the abilities of the skill." It joins across both graphs and is edge-sensitive (`test_code_edge_traversal_to_claims` / `test_capability_query_is_edge_sensitive` traverse a `code-edge`, so dropping edges fails the gate).
+- The loader fails fast on structurally malformed graphify docs but tolerates duplicate node ids and dangling edges, since the real `graph.json` (39k nodes / 818k links) carries both.
+- Follow-on (note, don't build): P4.2 recompute + recompute-match; P4.4 CLI; production semantics for the code↔claim link (derive from claim source files / symbol references); P2/P3/P5 unchanged.

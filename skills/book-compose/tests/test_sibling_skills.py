@@ -1,11 +1,52 @@
 import sys
+import types
 
 import pytest
 
 from scripts.sibling_skills import (
-    russellian_style_root, book_knowledge_root, sibling_python,
+    russellian_style_root, book_knowledge_root, feynman_style_root,
+    book_review_root, review_conductor_root, sibling_python,
     load_russellian_style_module,
 )
+import scripts.sibling_skills as ss
+
+
+@pytest.mark.parametrize("resolver,skill_name", [
+    (russellian_style_root, "russellian-style"),
+    (book_knowledge_root, "book-knowledge"),
+    (feynman_style_root, "feynman-style"),
+    (book_review_root, "book-review"),
+    (review_conductor_root, "review-conductor"),
+])
+def test_sibling_roots_resolve_repo_first_when_uninstalled(resolver, skill_name, monkeypatch, tmp_path):
+    """Every sibling root must resolve the in-repo sibling when the installed
+    ~/.claude/skills copy is absent (the P5.1 repo-first convention). Otherwise
+    book-compose breaks on any box where the sibling isn't globally installed —
+    which is exactly what broke the halmos gate (russellian_style_root was the
+    last installed-only resolver)."""
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # empty ~/.claude/skills
+    root = resolver()
+    assert root.is_dir() and (root / "SKILL.md").is_file()
+    assert root.name == skill_name
+    assert (root.parent / "book-compose").is_dir()  # the repo sibling, next to us
+
+
+@pytest.mark.parametrize("alias,ensure", [
+    ("_russellian_style_scripts", "_ensure_rs_package"),
+    ("_feynman_style_scripts", "_ensure_fs_package"),
+    ("_book_review_scripts", "_ensure_br_package"),
+    ("_review_conductor_scripts", "_ensure_rc_package"),
+])
+def test_ensure_package_rejects_mismatched_alias(alias, ensure, request):
+    """The alias is process-global; if already registered for a DIFFERENT root,
+    _ensure_* must fail loud rather than serve the wrong copy (the split-brain
+    guard _ensure_bk_package has must hold for every loader)."""
+    bogus = types.ModuleType(alias)
+    bogus.__path__ = ["/nonexistent/elsewhere/scripts"]
+    sys.modules[alias] = bogus
+    request.addfinalizer(lambda: sys.modules.pop(alias, None))
+    with pytest.raises(ss.SiblingNotFoundError, match="different"):
+        getattr(ss, ensure)()
 
 
 def test_russellian_style_root_exists():

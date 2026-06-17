@@ -1,4 +1,6 @@
-"""Locate sibling skills (russellian-style, book-knowledge) installed under ~/.claude/skills/."""
+"""Locate sibling skills (russellian-style, book-knowledge, feynman-style,
+book-review, review-conductor): the in-repo sibling FIRST, then the installed
+~/.claude/skills/ copy, and load their scripts under guarded alias packages."""
 from __future__ import annotations
 
 import importlib
@@ -33,22 +35,55 @@ def _resolve(name: str) -> Path:
     return root
 
 
+def _repo_sibling(name: str) -> Path:
+    """Resolve a sibling skill: the in-repo sibling FIRST, then the installed copy.
+
+    Repo-first (the P5.1 / P3.0 convention) because the installed
+    ``~/.claude/skills/<name>`` is frequently stale and may be absent entirely
+    (e.g. on a box where the skill was never globally installed); the sibling
+    next to this book-compose checkout shares its current state. Falls back to
+    ``_resolve`` only when no repo sibling is present.
+    """
+    repo_sibling = Path(__file__).resolve().parent.parent.parent / name
+    if repo_sibling.is_dir() and (repo_sibling / "SKILL.md").is_file():
+        return repo_sibling
+    return _resolve(name)
+
+
+def _register_alias(alias: str, scripts_dir: Path, label: str) -> types.ModuleType:
+    """Register ``scripts_dir`` as a synthetic package under ``alias`` in
+    ``sys.modules`` so a sibling skill's relative imports resolve without
+    colliding with book-compose's own top-level ``scripts`` package.
+
+    The alias is process-global (shared across loaders and with book-thesis). If
+    it is already registered for a DIFFERENT root, serving it would load the wrong
+    copy, so validate the cached ``__path__`` (canonicalised so a junction/symlink
+    or Windows-casing difference to the SAME dir is not a false mismatch) and fail
+    loud on a real mismatch rather than silently blending two trees.
+    """
+    if not scripts_dir.is_dir():
+        raise SiblingNotFoundError(f"{label} scripts dir missing: {scripts_dir}")
+    existing = sys.modules.get(alias)
+    if existing is not None:
+        existing_path = [_canon(p) for p in (getattr(existing, "__path__", []) or [])]
+        if existing_path != [_canon(scripts_dir)]:
+            raise SiblingNotFoundError(
+                f"{alias} is already registered for a different {label} "
+                f"({existing_path!r} != {[_canon(scripts_dir)]!r})"
+            )
+        return existing
+    pkg = types.ModuleType(alias)
+    pkg.__path__ = [str(scripts_dir)]  # type: ignore[attr-defined]
+    sys.modules[alias] = pkg
+    return pkg
+
+
 def russellian_style_root() -> Path:
-    return _resolve("russellian-style")
+    return _repo_sibling("russellian-style")
 
 
 def book_knowledge_root() -> Path:
-    """Resolve book-knowledge: the in-repo sibling FIRST, then the installed copy.
-
-    Repo-first (P5.1 / the P3.0 pattern) because the installed
-    ``~/.claude/skills/book-knowledge`` is frequently stale and may be absent
-    entirely; the sibling next to this book-compose copy shares its checkout's
-    (current) state, including the P2/P3 Cozo work the chapter-evidence port needs.
-    """
-    repo_sibling = Path(__file__).resolve().parent.parent.parent / "book-knowledge"
-    if repo_sibling.is_dir() and (repo_sibling / "SKILL.md").is_file():
-        return repo_sibling
-    return _resolve("book-knowledge")
+    return _repo_sibling("book-knowledge")
 
 
 def workspace_style_overrides_path(workspace: Path) -> Path:
@@ -80,27 +115,7 @@ def _ensure_bk_package() -> types.ModuleType:
     scripts.workspace by name would collide. We expose book-knowledge's
     scripts/ directory under the alias _book_knowledge_scripts instead.
     """
-    bk_scripts = book_knowledge_root() / "scripts"
-    if not bk_scripts.is_dir():
-        raise SiblingNotFoundError(f"book-knowledge scripts dir missing: {bk_scripts}")
-    # The alias is process-global and shared with book-thesis's loader. If it was
-    # registered for a DIFFERENT book-knowledge root, serving it would load the
-    # wrong copy; validate the cached __path__ and fail loud on mismatch.
-    existing = sys.modules.get(_BK_PACKAGE_ALIAS)
-    if existing is not None:
-        # Canonical (realpath + normcase) compare so a junction/symlink or Windows
-        # casing difference to the SAME dir is not a false mismatch.
-        existing_path = [_canon(p) for p in (getattr(existing, "__path__", []) or [])]
-        if existing_path != [_canon(bk_scripts)]:
-            raise SiblingNotFoundError(
-                f"{_BK_PACKAGE_ALIAS} is already registered for a different "
-                f"book-knowledge ({existing_path!r} != {[_canon(bk_scripts)]!r})"
-            )
-        return existing
-    pkg = types.ModuleType(_BK_PACKAGE_ALIAS)
-    pkg.__path__ = [str(bk_scripts)]  # type: ignore[attr-defined]
-    sys.modules[_BK_PACKAGE_ALIAS] = pkg
-    return pkg
+    return _register_alias(_BK_PACKAGE_ALIAS, book_knowledge_root() / "scripts", "book-knowledge")
 
 
 def load_book_knowledge_module(name: str) -> types.ModuleType:
@@ -141,15 +156,7 @@ _RS_PACKAGE_ALIAS = "_russellian_style_scripts"
 
 
 def _ensure_rs_package() -> types.ModuleType:
-    if _RS_PACKAGE_ALIAS in sys.modules:
-        return sys.modules[_RS_PACKAGE_ALIAS]
-    rs_scripts = russellian_style_root() / "scripts"
-    if not rs_scripts.is_dir():
-        raise SiblingNotFoundError(f"russellian-style scripts dir missing: {rs_scripts}")
-    pkg = types.ModuleType(_RS_PACKAGE_ALIAS)
-    pkg.__path__ = [str(rs_scripts)]  # type: ignore[attr-defined]
-    sys.modules[_RS_PACKAGE_ALIAS] = pkg
-    return pkg
+    return _register_alias(_RS_PACKAGE_ALIAS, russellian_style_root() / "scripts", "russellian-style")
 
 
 def load_russellian_style_module(name: str) -> types.ModuleType:
@@ -184,30 +191,11 @@ _FS_PACKAGE_ALIAS = "_feynman_style_scripts"
 
 
 def feynman_style_root() -> Path:
-    """Resolve feynman-style. Prefer the installed sibling under
-    ~/.claude/skills/feynman-style; fall back to the in-repo sibling
-    (skills/feynman-style alongside book-compose) so the integration works
-    before the global junction is registered."""
-    try:
-        return _resolve("feynman-style")
-    except SiblingNotFoundError:
-        # book-compose root is .../skills/book-compose; sibling is .../skills/feynman-style
-        repo_sibling = Path(__file__).resolve().parent.parent.parent / "feynman-style"
-        if repo_sibling.is_dir() and (repo_sibling / "SKILL.md").is_file():
-            return repo_sibling
-        raise
+    return _repo_sibling("feynman-style")
 
 
 def _ensure_fs_package() -> types.ModuleType:
-    if _FS_PACKAGE_ALIAS in sys.modules:
-        return sys.modules[_FS_PACKAGE_ALIAS]
-    fs_scripts = feynman_style_root() / "scripts"
-    if not fs_scripts.is_dir():
-        raise SiblingNotFoundError(f"feynman-style scripts dir missing: {fs_scripts}")
-    pkg = types.ModuleType(_FS_PACKAGE_ALIAS)
-    pkg.__path__ = [str(fs_scripts)]  # type: ignore[attr-defined]
-    sys.modules[_FS_PACKAGE_ALIAS] = pkg
-    return pkg
+    return _register_alias(_FS_PACKAGE_ALIAS, feynman_style_root() / "scripts", "feynman-style")
 
 
 def load_feynman_style_module(name: str) -> types.ModuleType:
@@ -261,19 +249,11 @@ _BR_PACKAGE_ALIAS = "_book_review_scripts"
 
 
 def book_review_root() -> Path:
-    return _resolve("book-review")
+    return _repo_sibling("book-review")
 
 
 def _ensure_br_package() -> types.ModuleType:
-    if _BR_PACKAGE_ALIAS in sys.modules:
-        return sys.modules[_BR_PACKAGE_ALIAS]
-    br_scripts = book_review_root() / "scripts"
-    if not br_scripts.is_dir():
-        raise SiblingNotFoundError(f"book-review scripts dir missing: {br_scripts}")
-    pkg = types.ModuleType(_BR_PACKAGE_ALIAS)
-    pkg.__path__ = [str(br_scripts)]
-    sys.modules[_BR_PACKAGE_ALIAS] = pkg
-    return pkg
+    return _register_alias(_BR_PACKAGE_ALIAS, book_review_root() / "scripts", "book-review")
 
 
 def load_book_review_module(name: str) -> types.ModuleType:
@@ -305,19 +285,11 @@ _RC_PACKAGE_ALIAS = "_review_conductor_scripts"
 
 
 def review_conductor_root() -> Path:
-    return _resolve("review-conductor")
+    return _repo_sibling("review-conductor")
 
 
 def _ensure_rc_package() -> types.ModuleType:
-    if _RC_PACKAGE_ALIAS in sys.modules:
-        return sys.modules[_RC_PACKAGE_ALIAS]
-    rc_scripts = review_conductor_root() / "scripts"
-    if not rc_scripts.is_dir():
-        raise SiblingNotFoundError(f"review-conductor scripts dir missing: {rc_scripts}")
-    pkg = types.ModuleType(_RC_PACKAGE_ALIAS)
-    pkg.__path__ = [str(rc_scripts)]
-    sys.modules[_RC_PACKAGE_ALIAS] = pkg
-    return pkg
+    return _register_alias(_RC_PACKAGE_ALIAS, review_conductor_root() / "scripts", "review-conductor")
 
 
 def load_review_conductor_module(name: str) -> types.ModuleType:

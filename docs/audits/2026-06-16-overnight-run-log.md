@@ -32,7 +32,9 @@ projected base — still programmatic, no committed raw RDF. Flagged for the aud
 **Phase C0 (PR #1) gate PASSED** — book-knowledge 268 passed, book-thesis 43 passed; all 5 goldens frozen & non-vacuous; no production behaviour changed.
 | P2 | P2.1 status single-source | DONE | 23b0184 | status-enum.edn; VALID_TRANSITIONS derived (byte-equiv); ClaimVocabularyError; 274 passed; both reviews |
 | P2 | P2.2 defconstraint→Cozo compiler | DONE | 1f5ac16 | compile_constraint + 5 EDN + goldens; null-negation helper-rule fix; chapter-cites-verified DEFERRED→P2.3; 298 passed; both reviews |
-| P2 | P2.3 Cozo-backed validate_shacl + parity | pending | — | — |
+| P2 | P2.3 Cozo-backed validate_shacl + parity | DONE | b1cfbc6 | KG_BACKEND dispatch; canonical-form normalization; chapter-section entity + 6th constraint; parity rdflib==golden==cozo (non-tautological); 304 passed default + cozo smoke clean; both reviews |
+
+**Phase P2 (PR #2) gate:** default rdflib suite 304 passed; validate_shacl parity proven on both backends; KG_BACKEND default stays rdflib (P5.3 flips). book-compose contract preserved (callers use only .conforms; verified by reading — book-compose venv not built). Recursive-SHACL N/A (neither shape recursive). **KNOWN P5.3 INPUT:** RDF-injection test fixtures are now rdflib-pinned; the full suite under KG_BACKEND=cozo is NOT yet all-green (other consumers like run_competency_queries) — P5.3 must flip default + fix remaining consumers + rework/retire RDF-only fixtures.
 | P3 | P3.1 thesis→cozo projector | pending | — | — |
 | P3 | P3.2 D9-D11 EDN→Cozo + parity | pending | — | — |
 | P5 | P5.1 port remaining RDF readers | pending | — | — |

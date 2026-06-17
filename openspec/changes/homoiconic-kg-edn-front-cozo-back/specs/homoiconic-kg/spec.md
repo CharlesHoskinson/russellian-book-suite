@@ -233,3 +233,190 @@ Rationale: this is the missing link between REQ-KG-001 (schema) and REQ-KG-004
 - **WHEN** `cozo_store` initializes a store from `kg-schema.edn`
 - **THEN** every declared entity has a corresponding relation with matching columns, and no extra relation exists
 - **AND** `tests/test_cozo_store_contract.py::test_relations_conform_to_schema` passes
+
+### Requirement: REQ-KG-012 — SHACL shapes reproduced via EDN constraints (Ubiquitous)
+
+The framework SHALL reauthor each shape and constraint in `assets/shapes.ttl` as a
+booklogic `defconstraint` compiled by the pure EDN→CozoScript compiler to a Cozo
+violation rule, whose conformance verdict and violation set are result-set equal to
+`pyshacl`'s on the bermuda workspace and on a deliberately-violating fixture. The
+covered constraints are the `ClaimShape` property constraints (`schema:text`
+cardinality/datatype, the `tbf:status` `sh:in` enum, `tbf:confidence` datatype and
+`0.0..1.0` range, `tbf:hasSourceSpan` minimum cardinality) and the two `sh:sparql`
+constraints (verified claims must derive from a source-span; chapter sections must
+cite only verified claims).
+
+Rationale: result-set equality against a captured golden is the working definition
+of a correct constraint port and the gate for retiring SHACL.
+
+#### Scenario: each ported constraint matches the SHACL golden
+
+- **WHEN** the EDN constraint suite runs over the bermuda workspace and over the violating fixture
+- **THEN** its conformance verdict and the (focus-node, path, message) violation set are result-set equal to the captured `pyshacl` golden for the same input
+- **AND** `tests/test_constraint_ports.py::test_constraints_match_shacl_golden` passes
+
+### Requirement: REQ-KG-013 — `validate_shacl` public contract preserved (Ubiquitous)
+
+The `validate_shacl(layout) -> ShaclReport` seam SHALL remain importable from
+`scripts.validate_shacl` with an unchanged result shape (`conforms: bool`,
+`violations: list[Violation(focus_node, path, message)]`, `text: str`), so that
+`book-compose`'s `preflight.py`, `book_preflight.py`, and `build_release_bundle.py`
+consume it without code change after its internals move from `pyshacl` to the Cozo
+constraint path. Its internals SHALL reach the store through `cozo_store`, never
+importing `pycozo` directly (REQ-KG-002b).
+
+Rationale: the three cross-skill callers gate releases on `report.conforms`;
+preserving the contract makes the engine swap invisible to them, exactly as
+`cozo_store` makes the backend swap invisible to query callers.
+
+#### Scenario: cross-skill callers are unchanged across the engine swap
+
+- **WHEN** `validate_shacl` runs on the Cozo constraint path
+- **THEN** it returns a `ShaclReport` with the same fields and the same `conforms` verdict the `pyshacl` path returned for that workspace
+- **AND** `tests/test_validate_shacl.py::test_cozo_path_matches_contract` passes
+- **AND** `tests/test_validate_shacl.py::test_callers_import_unchanged` asserts the three `book-compose` callers import and call it with no signature change
+
+### Requirement: REQ-KG-014 — SHACL and consistency goldens precede their ports (State-driven)
+
+In addition to REQ-KG-005, the framework SHALL hold committed golden fixtures for
+the SHACL conformance/violation report and for the D9–D11 consistency defect set on
+a deliberately-violating fixture (not only the bermuda workspace), and the
+violating-fixture goldens SHALL be non-empty, while any SHACL or consistency port
+PR is open.
+
+Rationale: REQ-KG-005 already requires the bermuda goldens; this adds the
+non-vacuity guard — a port that reproduces an empty golden proves nothing, so the
+violating-fixture golden must fire — without restating REQ-KG-005's bermuda scope.
+
+#### Scenario: the violating-fixture goldens exist and are non-empty
+
+- **WHEN** the SHACL or consistency port PR is open
+- **THEN** the SHACL-report and D9–D11 goldens for the violating fixture exist, are committed, and are non-empty
+- **AND** `tests/test_characterization.py::test_violating_fixture_goldens_nonempty` passes
+
+### Requirement: REQ-KG-015 — D9–D11 consistency reproduced via EDN→Cozo; pyDatalog retired (Ubiquitous)
+
+The framework SHALL produce the D9 (orphan), D10 (transitive contradiction), and
+D11 (invariant violation) defects — currently produced by `book-thesis`'s
+`datalog_consistency` (pyDatalog over `consistency.dl`) — via a booklogic EDN→Cozo
+consistency pass whose defect set is result-set equal to the captured golden.
+
+Rationale: pyDatalog is the second Datalog engine the migration collapses into
+Cozo; D9–D11 are the defects the QA gate depends on, so they must port with
+equivalence before the dependency is removed.
+
+#### Scenario: the EDN consistency pass matches the D9–D11 golden
+
+- **WHEN** the EDN→Cozo consistency pass runs on the bermuda workspace and the violating fixture
+- **THEN** its D9/D10/D11 defect set is result-set equal to the `datalog_consistency` golden for the same input
+- **AND** `tests/test_consistency_ports.py::test_d9_d11_match_golden` passes
+
+### Requirement: REQ-KG-015b — No pyDatalog after cutover (Unwanted)
+
+No module SHALL import `pyDatalog` once the cutover gate (REQ-KG-018) passes. The
+import scan that enforces this is owned by the cutover gate (REQ-KG-018), which
+covers `rdflib`/`pyshacl`/`pyDatalog` together.
+
+Rationale: separates the always-true equivalence obligation (REQ-KG-015) from the
+state-gated removal of the engine; the single import-scan lives with the legacy
+gate so there is one owner, not two.
+
+#### Scenario: nothing imports pyDatalog after cutover
+
+- **WHEN** the source tree is scanned after the cutover gate passes
+- **THEN** no source module imports `pyDatalog`
+- **AND** `tests/test_cutover_gate.py::test_no_legacy_import_after_cutover` passes
+
+### Requirement: REQ-KG-016 — Thesis projects into Cozo (Event-driven)
+
+The framework SHALL project `compile_thesis`'s thesis-node, sub-argument, and
+invariant content into Cozo relations matching `kg-schema.edn` when the thesis→cozo
+projection step runs, leaving the thesis YAML source unmodified, so the EDN
+consistency pass (REQ-KG-015) reads thesis facts from Cozo rather than from
+`thesis-triples.ttl`.
+
+Rationale: D9–D11 join thesis structure against the claim ledger; the consistency
+port needs the thesis side of that join inside the single store.
+
+#### Scenario: thesis content lands in Cozo relations
+
+- **WHEN** the thesis→cozo projector runs on a thesis fixture
+- **THEN** Cozo holds the thesis-node/sub-argument/invariant rows matching `kg-schema.edn`, and the thesis YAML is byte-identical before and after
+- **AND** `tests/test_thesis_projector.py::test_projects_thesis_nodes` passes
+
+### Requirement: REQ-KG-017 — RDF↔Cozo divergences reconciled (Event-driven)
+
+The framework SHALL resolve each of the three divergences documented inline in
+`assets/kg-queries/*.edn` (`stale_after_source_refresh`'s structurally-dead SPARQL
+join, `unsupported_claims`'s `wasDerivedFrom`-vs-source-span negation, and the
+`project_graph` `wiki/wiki/` prefix + per-record `ccStatus` quirks) to one
+canonical semantics before cutover, with the affected golden updated to that
+semantics and the decision recorded in the change.
+
+Rationale: the parallel-stack phase deliberately mirrored RDF quirks to prove
+equivalence; the cutover must instead choose the intended behaviour so the
+single-store result is correct, not bug-compatible.
+
+#### Scenario: each divergence has a recorded canonical decision and an updated golden
+
+- **WHEN** the cutover lands
+- **THEN** each of the three divergences has a recorded canonical-semantics decision and its golden reflects that decision
+- **AND** `tests/test_query_ports.py::test_all_eight_match_golden[query]` passes against the reconciled goldens
+
+### Requirement: REQ-KG-018 — Legacy stack removed only behind the cutover gate (State-driven)
+
+The framework SHALL retain `rdflib`/SPARQL/SHACL/pyDatalog, `project_graph`'s RDF
+emit, `shapes.ttl`, the `.rq` files, and `compile_thesis`'s TTL emit while any
+characterization fixture is unreproduced or any consumer still parses or writes the
+RDF dataset, and SHALL remove them — including the `rdflib`/`pyshacl`/`pyDatalog`
+dependency pins across `book-knowledge`, `book-compose`, and `book-thesis` — only
+once the cutover gate passes (every fixture reproduced, every consumer on the Cozo
+path, `KG_BACKEND` defaulting to `cozo`). This gate supersedes REQ-KG-010's, which
+covered only `rdflib`/SPARQL/SHACL.
+
+Rationale: deletion before equivalence would lose invariants the suite depends on
+and break the cross-skill callers; the gate makes the big-bang reversible until
+proven.
+
+#### Scenario: cutover is blocked while any fixture is unmatched or any consumer touches RDF
+
+- **WHEN** the cutover check runs and any characterization fixture is unreproduced or any source module still parses or writes the RDF dataset or imports `rdflib`/`pyshacl`/`pyDatalog`
+- **THEN** the check fails and the legacy stack is not removed
+- **AND** `tests/test_cutover_gate.py::test_blocks_until_all_fixtures_pass` and `::test_no_legacy_import_after_cutover` pass
+
+### Requirement: REQ-KG-019 — Remaining RDF-dataset readers ported to Cozo (Ubiquitous)
+
+The framework SHALL reauthor `query_chapter_evidence.py` (book-compose) and
+`audit_taxonomy.py` (book-knowledge) — the two consumers besides the eight
+competency queries that parse the TriG dataset via `rdflib` — to read their facts
+through `cozo_store`, with each one's output result-set equal to its captured golden
+on the bermuda workspace. If `audit_taxonomy`'s RDFS subclass/taxonomy structure is
+not expressible over the eight named entities, `kg-schema.edn` SHALL gain the
+relation it needs.
+
+Rationale: without this, REQ-KG-018's gate deadlocks — it blocks cutover while any
+consumer reads RDF, but REQ-KG-006 ports only the eight queries, leaving these two
+readers permanently on the RDF path.
+
+#### Scenario: both remaining readers match their goldens on the Cozo path
+
+- **WHEN** `query_chapter_evidence` and `audit_taxonomy` run on the bermuda workspace through `cozo_store`
+- **THEN** each one's output is result-set equal to its captured golden, and neither parses the TriG dataset
+- **AND** `tests/test_remaining_consumer_ports.py::test_query_chapter_evidence_and_audit_taxonomy_match_golden` passes
+
+### Requirement: REQ-KG-020 — Transition matrix derives its state set from the single EDN source (Ubiquitous)
+
+The framework SHALL derive the state set used by `claim_validator.VALID_TRANSITIONS`
+from the same single EDN status source as REQ-KG-009, such that the transition
+matrix cannot name a status absent from that source, and adding a status to the
+source surfaces it to the validator.
+
+Rationale: `VALID_TRANSITIONS` is a fifth, independently-edited copy of the status
+vocabulary (the transition graph, not just the enum list), which REQ-KG-009/009b do
+not cover; once SHACL's `sh:in` is deleted, this is the remaining drift source.
+
+#### Scenario: the transition matrix cannot name an unknown status
+
+- **WHEN** the transition matrix is built and a status not in the single EDN source is referenced
+- **THEN** the build fails (or the matrix is derived so the status cannot appear)
+- **AND** `tests/test_status_enum_single_source.py::test_transition_matrix_uses_single_source` passes

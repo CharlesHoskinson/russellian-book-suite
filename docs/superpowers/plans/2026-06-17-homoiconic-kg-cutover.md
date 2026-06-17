@@ -1,0 +1,220 @@
+# Homoiconic KG Cutover Implementation Plan (P2 + P3 + P5)
+
+> **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Steps use `- [ ]`. Each phase below is a SEPARATE PR ("one problem per PR"). Run the full suite per skill before each PR.
+
+**Goal:** Retire the dual knowledge-graph stack. Replace SHACL with EDN constraints (P2), replace pyDatalog with an EDN→Cozo consistency pass (P3), then delete `rdflib`/`pyshacl`/`pyDatalog`, `project_graph`'s RDF emit, `shapes.ttl`, the `.rq` files, and `compile_thesis`'s TTL emit — making Cozo the sole store across `book-knowledge`, `book-compose`, and `book-thesis` (P5).
+
+**Architecture:** "EDN front, Cozo back" (already shipped for queries in P0+P1, for code in P4). The booklogic compiler gains `defconstraint` lowering; projectors gain thesis. `validate_shacl(layout)->ShaclReport` and `run_consistency` keep their public contracts but swap engines underneath, routed through `cozo_store` (no module but `cozo_store` imports `pycozo`). The legacy stack runs in PARALLEL behind characterization goldens until the final cutover gate is green; deletion is the last, revert-able step.
+
+**Tech Stack:** Python 3.14, pycozo (embedded Cozo), edn_format, pytest. Spec: `openspec/changes/homoiconic-kg-edn-front-cozo-back/specs/homoiconic-kg/spec.md` (REQ-KG-009..020). Surface map: this plan's "Cutover surface" appendix.
+
+**Test rigor (non-negotiable, baked into every phase):**
+1. **Characterization-first** — a committed golden exists before any behaviour is ported (REQ-KG-005/014). Goldens captured on BOTH bermuda AND a deliberately-violating fixture; the violating golden must be non-empty (no vacuous ports).
+2. **Parity** — every port asserts result-set equality vs the legacy engine on both fixtures.
+3. **Cross-skill integration** — book-compose preflight/book_preflight/build_release_bundle keep identical pass/fail verdicts through the new path.
+4. **Determinism pins** — two-run byte-identical projected rows + canonically-ordered result sets.
+5. **No-bypass scans** — after cutover, no source module imports `rdflib`/`pyshacl`/`pyDatalog` or parses/writes the TriG dataset.
+6. **Cutover gate** — deletion blocked until all of the above are green (REQ-KG-018).
+7. **Adversarial audit** — external GPT audit (audit.md) + two-stage internal review (spec then quality) per task.
+
+---
+
+## Cutover surface (appendix — read before starting)
+
+| Component | File | Public API to preserve | Cross-skill callers |
+|---|---|---|---|
+| RDF emit | `book-knowledge/scripts/project_graph.py` | `project_graph(layout)->Path` (TriG) | tests; indirectly every TriG reader |
+| SHACL gate | `book-knowledge/scripts/validate_shacl.py` + `assets/shapes.ttl` | `validate_shacl(layout)->ShaclReport{conforms,violations[focus_node,path,message],text}` | book-compose `preflight.py:36`, `book_preflight.py:73`, `build_release_bundle.py:36` |
+| Competency queries | `assets/queries/*.rq` (8) + `assets/kg-queries/*.edn` (8) | `run_competency_queries(layout)` (KG_BACKEND flag, default `rdflib`) | book-compose; characterization |
+| Consistency | `book-thesis/scripts/datalog_consistency.py` + `rules/consistency.dl` | D9/D10/D11 defect report → `qa/datalog-defects.json` | book-thesis QA gate |
+| Thesis emit | `book-thesis/scripts/compile_thesis.py` | TTL → `.knowledge/thesis-triples.ttl` | read by datalog_consistency |
+| Other RDF readers | `book-compose/scripts/query_chapter_evidence.py`, `book-knowledge/scripts/audit_taxonomy.py` | parse `layout.dataset` TriG | (the deadlock the auditor caught) |
+| Status vocabulary | JSON schema `assets/claim-record.schema.json:10`; `shapes.ttl:19` `sh:in`; `claim_validator.VALID_TRANSITIONS:12-18`; `kg-schema.edn` | 5 states proposed/verified/disputed/superseded/refuted | all claim writes |
+| Deps | `book-knowledge`, `book-compose`, `book-thesis` pyproject.toml | `rdflib`/`pyshacl`/`pyDatalog` pins + `filterwarnings` | — |
+
+The 8 query goldens already exist under `book-knowledge/tests/golden/kg/`. SHACL-report and D9–D11 goldens do NOT yet exist (C0 creates them).
+
+Run tests: `cd skills/<skill> && .venv/Scripts/python.exe -m pytest tests/ -q`.
+
+---
+
+# PHASE C0 — Characterization completion (PR #1)
+
+Freeze the goldens for everything P2/P3 will replace, BEFORE touching it. Skill: `book-knowledge` (+ a thesis golden under book-thesis).
+
+## Task C0.1: a deliberately-violating fixture workspace
+
+**Files:**
+- Create: `skills/book-knowledge/tests/fixtures/violating-workspace/` (a minimal `init_workspace` tree with a claims ledger that triggers each SHACL constraint: a claim with status not in the enum is impossible at write-time, so instead include: a `verified` claim with NO source-span (fires the `sh:sparql` "must derive from a source-span" + `hasSourceSpan` minCount), a claim with `confidence` 1.5 (out of range), a chapter section citing a non-verified claim (fires ChapterSectionShape)). Build it programmatically in a fixture helper rather than committing raw RDF.
+- Create: `skills/book-knowledge/tests/fixtures/violating_workspace.py` — `build_violating_workspace(tmp_path) -> WorkspaceLayout` using `init_workspace` + `append_claim`, then `project_graph(layout)` to emit its TriG.
+
+- [ ] **Step 1:** write `build_violating_workspace`; assert it produces a TriG dataset with >0 triples and that `validate_shacl` on it returns `conforms == False` with ≥3 violations. RED (helper missing) → GREEN.
+- [ ] **Step 2:** Commit `kg(C0.1): violating-workspace fixture for non-vacuous constraint goldens`.
+
+## Task C0.2: SHACL report golden
+
+**Files:**
+- Modify: `skills/book-knowledge/scripts/capture_characterization.py` — add `capture_shacl(workspace, out_dir)` that writes a canonical JSON golden of the `ShaclReport` (conforms + sorted violations as `[{focus_node,path,message}]`).
+- Create: `skills/book-knowledge/tests/golden/kg/shacl_report_bermuda.json`, `shacl_report_violating.json`.
+- Modify: `skills/book-knowledge/tests/test_characterization.py` — add `shacl_report_bermuda` / `shacl_report_violating` to the required-goldens set; add `test_violating_fixture_goldens_nonempty` (the violating SHACL golden has ≥1 violation).
+
+- [ ] **Step 1 (RED):** `test_required_goldens_present[shacl_report_bermuda]` fails (golden absent).
+- [ ] **Step 2 (GREEN):** implement `capture_shacl`; generate both goldens (bermuda via its committed dataset; violating via the C0.1 fixture). Canonical sort identical to `_canonical_rows`.
+- [ ] **Step 3:** `test_violating_fixture_goldens_nonempty` passes. Commit `kg(C0.2): freeze SHACL conformance/violation goldens (REQ-KG-014)`.
+
+## Task C0.3: D9–D11 consistency golden
+
+**Files:**
+- Create: `skills/book-thesis/tests/fixtures/violating_thesis.py` — a thesis YAML + ledger that triggers D9 (orphan sub-argument), D10 (transitive contradiction), D11 (invariant violation).
+- Modify: `skills/book-thesis/scripts/datalog_consistency.py` OR add `skills/book-thesis/scripts/capture_consistency.py` — capture the D9/D10/D11 defect set to a canonical JSON golden.
+- Create: `skills/book-thesis/tests/golden/consistency/d9_d11_bermuda.json`, `d9_d11_violating.json`.
+- Create/Modify: `skills/book-thesis/tests/test_characterization_consistency.py` — required-goldens-present + non-vacuity for the violating golden.
+
+- [ ] **Step 1 (RED):** golden-present test fails.
+- [ ] **Step 2 (GREEN):** run the existing pyDatalog `datalog_consistency` on bermuda + the violating fixture; freeze the defect sets. The violating golden must contain ≥1 of each D9/D10/D11.
+- [ ] **Step 3:** Commit `kg(C0.3): freeze D9-D11 consistency goldens (REQ-KG-014)`.
+
+**PR #1 gate:** full `book-knowledge` + `book-thesis` suites green; goldens committed; no production behaviour changed.
+
+---
+
+# PHASE P2 — SHACL → EDN constraints (PR #2)
+
+Skill: `book-knowledge` (+ a no-op import check in book-compose). The legacy `pyshacl` path stays; we add the Cozo path behind the SAME `validate_shacl` contract and prove parity.
+
+## Task P2.1: status vocabulary single source (REQ-KG-009 / REQ-KG-009b / REQ-KG-020)
+
+**Files:**
+- Create: `skills/book-knowledge/assets/status-enum.edn` — the single source: `{:states [:proposed :verified :disputed :superseded :refuted] :transitions {:proposed #{:verified :disputed :superseded} :verified #{:disputed :superseded} :disputed #{:verified :superseded :refuted} :superseded #{} :refuted #{}}}`.
+- Modify: `skills/book-knowledge/scripts/claim_validator.py` — derive `VALID_TRANSITIONS` from `status-enum.edn` (load + parse), not a literal dict.
+- Modify: `kg-schema.edn` — (if it carries a status enum) reference the same values; otherwise leave (status is a free string column, enforced by the constraint).
+- Decision: `assets/claim-record.schema.json` keeps its literal enum for now (JSON Schema cannot `$ref` an EDN file); add `tests/test_status_enum_single_source.py::test_json_schema_matches_edn_source` to PIN that the JSON-Schema enum equals the EDN states (drift guard, since JSON Schema can't derive). The SHACL `sh:in` source is deleted in P5, removing one copy.
+- Create: `skills/book-knowledge/tests/test_status_enum_single_source.py` — `test_one_source_feeds_both`, `test_no_second_enum_copy` (the SHACL `sh:in` and the validator literal are gone/derived), `test_transition_matrix_uses_single_source`, `test_json_schema_matches_edn_source`.
+
+- [ ] **Step 1 (RED):** `test_transition_matrix_uses_single_source` — assert `claim_validator.VALID_TRANSITIONS` is derived (e.g. mutate the loaded EDN states in a monkeypatched copy and confirm the validator can't name an out-of-source status). Fails (currently a literal).
+- [ ] **Step 2 (GREEN):** add `status-enum.edn`; rewrite `VALID_TRANSITIONS` to load+build from it (keep the exact same transitions — characterized by existing `test_claim_validator.py`).
+- [ ] **Step 3:** run `test_claim_validator.py` (unchanged behaviour) + the new tests. Commit `kg(P2.1): single EDN status source feeds validator + transition matrix (REQ-KG-009/020)`.
+
+## Task P2.2: `defconstraint` → Cozo violation-rule compiler (REQ-KG-003 / REQ-KG-012)
+
+**Files:**
+- Modify: `skills/book-knowledge/scripts/booklogic_kg.py` — add `compile_constraint(edn, schema_path) -> str`, a PURE function lowering a `defconstraint` to a CozoScript rule that yields violation rows `[focus_node, path, message]`. Reuse the existing variable-lowering / join / negation / filter machinery from `compile_query`.
+- Create: `skills/book-knowledge/assets/kg-constraints/*.edn` — one `defconstraint` per SHACL constraint:
+  - `status-enum.edn` — `:violation` when `?status` not in the enum (compiled from `status-enum.edn` states): focus=claim, path="tbf:status", message from the constraint.
+  - `confidence-range.edn` — `?confidence < 0.0 or > 1.0`.
+  - `text-cardinality.edn` — claim missing `canonical-text` (minCount 1) — note: maxCount 1 is guaranteed by the projector (one row per claim), document that.
+  - `source-span-present.edn` — claim with no source-span (minCount 1).
+  - `verified-derives.edn` — the `sh:sparql`: `verified` claim with no source-span (semantically equal to source-span-present for verified; reproduce as its own message to match the SHACL violation text).
+  - `chapter-cites-verified.edn` — chapter section citing a non-verified claim.
+- Create: `skills/book-knowledge/tests/test_booklogic_constraint_compile.py` — golden EDN→CozoScript per constraint (byte-identical, REQ-KG-003); `test_compile_without_store`; undeclared-entity error.
+
+- [ ] **Step 1 (RED):** `test_defconstraint_golden` — compile `confidence-range.edn`, assert byte-identical to a committed golden string. Fails (no `compile_constraint`).
+- [ ] **Step 2 (GREEN):** implement `compile_constraint`; author the goldens by running the compiler against a live store first to confirm the CozoScript is valid, THEN freeze. (Same discipline as the P0 compiler: tests EXECUTE against real Cozo, not just string-match.)
+- [ ] **Step 3:** Commit `kg(P2.2): defconstraint->Cozo violation-rule compiler + constraint EDN (REQ-KG-003/012)`.
+
+## Task P2.3: Cozo-backed `validate_shacl` + parity (REQ-KG-012 / REQ-KG-013)
+
+**Files:**
+- Modify: `skills/book-knowledge/scripts/validate_shacl.py` — add a `_validate_cozo(layout) -> ShaclReport` path (projects the ledger via `project_ledger`/`project_graphify`-style into a `CozoStore`, runs each compiled constraint, assembles `ShaclReport`). Gate behind `KG_BACKEND` (default still `rdflib`). Route store access through `cozo_store` only (REQ-KG-002b). Keep `ShaclReport`/`Violation` dataclasses unchanged.
+- Create: `skills/book-knowledge/tests/test_constraint_ports.py` — `test_constraints_match_shacl_golden` (Cozo path conforms+violations result-set equal to the C0.2 goldens on bermuda AND violating fixture).
+- Modify: `skills/book-knowledge/tests/test_validate_shacl.py` — `test_cozo_path_matches_contract` (same `ShaclReport` shape + `conforms` verdict both paths); `test_callers_import_unchanged` (import `book-compose` preflight/book_preflight/build_release_bundle modules via `sibling_skills`, assert `validate_shacl` is called with the `(layout)` signature — a smoke that the contract holds).
+
+- [ ] **Step 1 (RED):** `test_constraints_match_shacl_golden` fails (no Cozo path).
+- [ ] **Step 2 (GREEN):** implement `_validate_cozo`; reconcile violation `focus_node`/`path` representation with the SHACL golden (the focus node is a claim URI in SHACL; decide canonical form — claim id vs URI — and record it; update the C0.2 golden ONLY if you consciously choose the corrected form, documenting it as a divergence like the query ports did).
+- [ ] **Step 3:** both paths green on both fixtures; `test_callers_import_unchanged` green. Commit `kg(P2.3): Cozo-backed validate_shacl behind contract + parity (REQ-KG-012/013)`.
+
+**PR #2 gate:** full `book-knowledge` suite green; `KG_BACKEND=cozo pytest` AND default both green; book-compose suite green (unchanged). Recursive-SHACL: confirm in the PR description that neither shape is recursive (they aren't — record it, satisfies the P2 fixpoint task).
+
+---
+
+# PHASE P3 — Retire pyDatalog (PR #3)
+
+Skill: `book-thesis` (+ `book-knowledge` for the consistency compiler if shared). Legacy pyDatalog stays; add the Cozo path + parity.
+
+## Task P3.1: `thesis→cozo` projector (REQ-KG-016)
+
+**Files:**
+- Create: `skills/book-thesis/scripts/project_thesis_cozo.py` — `project_thesis(workspace, store)`: read `thesis/<id>.yaml`, load `thesis-node`/`sub-argument`/invariant rows into Cozo per `kg-schema.edn` (entities already declared at lines ~140-151; add an `invariant` entity if absent). Leave the YAML unmodified. Mirror `project_ledger_cozo` patterns (synthetic ids via SHA1 `\x1f`-join).
+- Create: `skills/book-thesis/tests/test_thesis_projector.py` — `test_projects_thesis_nodes` (rows land; YAML byte-identical before/after), determinism (two-run identical).
+- Modify (if needed): `kg-schema.edn` — add `invariant` entity; update `book-knowledge/tests/test_kg_schema.py::EXPECTED_ENTITIES`.
+
+- [ ] **Step 1 (RED):** `test_projects_thesis_nodes` fails (module missing).
+- [ ] **Step 2 (GREEN):** implement; reuse `CozoStore.in_memory`.
+- [ ] **Step 3:** Commit `kg(P3.1): thesis->cozo projector (REQ-KG-016)`.
+
+## Task P3.2: D9–D11 EDN→Cozo consistency pass + parity (REQ-KG-015)
+
+**Files:**
+- Create: `skills/book-thesis/assets/kg-consistency/d9_orphan.edn`, `d10_contradiction.edn`, `d11_invariant.edn` — booklogic queries over the thesis+claim Cozo relations reproducing each defect class. (D10 transitive contradiction needs recursive Datalog — Cozo supports recursive rules; pin the recursive form against a live store, like P4.2's PageRank caveat.)
+- Modify: `skills/book-thesis/scripts/datalog_consistency.py` — add a `KG_BACKEND=cozo` path: `project_thesis` + `project_ledger` into one store, run the EDN consistency queries, emit the SAME `qa/datalog-defects.json` shape and the SAME exit codes (0 clean / 1 on D10|D11). Keep the pyDatalog path as default until the gate.
+- Create: `skills/book-thesis/tests/test_consistency_ports.py` — `test_d9_d11_match_golden` (Cozo defect set result-set equal to the C0.3 goldens on bermuda + violating fixture).
+
+- [ ] **Step 1 (RED):** `test_d9_d11_match_golden` fails.
+- [ ] **Step 2 (GREEN):** author the EDN, executing against a live store; reconcile any RDF↔Cozo defect-shape divergence (document if intentional).
+- [ ] **Step 3:** both paths green on both fixtures; exit codes identical. Commit `kg(P3.2): D9-D11 EDN->Cozo consistency pass + parity (REQ-KG-015)`.
+
+**PR #3 gate:** full `book-thesis` suite green; both backends green. (pyDatalog NOT yet removed — that's the gate in P5.)
+
+---
+
+# PHASE P5 — Cutover (PR #4, then PR #5 for deletion)
+
+## Task P5.1: port the remaining RDF-dataset readers (REQ-KG-019)
+
+**Files:**
+- Modify: `skills/book-compose/scripts/query_chapter_evidence.py` — read claim/source-span facts via `cozo_store` (through `sibling_skills.load_book_knowledge_module`), not by parsing `layout.dataset`.
+- Modify: `skills/book-knowledge/scripts/audit_taxonomy.py` — read via `cozo_store`. If its RDFS subclass/taxonomy structure isn't expressible over the 8 entities, add a `taxonomy`/`broader` relation to `kg-schema.edn` (+ update `EXPECTED_ENTITIES`) and a projector for it.
+- Create goldens + `tests/test_remaining_consumer_ports.py::test_query_chapter_evidence_and_audit_taxonomy_match_golden` (capture the current rdflib output as golden FIRST — characterization — then port to match).
+
+- [ ] **Step 1 (RED):** capture goldens from the rdflib path; write the parity test; it fails for the not-yet-ported Cozo path.
+- [ ] **Step 2 (GREEN):** port both; result-set equal; neither parses TriG.
+- [ ] **Step 3:** Commit `kg(P5.1): port query_chapter_evidence + audit_taxonomy to Cozo (REQ-KG-019)`.
+
+## Task P5.2: reconcile the 3 divergences (REQ-KG-017)
+
+**Files:**
+- Modify: `skills/book-knowledge/assets/kg-queries/{stale_after_source_refresh,unsupported_claims}.edn` + the relevant projector quirks in `project_ledger_cozo.py`.
+- Create: `docs/audits/2026-06-17-kg-divergence-decisions.md` — record the chosen canonical semantics for each of the 3 divergences.
+- Update the affected goldens under `tests/golden/kg/` to the canonical semantics.
+
+- [ ] **Step 1:** decide each (recommended: adopt the Cozo `doc_id` join for stale; adopt source-span-only negation for unsupported and project `derived_from` only if a real workspace needs it; drop the `wiki/wiki/` double prefix and dedupe `ccStatus` to latest-per-id). Record decisions.
+- [ ] **Step 2 (RED→GREEN):** update goldens + queries; `test_query_ports.py::test_all_eight_match_golden` green against reconciled goldens; add synthetic-fire tests proving the corrected semantics actually fire (non-vacuous).
+- [ ] **Step 3:** Commit `kg(P5.2): reconcile 3 RDF<->Cozo divergences to canonical semantics (REQ-KG-017)`.
+
+## Task P5.3: flip default backend + cutover gate (REQ-KG-010 / REQ-KG-018)
+
+**Files:**
+- Modify: `run_competency_queries.py`, `validate_shacl.py`, `datalog_consistency.py` — flip `KG_BACKEND` default to `cozo`.
+- Create: `skills/book-knowledge/tests/test_cutover_gate.py` — `test_blocks_until_all_fixtures_pass` (every characterization golden — 8 queries + SHACL + D9-D11 — reproduced by the Cozo path); `test_no_legacy_import_after_cutover` (whole-suite scan: no `import rdflib|pyshacl|pyDatalog`, no `format="trig"`/`.parse(layout.dataset` in any non-deleted source); mirror the F4 no-bypass scan widened across all three skills).
+
+- [ ] **Step 1 (RED):** the gate test fails while legacy imports remain.
+- [ ] **Step 2:** flip defaults; run the whole multi-skill suite on the Cozo path.
+- [ ] **Step 3:** Commit `kg(P5.3): default KG_BACKEND=cozo + cutover gate (REQ-KG-010/018)`. **This is the last PR (#4) BEFORE deletion** — merge and let it bake; the legacy stack is still present and revert-able.
+
+## Task P5.4: delete the legacy stack (REQ-KG-018) — PR #5
+
+**Files (delete):** `project_graph.py` RDF emit (or the whole module if nothing else uses it), `assets/shapes.ttl`, `assets/queries/*.rq`, `compile_thesis.py`'s TTL emit, `book-thesis/rules/consistency.dl`, the rdflib-based internals of `validate_shacl`/`datalog_consistency`.
+**Files (modify):** the three pyproject.toml — drop `rdflib`/`pyshacl`/`pyDatalog` deps + the `filterwarnings` lines.
+**Files (docs):** README.md, AGENTS.md, CLAUDE.md, `docs/operations/*`, the skill SKILL.md files — update to the single-graph model.
+
+- [ ] **Step 1:** delete; rebuild each venv WITHOUT rdflib/pyshacl/pyDatalog (`pip install -e .[dev]`); confirm `test_no_legacy_import_after_cutover` green and nothing imports the deleted modules.
+- [ ] **Step 2:** full suite green across book-knowledge / book-compose / book-thesis / book-qa with the legacy deps UNINSTALLED (proves no hidden dependency).
+- [ ] **Step 3:** update docs. Commit `kg(P5.4): delete rdflib/pyshacl/pyDatalog + RDF/SHACL/TTL stack; Cozo sole store (REQ-KG-018)`.
+
+---
+
+# PHASE Z — Audit (after each PR + final)
+
+- [ ] Two-stage internal review (spec-compliance then code-quality) per task, per subagent-driven-development.
+- [ ] After the cutover PRs, generate an external GPT adversarial audit (XML prompt → `audit.md` → `docs/audits/2026-06-17-homoiconic-kg-cutover-audit.md` with a resolution note), same pattern as P0+P1 and P4. Calibrate any auditor "tighten validation" findings against the REAL bermuda + a real thesis workspace before applying (the P4 lesson: synthetic-only audits can propose fixes that break real data).
+
+---
+
+## Self-review
+
+- **Spec coverage:** C0→REQ-KG-014; P2.1→009/009b/020; P2.2→003/012; P2.3→012/013; P3.1→016; P3.2→015; P5.1→019; P5.2→017; P5.3→010/018; P5.4→015b/018. Every REQ-KG-009..020 maps to a task.
+- **The auditor-caught deadlock** (REQ-KG-018 blocks cutover on `query_chapter_evidence`/`audit_taxonomy`) is resolved by P5.1 ordering it BEFORE the gate (P5.3).
+- **The 5th status copy** (`VALID_TRANSITIONS`) is covered by P2.1/REQ-KG-020.
+- **Rollback:** the legacy stack survives until P5.4; P5.3 (gate + default flip) is a separate, bakeable PR, so deletion is a clean revert if a consumer breaks.
+- **Risk — recursive Datalog (D10):** flagged in P3.2 to pin the recursive Cozo form against a live store (same caveat as P4.2 PageRank).
+- **Risk — focus-node representation** in the SHACL port (URI vs id) is called out in P2.3 as a conscious, documented decision, not a silent mismatch.

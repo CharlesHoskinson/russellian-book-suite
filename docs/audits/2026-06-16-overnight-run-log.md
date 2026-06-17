@@ -25,9 +25,11 @@ projected base — still programmatic, no committed raw RDF. Flagged for the aud
 
 | Phase | Task | Status | Commit | Notes |
 |---|---|---|---|---|
-| C0 | C0.1 violating-workspace fixture | in progress | — | — |
-| C0 | C0.2 SHACL report golden | pending | — | — |
-| C0 | C0.3 D9-D11 consistency golden | pending | — | — |
+| C0 | C0.1 violating-workspace fixture | DONE | 4b6f68e | 4 violations (a/b/c), non-vacuous; spec+quality reviewed, fixes applied |
+| C0 | C0.2 SHACL report golden | DONE | 46790fe | bermuda {true,[]}; violating {false,4}; byte-stable; both reviews passed |
+| C0 | C0.3 D9-D11 consistency golden | DONE | 21f251f | violating: D9+D10+D11 (6 defects); bermuda clean+asserted; both reviews passed |
+
+**Phase C0 (PR #1) gate PASSED** — book-knowledge 268 passed, book-thesis 43 passed; all 5 goldens frozen & non-vacuous; no production behaviour changed.
 | P2 | P2.1 status single-source | pending | — | — |
 | P2 | P2.2 defconstraint→Cozo compiler | pending | — | — |
 | P2 | P2.3 Cozo-backed validate_shacl + parity | pending | — | — |

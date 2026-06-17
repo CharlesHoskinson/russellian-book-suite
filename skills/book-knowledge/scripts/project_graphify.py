@@ -78,7 +78,7 @@ def project_graphify(path: Path, store) -> None:
         target = link["target"]
         relationship = link.get("relation", "")
         row = {
-            "id": _edge_id(source, target, relationship or ""),
+            "id": _edge_id(source, target, relationship),
             "source_id": source,
             "target_id": target,
             "relationship": relationship,

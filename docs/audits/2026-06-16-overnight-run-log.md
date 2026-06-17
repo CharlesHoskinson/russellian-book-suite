@@ -30,8 +30,8 @@ projected base — still programmatic, no committed raw RDF. Flagged for the aud
 | C0 | C0.3 D9-D11 consistency golden | DONE | 21f251f | violating: D9+D10+D11 (6 defects); bermuda clean+asserted; both reviews passed |
 
 **Phase C0 (PR #1) gate PASSED** — book-knowledge 268 passed, book-thesis 43 passed; all 5 goldens frozen & non-vacuous; no production behaviour changed.
-| P2 | P2.1 status single-source | pending | — | — |
-| P2 | P2.2 defconstraint→Cozo compiler | pending | — | — |
+| P2 | P2.1 status single-source | DONE | 23b0184 | status-enum.edn; VALID_TRANSITIONS derived (byte-equiv); ClaimVocabularyError; 274 passed; both reviews |
+| P2 | P2.2 defconstraint→Cozo compiler | DONE | 1f5ac16 | compile_constraint + 5 EDN + goldens; null-negation helper-rule fix; chapter-cites-verified DEFERRED→P2.3; 298 passed; both reviews |
 | P2 | P2.3 Cozo-backed validate_shacl + parity | pending | — | — |
 | P3 | P3.1 thesis→cozo projector | pending | — | — |
 | P3 | P3.2 D9-D11 EDN→Cozo + parity | pending | — | — |

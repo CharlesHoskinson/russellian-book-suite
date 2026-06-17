@@ -1242,7 +1242,7 @@ The stylometric scorer uses a relative-frequency L1 distance over a closed, offl
 
 ### book-thesis — 5 check classes
 
-`book-thesis` instruments the argument spine. Its linters write the defect files that D9–D12 consume; the two skills share defect-class vocabulary by design. `lint_supports.py` covers orphan paragraphs, broken and unreachable supports pointers, and unadvanced sub-arguments — all feeding D9 and D12. `dispatch_entailment.py` assembles per-paragraph payloads for the LLM critic that populates D11. `datalog_consistency.py` runs seven Datalog rules feeding D9, D10, D11, and D12.
+`book-thesis` instruments the argument spine. Its linters write the defect files that D9–D12 consume; the two skills share defect-class vocabulary by design. `lint_supports.py` covers orphan paragraphs, broken and unreachable supports pointers, and unadvanced sub-arguments — all feeding D9 and D12. `dispatch_entailment.py` assembles per-paragraph payloads for the LLM critic that populates D11. `consistency_cozo.py` runs the recursive CozoScript consistency program (compiled from booklogic EDN) feeding D9, D10, and D11.
 
 | Check | Script | Defect class |
 | --- | --- | --- |
@@ -1251,13 +1251,12 @@ The stylometric scorer uses a relative-frequency L1 distance over a closed, offl
 | Unreachable supports node | `lint_supports.py` | D9 |
 | Unadvanced sub-argument | `lint_supports.py` | D12 |
 | Per-paragraph entailment payload | `dispatch_entailment.py` | feeds D11 |
-| Datalog: direct contradiction | `datalog_consistency.py` | D10 |
-| Datalog: transitive contradiction | `datalog_consistency.py` | D10 |
-| Datalog: declared conflict | `datalog_consistency.py` | D11 |
-| Datalog: orphan paragraph | `datalog_consistency.py` | D9 |
-| Datalog: unreachable supports | `datalog_consistency.py` | D11 |
-| Datalog: unadvanced sub-arg | `datalog_consistency.py` | D12 |
-| Datalog: missing evidence | `datalog_consistency.py` | D12 |
+| Cozo: direct contradiction | `consistency_cozo.py` | D10 |
+| Cozo: transitive contradiction | `consistency_cozo.py` | D10 |
+| Cozo: declared conflict | `consistency_cozo.py` | D11 |
+| Cozo: orphan paragraph | `consistency_cozo.py` | D9 |
+| Cozo: unreachable supports | `consistency_cozo.py` | D11 |
+| Cozo: missing evidence | `consistency_cozo.py` | D11 |
 
 All `book-thesis` linters are CLI-only; no `skill_api` entry point exists. §13 recommendation 5 notes this gap.
 

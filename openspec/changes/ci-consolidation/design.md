@@ -135,7 +135,7 @@ Coverage disposition (each ci-legacy job, where its signal goes):
 | `lint-workflow` (actionlint) | already in `ci.yml` |
 | `test-*` × py3.11/3.12 | → nightly: `python-version` axis `[3.11, 3.12]`, Linux-only, driven by the same skills-matrix.json (skills claim `requires-python >=3.11`; today 3.11/3.12 are tested nowhere) |
 | `test-*` × py3.13 | already in `ci.yml` (3-OS matrix) |
-| `smoke-bermuda-pipeline` (compile_thesis + datalog_consistency on `examples/bermuda-manual`) | → nightly job `bermuda-example-pipeline` (not covered by preflight, which smokes the *verifier*, not the book-thesis pipeline) |
+| `smoke-bermuda-pipeline` (compile_thesis + consistency_cozo on `examples/bermuda-manual`) | → nightly job `bermuda-example-pipeline` (not covered by preflight, which smokes the *verifier*, not the book-thesis pipeline) |
 | `bermuda-informational` | dropped — `continue-on-error` on every step; verifies nothing |
 | `cljs-bermuda-test` (shadow-cljs compile test + node test.js) | → nightly job `cljs-bermuda-test` (preflight's `make -C verifiers/bermuda ci` builds the cljs release but never runs the cljs tests) |
 | `bermuda-z3-build` | covered by `cargo-test` (`--features smt` builds before testing) |

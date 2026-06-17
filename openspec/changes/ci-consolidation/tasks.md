@@ -1052,8 +1052,8 @@ Keep the job's `timeout-minutes: 30` (nightly legs run unfiltered suites; do not
           skill-path: skills/book-thesis
       - name: compile_thesis
         run: python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
-      - name: datalog_consistency
-        run: python skills/book-thesis/scripts/datalog_consistency.py examples/bermuda-manual
+      - name: consistency_cozo
+        run: python skills/book-thesis/scripts/consistency_cozo.py examples/bermuda-manual
       - name: upload qa reports
         if: always()
         uses: actions/upload-artifact@<PIN># v4 — copy the SHA from onboarding-bench.yml if pinned there, else resolve via gh api

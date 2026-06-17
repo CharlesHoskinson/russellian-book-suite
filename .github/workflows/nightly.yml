@@ -207,8 +207,8 @@ jobs:
           skill-path: skills/book-thesis
       - name: compile_thesis
         run: python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
-      - name: datalog_consistency
-        run: python skills/book-thesis/scripts/datalog_consistency.py examples/bermuda-manual
+      - name: consistency_cozo
+        run: python skills/book-thesis/scripts/consistency_cozo.py examples/bermuda-manual
       - name: upload qa reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

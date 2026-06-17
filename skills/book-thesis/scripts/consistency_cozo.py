@@ -273,9 +273,11 @@ def run_consistency_cozo(workspace, book_id: str | None = None,
     if write_artifact:
         out = workspace / "qa" / "datalog-defects.json"
         out.parent.mkdir(parents=True, exist_ok=True)
-        # Same write as datalog_consistency.run so the artifact is shape-identical.
+        # Byte-stable artifact: indent=2 + sort_keys + LF pinned (newline="\n") so it
+        # never drifts to CRLF on Windows — matching the golden writer in
+        # capture_consistency.write_consistency_golden.
         out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
-                       encoding="utf-8")
+                       encoding="utf-8", newline="\n")
     return payload
 
 

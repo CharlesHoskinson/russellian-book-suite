@@ -55,14 +55,17 @@ _ROOT_ID = "thesis"
 def _book_id(workspace: Path, book_id: str | None) -> str:
     """Return the book id, inferring it from the single ``thesis/*.yaml`` if absent.
 
-    ``thesis/schema.yaml`` (the spec doc) is excluded from inference. If the book
-    id is ambiguous (zero or several candidates), the caller must pass it.
+    ``thesis/schema.yaml`` (the spec doc) and ``thesis/claim-facts.yaml`` (the
+    structured claim-fact sidecar) are excluded from inference. If the book id is
+    ambiguous (zero or several candidates), the caller must pass it.
     """
     if book_id is not None:
         return book_id
     thesis_dir = workspace / "thesis"
     candidates = [
-        p.stem for p in sorted(thesis_dir.glob("*.yaml")) if p.stem != "schema"
+        p.stem
+        for p in sorted(thesis_dir.glob("*.yaml"))
+        if p.stem not in {"schema", "claim-facts"}
     ]
     if len(candidates) != 1:
         raise ValueError(

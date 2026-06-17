@@ -4,17 +4,18 @@
 `datalog_consistency.run`: it projects the thesis spine (P3.1) + the claim-derived
 consistency facts into book-knowledge's Cozo store (via the P3.0 bridge), runs the
 recursive CozoScript program ``rules/consistency.cozo`` head by head, and assembles
-the SAME ``DefectReport.as_payload()`` the pyDatalog pass emits — proven equal on
-the C0.3 goldens and against the live pyDatalog pass.
+the SAME ``DefectReport.as_payload()`` the pyDatalog pass emitted — frozen into the
+C0.3 goldens (and proven equal to the LIVE pyDatalog run before that pass was
+deleted in P5.4b).
 
-Parity rests on reuse, not re-implementation: the DefectReport class, the
+Parity rests on preservation, not re-implementation: the DefectReport class, the
 pair-dedup helper ``_emit_pairs``, the value canonicaliser ``_value_str``, the
-ledger reader, the claim-facts.yaml projection, AND the per-rule detail strings all
-come from ``datalog_consistency`` unchanged, so only the FACT SOURCE differs (Cozo
-rows instead of pyDatalog answers). The fact loader mirrors
-``datalog_consistency._assert_claim_facts`` field-for-field (incl. the
-``semantic_class`` subject fallback and the ``have_subjects`` gate) so a real
-ledger yields the identical defect set.
+ledger reader, and the claim-facts.yaml projection were lifted VERBATIM out of the
+old ``datalog_consistency`` into this module (P5.4b) so only the FACT SOURCE differs
+(Cozo rows instead of pyDatalog answers). The fact loader reproduces the old
+``_assert_claim_facts`` field-for-field (incl. the ``semantic_class`` subject
+fallback and the ``have_subjects`` gate) so a real ledger yields the identical
+defect set.
 """
 from __future__ import annotations
 
@@ -33,7 +34,7 @@ if str(_SCRIPTS) not in sys.path:
 
 from project_thesis_cozo import _book_id, project_thesis  # noqa: E402
 
-RULES = Path(__file__).resolve().parent.parent / "rules" / "consistency.cozo"
+RULES = _SCRIPTS.parent / "rules" / "consistency.cozo"
 _log = logging.getLogger(__name__)
 
 

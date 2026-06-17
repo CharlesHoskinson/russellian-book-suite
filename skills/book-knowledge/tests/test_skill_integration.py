@@ -33,7 +33,8 @@ def _claim(cid: str, locator: str) -> dict:
 def test_full_ingest_to_release_gate(tmp_path):
     workspace = init_workspace(tmp_path / "book")
     layout = WorkspaceLayout(workspace)
-    shutil.copy(ASSETS / "shapes.ttl", layout.shapes)
+    # (No shapes.ttl copy: validate_shacl is cozo-only — it validates the ledger
+    # projection, not a SHACL graph over the TriG.)
 
     ingest_pdf(Path("tests/fixtures/small.pdf"), workspace)
 

@@ -49,23 +49,17 @@ def _conforming_claim(claim_id: str) -> dict:
     }
 
 
-def test_validate_shacl_defaults_to_cozo(tmp_path, monkeypatch):
-    """No flag -> validate_shacl dispatches to the Cozo path (rdflib path NOT taken)."""
+def test_validate_shacl_is_cozo_only(tmp_path):
+    """validate_shacl validates the LEDGER projection via Cozo and imports no pyshacl
+    (the legacy rdflib SHACL path was deleted in P5.4a) — it conforms a clean ledger
+    workspace with no TriG dataset projected."""
     import scripts.validate_shacl as vs
 
-    monkeypatch.delenv("KG_BACKEND", raising=False)
-    called = {"rdflib": 0}
-    real = vs._validate_rdflib
-
-    def _spy(layout):
-        called["rdflib"] += 1
-        return real(layout)
-
-    monkeypatch.setattr(vs, "_validate_rdflib", _spy)
+    assert "pyshacl" not in vs.__dict__, "validate_shacl must not import pyshacl"
     layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
     append_claim(layout, _conforming_claim("clm-2026-000001"))
-    vs.validate_shacl(layout)
-    assert called["rdflib"] == 0, "default backend must be cozo (rdflib path not taken)"
+    report = vs.validate_shacl(layout)
+    assert report.conforms is True
 
 
 def test_run_competency_defaults_to_cozo(tmp_path, monkeypatch):

@@ -20,7 +20,6 @@ def _seed_workspace_with_chapter(tmp_path: Path, chapter_id: str, version: str) 
     bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
     ledger_mod.append_claim(layout, {
         "claim_id": "clm-2026-000001",
         "canonical_text": "claim canonical",

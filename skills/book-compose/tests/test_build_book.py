@@ -23,7 +23,6 @@ def _seed_minimal_book(tmp_path: Path) -> Path:
     bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
 
     contracts_dir = workspace / "chapters" / "contracts"
     contracts_dir.mkdir(parents=True, exist_ok=True)

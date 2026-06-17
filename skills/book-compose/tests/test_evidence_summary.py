@@ -16,7 +16,6 @@ def _seed(tmp_path: Path) -> Path:
     bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
     for i in range(2):
         ledger_mod.append_claim(layout, {
             "claim_id": f"clm-2026-00000{i+1}",

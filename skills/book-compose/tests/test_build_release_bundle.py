@@ -15,10 +15,9 @@ def _seed(tmp_path: Path) -> Path:
     ledger_mod = load_book_knowledge_module("ledger")
     project_graph_mod = load_book_knowledge_module("project_graph")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
+    # (No shapes.ttl copy: validate_shacl is cozo-only — it validates the ledger.)
     ledger_mod.append_claim(layout, {
         "claim_id": "clm-2026-000001",
         "canonical_text": "claim",
@@ -65,23 +64,27 @@ def test_release_bundle_records_conforming_workspace(tmp_path):
     assert manifest["competency_clean"] is True
 
 
-def test_release_bundle_records_non_conforming_workspace(tmp_path, monkeypatch):
+def test_release_bundle_records_non_conforming_workspace(tmp_path):
+    import json
     import yaml
-    # This fixture injects non-conformance as raw RDF into the TriG dataset, which
-    # only the legacy pyshacl path reads; pin it (the default is now cozo, which
-    # validates the ledger projection). Reworked to ledger-based non-conformance
-    # when the rdflib path is deleted in P5.4.
-    monkeypatch.setenv("KG_BACKEND", "rdflib")
-    workspace_mod = load_book_knowledge_module("workspace")
     workspace = _seed(tmp_path)
-    layout = workspace_mod.WorkspaceLayout(workspace)
-    # Inject a verified claim with no provenance into the graph: SHACL must fail.
-    bk = book_knowledge_root()
-    bad = (bk / "tests" / "fixtures" / "ontology_violations"
-           / "unsupported_verified.trig").read_text(encoding="utf-8")
-    layout.dataset.write_text(bad, encoding="utf-8")
+    # A verified claim with NO source-span is non-conforming under the Cozo validator
+    # (verified-derives + source-span-present fire). append_claim REJECTS a sourceless
+    # claim at write time, so write the raw ledger record directly — a real ledger-level
+    # defect (replaces the old RDF-injection that only the deleted pyshacl path saw).
+    with (workspace / "claims" / "ledger.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({
+            "claim_id": "clm-2026-000002",
+            "canonical_text": "a verified claim with no provenance",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [],
+            "supports_chapters": ["ch-03"],
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }) + "\n")
 
     bundle = build_release_bundle(workspace, "ch-03", version="0.2.0", formats=["markdown"])
     manifest = yaml.safe_load((bundle / "manifest.yaml").read_text(encoding="utf-8"))
-    # The bundle must record the workspace's real non-conforming state, not a hardcoded True.
+    # The bundle records the workspace's real non-conforming state, not a hardcoded True.
     assert manifest["shacl_conforms"] is False

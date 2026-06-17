@@ -21,7 +21,6 @@ def _seed_workspace(tmp_path: Path, chapter_specs: list[tuple[str, str, str]]) -
     bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
 
     contracts_dir = workspace / "chapters" / "contracts"
     contracts_dir.mkdir(parents=True, exist_ok=True)

@@ -29,16 +29,8 @@ import pytest
 from scripts.cozo_store import CozoStore
 from scripts.project_ledger_cozo import project_ledger
 from scripts.ledger import append_claim
-from scripts.project_graph import project_graph
 from scripts.workspace import WorkspaceLayout, init_workspace
-from scripts.validate_shacl import (
-    Violation,
-    _evaluate_constraints,
-    _normalize_pyshacl_violations,
-    validate_shacl,
-)
-
-from tests.fixtures.violating_workspace import build_violating_workspace
+from scripts.validate_shacl import Violation, _evaluate_constraints
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "assets" / "kg-schema.edn"
@@ -103,13 +95,12 @@ def _load_violating_rows(store: CozoStore) -> None:
     ])
 
 
-def test_constraints_match_shacl_golden(tmp_path, monkeypatch):
+def test_constraints_match_shacl_golden(tmp_path):
     # 1) bermuda-via-projection: a clean workspace projects into Cozo with ZERO
     #    constraint violations, equal to the bermuda golden.
     layout = WorkspaceLayout(init_workspace(tmp_path / "bermuda"))
     append_claim(layout, _valid_claim("clm-2026-000001", "verified"))
     append_claim(layout, _valid_claim("clm-2026-000002", "proposed"))
-    project_graph(layout)
 
     store = CozoStore.in_memory(schema_path=SCHEMA)
     project_ledger(layout, store)
@@ -118,134 +109,29 @@ def test_constraints_match_shacl_golden(tmp_path, monkeypatch):
     assert _violation_set(bermuda) == _golden_set("shacl_report_bermuda")
 
     # 2) violating-via-loaded-rows: the synthetic rows produce EXACTLY the four
-    #    canonical violations, result-set equal to the updated violating golden.
+    #    canonical violations, result-set equal to the violating golden.
     vstore = CozoStore.in_memory(schema_path=SCHEMA)
     _load_violating_rows(vstore)
     cozo_violations = _evaluate_constraints(vstore, SCHEMA)
     assert len(cozo_violations) == 4, cozo_violations
     assert _violation_set(cozo_violations) == _golden_set("shacl_report_violating")
 
-    # 3) PARITY (non-tautological): the DEFAULT rdflib path over the SAME
-    #    violating fixture, normalized to canonical form, equals the SAME golden.
-    #    This proves rdflib(normalized) == golden == cozo.
-    vlayout = build_violating_workspace(tmp_path)
-    monkeypatch.setenv("KG_BACKEND", "rdflib")  # rdflib leg of the parity proof; pin the legacy path
-    rdflib_report = validate_shacl(vlayout)  # default backend = rdflib
-    normalized = _normalize_pyshacl_violations(rdflib_report.violations)
-    assert _violation_set(normalized) == _golden_set("shacl_report_violating")
-
 
 _CONFIDENCE_PATH = "https://example.org/book-knowledge#confidence"
 
 
-def _build_low_confidence_workspace(tmp_path) -> WorkspaceLayout:
-    """A minimal workspace whose projected TriG has ONE claim with confidence -0.5.
-
-    Reuses the rdflib-injection technique of
-    ``tests/fixtures/violating_workspace.py``: build a conforming base via
-    ``append_claim`` + ``project_graph``, then inject a single otherwise-complete
-    claim (text + status + source-span) whose ``tbf:confidence`` is below 0.0, so
-    ONLY the confidence range fires. ``layout.shapes`` is left empty so
-    ``validate_shacl`` falls back to the shipped ``assets/shapes.ttl``.
-    """
-    from rdflib import Dataset, Literal, URIRef, XSD
-    from rdflib.namespace import RDF
-    from scripts.project_graph import BASE, PROV, SCHEMA as SCH, TBF, project_graph
-
-    layout = WorkspaceLayout(init_workspace(tmp_path / "low-conf"))
-    append_claim(layout, _valid_claim("clm-2026-000001", "verified"))
-    project_graph(layout)
-
-    ds = Dataset(default_union=True)
-    if layout.dataset.exists() and layout.dataset.stat().st_size > 0:
-        ds.parse(layout.dataset, format="trig")
-    ds.bind("tbf", TBF)
-    ds.bind("prov", PROV)
-    ds.bind("schema", SCH)
-    default = ds.default_graph
-
-    low = URIRef(f"{BASE}claims/inj-low-confidence")
-    low_src = URIRef(f"{BASE}sources/inj-doc#span-low")
-    for t in [
-        (low, RDF.type, TBF.Claim),
-        (low, RDF.type, PROV.Entity),
-        (low, SCH.text, Literal("Claim with a below-zero confidence.", datatype=XSD.string)),
-        (low, TBF.status, Literal("verified")),
-        (low, TBF.confidence, Literal("-0.5", datatype=XSD.decimal)),
-        (low, SCH.dateCreated, Literal("2026-01-02T00:00:00+00:00", datatype=XSD.dateTime)),
-        (low_src, RDF.type, PROV.Entity),
-        (low, PROV.wasDerivedFrom, low_src),
-        (low, TBF.hasSourceSpan, low_src),
-    ]:
-        default.add(t)
-
-    layout.dataset.parent.mkdir(parents=True, exist_ok=True)
-    ds.serialize(destination=str(layout.dataset), format="trig")
-    return layout
-
-
-def test_both_engines_flag_confidence_below_zero(tmp_path, monkeypatch):
-    """C-1: confidence < 0.0 is non-conforming under BOTH the Cozo and rdflib engines.
-
-    Before C-1, ``confidence-range.edn`` only filtered ``> 1.0`` while pyshacl
-    enforced both ``sh:minInclusive 0.0`` and ``sh:maxInclusive 1.0`` — so a
-    ``confidence -0.5`` claim was rdflib-non-conforming but Cozo-conforming
-    (opposite verdicts). With ``confidence-range-low`` ported, both engines flag
-    it, on the same ``#confidence`` path. This test proves the agreement.
-    """
-    # -- Cozo leg: a claim with confidence -0.5 + a source-span (so only the
-    #    confidence floor fires) -> a #confidence violation on c-low.
+def test_cozo_flags_confidence_below_zero():
+    """C-1: confidence < 0.0 is flagged on the #confidence path (the minInclusive
+    arm, ported as confidence-range-low). A claim with confidence -0.5 + a
+    source-span (so ONLY the confidence floor fires) yields a #confidence violation."""
     store = CozoStore.in_memory(schema_path=SCHEMA)
     store.load("claim", [
         {"id": "c-low", "status": "verified", "confidence": -0.5,
          "canonical-text": "Claim with a below-zero confidence."},
     ])
     store.load("source-span", [{"id": "s-low", "claim-id": "c-low"}])
-    cozo_violations = _evaluate_constraints(store, SCHEMA)
     cozo_conf = {
-        v for v in cozo_violations
+        v for v in _evaluate_constraints(store, SCHEMA)
         if v.path == _CONFIDENCE_PATH and v.focus_node == "c-low"
     }
-    assert cozo_conf, cozo_violations  # Cozo flags it (conforms would be False)
-
-    # -- rdflib leg: project the same below-zero confidence into TriG, validate
-    #    via pyshacl (default backend) -> non-conforming with a #confidence
-    #    violation present.
-    layout = _build_low_confidence_workspace(tmp_path)
-    monkeypatch.setenv("KG_BACKEND", "rdflib")  # rdflib leg of the parity proof; pin the legacy path
-    rdflib_report = validate_shacl(layout)
-    assert rdflib_report.conforms is False
-    rdflib_conf = [
-        v for v in rdflib_report.violations if v.path == _CONFIDENCE_PATH
-    ]
-    assert rdflib_conf, rdflib_report.violations
-
-    # -- Both engines AGREE: each flags confidence -0.5 on the #confidence path.
-    #    This closes C-1.
-    assert cozo_conf and rdflib_conf
-
-
-def test_normalizer_maps_raw_pyshacl_to_canonical():
-    """I-1: the normalizer is an audited transform (raw pyshacl -> canonical).
-
-    The canonical golden was rewritten by P2.3, so it no longer freezes the
-    pre-port pyshacl output. ``shacl_report_violating_raw.json`` freezes that raw
-    output (recovered from commit 46790fe). Loading it, building ``Violation``
-    objects, and applying ``_normalize_pyshacl_violations`` must yield a result
-    set EQUAL to the canonical ``shacl_report_violating.json`` — proving the
-    normalizer is the explicit raw->canonical map, not an unstated identity. After
-    C-1, the raw confidence message ``"Value is not <= Literal(...)"`` normalizes
-    (via the #confidence path) to ``"Claim confidence must be in [0.0, 1.0]."``.
-    """
-    raw_doc = json.loads(
-        (GOLDEN / "shacl_report_violating_raw.json").read_text(encoding="utf-8")
-    )
-    raw_violations = [
-        Violation(
-            focus_node=v["focus_node"], path=v["path"], message=v["message"],
-            component=v.get("component", ""),
-        )
-        for v in raw_doc["violations"]
-    ]
-    normalized = _normalize_pyshacl_violations(raw_violations)
-    assert _violation_set(normalized) == _golden_set("shacl_report_violating")
+    assert cozo_conf, "Cozo must flag confidence -0.5 on the #confidence path"

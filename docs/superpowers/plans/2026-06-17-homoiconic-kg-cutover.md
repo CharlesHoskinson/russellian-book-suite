@@ -180,10 +180,15 @@ Skill: `book-thesis` (+ `book-knowledge` for the consistency compiler if shared)
 
 ## Task P5.1: port the remaining RDF-dataset readers (REQ-KG-019)
 
+**Decisions (user-confirmed 2026-06-17):**
+- **`audit_taxonomy` is OUT of the claim-graph cutover scope.** Its test injects raw `rdfs:subClassOf` Turtle and asserts detection, but the claim/thesis projection NEVER emits subClassOf — it is a standalone RDFS-ontology linter orthogonal to the homoiconic claim store, with no claim-model source to project into a Cozo `taxonomy` relation. So it stays an rdflib tool: NOT ported, NOT deleted in P5.4. The P5.3 no-bypass scan must ALLOWLIST it (it legitimately uses rdflib, but never reads the claim dataset/TriG the cutover retires).
+- **`query_chapter_evidence` (book-compose) is ported via the P3.0 pattern.** book-compose gets the same cross-skill treatment book-thesis got: repo-sibling-first `book_knowledge_root()` (+ alias path-guard) in its `sibling_skills.py`, and `edn_format` + `pycozo[embedded]` added to its venv/pyproject. The query becomes a defquery over the existing `claim` + `claim-chapter` relations (verified claims supporting a chapter), projected by `project_ledger_cozo` — no TriG parsing.
+
 **Files:**
-- Modify: `skills/book-compose/scripts/query_chapter_evidence.py` — read claim/source-span facts via `cozo_store` (through `sibling_skills.load_book_knowledge_module`), not by parsing `layout.dataset`.
-- Modify: `skills/book-knowledge/scripts/audit_taxonomy.py` — read via `cozo_store`. If its RDFS subclass/taxonomy structure isn't expressible over the 8 entities, add a `taxonomy`/`broader` relation to `kg-schema.edn` (+ update `EXPECTED_ENTITIES`) and a projector for it.
-- Create goldens + `tests/test_remaining_consumer_ports.py::test_query_chapter_evidence_and_audit_taxonomy_match_golden` (capture the current rdflib output as golden FIRST — characterization — then port to match).
+- Modify: `skills/book-compose/scripts/sibling_skills.py` — `book_knowledge_root()` resolve the in-repo sibling first, `~/.claude` fallback; `_ensure_bk_package` validates the cached alias `__path__`.
+- Modify: `skills/book-compose/pyproject.toml` + venv — add `edn_format`, `pycozo[embedded]`.
+- Modify: `skills/book-compose/scripts/query_chapter_evidence.py` — build a `CozoStore`, `project_ledger`, run the chapter-evidence defquery; drop the SPARQL/TriG path.
+- The existing `tests/test_query_chapter_evidence.py` (seeds via `append_claim`+`project_graph`, so the ledger is present) is the characterization oracle; add a no-TriG test proving the cutover (works with the dataset absent, ledger present). `audit_taxonomy` is left untouched.
 
 - [ ] **Step 1 (RED):** capture goldens from the rdflib path; write the parity test; it fails for the not-yet-ported Cozo path.
 - [ ] **Step 2 (GREEN):** port both; result-set equal; neither parses TriG.

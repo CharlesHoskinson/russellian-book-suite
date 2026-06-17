@@ -46,3 +46,29 @@ def test_query_chapter_evidence_returns_empty_for_unknown_chapter(tmp_path):
     workspace = _seed(tmp_path, "ch-03")
     result = query_chapter_evidence(workspace, "ch-99")
     assert result["claims"] == []
+
+
+def test_query_chapter_evidence_reads_ledger_not_trig(tmp_path):
+    """P5.1 cutover: evidence comes from the Cozo projection of the claim LEDGER,
+    not from the TriG dataset. Seed the ledger, then DELETE the TriG entirely — the
+    old rdflib/SPARQL path would return [] with no dataset; the Cozo path must still
+    find the 3 verified claims from the ledger."""
+    workspace_mod = load_book_knowledge_module("workspace")
+    ledger_mod = load_book_knowledge_module("ledger")
+    workspace = workspace_mod.init_workspace(tmp_path / "book")
+    layout = workspace_mod.WorkspaceLayout(workspace)
+    for i in range(3):
+        ledger_mod.append_claim(layout, {
+            "claim_id": f"clm-2026-00000{i+1}",
+            "canonical_text": f"claim text {i}",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [{"doc_id": "small", "locator_text": "abcd"}],
+            "supports_chapters": ["ch-07"],
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        })
+    if layout.dataset.exists():
+        layout.dataset.unlink()  # remove the TriG so only the ledger remains
+    result = query_chapter_evidence(workspace, "ch-07")
+    assert sorted(result["claims"]) == ["clm-2026-000001", "clm-2026-000002", "clm-2026-000003"]

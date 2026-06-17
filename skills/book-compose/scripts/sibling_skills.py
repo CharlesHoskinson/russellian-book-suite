@@ -32,6 +32,16 @@ def russellian_style_root() -> Path:
 
 
 def book_knowledge_root() -> Path:
+    """Resolve book-knowledge: the in-repo sibling FIRST, then the installed copy.
+
+    Repo-first (P5.1 / the P3.0 pattern) because the installed
+    ``~/.claude/skills/book-knowledge`` is frequently stale and may be absent
+    entirely; the sibling next to this book-compose copy shares its checkout's
+    (current) state, including the P2/P3 Cozo work the chapter-evidence port needs.
+    """
+    repo_sibling = Path(__file__).resolve().parent.parent.parent / "book-knowledge"
+    if repo_sibling.is_dir() and (repo_sibling / "SKILL.md").is_file():
+        return repo_sibling
     return _resolve("book-knowledge")
 
 
@@ -64,11 +74,21 @@ def _ensure_bk_package() -> types.ModuleType:
     scripts.workspace by name would collide. We expose book-knowledge's
     scripts/ directory under the alias _book_knowledge_scripts instead.
     """
-    if _BK_PACKAGE_ALIAS in sys.modules:
-        return sys.modules[_BK_PACKAGE_ALIAS]
     bk_scripts = book_knowledge_root() / "scripts"
     if not bk_scripts.is_dir():
         raise SiblingNotFoundError(f"book-knowledge scripts dir missing: {bk_scripts}")
+    # The alias is process-global and shared with book-thesis's loader. If it was
+    # registered for a DIFFERENT book-knowledge root, serving it would load the
+    # wrong copy; validate the cached __path__ and fail loud on mismatch.
+    existing = sys.modules.get(_BK_PACKAGE_ALIAS)
+    if existing is not None:
+        existing_path = list(getattr(existing, "__path__", []) or [])
+        if existing_path != [str(bk_scripts)]:
+            raise SiblingNotFoundError(
+                f"{_BK_PACKAGE_ALIAS} is already registered for a different "
+                f"book-knowledge ({existing_path!r} != {[str(bk_scripts)]!r})"
+            )
+        return existing
     pkg = types.ModuleType(_BK_PACKAGE_ALIAS)
     pkg.__path__ = [str(bk_scripts)]  # type: ignore[attr-defined]
     sys.modules[_BK_PACKAGE_ALIAS] = pkg

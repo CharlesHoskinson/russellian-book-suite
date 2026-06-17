@@ -122,4 +122,12 @@ Plus a defensive duplicate-key guard in `_build_canonical_messages` (+test), and
 
 **State:** origin/main = 635da5e (C0+P2+P3 + audit remediation, pushed). P5.1 (8582b59) is local on `feat/homoiconic-kg-p5`. Local `main` diverged to `df48108` (a parallel agent merged `russell-pass-agentic-civ` onto the OLD pre-Cozo line) — origin/main is correct, local main is the parallel work. Stale remote branch `feat/homoiconic-kg-cutover` (ae0e096) still present (deletion needs auth).
 
-**Now resumable at P5.2** — reconcile the 3 documented RDF↔Cozo query divergences; then **P5.3** (default flip + the 6-point cutover gate, gated on a full cozo-green suite — KNOWN BLOCKER: `run_competency_queries` + RDF-injection fixtures not yet cozo-green) and **P5.4** (delete rdflib/pyshacl/pyDatalog + the parallel pyDatalog pass + `compile_thesis`'s TTL emit; KEEP audit_taxonomy).
+## External audit resolution — remediation + P5.1 (2026-06-17, GPT-5.5, commit b607800)
+
+Prompt `2026-06-17-remediation-p5.1-external-audit-prompt.md`. Prior 3 findings confirmed CLOSED. Three new, all fixed:
+- **[IMPORTANT] chapter-URI quoting** — `query_chapter_evidence` used the raw `chapter_id` while the projectors `quote()` it (non-slug ids miss; `"` could break the EDN literal). Fixed: `quote(chapter_id)` to match `project_ledger_cozo._chapter_uri` (+ injection-safe); +escape-needing-id test. Contract decided: chapter ids are quoted, not required to be slugs.
+- **[MINOR] alias guard raw-string compare** — Windows junction/casing could false-positive. Both loaders now compare canonical paths (`realpath`+`normcase`) via a shared `_canon`.
+- **[MINOR] artifact byte-identity untested** — +`test_cozo_artifact_byte_identical_to_legacy` (Cozo CLI's `qa/datalog-defects.json` == legacy pyDatalog's, byte-for-byte).
+Auditor's P5.3 additions folded into the plan (gate points 7–10). **book-compose query_chapter_evidence 4/4; book-thesis 65 passed.**
+
+**Now resumable at P5.2** — reconcile the 3 documented RDF↔Cozo query divergences; then **P5.3** (default flip + the now 10-point cutover gate, gated on a full cozo-green suite — KNOWN BLOCKER: `run_competency_queries` + RDF-injection fixtures not yet cozo-green) and **P5.4** (delete rdflib/pyshacl/pyDatalog + the parallel pyDatalog pass + `compile_thesis`'s TTL emit; KEEP audit_taxonomy).

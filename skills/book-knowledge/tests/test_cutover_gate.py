@@ -62,23 +62,16 @@ def test_validate_shacl_is_cozo_only(tmp_path):
     assert report.conforms is True
 
 
-def test_run_competency_defaults_to_cozo(tmp_path, monkeypatch):
-    """No flag -> run_competency_queries does NOT load the RDF dataset (cozo path)."""
+def test_run_competency_is_cozo_only(tmp_path):
+    """run_competency_queries is Cozo-only — no RDF dataset loader remains, and it
+    sources facts from the ledger projection (P5.4a-2)."""
     import scripts.run_competency_queries as mod
 
-    monkeypatch.delenv("KG_BACKEND", raising=False)
-    called = {"rdflib": 0}
-    real = mod._load_dataset
-
-    def _spy(layout):
-        called["rdflib"] += 1
-        return real(layout)
-
-    monkeypatch.setattr(mod, "_load_dataset", _spy)
+    assert not hasattr(mod, "_load_dataset"), "run_competency must not load the RDF dataset"
     layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
     append_claim(layout, _conforming_claim("clm-2026-000001"))
-    run_competency_queries(layout)
-    assert called["rdflib"] == 0, "default backend must be cozo (no RDF dataset load)"
+    findings = run_competency_queries(layout)
+    assert findings["unsupported_claims"] == [] and "warnings" in findings
 
 
 def test_bermuda_workspace_present_not_skipped():

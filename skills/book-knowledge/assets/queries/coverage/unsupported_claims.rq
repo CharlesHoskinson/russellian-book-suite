@@ -1,7 +1,0 @@
-PREFIX tbf:  <https://example.org/book-knowledge#>
-PREFIX prov: <http://www.w3.org/ns/prov#>
-
-SELECT ?claim WHERE {
-  ?claim tbf:status "verified" .
-  FILTER NOT EXISTS { ?claim prov:wasDerivedFrom ?src . }
-}

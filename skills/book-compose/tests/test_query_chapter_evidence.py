@@ -13,7 +13,6 @@ from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_modu
 def _seed(tmp_path: Path, chapter: str) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
     bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
@@ -29,7 +28,6 @@ def _seed(tmp_path: Path, chapter: str) -> Path:
             "supports_chapters": [chapter],
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         })
-    project_graph_mod.project_graph(layout)
     return workspace
 
 

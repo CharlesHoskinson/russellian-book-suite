@@ -80,21 +80,3 @@ def test_detect_conflicts_populates_conflicts_with(tmp_path):
     b = _latest_record(layout, "clm-2026-000002")
     assert "clm-2026-000002" in a.get("conflicts_with", [])
     assert "clm-2026-000001" in b.get("conflicts_with", [])
-
-
-def test_conflicts_with_projects_to_graph_contradiction(tmp_path):
-    """The contradiction_scan.rq query (tbf:conflictsWith) fires on the detector
-    output once it is wired into conflicts_with."""
-    from rdflib import Dataset
-    from scripts.project_graph import project_graph
-    layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
-    append_claim(layout, _verified("clm-2026-000001", "Operation X is allowed."))
-    append_claim(layout, _verified("clm-2026-000002", "Operation X is forbidden."))
-    detect_conflicts(layout)
-    dataset_path = project_graph(layout)
-    ds = Dataset()
-    ds.parse(str(dataset_path), format="trig")
-    query = ("PREFIX tbf: <https://example.org/book-knowledge#>\n"
-             "SELECT ?a ?b WHERE { ?a a tbf:Claim ; tbf:conflictsWith ?b . }")
-    rows = list(ds.query(query))
-    assert len(rows) >= 1

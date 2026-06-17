@@ -1,27 +1,22 @@
-"""Run competency queries against the workspace.
+"""Run competency queries against the workspace (Cozo, REQ-KG-006).
 
-Two backends produce the SAME competency fire/defect result (REQ-KG-006):
+The eight homoiconic booklogic EDN ports (``assets/kg-queries/<name>.edn``) are
+compiled to CozoScript and run over a projection of the claim ledger into an
+in-memory Cozo store. The legacy SPARQL ``.rq`` path was removed in P5.4a-2.
 
-* ``rdflib`` (DEFAULT) — runs the eight SPARQL ``.rq`` queries over the
-  workspace's RDF dataset (``graph/dataset.trig``). Unchanged behavior.
-* ``cozo`` — runs the eight homoiconic booklogic EDN ports
-  (``assets/kg-queries/<name>.edn``) compiled to CozoScript over a projection of
-  the claim ledger into an in-memory Cozo store. Selected by ``KG_BACKEND=cozo``.
-
-The backend is parallel-run, not a cutover: the RDF path stays the default and is
-untouched unless the flag is set. Both paths return the identical result shape
-(``{query_name: [row_tuple, ...], "warnings": [...]}``) so the BLOCKING_DEFEASIBLE
-gate and every downstream consumer are backend-agnostic.
+Each query returns the same shape — a list of row tuples (cells stringified) — so
+the defeasible / BLOCKING gate is uniform. A query's class
+(``coverage``/``consistency``/``defeasible``) and, for defeasible queries, its
+``severity`` + ``exception_queries`` come from ``assets/kg-queries/_meta.yaml``
+(the manifest that replaced the old ``queries/<class>/`` tree + its _meta.yaml).
 """
 from __future__ import annotations
 
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from rdflib import Dataset
 
 from .workspace import WorkspaceLayout
 
@@ -29,147 +24,91 @@ _ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
 _SCHEMA_PATH = _ASSETS_ROOT / "kg-schema.edn"
 _EDN_QUERIES_DIR = _ASSETS_ROOT / "kg-queries"
 
-QUERY_CLASSES = ("coverage", "consistency", "defeasible")
-
 # When False, defeasible query fires are recorded as warnings but never escalate
 # to failure. When True, severity=critical defeasible fires hard-gate the run.
-# Promoted to True after the bermuda Phase 4 run validated no false positives
-# on a clean ledger (commit history in bermuda/fix-the-book branch).
 BLOCKING_DEFEASIBLE = True
 
 
+def _load_manifest() -> dict:
+    """Per-query class/severity manifest (assets/kg-queries/_meta.yaml)."""
+    path = _EDN_QUERIES_DIR / "_meta.yaml"
+    if not path.exists():
+        return {}
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
 def discover_queries(assets_root: Path) -> list[tuple[str, str, Path]]:
-    """Returns (class, name, path) for every .rq under assets/queries/."""
-    base = assets_root / "queries"
+    """Return (class, name, edn_path) for every ``kg-queries/<name>.edn``.
+
+    The class comes from ``kg-queries/_meta.yaml`` (default ``coverage``); manifest
+    helper files (``_meta.yaml`` etc., ``_``-prefixed) are skipped.
+    """
+    edn_dir = assets_root / "kg-queries"
+    manifest = {}
+    meta_path = edn_dir / "_meta.yaml"
+    if meta_path.exists():
+        manifest = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
     out: list[tuple[str, str, Path]] = []
-    for cls in QUERY_CLASSES:
-        cls_dir = base / cls
-        if not cls_dir.exists():
+    for f in sorted(edn_dir.glob("*.edn")):
+        if f.stem.startswith("_"):
             continue
-        for f in sorted(cls_dir.glob("*.rq")):
-            out.append((cls, f.stem, f))
-    # Back-compat: flat .rq files at the top of queries/.
-    for f in sorted(base.glob("*.rq")):
-        out.append(("coverage", f.stem, f))
+        cls = (manifest.get(f.stem) or {}).get("class", "coverage")
+        out.append((cls, f.stem, f))
     return out
 
 
-def _load_dataset(layout: WorkspaceLayout) -> Dataset:
-    ds = Dataset(default_union=True)
-    if layout.dataset.exists() and layout.dataset.stat().st_size > 0:
-        ds.parse(layout.dataset, format="trig")
-    return ds
-
-
-def _load_defeasible_meta(assets_root: Path) -> dict:
-    """Return the parsed _meta.yaml for defeasible queries, or {} if absent."""
-    meta_path = assets_root / "queries" / "defeasible" / "_meta.yaml"
-    if not meta_path.exists():
-        return {}
-    return yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
-
-
 def _rows_str(rows) -> list[tuple]:
-    """Stringify cells the way the rdflib path does (None -> "").
-
-    Both backends route their per-query rows through this so the result shape is
-    identical: a list of tuples of strings, in the backend's natural row order.
-    """
+    """Stringify cells (None -> "") so the per-query result shape is stable."""
     return [
         tuple(str(v) if v is not None else "" for v in row) for row in rows
     ]
 
 
-def _run_queries_rdflib(
+def _run_queries(
     layout: WorkspaceLayout, queries: list[tuple[str, str, Path]]
 ) -> dict[str, list[tuple]]:
-    """Run the eight SPARQL ``.rq`` queries over the RDF dataset (default path)."""
-    ds = _load_dataset(layout)
-    findings: dict[str, list[tuple]] = {}
-    for _cls, name, query_path in queries:
-        findings[name] = _rows_str(ds.query(query_path.read_text(encoding="utf-8")))
-    return findings
-
-
-def _run_queries_cozo(
-    layout: WorkspaceLayout, queries: list[tuple[str, str, Path]]
-) -> dict[str, list[tuple]]:
-    """Run the eight EDN ports over a Cozo projection of the ledger.
+    """Run the EDN ports over a Cozo projection of the ledger.
 
     Builds one in-memory Cozo store from ``kg-schema.edn``, projects the claim
-    ledger into it (the relational counterpart of the RDF emit), then for each
-    query loads ``assets/kg-queries/<name>.edn`` — the file name is the SAME stem
-    as the ``.rq`` query name :func:`discover_queries` yields — and runs it
-    through the EDN seam ``store.query_edn``, which compiles to CozoScript
-    internally. Rows are stringified through :func:`_rows_str` so the returned
-    shape is identical to the rdflib path. The booklogic ``:find`` order matches
-    the SPARQL ``SELECT`` order, so per-row cell order matches too.
+    ledger into it, then runs each ``<name>.edn`` through the EDN seam
+    ``store.query_edn`` (compiled to CozoScript internally). Rows are stringified
+    through :func:`_rows_str`.
     """
-    # Local imports keep pycozo/edn off the default (rdflib) path's import cost.
-    from .cozo_store import CozoStore
+    from .cozo_store import CozoStore  # local: keep pycozo cost off import
     from .project_ledger_cozo import project_ledger
 
     store = CozoStore.in_memory(schema_path=_SCHEMA_PATH)
     project_ledger(layout, store)
 
     findings: dict[str, list[tuple]] = {}
-    for _cls, name, _query_path in queries:
-        edn = (_EDN_QUERIES_DIR / f"{name}.edn").read_text(encoding="utf-8")
-        findings[name] = _rows_str(store.query_edn(edn))
+    for _cls, name, edn_path in queries:
+        findings[name] = _rows_str(store.query_edn(edn_path.read_text(encoding="utf-8")))
     return findings
 
 
 def run_competency_queries(layout: WorkspaceLayout) -> dict:
     """Execute all competency queries and return results.
 
-    Return shape
-    ------------
-    A dict with one key per query name (list of row tuples) plus a
-    ``"warnings"`` key holding a list of defeasible-fire dicts::
-
-        {
-            "unsupported_claims": [...],
-            "rebuttal-presence": [...],   # still present for back-compat
-            ...
-            "warnings": [
-                {"query": "rebuttal-presence", "severity": "critical", "bindings": [...]},
-                ...
-            ],
-        }
-
-    Defeasible fires are blocking by default (``BLOCKING_DEFEASIBLE = True``).
-    When ``BLOCKING_DEFEASIBLE`` is ``True`` and a defeasible query with
-    ``severity == "critical"`` returns rows, the function raises ``RuntimeError``.
+    Return shape: a dict with one key per query name (list of row tuples) plus a
+    ``"warnings"`` key holding a list of defeasible-fire dicts. Defeasible fires are
+    blocking by default (``BLOCKING_DEFEASIBLE = True``): a defeasible query with
+    ``severity == "critical"`` that returns rows raises ``RuntimeError``.
     """
-    meta = _load_defeasible_meta(_ASSETS_ROOT)
+    manifest = _load_manifest()
     queries = discover_queries(_ASSETS_ROOT)
-
-    # Backend select (REQ-KG-006). DEFAULT cozo (P5.3 cutover): the homoiconic EDN
-    # ports run over a Cozo projection of the ledger. ``KG_BACKEND=rdflib`` still
-    # selects the legacy SPARQL path (present until the P5.4 deletion). Both return
-    # the identical per-query row shape, so the defeasible/BLOCKING logic below is
-    # backend-agnostic.
-    backend = os.environ.get("KG_BACKEND", "cozo").strip().lower()
-    if backend == "cozo":
-        per_query = _run_queries_cozo(layout, queries)
-    elif backend == "rdflib":
-        per_query = _run_queries_rdflib(layout, queries)
-    else:
-        raise ValueError(
-            f"unknown KG_BACKEND {backend!r} (expected 'rdflib' or 'cozo')"
-        )
+    per_query = _run_queries(layout, queries)
 
     findings: dict[str, list[tuple]] = {}
     warnings: list[dict] = []
     hard_failures: list[dict] = []
 
-    for cls, name, _query_path in queries:
+    for cls, name, _edn_path in queries:
         rows = per_query[name]
         findings[name] = rows
 
         if cls == "defeasible" and rows:
-            severity = (meta.get(name) or {}).get("severity", "minor")
-            exc = (meta.get(name) or {}).get("exception_queries", [])
+            severity = (manifest.get(name) or {}).get("severity", "minor")
+            exc = (manifest.get(name) or {}).get("exception_queries", [])
             if exc:
                 raise NotImplementedError(
                     f"Defeasible query {name!r} declares exception_queries={exc} but the "
@@ -219,8 +158,6 @@ def main(argv: list[str]) -> int:
     try:
         findings = run_competency_queries(layout)
     except RuntimeError as e:
-        # BLOCKING_DEFEASIBLE hard-gate fired. Surface a clean gate-failure
-        # message and a distinct non-zero exit code instead of a raw traceback.
         print(f"GATE FAILED: {e}", file=sys.stderr)
         return 3
     for name, rows in findings.items():

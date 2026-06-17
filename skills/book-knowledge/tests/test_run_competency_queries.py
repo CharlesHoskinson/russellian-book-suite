@@ -11,7 +11,6 @@ from urllib.parse import quote
 
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.ledger import append_claim
-from scripts.project_graph import project_graph
 from scripts.run_competency_queries import run_competency_queries
 
 TBF = Namespace("https://example.org/book-knowledge#")
@@ -45,7 +44,6 @@ def _add_chapter_typing(layout: WorkspaceLayout, chapters: list[str]) -> None:
 def test_unsupported_claims_query_returns_nothing_when_clean(tmp_path):
     layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
     append_claim(layout, _verified("clm-2026-000001"))
-    project_graph(layout)
     findings = run_competency_queries(layout)
     assert findings["unsupported_claims"] == []
 
@@ -55,8 +53,6 @@ def test_chapter_evidence_coverage_counts_per_chapter(tmp_path):
     append_claim(layout, _verified("clm-2026-000001", supports_chapters=["ch-01"]))
     append_claim(layout, _verified("clm-2026-000002", supports_chapters=["ch-01"]))
     append_claim(layout, _verified("clm-2026-000003", supports_chapters=["ch-02"]))
-    project_graph(layout)
-    _add_chapter_typing(layout, ["ch-01", "ch-02"])
     findings = run_competency_queries(layout)
     coverage = {row[0]: int(row[1]) for row in findings["chapter_evidence_coverage"]}
     assert any(k.endswith("ch-01") and v == 2 for k, v in coverage.items())
@@ -65,7 +61,6 @@ def test_chapter_evidence_coverage_counts_per_chapter(tmp_path):
 
 def test_runner_writes_report_file(tmp_path):
     layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
-    project_graph(layout)
     run_competency_queries(layout)
     reports = list(layout.graph_reports.glob("competency-*.md"))
     assert reports, "no competency report written"
@@ -84,21 +79,13 @@ def test_discover_queries_picks_up_subdirs():
     assert "contradiction_scan" in names_in_consistency
 
 
-def test_defeasible_meta_yaml_loads():
+def test_query_manifest_loads():
     import yaml
     from pathlib import Path
-    p = Path(__file__).resolve().parent.parent / "assets" / "queries" / "defeasible" / "_meta.yaml"
+    p = Path(__file__).resolve().parent.parent / "assets" / "kg-queries" / "_meta.yaml"
     data = yaml.safe_load(p.read_text(encoding="utf-8"))
-    assert "rebuttal-presence" in data
+    assert data["rebuttal-presence"]["class"] == "defeasible"
     assert data["rebuttal-presence"]["severity"] in ("critical", "important", "minor")
-
-
-def test_defeasible_queries_parse():
-    from pathlib import Path
-    from rdflib.plugins.sparql import prepareQuery
-    qdir = Path(__file__).resolve().parent.parent / "assets" / "queries" / "defeasible"
-    for q in qdir.glob("*.rq"):
-        prepareQuery(q.read_text(encoding="utf-8"))  # raises on syntax error
 
 
 def test_defeasible_query_emits_warning_not_failure(tmp_path, monkeypatch):
@@ -108,7 +95,6 @@ def test_defeasible_query_emits_warning_not_failure(tmp_path, monkeypatch):
     import json
     import scripts.run_competency_queries as mod
     from scripts.workspace import init_workspace, WorkspaceLayout
-    from scripts.project_graph import project_graph
     monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
     layout = WorkspaceLayout(init_workspace(tmp_path))
     layout.ledger.write_text(json.dumps({
@@ -118,7 +104,6 @@ def test_defeasible_query_emits_warning_not_failure(tmp_path, monkeypatch):
         "created_at": "2026-05-11T00:00:00Z",
         "load_bearing": True, "supports_chapters": ["ch07"]
     }) + "\n", encoding="utf-8")
-    project_graph(layout)
     result = mod.run_competency_queries(layout)
     assert "warnings" in result
     warnings = result["warnings"]
@@ -131,7 +116,6 @@ def test_defeasible_critical_fire_hard_fails_when_blocking(tmp_path):
     import json
     import pytest
     from scripts.workspace import init_workspace, WorkspaceLayout
-    from scripts.project_graph import project_graph
     from scripts.run_competency_queries import run_competency_queries
     layout = WorkspaceLayout(init_workspace(tmp_path))
     layout.ledger.write_text(json.dumps({
@@ -141,7 +125,6 @@ def test_defeasible_critical_fire_hard_fails_when_blocking(tmp_path):
         "created_at": "2026-05-11T00:00:00Z",
         "load_bearing": True, "supports_chapters": ["ch07"]
     }) + "\n", encoding="utf-8")
-    project_graph(layout)
     with pytest.raises(RuntimeError, match="rebuttal-presence"):
         run_competency_queries(layout)
 
@@ -151,7 +134,6 @@ def test_cli_main_returns_clean_gate_code_on_hard_fail(tmp_path, capsys):
     message and a distinct non-zero exit code, not an unhandled traceback."""
     import json
     from scripts.workspace import init_workspace, WorkspaceLayout
-    from scripts.project_graph import project_graph
     from scripts.run_competency_queries import main
     layout = WorkspaceLayout(init_workspace(tmp_path))
     layout.ledger.write_text(json.dumps({
@@ -161,7 +143,6 @@ def test_cli_main_returns_clean_gate_code_on_hard_fail(tmp_path, capsys):
         "created_at": "2026-05-11T00:00:00Z",
         "load_bearing": True, "supports_chapters": ["ch07"]
     }) + "\n", encoding="utf-8")
-    project_graph(layout)
     rc = main(["run_competency_queries.py", str(tmp_path)])
     assert rc == 3
     captured = capsys.readouterr()
@@ -175,7 +156,6 @@ def test_posterior_floor_fires_on_low_posterior(tmp_path, monkeypatch):
     import json
     import scripts.run_competency_queries as mod
     from scripts.workspace import init_workspace, WorkspaceLayout
-    from scripts.project_graph import project_graph
     monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
     layout = WorkspaceLayout(init_workspace(tmp_path))
     layout.ledger.write_text(json.dumps({
@@ -186,7 +166,6 @@ def test_posterior_floor_fires_on_low_posterior(tmp_path, monkeypatch):
         "supports_chapters": ["ch07"],
         "created_at": "2026-05-13T00:00:00Z",
     }) + "\n", encoding="utf-8")
-    project_graph(layout)
     result = mod.run_competency_queries(layout)
     warnings = result.get("warnings", [])
     names = {w["query"] for w in warnings}
@@ -198,7 +177,6 @@ def test_posterior_floor_skips_pinned_claim(tmp_path, monkeypatch):
     import json
     import scripts.run_competency_queries as mod
     from scripts.workspace import init_workspace, WorkspaceLayout
-    from scripts.project_graph import project_graph
     monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
     layout = WorkspaceLayout(init_workspace(tmp_path))
     layout.ledger.write_text(json.dumps({
@@ -209,7 +187,6 @@ def test_posterior_floor_skips_pinned_claim(tmp_path, monkeypatch):
         "supports_chapters": ["ch07"],
         "created_at": "2026-05-13T00:00:00Z",
     }) + "\n", encoding="utf-8")
-    project_graph(layout)
     result = mod.run_competency_queries(layout)
     warnings = result.get("warnings", [])
     names = {w["query"] for w in warnings}
@@ -221,7 +198,6 @@ def test_rebuttal_presence_skips_axiom_claim(tmp_path, monkeypatch):
     import json
     import scripts.run_competency_queries as mod
     from scripts.workspace import init_workspace, WorkspaceLayout
-    from scripts.project_graph import project_graph
     monkeypatch.setattr(mod, "BLOCKING_DEFEASIBLE", False)
     layout = WorkspaceLayout(init_workspace(tmp_path))
     layout.ledger.write_text(json.dumps({
@@ -232,7 +208,6 @@ def test_rebuttal_presence_skips_axiom_claim(tmp_path, monkeypatch):
         "supports_chapters": ["ch07"],
         "created_at": "2026-05-13T00:00:00Z",
     }) + "\n", encoding="utf-8")
-    project_graph(layout)
     result = mod.run_competency_queries(layout)
     warnings = result.get("warnings", [])
     names = {w["query"] for w in warnings}
@@ -244,7 +219,6 @@ def test_defeasible_exception_queries_guard(tmp_path, monkeypatch):
     import json
     import scripts.run_competency_queries as mod
     from scripts.workspace import init_workspace, WorkspaceLayout
-    from scripts.project_graph import project_graph
     import pytest
 
     layout = WorkspaceLayout(init_workspace(tmp_path))
@@ -256,121 +230,22 @@ def test_defeasible_exception_queries_guard(tmp_path, monkeypatch):
         "created_at": "2026-05-11T00:00:00Z",
         "load_bearing": True, "supports_chapters": ["ch07"],
     }) + "\n", encoding="utf-8")
-    project_graph(layout)
 
-    # _load_defeasible_meta takes assets_root: Path; monkeypatch ignores it.
-    monkeypatch.setattr(mod, "_load_defeasible_meta", lambda assets_root: {
-        "rebuttal-presence": {"severity": "critical",
-                              "default_satisfied": True,
+    # The manifest supplies the defeasible severity + exception_queries.
+    monkeypatch.setattr(mod, "_load_manifest", lambda: {
+        "rebuttal-presence": {"class": "defeasible", "severity": "critical",
                               "exception_queries": ["some-other-query"]},
     })
     with pytest.raises(NotImplementedError, match="exception_queries"):
         mod.run_competency_queries(layout)
 
 
-# --- KG_BACKEND cross-backend equivalence (REQ-KG-006, P1.5) -----------------
-
-import json
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-BERMUDA = REPO_ROOT / "examples" / "bermuda-manual"
-
-
-def _competency_signature(findings: dict) -> dict:
-    """Canonical, backend-independent view of a competency result.
-
-    The per-query rows are an unordered multiset; canonicalize each query's rows
-    to a sorted list of stringified-cell JSON, and the warnings to a sorted list
-    of (query, severity, canonical-bindings). This is exactly the meaningful
-    fire/defect output — which queries fired and with what rows — independent of
-    row order or which backend produced them.
-    """
-    sig: dict = {}
-    for name, rows in findings.items():
-        if name == "warnings":
-            continue
-        sig[name] = sorted(
-            json.dumps([str(c) for c in row], sort_keys=True) for row in rows
-        )
-    warnings = []
-    for w in findings.get("warnings", []):
-        warnings.append(
-            (
-                w["query"],
-                w["severity"],
-                sorted(
-                    json.dumps([str(c) for c in row], sort_keys=True)
-                    for row in w["bindings"]
-                ),
-            )
-        )
-    sig["__warnings__"] = sorted(warnings)
-    return sig
-
-
-def test_default_backend_is_cozo(monkeypatch, tmp_path):
-    """P5.3 cutover: with no flag set, the runner uses the COZO path — it sources
-    facts from the ledger projection and must NOT load the RDF dataset."""
-    import scripts.run_competency_queries as mod
-
+def test_default_backend_is_cozo(tmp_path):
+    """P5.4: run_competency_queries is Cozo-only — it sources facts from the ledger
+    projection (no RDF dataset path remains). A clean workspace returns the
+    established shape with no defects."""
     layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
     append_claim(layout, _verified("clm-2026-000001"))
-    project_graph(layout)
-    monkeypatch.delenv("KG_BACKEND", raising=False)  # exercise the DEFAULT
-
-    called = {"rdflib": 0}
-    real_load = mod._load_dataset
-
-    def _spy(layout):
-        called["rdflib"] += 1
-        return real_load(layout)
-
-    monkeypatch.setattr(mod, "_load_dataset", _spy)
     findings = run_competency_queries(layout)
-    assert called["rdflib"] == 0, "default backend must be cozo (no RDF dataset load)"
     assert findings["unsupported_claims"] == []
     assert "warnings" in findings
-
-
-def test_cozo_backend_matches_rdflib(monkeypatch):
-    """The EDN->Cozo path drives the competency gate equivalently to SPARQL.
-
-    Run the competency check on the bermuda workspace under the DEFAULT (rdflib)
-    path and again under KG_BACKEND=cozo, then assert the two produce the SAME
-    competency result — same fired queries / same defect rows, compared
-    canonically. On bermuda most queries are empty and chapter_evidence_coverage
-    carries data, so this is a real cross-backend equivalence check, not vacuous.
-    """
-    import scripts.run_competency_queries as mod
-
-    assert BERMUDA.exists(), f"bermuda workspace missing at {BERMUDA}"
-    layout = WorkspaceLayout(BERMUDA)
-
-    monkeypatch.setenv("KG_BACKEND", "rdflib")  # pin the legacy leg (default is now cozo)
-    rdflib_findings = run_competency_queries(layout)
-
-    # The cozo path must NOT read the RDF dataset.trig — it sources facts from
-    # the ledger via the projector. Spy on _load_dataset to prove the flag
-    # actually switches code paths (otherwise both calls run rdflib and the
-    # equivalence is vacuous).
-    called = {"rdflib": 0}
-    real_load = mod._load_dataset
-
-    def _spy(layout):
-        called["rdflib"] += 1
-        return real_load(layout)
-
-    monkeypatch.setattr(mod, "_load_dataset", _spy)
-    monkeypatch.setenv("KG_BACKEND", "cozo")
-    cozo_findings = run_competency_queries(layout)
-    assert called["rdflib"] == 0, "cozo backend must not load the RDF dataset"
-
-    rdflib_sig = _competency_signature(rdflib_findings)
-    cozo_sig = _competency_signature(cozo_findings)
-
-    # Same set of query names on both sides.
-    assert set(rdflib_sig) == set(cozo_sig)
-    # Non-vacuity: bermuda's chapter coverage actually carries rows.
-    assert rdflib_sig["chapter_evidence_coverage"], "expected coverage rows on bermuda"
-    # Full canonical equivalence of fire/defect output across backends.
-    assert cozo_sig == rdflib_sig

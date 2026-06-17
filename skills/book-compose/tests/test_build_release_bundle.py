@@ -13,7 +13,6 @@ from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_modu
 def _seed(tmp_path: Path) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
@@ -28,7 +27,6 @@ def _seed(tmp_path: Path) -> Path:
         "supports_chapters": ["ch-03"],
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     })
-    project_graph_mod.project_graph(layout)
     drafts = workspace / "chapters" / "drafts" / "ch-03"
     drafts.mkdir(parents=True, exist_ok=True)
     (drafts / "draft.md").write_text("# Chapter 3\n\nA proof body.\n", encoding="utf-8")

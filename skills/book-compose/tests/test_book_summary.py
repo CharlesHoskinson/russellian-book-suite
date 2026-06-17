@@ -16,7 +16,6 @@ def _seed_workspace(tmp_path: Path, chapter_specs: list[tuple[str, str, str]]) -
     """Each spec is (chapter_id, title, draft_body)."""
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
     bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
@@ -54,7 +53,6 @@ def _seed_workspace(tmp_path: Path, chapter_specs: list[tuple[str, str, str]]) -
             "outputs": ["draft.md"], "sources_included": ["src"],
             "claim_slice_count": 1, "shacl_conforms": True, "competency_clean": True,
         }), encoding="utf-8")
-    project_graph_mod.project_graph(layout)
     return workspace
 
 

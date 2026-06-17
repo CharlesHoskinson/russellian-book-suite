@@ -14,7 +14,6 @@ from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_modu
 def _seed_workspace(tmp_path: Path) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
     bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
@@ -28,7 +27,6 @@ def _seed_workspace(tmp_path: Path) -> Path:
         "source_spans": [{"doc_id": "small", "locator_text": "abcd"}],
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     })
-    project_graph_mod.project_graph(layout)
     return workspace
 
 

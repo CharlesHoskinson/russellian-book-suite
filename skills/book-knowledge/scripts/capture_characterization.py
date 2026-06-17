@@ -40,9 +40,11 @@ import json
 import sys
 from pathlib import Path
 
-from .run_competency_queries import _load_dataset, discover_queries
+from .run_competency_queries import discover_queries
 from .validate_shacl import validate_shacl
 from .workspace import WorkspaceLayout
+
+_SCHEMA = Path(__file__).resolve().parent.parent / "assets" / "kg-schema.edn"
 
 _ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
 
@@ -107,23 +109,30 @@ def write_shacl_golden(layout: WorkspaceLayout, out_path: Path) -> dict:
 
 
 def capture(workspace: Path, out_dir: Path) -> dict[str, int]:
-    """Run every .rq query on ``workspace`` and write a golden per query.
-
-    Returns a mapping of query name -> row count for reporting.
+    """Run every EDN competency query over a Cozo projection of the workspace
+    ledger and write a canonical golden per query (P5.4a-2: the .rq/rdflib capture
+    is gone). Returns a mapping of query name -> row count for reporting.
     """
     layout = WorkspaceLayout(Path(workspace).resolve())
-    dataset = _load_dataset(layout)
-    if len(dataset) == 0:
+    if not layout.ledger.exists() or layout.ledger.stat().st_size == 0:
         raise SystemExit(
-            f"ERROR: no triples loaded from {layout.dataset}; refusing to write empty goldens"
+            f"ERROR: no claims at {layout.ledger}; refusing to write empty goldens"
         )
+    from .cozo_store import CozoStore
+    from .project_ledger_cozo import project_ledger
+
+    store = CozoStore.in_memory(schema_path=_SCHEMA)
+    project_ledger(layout, store)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     counts: dict[str, int] = {}
-    for _cls, name, query_path in discover_queries(_ASSETS_ROOT):
-        result = dataset.query(query_path.read_text(encoding="utf-8"))
-        rows = _canonical_rows(result)
+    for _cls, name, edn_path in discover_queries(_ASSETS_ROOT):
+        rows = [
+            [str(c) if c is not None else "" for c in row]
+            for row in store.query_edn(edn_path.read_text(encoding="utf-8"))
+        ]
+        rows.sort(key=lambda r: json.dumps(r, sort_keys=True))
         _write_golden(rows, out_dir / f"{name}.json")
         counts[name] = len(rows)
     return counts

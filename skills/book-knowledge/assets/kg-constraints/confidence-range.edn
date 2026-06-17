@@ -25,6 +25,7 @@
 (defconstraint :confidence-range
   :message "Claim confidence must be in [0.0, 1.0]."
   :path "https://example.org/book-knowledge#confidence"
+  :component "http://www.w3.org/ns/shacl#MaxInclusiveConstraintComponent"
   :where [[?c :claim/id ?focus]
           [?c :claim/confidence ?conf]]
   :filter [[> ?conf 1.0]])

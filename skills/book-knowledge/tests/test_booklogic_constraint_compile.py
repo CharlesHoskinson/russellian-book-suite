@@ -8,9 +8,9 @@ file, never a running store, and is deterministic.
 
 Two layers of test:
 
-* BYTE-IDENTICAL compile goldens (shape) — each of the five authored constraint
-  EDN files compiles to a frozen ``.cozoscript`` golden. This pins the emitted
-  shape so an accidental reordering or rename is caught.
+* BYTE-IDENTICAL compile goldens (shape) — each authored constraint EDN file
+  compiles to a frozen ``.cozoscript`` golden. This pins the emitted shape so an
+  accidental reordering or rename is caught.
 * LIVE EXECUTION (semantics) — each compiled rule runs through a real
   ``CozoStore.in_memory`` and must fire ONLY on the violating row(s) and never
   on a conforming row. This proves the CozoScript is both syntactically valid
@@ -31,11 +31,16 @@ GOLDEN = ROOT / "tests" / "golden" / "kg-constraints"
 # The active constraints. chapter-cites-verified was activated in P2.3 (the
 # Cozo-backed validate_shacl) once kg-schema.edn gained a :chapter-section entity;
 # confidence-range-low was added in the C-1 audit fix to port the sh:minInclusive
-# 0.0 arm of the confidence range; see assets/kg-constraints/_DEFERRED.md.
+# 0.0 arm of the confidence range; status-present + confidence-present were added
+# in P2.4 to port the tbf:status / tbf:confidence sh:minCount arms the external
+# audit found missing. Must stay in lockstep with validate_shacl.ACTIVE_CONSTRAINTS.
+# See assets/kg-constraints/_DEFERRED.md.
 CONSTRAINT_NAMES = [
     "status-enum",
+    "status-present",
     "confidence-range",
     "confidence-range-low",
+    "confidence-present",
     "text-cardinality",
     "source-span-present",
     "verified-derives",

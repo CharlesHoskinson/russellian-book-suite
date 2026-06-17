@@ -26,9 +26,11 @@ A violation's identity is ``(focus_node, path, message)`` where:
 * ``message`` is the AUTHORED EDN ``:message`` for the constraint. pyshacl
   auto-generates range / minCount / sh:in messages that differ from the
   hand-written EDN messages, so the rdflib path remaps each violation's message
-  (keyed on its SHACL path) to the authored one. The two ``sh:sparql`` shapes
-  (empty path) already emit their authored ``sh:message`` through pyshacl, so
-  those are left untouched.
+  (keyed on ``(SHACL path, sourceConstraintComponent)`` — several constraints
+  share a path, e.g. status minCount vs sh:in, so the component disambiguates;
+  audit I-2) to the authored one. The two ``sh:sparql`` shapes (empty path)
+  already emit their authored ``sh:message`` through pyshacl, so those are left
+  untouched.
 * ``path`` is the SHACL path URI (or ``""`` for the two ``sh:sparql`` shapes).
 
 Callers (book-compose preflight / release bundle) consume ONLY
@@ -58,13 +60,17 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 KG_SCHEMA = ASSETS / "kg-schema.edn"
 KG_CONSTRAINTS = ASSETS / "kg-constraints"
 
-# The constraints the Cozo path evaluates, in a fixed order (mirrors the five
-# active P2.2 constraints plus the P2.3 chapter-cites-verified). The order only
-# affects the pre-sort emission order; the report is sorted before returning.
+# The constraints the Cozo path evaluates, in a fixed order (P2.2 base + P2.3
+# chapter-cites-verified + the C-1 confidence-range-low + the P2.4 presence
+# arms). Must stay in lockstep with test_booklogic_constraint_compile's
+# CONSTRAINT_NAMES. The order only affects the pre-sort emission order; the
+# report is sorted before returning.
 ACTIVE_CONSTRAINTS = [
     "status-enum",
+    "status-present",
     "confidence-range",
     "confidence-range-low",
+    "confidence-present",
     "text-cardinality",
     "source-span-present",
     "verified-derives",
@@ -83,6 +89,11 @@ class Violation:
     focus_node: str
     path: str
     message: str
+    # The SHACL sourceConstraintComponent (rdflib path only) — an INTERNAL
+    # disambiguator for the message remap, not part of the canonical violation
+    # identity. Defaults to "" so the Cozo path and the (focus,path,message)
+    # golden are unaffected; callers still see only conforms/violations/text.
+    component: str = ""
 
 
 @dataclass(frozen=True)
@@ -104,18 +115,28 @@ def _strip_focus_uri(uri: str) -> str:
     return uri
 
 
-def _build_canonical_messages() -> dict[str, str]:
-    """Map each constraint's SHACL ``:path`` -> authored ``:message``.
+def _build_canonical_messages() -> dict[tuple[str, str], str]:
+    """Map each constraint's ``(:path, :component)`` -> authored ``:message``.
+
+    Keyed on ``(SHACL path, sourceConstraintComponent)`` rather than bare path,
+    because several constraints share a path: ``status-present`` (minCount) and
+    ``status-enum`` (sh:in) both sit on ``tbf:status``; ``confidence-present``
+    (minCount), ``confidence-range`` (maxInclusive) and ``confidence-range-low``
+    (minInclusive) all sit on ``tbf:confidence``. A path-only key would collapse
+    these distinct violations onto one message (internal audit I-2). The component
+    URI (declared as ``:component`` in each EDN) is the SHACL discriminator pyshacl
+    already reports per violation, so the pair is a stable, unique key.
 
     Only NON-EMPTY paths are mapped: the two ``sh:sparql`` shapes carry an empty
     path and already emit their authored ``sh:message`` through pyshacl, so they
-    must NOT be remapped (and an empty-path key would collide between the two).
-    Reads the same ``kg-constraints/*.edn`` files the Cozo path compiles, so the
-    authored message is the single source of truth for both engines.
+    must NOT be remapped. Reads the same ``kg-constraints/*.edn`` files the Cozo
+    path compiles, so the authored message is the single source of truth for both
+    engines. A non-empty-path constraint MUST declare a ``:component``.
     """
     path_kw = edn_format.Keyword("path")
     message_kw = edn_format.Keyword("message")
-    canonical: dict[str, str] = {}
+    component_kw = edn_format.Keyword("component")
+    canonical: dict[tuple[str, str], str] = {}
     for name in ACTIVE_CONSTRAINTS:
         form = edn_format.loads(
             (KG_CONSTRAINTS / f"{name}.edn").read_text(encoding="utf-8")
@@ -132,23 +153,33 @@ def _build_canonical_messages() -> dict[str, str]:
             )
         path = sections[path_kw]
         message = sections[message_kw]
-        if path:  # skip the empty-path sh:sparql shapes
-            canonical[path] = message
+        if not path:  # skip the empty-path sh:sparql shapes
+            continue
+        component = sections.get(component_kw)
+        if not component:
+            raise ValueError(
+                f"constraint EDN '{name}' has a non-empty :path but no "
+                f":component (needed to key the rdflib message remap)"
+            )
+        canonical[(path, component)] = message
     return canonical
 
 
 def _normalize_pyshacl_violations(violations: list[Violation]) -> list[Violation]:
     """Map pyshacl violations to the canonical form, sorted result-set order.
 
-    Bare-id focus_node, authored message for non-empty paths (the empty-path
-    sh:sparql shapes keep pyshacl's authored sh:message), SHACL path unchanged.
+    Bare-id focus_node, authored message looked up by ``(path, component)`` for
+    non-empty paths (the empty-path sh:sparql shapes keep pyshacl's authored
+    sh:message), SHACL path unchanged. ``component`` is reset to "" on the way out:
+    it is an internal remap key, not part of the canonical violation identity.
     """
     canonical = _build_canonical_messages()
     out = [
         Violation(
             focus_node=_strip_focus_uri(v.focus_node),
             path=v.path,
-            message=canonical.get(v.path, v.message),
+            message=canonical.get((v.path, v.component), v.message),
+            component="",
         )
         for v in violations
     ]
@@ -181,10 +212,12 @@ def _parse_violations(report_graph: Graph) -> list[Violation]:
         focus = report_graph.value(result, URIRef("http://www.w3.org/ns/shacl#focusNode"))
         path = report_graph.value(result, URIRef("http://www.w3.org/ns/shacl#resultPath"))
         msg = report_graph.value(result, URIRef("http://www.w3.org/ns/shacl#resultMessage"))
+        comp = report_graph.value(result, URIRef("http://www.w3.org/ns/shacl#sourceConstraintComponent"))
         out.append(Violation(
             focus_node=str(focus) if focus else "",
             path=str(path) if path else "",
             message=str(msg) if msg else "",
+            component=str(comp) if comp else "",
         ))
     return out
 

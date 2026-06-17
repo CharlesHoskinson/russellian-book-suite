@@ -242,7 +242,8 @@ def test_normalizer_maps_raw_pyshacl_to_canonical():
     )
     raw_violations = [
         Violation(
-            focus_node=v["focus_node"], path=v["path"], message=v["message"]
+            focus_node=v["focus_node"], path=v["path"], message=v["message"],
+            component=v.get("component", ""),
         )
         for v in raw_doc["violations"]
     ]

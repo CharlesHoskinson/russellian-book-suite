@@ -18,6 +18,7 @@
 (defconstraint :status-enum
   :message "Claim status must be one of: proposed, verified, disputed, superseded, refuted."
   :path "https://example.org/book-knowledge#status"
+  :component "http://www.w3.org/ns/shacl#InConstraintComponent"
   :where [[?c :claim/id ?focus]
           [?c :claim/status ?status]]
   :filter [[!= ?status "proposed"]

@@ -21,6 +21,7 @@
 (defconstraint :text-cardinality
   :message "Claim must have a canonical-text value (minCount 1)."
   :path "https://schema.org/text"
+  :component "http://www.w3.org/ns/shacl#MinCountConstraintComponent"
   :where [[?c :claim/id ?focus]]
   :not   [[?c2 :claim/id ?focus]
           [?c2 :claim/canonical-text ?text]])

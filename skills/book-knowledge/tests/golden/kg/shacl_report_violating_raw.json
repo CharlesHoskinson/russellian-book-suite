@@ -4,22 +4,26 @@
     {
       "focus_node": "https://example.org/book-knowledge/claims/inj-bad-confidence",
       "message": "Value is not <= Literal(\"1.0\", datatype=xsd:decimal)",
-      "path": "https://example.org/book-knowledge#confidence"
+      "path": "https://example.org/book-knowledge#confidence",
+      "component": "http://www.w3.org/ns/shacl#MaxInclusiveConstraintComponent"
     },
     {
       "focus_node": "https://example.org/book-knowledge/claims/inj-verified-no-source",
       "message": "Less than 1 values on <https://example.org/book-knowledge/claims/inj-verified-no-source>->tbf:hasSourceSpan",
-      "path": "https://example.org/book-knowledge#hasSourceSpan"
+      "path": "https://example.org/book-knowledge#hasSourceSpan",
+      "component": "http://www.w3.org/ns/shacl#MinCountConstraintComponent"
     },
     {
       "focus_node": "https://example.org/book-knowledge/claims/inj-verified-no-source",
       "message": "Verified claims must derive from at least one source-span entity.",
-      "path": ""
+      "path": "",
+      "component": "http://www.w3.org/ns/shacl#SPARQLConstraintComponent"
     },
     {
       "focus_node": "https://example.org/book-knowledge/sections/inj-section",
       "message": "Chapter sections must only cite verified claims.",
-      "path": ""
+      "path": "",
+      "component": "http://www.w3.org/ns/shacl#SPARQLConstraintComponent"
     }
   ]
 }

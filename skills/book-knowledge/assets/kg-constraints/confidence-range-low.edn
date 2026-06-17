@@ -8,11 +8,13 @@
 ;; The compiler has no OR/disjunction within one rule, so the range is two
 ;; constraints: confidence-range.edn covers sh:maxInclusive (conf > 1.0) and
 ;; this one covers sh:minInclusive (conf < 0.0). Both carry the SAME authored
-;; :message and the SAME :path ("#confidence") so the rdflib path's
-;; message-remap (keyed on the SHACL path) stays unambiguous — a confidence
-;; violation maps to the single range message regardless of which arm fired.
-;; This closes C-1: pyshacl enforces BOTH bounds, and now the Cozo path does too,
-;; so a confidence < 0.0 claim is non-conforming under BOTH engines.
+;; :message and the SAME :path ("#confidence"); they differ only in :component
+;; (MinInclusive vs MaxInclusive). The rdflib message-remap is keyed on
+;; (:path, :component), so each arm maps to the single shared range message —
+;; and neither collides with confidence-present's minCount message on the same
+;; path (audit I-2). This closes C-1: pyshacl enforces BOTH bounds, and now the
+;; Cozo path does too, so a confidence < 0.0 claim is non-conforming under BOTH
+;; engines.
 ;;
 ;; The literal 0.0 stays UNQUOTED so it compares against the typed Float column;
 ;; the compiler guards the comparison with !is_null so a null-confidence claim is
@@ -20,6 +22,7 @@
 (defconstraint :confidence-range-low
   :message "Claim confidence must be in [0.0, 1.0]."
   :path "https://example.org/book-knowledge#confidence"
+  :component "http://www.w3.org/ns/shacl#MinInclusiveConstraintComponent"
   :where [[?c :claim/id ?focus]
           [?c :claim/confidence ?conf]]
   :filter [[< ?conf 0.0]])

@@ -125,11 +125,30 @@ Skill: `book-knowledge` (+ a no-op import check in book-compose). The legacy `py
 
 **PR #2 gate:** full `book-knowledge` suite green; `KG_BACKEND=cozo pytest` AND default both green; book-compose suite green (unchanged). Recursive-SHACL: confirm in the PR description that neither shape is recursive (they aren't — record it, satisfies the P2 fixpoint task).
 
+## Task P2.4: close the Cozo presence/datatype gap (post-audit — REQ-KG-012)
+
+External audit (2026-06-17, GPT-5.5) finding, confirmed against branch: the EDN→Cozo port only ports the constraints whose violation is a *bound value* (status `sh:in`, confidence range) plus the two minCount negations already done (`text-cardinality`, `source-span-present`). It does NOT port **`tbf:status` minCount**, **`tbf:confidence` minCount**, or the two **`sh:datatype`** checks (`schema:text` `xsd:string`, `tbf:confidence` `xsd:decimal`). `CozoStore` makes value columns nullable and back-fills missing fields with `None` (`cozo_store.py:163,397`), and the value filters guard nulls away (`booklogic_kg.py:269`) — so under `KG_BACKEND=cozo` a claim missing `status`/`confidence`, or carrying a wrong-typed `confidence`, **conforms**, while pyshacl flags it. Real ledger data is shielded by `claim-record.schema.json`, but a projector or hand-edited-ledger regression escapes the Cozo gate — and the gate silently weakens the moment **P5.3 flips the default to cozo**. This is the substance behind the audit's verdict caveat.
+
+**Files:**
+- Create: `assets/kg-constraints/status-present.edn`, `confidence-present.edn` — minCount-1 negations on `tbf:status` / `tbf:confidence` (mirror the `source-span-present` negation shape, not the value-filter shape, so absent ≠ dropped).
+- Create: `assets/kg-constraints/{text,confidence}-datatype.edn` — datatype guards. Decide first whether Cozo's typed columns already make a wrong type *unrepresentable* (if `confidence` is a typed `Float?` column, a string row can't load — then the gap is a *load-time crash*, not a silent conform, and the fix is a typed-load error surfaced as a violation rather than a new constraint; see I-2 residual). Port only the checks that are representable; document any that the column typing subsumes.
+- Modify: `scripts/validate_shacl.py` — **fix finding #2 (= internal I-2) here, because this task is what activates it:** re-key `_build_canonical_messages` / `_normalize_pyshacl_violations` on a stable `constraint_id` (or `(path, sh:sourceConstraintComponent)`) instead of bare `sh:path`. Adding minCount on the `confidence` path puts a *second* distinct message on that path, so the path-keyed map (`validate_shacl.py:107,140`) would now silently collapse range-vs-minCount. Alternatively drop `message` from the engine-parity contract and assert messages in a separate test.
+- Modify: `tests/fixtures/violating_workspace.py` (+ `_raw`) — add a status-less and a confidence-less row, and a wrong-typed-confidence row, so the new constraints are exercised non-vacuously (also closes internal M-1: `status-enum`/`text-cardinality` currently unexercised by the golden).
+- Modify: the C0.2 goldens (`shacl_report_violating.json` + `_raw`) — regenerate; the new violations must appear in BOTH engines. Note the regeneration in the run log (same de-circularization discipline as I-1).
+
+- [ ] **Step 1 (RED):** new fixture rows produce violations under rdflib but NOT under cozo (demonstrates the gap); message-collision test fails on the confidence path.
+- [ ] **Step 2 (GREEN):** add the EDN constraints + re-key the message map; both engines now agree on the enlarged violation set.
+- [ ] **Step 3:** default + `KG_BACKEND=cozo` suites green; goldens non-vacuous. Commit `kg(P2.4): port status/confidence minCount+datatype; key parity on constraint_id (REQ-KG-012, audit I-2)`.
+
+**Ordering:** P2.4 is a hard prerequisite for **P5.3** — do not flip the default backend until the Cozo gate is at parity with pyshacl on presence/datatype, or the cutover ships a weaker runtime gate than it replaces.
+
 ---
 
 # PHASE P3 — Retire pyDatalog (PR #3)
 
 Skill: `book-thesis` (+ `book-knowledge` for the consistency compiler if shared). Legacy pyDatalog stays; add the Cozo path + parity.
+
+**Cross-skill import decision (resolves the run-handoff blocker).** P3 needs book-thesis to import book-knowledge's Cozo modules. Both the internal handoff and the external audit converge on **option (c): refactor the shared Cozo code (`cozo_store`, `compile_constraint`/`booklogic_kg`, `project_ledger`, `kg-schema.edn`, the constraint EDN) into one importable location both skills depend on.** It is the only option that is repo-self-contained, sidesteps the stale `~/.claude/skills/book-knowledge` copy, and avoids the dual `scripts` package collision. Option (b) (repo-relative aliased loader pointing at `skills/book-knowledge/scripts`, plus fixing the absolute `from scripts.cozo_store import …`) is an acceptable short bridge if (c)'s blast radius can't be absorbed in this PR; **avoid (a)** (sync `~/.claude` ← repo) — it re-couples the repo to installed-copy state. Whichever lands: add `pycozo[embedded]` + `edn_format` to book-thesis's `pyproject.toml` + venv. Do this refactor as **Task P3.0** before P3.1 so the projector can import cleanly.
 
 ## Task P3.1: `thesis→cozo` projector (REQ-KG-016)
 
@@ -182,6 +201,8 @@ Skill: `book-thesis` (+ `book-knowledge` for the consistency compiler if shared)
 - [ ] **Step 3:** Commit `kg(P5.2): reconcile 3 RDF<->Cozo divergences to canonical semantics (REQ-KG-017)`.
 
 ## Task P5.3: flip default backend + cutover gate (REQ-KG-010 / REQ-KG-018)
+
+**Prerequisite (audit):** **P2.4 must be complete** — flipping the default to cozo while the Cozo gate skips status/confidence presence + datatype ships a runtime gate strictly weaker than the pyshacl one it replaces. The cutover-gate test below must therefore also assert presence/datatype parity, not just the 8-query + range goldens.
 
 **Files:**
 - Modify: `run_competency_queries.py`, `validate_shacl.py`, `datalog_consistency.py` — flip `KG_BACKEND` default to `cozo`.

@@ -80,3 +80,18 @@ Whichever is chosen: add `pycozo[embedded]` + `edn_format` to book-thesis's pypr
 **To resume:** `git switch feat/homoiconic-kg-cutover`; venvs are built at `skills/book-knowledge/.venv` and `skills/book-thesis/.venv` (Python 3.14). Nothing pushed; review/squash/split into PRs as desired.
 
 (Updated as the run proceeds.)
+
+---
+
+## External audit resolution (2026-06-17, GPT-5.5 Deep Research Pro, static run over the bundle)
+
+Four findings; triaged against the live branch:
+
+- **[NEW — actionable] Cozo skips `minCount`/`datatype` for `status` + `confidence`.** Confirmed: only value-violation constraints (status `sh:in`, confidence range) and the two minCount negations (`text-cardinality`, `source-span-present`) are ported. `status` minCount, `confidence` minCount, and the `xsd:string`/`xsd:decimal` datatype checks are NOT — so under `KG_BACKEND=cozo` a presence/type-defective claim conforms while pyshacl flags it. Real ledger data shielded by `claim-record.schema.json`; projector/manual-ledger regressions escape, and the gate weakens at the P5.3 default flip. **Folded into new plan Task P2.4 (hard prereq for P5.3).**
+- **[= internal I-2] Path-keyed message remap collapses distinct components.** Confirmed and latent today; becomes ACTIVE once P2.4 adds a second message on the `confidence` path. **Fix scheduled inside P2.4** (re-key on `constraint_id`/component, or drop message from the parity contract).
+- **[= internal I-3] `chapter-cites-verified` synthetic-only.** Already marked unwired; REQ-KG-012/013 PARTIAL. No change.
+- **[= internal M-2] `test_callers_import_unchanged` hollow.** Already tracked, MINOR. No change.
+
+**Verdict:** agrees C-1 is fixed; agrees the SHACL real-data no-op is acceptable for migration parity but adds the caveat that it must not be sold as a runtime gate unless Cozo also catches projection omissions — which is exactly what P2.4 closes. C0+P2 is a sound base for P3; **not** a P5 cutover base until P2.4 lands.
+
+**Cross-skill import:** auditor recommends **(c) refactor shared Cozo code into a common importable location** (matches the handoff lean); (b) acceptable bridge; avoid (a). **Folded into plan as Task P3.0**, ahead of P3.1.

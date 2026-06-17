@@ -95,3 +95,7 @@ Four findings; triaged against the live branch:
 **Verdict:** agrees C-1 is fixed; agrees the SHACL real-data no-op is acceptable for migration parity but adds the caveat that it must not be sold as a runtime gate unless Cozo also catches projection omissions — which is exactly what P2.4 closes. C0+P2 is a sound base for P3; **not** a P5 cutover base until P2.4 lands.
 
 **Cross-skill import:** auditor recommends **(c) refactor shared Cozo code into a common importable location** (matches the handoff lean); (b) acceptable bridge; avoid (a). **Folded into plan as Task P3.0**, ahead of P3.1.
+
+| P2 | P2.4 status/confidence minCount + (path,component) remap | DONE | c3675da | TDD; status-present + confidence-present EDN; rdflib remap re-keyed on (path, sourceConstraintComponent) closing audit I-2; datatype subsumed by Cozo Float? typing; +4 presence tests, +2 compile goldens. **book-knowledge 317 passed (default); 45 passed (KG_BACKEND=cozo SHACL subset).** Two-stage review (correctness + quality) clean. P5.3 prerequisite satisfied. |
+
+**Now resumable at P3.0** (cross-skill Cozo refactor, option c) → P3.1. book-knowledge venv was brought current this run (`pip install -e .[dev]` added edn_format + pycozo[embedded]); book-thesis venv still lacks them (P3.0 input).

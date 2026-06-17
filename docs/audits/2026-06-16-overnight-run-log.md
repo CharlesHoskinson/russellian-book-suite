@@ -108,4 +108,14 @@ Four findings; triaged against the live branch:
 
 **PHASE P3 COMPLETE** — pyDatalog is fully PORTED (cross-skill bridge P3.0, thesis projector P3.1, consistency pass P3.2), running in parallel behind parity. It is NOT yet deleted; that is P5.4 after the cutover gate.
 
+## External audit resolution — P2.4+P3 (2026-06-17, GPT-5.5, commit 94dd6a3)
+
+Static adversarial audit of the four sprints (prompt: `2026-06-17-p2.4-p3-external-audit-prompt.md`). Three findings, all confirmed and fixed:
+
+- **[CRITICAL] Cozo consistency CLI broke the QA-gate contract** — `consistency_cozo.main` always returned 0 and wrote no `qa/datalog-defects.json`, so a P5 wiring would silently pass a violating thesis. Fixed: `write_artifact` flag (library calls stay pure), `main()` writes the legacy-shape artifact + returns nonzero via `gate_failed()`. +3 tests.
+- **[IMPORTANT] cross-skill alias unsafe in a shared interpreter** — `_ensure_bk_package` served the cached `_book_knowledge_scripts` alias without checking `__path__`. Fixed: validate + raise on mismatch. +1 test.
+- **[IMPORTANT] datatype "subsumption" overstated** — verified a wrong-typed confidence RAISES a load-time `QueryException`, NOT a ShaclReport violation: a deliberate contract DIVERGENCE from rdflib. Documented in `confidence-present.edn`; +1 characterization test.
+
+Plus a defensive duplicate-key guard in `_build_canonical_messages` (+test), and the auditor's 6-point cutover-gate checklist folded into plan task P5.3. Auditor verdict: "usable as a P5 base after fixing the Cozo consistency CLI/file contract" (now fixed). **book-knowledge 319 passed; book-thesis 64 passed.**
+
 **Now resumable at P5** (cutover): P5.1 port the remaining RDF readers (`query_chapter_evidence`, `audit_taxonomy`); P5.2 reconcile the 3 documented RDF↔Cozo query divergences; **P5.3 flip `KG_BACKEND` default to cozo + cutover gate — gated on P2.4 (done) AND a full cozo-green suite** (the handoff's known blocker: other consumers like `run_competency_queries` not yet cozo-green; RDF-injection fixtures rdflib-pinned); P5.4 delete rdflib/pyshacl/pyDatalog. P5 also retires the parallel pyDatalog consistency pass + `compile_thesis`'s TTL emit once the Cozo pass is the default.

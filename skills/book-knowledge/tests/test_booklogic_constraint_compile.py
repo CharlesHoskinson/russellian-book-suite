@@ -28,14 +28,16 @@ SCHEMA = ROOT / "assets" / "kg-schema.edn"
 CONSTRAINTS = ROOT / "assets" / "kg-constraints"
 GOLDEN = ROOT / "tests" / "golden" / "kg-constraints"
 
-# The five active constraints (chapter-cites-verified is deferred to P2.3; see
-# assets/kg-constraints/_DEFERRED.md).
+# The six active constraints. chapter-cites-verified was activated in P2.3 (the
+# Cozo-backed validate_shacl) once kg-schema.edn gained a :chapter-section entity;
+# see assets/kg-constraints/_DEFERRED.md.
 CONSTRAINT_NAMES = [
     "status-enum",
     "confidence-range",
     "text-cardinality",
     "source-span-present",
     "verified-derives",
+    "chapter-cites-verified",
 ]
 
 
@@ -255,3 +257,22 @@ def test_verified_derives_executes():
     assert rows[0][2] == (
         "Verified claims must derive from at least one source-span entity."
     )
+
+
+def test_chapter_cites_verified_executes():
+    # The tbf:ChapterSectionShape sh:sparql shape: a chapter section that cites a
+    # NON-verified claim fires; a section citing a verified claim conforms.
+    script = compile_constraint(_edn("chapter-cites-verified"), SCHEMA)
+    store = CozoStore.in_memory(schema_path=SCHEMA)
+    store.load("claim", [
+        {"id": "c-verified", "status": "verified"},
+        {"id": "c-proposed", "status": "proposed"},
+    ])
+    store.load("chapter-section", [
+        {"id": "sec-bad", "uses-claim-id": "c-proposed"},   # violation
+        {"id": "sec-ok", "uses-claim-id": "c-verified"},    # conforms
+    ])
+    rows = store.query(script)
+    assert _focus_nodes(rows) == ["sec-bad"]
+    assert rows[0][1] == ""  # path "" (sh:sparql shape, no sh:path)
+    assert rows[0][2] == "Chapter sections must only cite verified claims."

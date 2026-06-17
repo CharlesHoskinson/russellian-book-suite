@@ -7,7 +7,7 @@ violation rows `[focus_node, path, message]`, reproducing the SHACL shapes in
 `tests/golden/kg-constraints/<name>.cozoscript` and a live-Cozo execution test
 in `tests/test_booklogic_constraint_compile.py`.
 
-## Active constraints (5)
+## Active constraints (6)
 
 | EDN | SHACL shape ported | Mechanism |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ in `tests/test_booklogic_constraint_compile.py`.
 | `text-cardinality.edn` | `schema:text` `sh:minCount 1` | free-var `:not` lifted to a `!is_null`-guarded helper rule |
 | `source-span-present.edn` | `tbf:hasSourceSpan` `sh:minCount 1` | inline `:not` over the source-span back-ref |
 | `verified-derives.edn` | `tbf:ClaimShape` `sh:sparql` | verified claim + `:not` source-span; message/path EXACT from the C0.2 golden |
+| `chapter-cites-verified.edn` | `tbf:ChapterSectionShape` `sh:sparql` | section→claim join + `:filter [[!= ?status "verified"]]`; message/path EXACT from the C0.2 golden |
 
 ### Message parity note
 pyshacl auto-generates the `sh:minCount` / range / `sh:in` messages (e.g.
@@ -33,26 +34,24 @@ single rule reproduces the C0.2 golden. The `sh:minInclusive 0.0` arm
 (`confidence < 0.0`) needs a SECOND rule (the compiler has no `OR`/disjunction
 within one rule); add it in a later task when a fixture exercises it.
 
-## Deferred: `chapter-cites-verified` (-> P2.3)
+## Activated in P2.3: `chapter-cites-verified`
 
 The 6th SHACL shape — `tbf:ChapterSectionShape` (`sh:sparql`,
-"Chapter sections must only cite verified claims.") — is **NOT** authored here.
-It is deferred to **P2.3** for two structural reasons:
+"Chapter sections must only cite verified claims.") — was **deferred from P2.2
+to P2.3** because P2.2 had no schema home for it:
 
-1. **No schema entity.** `assets/kg-schema.edn` declares NO `chapter-section`
-   entity and NO `uses-claim` (chapter→claim citation) relation. A
-   `defconstraint` can only reference entities/attrs declared in the schema (the
-   compiler raises `ValueError` otherwise), so the constraint cannot be expressed
-   today. P2.3 must first add a `chapter-section` entity (with a `uses-claim`
-   back-reference) to `kg-schema.edn` plus a projector that populates it.
+1. **No schema entity (now resolved).** P2.2's `kg-schema.edn` declared no
+   `chapter-section` entity. P2.3 added a `:chapter-section` entity
+   (`:attrs [:id :uses-claim-id]`, `[:cites :claim]` relation), so the
+   `defconstraint` now references only declared entities/attrs and compiles to a
+   byte-identical golden + a live-execution test like the other five.
 
-2. **No Cozo data source.** In the C0.1 violating fixture the
-   `tbf:ChapterSection` / `tbf:usesClaim` triples were injected as **raw RDF
-   only** — there is no ledger record or Cozo relation behind them. Even with a
-   schema entity, the Cozo validation path would have nothing to validate until
-   P2.3 decides WHERE chapter-section citation data is sourced from (the
-   violating fixture's chapter data lives only in the RDF graph, not the ledger).
-
-Authoring a non-compiling chapter EDN now would break the byte-identical-golden
-and live-execution contracts, so it is intentionally omitted until P2.3 supplies
-the entity, projector, and data source.
+2. **No production data source (still future work).** In the C0.1 violating
+   fixture the `tbf:ChapterSection` / `tbf:usesClaim` triples were injected as
+   **raw RDF only** — no ledger record sits behind them. `project_ledger`
+   therefore loads `:chapter-section` **empty** (like `chapter-wiki-ref` /
+   `rebuttal-window-ok`), which keeps the bermuda workspace at 0 violations. The
+   P2.3 violating parity test loads synthetic `chapter-section` rows directly
+   into the store. A **real chapter-section projector** (sourcing citation data
+   from the workspace) is a follow-on task; the constraint is correct and active
+   now, it simply has no production rows to validate yet.

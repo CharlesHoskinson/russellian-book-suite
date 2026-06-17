@@ -18,7 +18,8 @@ from scripts.validate_shacl import validate_shacl
 from tests.fixtures.violating_workspace import build_violating_workspace
 
 
-def test_violating_workspace_emits_triples(tmp_path):
+def test_violating_workspace_emits_triples(tmp_path, monkeypatch):
+    monkeypatch.delenv("KG_BACKEND", raising=False)
     layout = build_violating_workspace(tmp_path)
     trig = layout.dataset.read_text(encoding="utf-8")
     assert trig.strip(), "projected dataset must not be empty"
@@ -31,7 +32,8 @@ def test_violating_workspace_emits_triples(tmp_path):
         assert marker in trig, f"missing injected node {marker} in TriG"
 
 
-def test_violating_workspace_does_not_conform(tmp_path):
+def test_violating_workspace_does_not_conform(tmp_path, monkeypatch):
+    monkeypatch.delenv("KG_BACKEND", raising=False)
     layout = build_violating_workspace(tmp_path)
     report = validate_shacl(layout)
     assert report.conforms is False
@@ -46,8 +48,9 @@ def test_violating_workspace_does_not_conform(tmp_path):
     )
 
 
-def test_confidence_range_violation_present(tmp_path):
+def test_confidence_range_violation_present(tmp_path, monkeypatch):
     """(a) A claim with confidence outside 0.0-1.0 fires the range constraint."""
+    monkeypatch.delenv("KG_BACKEND", raising=False)
     layout = build_violating_workspace(tmp_path)
     report = validate_shacl(layout)
     assert any(
@@ -62,8 +65,9 @@ def test_confidence_range_violation_present(tmp_path):
     )
 
 
-def test_verified_without_source_violation_present(tmp_path):
+def test_verified_without_source_violation_present(tmp_path, monkeypatch):
     """(b) A verified claim with no source-span fires BOTH the minCount and sparql."""
+    monkeypatch.delenv("KG_BACKEND", raising=False)
     layout = build_violating_workspace(tmp_path)
     report = validate_shacl(layout)
     assert any(
@@ -89,8 +93,9 @@ def test_verified_without_source_violation_present(tmp_path):
     )
 
 
-def test_chapter_section_violation_present(tmp_path):
+def test_chapter_section_violation_present(tmp_path, monkeypatch):
     """(c) A chapter section citing a non-verified claim fires ChapterSectionShape."""
+    monkeypatch.delenv("KG_BACKEND", raising=False)
     layout = build_violating_workspace(tmp_path)
     report = validate_shacl(layout)
     assert any(
@@ -107,8 +112,9 @@ def test_chapter_section_violation_present(tmp_path):
     )
 
 
-def test_fixture_is_deterministic_across_tmp_paths(tmp_path):
+def test_fixture_is_deterministic_across_tmp_paths(tmp_path, monkeypatch):
     """Calling the helper twice yields equivalent violation sets (sans tmp path)."""
+    monkeypatch.delenv("KG_BACKEND", raising=False)
     layout_a = build_violating_workspace(tmp_path / "a")
     layout_b = build_violating_workspace(tmp_path / "b")
     msgs_a = sorted(v.message for v in validate_shacl(layout_a).violations)

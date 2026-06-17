@@ -172,6 +172,14 @@
    :relations [[:of-chapter :chapter]
                [:references-page :wiki-page]]}
 
+  ;; Chapter section — a chapter section that cites claims (tbf:ChapterSection).
+  ;; NO production projector emits these yet (project_ledger loads it empty, like
+  ;; chapter-wiki-ref); the violating parity test loads synthetic rows directly.
+  ;; A real chapter-section projector is a future task.
+  :chapter-section
+  {:attrs [:id :uses-claim-id]
+   :relations [[:cites :claim]]}
+
   ;; Code node — graphify graph.json node (id, label) plus its rank and
   ;; community assignment.
   :code-node

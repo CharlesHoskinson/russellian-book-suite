@@ -2,24 +2,24 @@
   "conforms": false,
   "violations": [
     {
-      "focus_node": "https://example.org/book-knowledge/claims/inj-bad-confidence",
-      "message": "Value is not <= Literal(\"1.0\", datatype=xsd:decimal)",
+      "focus_node": "inj-bad-confidence",
+      "message": "Claim confidence must be <= 1.0.",
       "path": "https://example.org/book-knowledge#confidence"
     },
     {
-      "focus_node": "https://example.org/book-knowledge/claims/inj-verified-no-source",
-      "message": "Less than 1 values on <https://example.org/book-knowledge/claims/inj-verified-no-source>->tbf:hasSourceSpan",
-      "path": "https://example.org/book-knowledge#hasSourceSpan"
+      "focus_node": "inj-section",
+      "message": "Chapter sections must only cite verified claims.",
+      "path": ""
     },
     {
-      "focus_node": "https://example.org/book-knowledge/claims/inj-verified-no-source",
+      "focus_node": "inj-verified-no-source",
       "message": "Verified claims must derive from at least one source-span entity.",
       "path": ""
     },
     {
-      "focus_node": "https://example.org/book-knowledge/sections/inj-section",
-      "message": "Chapter sections must only cite verified claims.",
-      "path": ""
+      "focus_node": "inj-verified-no-source",
+      "message": "Claim must have at least one source-span (minCount 1 on hasSourceSpan).",
+      "path": "https://example.org/book-knowledge#hasSourceSpan"
     }
   ]
 }

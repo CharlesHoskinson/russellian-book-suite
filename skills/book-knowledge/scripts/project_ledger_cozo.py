@@ -328,6 +328,13 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     # EXISTS arm faithfully: a never-emitted predicate => the negation clears
     # nothing => every disputed chapter-supporting claim surfaces.
     store.load("rebuttal-window-ok", [])
+    # chapter_section has no production projector yet: in the C0.1 violating
+    # fixture the tbf:ChapterSection / tbf:usesClaim triples were injected as raw
+    # RDF only, with no ledger record behind them. So it is loaded empty here
+    # (like chapter-wiki-ref), which keeps the bermuda workspace at 0 violations;
+    # the violating parity test loads synthetic chapter-section rows directly. A
+    # real chapter-section projector is future work (REQ-KG-012 chapter-cites-verified).
+    store.load("chapter-section", [])
 
 
 def main(argv: list[str]) -> int:

@@ -165,6 +165,51 @@
   {:attrs [:id :rule :formal :subject :pinned-value :forbidden-value]
    :relations []}
 
+  ;; -- thesis-consistency fact tables (P3.2, REQ-KG-015) -------------------
+  ;; The D9-D11 consistency pass (book-thesis) is a recursive Datalog program
+  ;; (rules/consistency.cozo) over the thesis spine (thesis-node/sub-argument/
+  ;; invariant) PLUS these claim-derived facts. book-thesis's consistency_cozo
+  ;; loader fills them from claim-facts.yaml + the ledger (the same sources the
+  ;; pyDatalog pass reads); book-knowledge's own claim projector leaves them
+  ;; empty. They live in the unified schema because the consistency store is
+  ;; built from it (the schema already spans claims + thesis + code graph).
+
+  ;; A claim's structured (subject, value) — the states(C,S,V) inputs to the
+  ;; contradiction + invariant detectors. :id is the claim id (one row per
+  ;; claim). Either field may be null: subject without value yields no `states`
+  ;; (matching the pyDatalog rule, which needs both).
+  :claim-fact
+  {:attrs [:id :subject :value]
+   :relations [[:of-claim :claim]]}
+
+  ;; claim A implies claim B (implies(A,B)) — the transitive-contradiction edge.
+  ;; Identity is the synthetic (claim-id . target-id) pair so re-projection upserts.
+  :claim-implies
+  {:attrs [:id :claim-id :target-id]
+   :relations [[:of-claim :claim]]}
+
+  ;; A claim (manuscript paragraph) declares it supports thesis node :node
+  ;; (supports(P,N) for paragraphs; the sub-argument->parent edge comes from
+  ;; sub-argument/parent). A claim is a `paragraph` iff it has >=1 such row.
+  ;; Identity is the synthetic (claim-id . node) pair.
+  :paragraph-supports
+  {:attrs [:id :claim-id :node]
+   :relations [[:of-claim :claim]]}
+
+  ;; A sub-argument is advanced by chapter :chapter (advances(Ch,N) inverse).
+  ;; A sub-argument advanced by no chapter trips D11 sub_arg_no_chapter.
+  ;; Identity is the synthetic (sub-arg-id . chapter) pair.
+  :sub-arg-chapter
+  {:attrs [:id :sub-arg-id :chapter]
+   :relations [[:of-sub-argument :sub-argument]]}
+
+  ;; A sub-argument declares evidence slot :evidence (requires_evidence(N,E)).
+  ;; A slot no claim's subject meets trips D11 missing_evidence (only when the
+  ;; ledger carries structured subjects). Identity is (sub-arg-id . evidence).
+  :sub-arg-evidence
+  {:attrs [:id :sub-arg-id :evidence]
+   :relations [[:of-sub-argument :sub-argument]]}
+
   ;; Wiki page — a *.md page under wiki/ (tbf:WikiPage in the RDF projection).
   ;; The projector mints one row per wiki/**/*.md file, mirroring project_graph's
   ;; per-file ``tbf:WikiPage`` emission: :id is the full page URI

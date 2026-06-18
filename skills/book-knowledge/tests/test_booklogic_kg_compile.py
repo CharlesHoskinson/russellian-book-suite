@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.booklogic_kg import compile_query
+from scripts.booklogic_kg import _format_literal, compile_query
 from scripts.cozo_store import CozoStore
 
 SCHEMA = Path(__file__).resolve().parents[1] / "assets" / "kg-schema.edn"
@@ -37,6 +37,13 @@ def test_defquery_golden():
     assert out == expected
     # Re-compiling is byte-identical (determinism).
     assert compile_query(edn, SCHEMA) == out
+
+
+def test_format_literal_escapes_quotes_and_backslashes():
+    assert (
+        _format_literal('a "quote" and a \\ slash')
+        == '"a \\"quote\\" and a \\\\ slash"'
+    )
 
 
 def test_compile_without_store():

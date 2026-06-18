@@ -65,6 +65,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -165,6 +166,19 @@ def _span_id(claim_id: str, doc_id: str, locator_text: str) -> str:
 _SOURCE_FIELDS = ("path", "title", "trust")
 
 
+def _canonical_utc_timestamp(value):
+    """Normalize aware ISO-8601 timestamps to one UTC string form."""
+    if not isinstance(value, str):
+        return value
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    if dt.tzinfo is None:
+        return value
+    return dt.astimezone(timezone.utc).isoformat()
+
+
 def _collect_sources(layout: WorkspaceLayout) -> list[dict]:
     """Scan ``raw/manifests/*.json`` and return one ``source`` row per manifest.
 
@@ -193,7 +207,7 @@ def _collect_sources(layout: WorkspaceLayout) -> list[dict]:
         seen.add(doc_id)
         row: dict = {"id": doc_id}
         if "ingested_at" in data:
-            row["ingested_at"] = data["ingested_at"]
+            row["ingested_at"] = _canonical_utc_timestamp(data["ingested_at"])
         for field in _SOURCE_FIELDS:
             if field in data:
                 row[field] = data[field]
@@ -231,7 +245,11 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
         row: dict = {"id": claim_id}
         for field in _CLAIM_FIELDS:
             if field in record:
-                row[field] = record[field]
+                row[field] = (
+                    _canonical_utc_timestamp(record[field])
+                    if field in {"created_at", "last_verified_at"}
+                    else record[field]
+                )
         claim_rows.append(row)
 
         for chapter in record.get("supports_chapters", []):

@@ -1,8 +1,13 @@
 """Tests for ci/compute_matrix.py (REQ-CI-046 dynamic matrix selection)."""
 from __future__ import annotations
 
+import re
+import tomllib
+
 from ci.compute_matrix import (
+    REPO_ROOT,
     build_rows,
+    load_config,
     runnable,
     select_skills,
     shared_hit,
@@ -125,3 +130,31 @@ def test_build_rows_fails_closed_on_empty_os():
     entries = [{"skill": "ghost", "os": [], "extra": "ci"}]
     with pytest.raises(ValueError, match=r"empty 'os'"):
         build_rows(entries, CONFIG, profile="pr")
+
+
+def _declared_dependency_names(dependencies: list[str]) -> set[str]:
+    names: set[str] = set()
+    for dependency in dependencies:
+        name = re.split(r"[\s<>=!~;\[]", dependency, maxsplit=1)[0]
+        names.add(name.lower().replace("-", "_"))
+    return names
+
+
+def test_real_matrix_ci_extras_keep_cozo_dependencies():
+    """The real skill matrix must install Cozo dependencies for both KG skills."""
+    config = load_config()
+    entries = {entry["skill"]: entry for entry in config["skills"]}
+    required = {"pycozo", "edn_format"}
+
+    for skill in ("book-thesis", "book-knowledge"):
+        extra_names = {
+            item.strip()
+            for item in entries[skill].get("extra", config["defaults"]["extra"]).split(",")
+        }
+        assert "ci" in extra_names
+
+        pyproject = tomllib.loads(
+            (REPO_ROOT / "skills" / skill / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        ci_dependencies = pyproject["project"]["optional-dependencies"]["ci"]
+        assert required <= _declared_dependency_names(ci_dependencies)

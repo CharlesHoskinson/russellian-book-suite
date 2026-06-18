@@ -22,11 +22,10 @@ Mapping to ``kg-schema.edn`` (mirrors compile_thesis's triple shape):
     ``forbidden-value`` parsed from ``formal`` (reusing compile_thesis's parser,
     the single source of that parse), for the P3.2 D11 check.
 
-Out of P3.1 scope (deliberately not loaded): a sub-argument's
-``required_evidence`` / ``advanced_by_chapters`` (the relational form of
-compile_thesis's ``requiresEvidence`` / ``advancedBy``). The schema declares an
-``:advanced-by`` relation but the D9-D11 pass still feeds those via the RDF/TTL
-path; a Cozo-side projection of them is a follow-on if P3.2 needs the join.
+Out of this spine projector's scope: a sub-argument's ``required_evidence`` /
+``advanced_by_chapters`` (the relational form of compile_thesis's
+``requiresEvidence`` / ``advancedBy``). The D9-D11 pass loads those YAML fields
+into Cozo in ``consistency_cozo.project_consistency_facts`` alongside claim facts.
 
 The store is built by the caller (via the P3.0 sibling bridge) so this module
 stays a pure loader and never imports book-knowledge directly.
@@ -55,14 +54,17 @@ _ROOT_ID = "thesis"
 def _book_id(workspace: Path, book_id: str | None) -> str:
     """Return the book id, inferring it from the single ``thesis/*.yaml`` if absent.
 
-    ``thesis/schema.yaml`` (the spec doc) is excluded from inference. If the book
-    id is ambiguous (zero or several candidates), the caller must pass it.
+    ``thesis/schema.yaml`` (the spec doc) and ``thesis/claim-facts.yaml`` (the
+    structured claim-fact sidecar) are excluded from inference. If the book id is
+    ambiguous (zero or several candidates), the caller must pass it.
     """
     if book_id is not None:
         return book_id
     thesis_dir = workspace / "thesis"
     candidates = [
-        p.stem for p in sorted(thesis_dir.glob("*.yaml")) if p.stem != "schema"
+        p.stem
+        for p in sorted(thesis_dir.glob("*.yaml"))
+        if p.stem not in {"schema", "claim-facts"}
     ]
     if len(candidates) != 1:
         raise ValueError(

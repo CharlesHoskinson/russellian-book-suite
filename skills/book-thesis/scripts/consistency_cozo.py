@@ -287,7 +287,13 @@ def main(argv: list[str]) -> int:
         print("usage: consistency_cozo.py <workspace> [book-id]", file=sys.stderr)
         return 2
     book_id = argv[2] if len(argv) > 2 else None
-    payload = run_consistency_cozo(Path(argv[1]), book_id, write_artifact=True)
+    try:
+        payload = run_consistency_cozo(Path(argv[1]), book_id, write_artifact=True)
+    except ValueError as e:
+        if "cannot infer book_id" not in str(e):
+            raise
+        print(f"consistency_cozo.py: {e}", file=sys.stderr)
+        return 2
     s = payload["summary"]
     print(f"cozo consistency: contradictions={s['contradictions']} "
           f"orphans={s['orphans']} invariant_violations={s['invariant_violations']}")

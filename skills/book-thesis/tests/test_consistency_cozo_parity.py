@@ -25,6 +25,8 @@ from scripts.consistency_cozo import run_consistency_cozo
 
 from tests.fixtures.violating_thesis import build_violating_thesis
 
+pytestmark = pytest.mark.windows_canary
+
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "tests" / "golden" / "consistency"
 BERMUDA = ROOT.parents[1] / "examples" / "bermuda-manual"
@@ -138,10 +140,41 @@ def test_cli_returns_zero_on_clean(tmp_path):
     }
 
 
+def test_cli_infers_book_id_ignoring_claim_facts(tmp_path):
+    import scripts.consistency_cozo as cc
+
+    ws = _build_clean_workspace(tmp_path)
+    (ws / "thesis" / "claim-facts.yaml").write_text(
+        "claim_facts: {}\n", encoding="utf-8", newline="\n"
+    )
+
+    rc = cc.main(["consistency_cozo.py", str(ws)])
+    assert rc == 0
+    artifact = ws / "qa" / "datalog-defects.json"
+    assert artifact.exists()
+    assert json.loads(artifact.read_text(encoding="utf-8"))["summary"] == {
+        "contradictions": 0, "orphans": 0, "invariant_violations": 0,
+    }
+
+
+def test_cli_returns_usage_error_on_ambiguous_book_id(tmp_path, capsys):
+    import scripts.consistency_cozo as cc
+
+    ws = _build_clean_workspace(tmp_path)
+    (ws / "thesis" / "second.yaml").write_text(
+        _CLEAN_YAML.replace("book_id: clean", "book_id: second"),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    rc = cc.main(["consistency_cozo.py", str(ws)])
+    assert rc == 2
+    assert "cannot infer book_id" in capsys.readouterr().err
+
+
 def test_run_consistency_cozo_is_pure_without_write_flag(tmp_path):
     """The library function must NOT write the artifact unless asked (so a parity
     call against a real workspace, e.g. bermuda, has no side effects)."""
     ws = _build_clean_workspace(tmp_path)
     run_consistency_cozo(ws)
     assert not (ws / "qa" / "datalog-defects.json").exists()
-

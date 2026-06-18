@@ -654,3 +654,36 @@ def test_stale_after_source_refresh_fires(tmp_path: Path) -> None:
     assert _canonical(rows) == _canonical(
         [["clm-2026-000001", "2026-06-01T00:00:00+00:00", "2026-06-10T00:00:00+00:00"]]
     )
+
+
+def test_stale_after_source_refresh_same_instant_mixed_utc_formats_not_stale(
+    tmp_path: Path,
+) -> None:
+    root = init_workspace(tmp_path / "ws")
+    layout = WorkspaceLayout(root)
+    append_claim(
+        layout,
+        {
+            "claim_id": "clm-2026-000001",
+            "canonical_text": "same instant claim",
+            "status": "verified",
+            "claim_type": "fact",
+            "confidence": 0.9,
+            "source_spans": [{"doc_id": "doc-mixed", "locator_text": "locator text"}],
+            "created_at": "2026-06-10T00:00:00+00:00",
+        },
+    )
+    layout.manifests.mkdir(parents=True, exist_ok=True)
+    (layout.manifests / "doc-mixed.json").write_text(
+        json.dumps({"doc_id": "doc-mixed", "ingested_at": "2026-06-10T00:00:00Z"}),
+        encoding="utf-8",
+    )
+
+    store = CozoStore.in_memory(schema_path=SCHEMA_PATH)
+    project_ledger(layout, store)
+    script = compile_query(
+        (QUERIES_DIR / "stale_after_source_refresh.edn").read_text("utf-8"),
+        SCHEMA_PATH,
+    )
+
+    assert store.query(script) == []

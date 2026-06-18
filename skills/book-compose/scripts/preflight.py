@@ -1,8 +1,8 @@
 """Pre-flight gate for chapter compilation.
 
-Imports book-knowledge's validate_shacl and run_competency_queries via the
-sibling-skills loader. Both rely on rdflib + pyshacl which are in
-book-compose's venv.
+Imports book-knowledge's validate_shacl compatibility contract and
+run_competency_queries via the sibling-skills loader. Both execute over the
+EDN/Cozo path in the book-knowledge venv.
 """
 from __future__ import annotations
 

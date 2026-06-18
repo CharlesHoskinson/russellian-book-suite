@@ -15,10 +15,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
 from scripts.project_thesis_cozo import project_thesis
 
 from tests.fixtures.violating_thesis import build_violating_thesis
+
+pytestmark = pytest.mark.windows_canary
 
 
 def _store():

@@ -82,6 +82,22 @@ def test_violating_fixture_goldens_nonempty() -> None:
     assert len(violations) >= 3, f"expected a non-vacuous failure, got {violations}"
 
 
+def test_capture_regenerates_bermuda_shacl_golden(tmp_path: Path) -> None:
+    """Audit follow-up: capture() must (re)generate the SHACL conformance golden so
+    the REQ-KG-014 oracle stays rebuildable (capture_shacl/write_shacl_golden were
+    otherwise unreachable from the CLI). Running it on bermuda must reproduce the
+    committed shacl_report_bermuda.json content."""
+    bermuda = Path(__file__).resolve().parents[3] / "examples" / "bermuda-manual"
+    assert bermuda.is_dir(), f"bermuda workspace required at {bermuda}"
+    out_dir = tmp_path / "out"
+    capture(bermuda, out_dir)
+    regen = out_dir / "shacl_report_bermuda.json"
+    assert regen.is_file(), "capture() must write the SHACL conformance golden"
+    assert json.loads(regen.read_text(encoding="utf-8")) == json.loads(
+        (GOLDEN / "shacl_report_bermuda.json").read_text(encoding="utf-8")
+    )
+
+
 def test_bermuda_golden_conforms() -> None:
     """The canonical bermuda-manual workspace golden must record conformance."""
     golden = json.loads(

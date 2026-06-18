@@ -133,6 +133,15 @@ def capture(workspace: Path, out_dir: Path) -> dict[str, int]:
         golden.sort(key=lambda d: json.dumps(d, sort_keys=True))
         _write_golden(golden, out_dir / f"{name}.json")
         counts[name] = len(golden)
+
+    # Also (re)generate the SHACL conformance golden for this workspace so the
+    # REQ-KG-014 equivalence oracle stays REBUILDABLE rather than frozen-in-place
+    # (capture_shacl/write_shacl_golden were otherwise unreachable from the CLI).
+    # The <name> mirrors the committed shacl_report_<name>.json: the workspace dir
+    # name with a trailing "-manual" stripped (bermuda-manual -> bermuda). The
+    # violating-fixture golden is regenerated from its test fixture.
+    shacl_name = layout.root.name.replace("-manual", "")
+    write_shacl_golden(layout, out_dir / f"shacl_report_{shacl_name}.json")
     return counts
 
 

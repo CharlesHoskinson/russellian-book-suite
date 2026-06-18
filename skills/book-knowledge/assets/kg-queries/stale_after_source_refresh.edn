@@ -31,9 +31,9 @@
 ;; the canonical one.
 ;;
 ;; :filter applies the var-vs-var ordered comparison `?src_date > ?claim_date`
-;; (source refreshed strictly after the claim was created). Both are ISO-8601
-;; strings, which Cozo compares lexically — the same total order the date compare
-;; intends.
+;; (source refreshed strictly after the claim was created). The projector
+;; canonicalizes aware ISO-8601 timestamps to UTC first, so Cozo's lexical string
+;; comparison follows instant order for mixed `Z` / `+00:00` inputs.
 (defquery :stale-after-source-refresh
   :find   [?claim ?claim-date ?src-date]
   :where  [[?c :claim/id ?claim]

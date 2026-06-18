@@ -7,14 +7,13 @@ from pathlib import Path
 import shutil
 
 from scripts.query_chapter_evidence import query_chapter_evidence
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed(tmp_path: Path, chapter: str) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
     for i in range(3):

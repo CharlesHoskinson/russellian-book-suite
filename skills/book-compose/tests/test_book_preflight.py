@@ -9,14 +9,13 @@ import shutil
 import yaml
 
 from scripts.book_preflight import book_preflight, BookPreflightResult
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed_workspace_with_chapter(tmp_path: Path, chapter_id: str, version: str) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
     ledger_mod.append_claim(layout, {

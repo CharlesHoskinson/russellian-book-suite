@@ -1,6 +1,6 @@
 import pytest
 
-pytestmark = pytest.mark.windows_canary
+pytestmark = [pytest.mark.windows_canary, pytest.mark.needs_spacy_model]
 
 from datetime import datetime, timezone
 from pathlib import Path

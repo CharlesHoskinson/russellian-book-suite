@@ -1,5 +1,5 @@
 import pytest
-pytestmark = pytest.mark.windows_canary
+pytestmark = [pytest.mark.windows_canary, pytest.mark.needs_spacy_model]
 import json
 import os
 import time

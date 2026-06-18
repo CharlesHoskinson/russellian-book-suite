@@ -1,6 +1,6 @@
 import pytest
 
-pytestmark = pytest.mark.windows_canary
+pytestmark = [pytest.mark.windows_canary, pytest.mark.needs_spacy_model]
 
 from pathlib import Path
 

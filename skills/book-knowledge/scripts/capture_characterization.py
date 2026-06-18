@@ -146,7 +146,7 @@ def main(argv: list[str]) -> int:
         return 2
     counts = capture(Path(argv[1]), Path(argv[2]))
     if not counts:
-        print("ERROR: no queries discovered under assets/queries/", file=sys.stderr)
+        print("ERROR: no queries discovered under assets/kg-queries/", file=sys.stderr)
         return 1
     for name, n in counts.items():
         print(f"{name}: {n} rows")

@@ -1,14 +1,12 @@
-"""P5.3 cutover gate (REQ-KG-010/018) — Cozo is the live default, clean on real data.
+"""P5.3 cutover gate (REQ-KG-010/018) — Cozo is live, clean on real data.
 
 Locks the cutover invariants before the P5.4 deletion of the legacy stack:
 
-- the DEFAULT backend (no ``KG_BACKEND`` flag) is **cozo** for BOTH dispatch points,
-  ``validate_shacl`` and ``run_competency_queries`` — the defining property of the
-  cutover (proven by spying that the rdflib code path is NOT taken);
+- ``validate_shacl`` and ``run_competency_queries`` are Cozo-only for the cutover;
 - the real ``examples/bermuda-manual`` workspace is PRESENT — a HARD failure, not a
   skip (a skipped real-data leg is not proof — external-audit gate point 6);
-- the default (cozo) pipeline runs clean end-to-end on bermuda: SHACL conforms and
-  the competency gate completes, sourced from the ledger projection.
+- the default Cozo pipeline runs clean end-to-end on bermuda: constraints conform
+  and the competency gate completes, sourced from the ledger projection.
 
 Coverage NOT duplicated here (already locked elsewhere): per-query golden parity
 (``test_query_ports``), SHACL constraint parity incl. presence/datatype
@@ -82,12 +80,11 @@ def test_bermuda_workspace_present_not_skipped():
     assert (BERMUDA / "claims" / "ledger.jsonl").is_file(), "bermuda ledger missing"
 
 
-def test_default_cozo_pipeline_clean_on_bermuda(monkeypatch):
-    """End-to-end on the real book under the DEFAULT (cozo): SHACL conforms and the
-    competency gate completes — the cutover default works on real ledger data."""
+def test_default_cozo_pipeline_clean_on_bermuda():
+    """End-to-end on the real book: constraints conform and the competency gate
+    completes on real ledger data."""
     from scripts.validate_shacl import validate_shacl
 
-    monkeypatch.delenv("KG_BACKEND", raising=False)
     layout = WorkspaceLayout(BERMUDA)
     report = validate_shacl(layout)
     assert report.conforms is True, f"bermuda must conform under cozo: {report.violations}"

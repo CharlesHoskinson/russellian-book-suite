@@ -39,11 +39,28 @@ def test_defquery_golden():
     assert compile_query(edn, SCHEMA) == out
 
 
-def test_format_literal_escapes_quotes_and_backslashes():
-    assert (
-        _format_literal('a "quote" and a \\ slash')
-        == '"a \\"quote\\" and a \\\\ slash"'
+def test_format_literal_rejects_unrepresentable_string():
+    """A string literal containing a double-quote or backslash is NOT safely
+    representable as a CozoScript inline literal in the embedded Cozo build: the
+    escaped form (\\") is rejected by the parser. Reject at COMPILE time with a
+    clear error rather than emit a script that fails opaquely at query time."""
+    with pytest.raises(ValueError, match="not safely representable"):
+        _format_literal('a "quote" x')
+    with pytest.raises(ValueError, match="not safely representable"):
+        _format_literal("a \\ slash")
+
+
+def test_compiled_literal_query_actually_runs_against_store():
+    """Regression for the literal approach: a compiled query carrying an ordinary
+    string literal must PARSE/RUN against the embedded Cozo. A string-match-only
+    test cannot catch that an escaped quote is parser-rejected."""
+    edn = (
+        "(defquery :t :find [?id] "
+        ':where [[?c :claim/id ?id] [?c :claim/status "verified"]])'
     )
+    out = compile_query(edn, SCHEMA)
+    store = CozoStore.in_memory(schema_path=SCHEMA)
+    assert store.query(out) == []
 
 
 def test_compile_without_store():

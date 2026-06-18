@@ -159,10 +159,12 @@ def project_consistency_facts(workspace: Path, store, book_id: str | None = None
         claim_facts = load_claim_facts(workspace)
         seen: set[str] = set()
         for rec in _iter_claims(claims_path):
-            cid = rec.get("claim_id") or rec.get("id")
+            # Coerce BEFORE the seen-check: a numeric claim_id would otherwise
+            # compare unequal to the str() forms already in `seen` (42 != "42"),
+            # bypassing the dedup.
+            cid = str(rec.get("claim_id") or rec.get("id") or "")
             if not cid or rec.get("status", "verified") != "verified" or cid in seen:
                 continue
-            cid = str(cid)
             seen.add(cid)
             proj = claim_facts.get(cid, {})
 

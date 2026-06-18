@@ -158,12 +158,27 @@ def _is_var(value: Any) -> bool:
 
 
 def _format_literal(value: Any) -> str:
-    """Render an EDN literal as a CozoScript scalar (strings quoted)."""
+    """Render an EDN literal as a CozoScript scalar (strings quoted).
+
+    A string containing ``"`` or ``\\`` is rejected at compile time: the embedded
+    Cozo build cannot represent an escaped double-quote in an inline double-quoted
+    literal — the escaped form (``\\"``) is rejected by its parser (verified
+    empirically), and its backslash handling is unreliable — so such a value can
+    only be passed safely as a query parameter, which this pure compiler does not
+    emit. Failing here turns what would otherwise be an opaque ``QueryException`` at
+    ``store.query()`` time into a clear compile-time error. No current EDN literal
+    (status enums, URIs, ASCII messages) trips this.
+    """
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
         return str(value)
-    text = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    text = str(value)
+    if '"' in text or "\\" in text:
+        raise ValueError(
+            "string literal contains a double-quote or backslash, which is not "
+            f"safely representable as a CozoScript inline literal: {text!r}"
+        )
     return f'"{text}"'
 
 

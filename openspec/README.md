@@ -37,6 +37,12 @@ Capability slugs and their full capability names:
 | `DELTA` | russell-delta |
 | `VOICE-EVAL` | voice-eval |
 | `READING` | reading-council |
+| `KG` | homoiconic-kg |
+| `EVAL` | kg-prose-eval |
+| `CHAP` | chapter-retrieval |
+| `ATTR` | attributed-generation |
+| `ARG` | argumentation |
+| `PROOF` | proof-obligations |
 
 ## EARS patterns
 

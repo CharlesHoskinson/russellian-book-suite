@@ -106,7 +106,7 @@ Editorial (Stage-2 swarm, per chapter):
 - `dispatch_chapter_qa.py` — per-chapter editorial swarm dispatch (C1-C15).
 - `sentinel.py` — ticket aggregation and classification (severity rubric).
 - `healer.py` — isolated-context patch loop, max 3 iterations per defect class.
-- `propose_writeback.py` — reads qa/lint-findings.json + qa/swarm-findings.json, emits claims/proposed-transitions.jsonl + qa/ledger-writeback-<version>.md
+- `propose_writeback.py` — reads qa/lint-findings.json + qa/swarm-findings.json, emits qa/proposed-transitions.jsonl + qa/ledger-writeback-<version>.md
 - `transition_rules.py` — pure-function mapping from QA ticket class to proposed ledger transition
 
 ## Composes with
@@ -114,7 +114,7 @@ Editorial (Stage-2 swarm, per chapter):
 - `book-compose` — `build_book` invokes `lint_artifact` as a gate; `--qa` flag skips during iteration.
 - `book-review` — pre-build qualitative review; orthogonal scope, both ship.
 - `russellian-style` — its linters back C11 judgement by Stage-2 agents.
-- `book-knowledge` — read-only; claim IDs flagged by D1/C4 trace back to its ledger. `propose_writeback` writes claims/proposed-transitions.jsonl + qa/ledger-writeback-<version>.md; `apply_writeback` (in book-knowledge) commits transitions.
+- `book-knowledge` — read-only; claim IDs flagged by D1/C4 trace back to its ledger. `propose_writeback` writes qa/proposed-transitions.jsonl + qa/ledger-writeback-<version>.md; `apply_writeback` (in book-knowledge) commits transitions.
 - `book-thesis` — writes D9-D12 inputs before `lint_artifact` reads them.
 
 ## Usage

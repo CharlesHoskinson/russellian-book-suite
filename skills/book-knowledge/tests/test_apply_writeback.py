@@ -25,7 +25,8 @@ def _seed_claim(tmp_path):
 
 def test_apply_writeback_propose_only_default(tmp_path):
     _seed_claim(tmp_path)
-    (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
+    (tmp_path / "qa").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "qa" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "from": "verified", "to": "disputed",
         "cause_ticket_id": "tkt-1", "cause_class": "unsupported_claim",
@@ -39,7 +40,8 @@ def test_apply_writeback_propose_only_default(tmp_path):
 
 def test_apply_writeback_auto_apply_critical(tmp_path):
     _seed_claim(tmp_path)
-    (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
+    (tmp_path / "qa").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "qa" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "from": "verified", "to": "disputed",
         "cause_ticket_id": "tkt-1", "cause_class": "unsupported_claim",
@@ -53,7 +55,8 @@ def test_apply_writeback_auto_apply_critical(tmp_path):
 
 def test_apply_writeback_skips_non_critical_in_auto(tmp_path):
     _seed_claim(tmp_path)
-    (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
+    (tmp_path / "qa").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "qa" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "from": "verified", "to": "disputed",
         "cause_ticket_id": "tkt-1", "cause_class": "unsupported_claim",
@@ -66,7 +69,8 @@ def test_apply_writeback_skips_non_critical_in_auto(tmp_path):
 def test_apply_writeback_blocks_human_review_proposals(tmp_path):
     """REQ-QA-PIPE-012: :requires :human-review blocks auto-apply."""
     _seed_claim(tmp_path)
-    (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
+    (tmp_path / "qa").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "qa" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "claim", "claim_id": "clm-2026-000001",
         "to": "refuted",
         "cause_ticket_id": "W001", "cause_class": "booklogic_remedy",
@@ -85,7 +89,8 @@ def test_apply_writeback_counter_claim_auto_applies(tmp_path):
         "provenance": {"generator": "abduction-v1", "prompt_sha256": "0"*64},
         "created_at": "2026-05-11T00:00:00Z", "addressed_in_chapter": None,
     })
-    (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
+    (tmp_path / "qa").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "qa" / "proposed-transitions.jsonl").write_text(json.dumps({
         "kind": "counter_claim", "counter_claim_id": "cc-2026-abcdef",
         "new_status": "addressed", "chapter_id": "ch07",
         "cause_ticket_id": "tkt-2", "cause_class": "addressed_rival",
@@ -97,3 +102,15 @@ def test_apply_writeback_counter_claim_auto_applies(tmp_path):
     latest = [r for r in items if r["id"] == "cc-2026-abcdef"][-1]
     assert latest["status"] == "addressed"
     assert latest["addressed_in_chapter"] == "ch07"
+
+
+def test_apply_writeback_reads_legacy_claims_proposals(tmp_path):
+    _seed_claim(tmp_path)
+    (tmp_path / "claims" / "proposed-transitions.jsonl").write_text(json.dumps({
+        "kind": "claim", "claim_id": "clm-2026-000001",
+        "from": "verified", "to": "disputed",
+        "cause_ticket_id": "tkt-legacy", "cause_class": "unsupported_claim",
+        "severity": "critical",
+    }) + "\n", encoding="utf-8")
+    summary = apply_writeback(tmp_path, auto_apply=False)
+    assert summary == {"proposed": 1, "applied": 0}

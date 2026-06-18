@@ -1,4 +1,4 @@
-"""Read QA tickets, propose ledger transitions; write to claims/ and qa/ reports."""
+"""Read QA tickets, propose ledger transitions; write QA proposal artifacts."""
 from __future__ import annotations
 
 import json
@@ -117,14 +117,13 @@ def _load_tickets(qa_dir: Path) -> list[dict]:
 def propose_writeback(workspace_root: Path, version: str) -> Path:
     """Emit proposed ledger transitions from current QA findings.
 
-    The output file `claims/proposed-transitions.jsonl` is OVERWRITTEN on each
+    The output file `qa/proposed-transitions.jsonl` is OVERWRITTEN on each
     call — it is a per-build scratch artifact, not an accumulating log.
     Consumers (`apply_writeback.py`) must process it before the next sentinel
     run, or earlier proposals are lost.
     """
     qa_dir = workspace_root / "qa"
-    claims_dir = workspace_root / "claims"
-    claims_dir.mkdir(parents=True, exist_ok=True)
+    qa_dir.mkdir(parents=True, exist_ok=True)
     tickets = _load_tickets(qa_dir)
     # BookLogic remedy proposals (REQ-QA-PIPE-010).
     remedy_proposals = _load_booklogic_remedy_proposals(workspace_root)
@@ -141,7 +140,7 @@ def propose_writeback(workspace_root: Path, version: str) -> Path:
             continue
         m["severity"] = rp.get("severity", "important")
         proposed.append(m)
-    out_jsonl = claims_dir / "proposed-transitions.jsonl"
+    out_jsonl = qa_dir / "proposed-transitions.jsonl"
     # Intentional truncate-and-write: per-build scratch, consumed by apply_writeback.
     with out_jsonl.open("w", encoding="utf-8") as fh:
         for p in proposed:

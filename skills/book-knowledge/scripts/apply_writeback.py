@@ -1,4 +1,4 @@
-"""Apply proposed transitions emitted by book-qa propose_writeback."""
+"""Apply proposed transitions emitted by book-qa proposal writers."""
 from __future__ import annotations
 
 import argparse
@@ -22,7 +22,11 @@ def _operator() -> str:
 
 def apply_writeback(workspace_root: Path, auto_apply: bool = False) -> dict:
     layout = WorkspaceLayout(workspace_root)
-    pt = layout.root / "claims" / "proposed-transitions.jsonl"
+    pt = layout.root / "qa" / "proposed-transitions.jsonl"
+    if not pt.exists():
+        # Legacy fallback for workspaces produced before S2 moved proposals
+        # under qa/ to respect skill ownership.
+        pt = layout.root / "claims" / "proposed-transitions.jsonl"
     if not pt.exists():
         return {"proposed": 0, "applied": 0}
     proposed = read_jsonl(pt)
@@ -56,6 +60,10 @@ def apply_writeback(workspace_root: Path, auto_apply: bool = False) -> dict:
             new["addressed_in_chapter"] = p.get("chapter_id")
             append_counter_claim(workspace_root, new)
             applied += 1
+        else:
+            # Novel draft claims and other human-review proposal kinds are gate
+            # records. They are counted as proposed but never auto-applied here.
+            continue
     return {"proposed": len(proposed), "applied": applied}
 
 

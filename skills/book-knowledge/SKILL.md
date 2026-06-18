@@ -72,8 +72,9 @@ Schemas, SHACL shapes, and SPARQL queries ship in `assets/`. Progressive-disclos
     snapshots/                                # NEW — Bundle C
     counter-claims.jsonl                      # NEW — Bundle C
     address-checks/                           # NEW — Bundle C
-    proposed-transitions.jsonl                # NEW — Bundle C
     events.jsonl                              # NEW — Bundle C
+  qa/
+    proposed-transitions.jsonl                # book-qa writes; apply_writeback consumes (moved from claims/ in S2)
   graph/
     dataset.trig  shapes.ttl
     imports/  reports/

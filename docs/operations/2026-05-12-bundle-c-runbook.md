@@ -94,7 +94,7 @@ What to verify:
 
 2. **Writeback proposals.** After QA stage:
    ```
-   ls examples/bermuda-manual/claims/proposed-transitions.jsonl
+   ls examples/bermuda-manual/qa/proposed-transitions.jsonl
    ls examples/bermuda-manual/qa/ledger-writeback-v6.md
    ```
 

@@ -9,7 +9,7 @@ import shutil
 import yaml
 
 from scripts.book_summary import collect_chapter_data, build_book_summary
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed_workspace(tmp_path: Path, chapter_specs: list[tuple[str, str, str]]) -> Path:
@@ -17,7 +17,6 @@ def _seed_workspace(tmp_path: Path, chapter_specs: list[tuple[str, str, str]]) -
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
 

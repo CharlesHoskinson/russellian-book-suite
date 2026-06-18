@@ -278,4 +278,13 @@
   :code-claim-link
   {:attrs [:id :code-id :claim-id]
    :relations [[:of-code :code-node]
-               [:of-claim :claim]]}}}
+               [:of-claim :claim]]}
+
+  ;; Chapter retrieval bundle — deterministic writer input for one chapter
+  ;; (REQ-CHAP-001..008). The row is materialized by
+  ;; scripts/project_chapter_bundle.py from existing graph relations. The payload
+  ;; is stored in canonical JSON plus EDN so book-compose receives a structured
+  ;; bundle rather than a flat passage list.
+  :chapter-retrieval-bundle
+  {:attrs [:id :chapter-id :chapter-uri :payload-json :payload-edn :prompt-scaffold]
+   :relations [[:for-chapter :chapter]]}}}

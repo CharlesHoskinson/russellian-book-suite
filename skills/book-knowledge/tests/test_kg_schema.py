@@ -43,6 +43,7 @@ EXPECTED_ENTITIES = {
     "community",
     "code-claim-link",
     "chapter-section",
+    "chapter-retrieval-bundle",
 }
 
 

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chapter-retrieval-bundle",
+  "type": "object",
+  "required": [
+    "schema",
+    "chapter-id",
+    "chapter-uri",
+    "dominant-communities",
+    "load-bearing-claims",
+    "unresolved-rebuttals",
+    "source-span-anchors"
+  ],
+  "properties": {
+    "schema": {"const": "chapter-retrieval-bundle/v1"},
+    "chapter-id": {"type": "string", "minLength": 1},
+    "chapter-uri": {"type": "string", "minLength": 1},
+    "dominant-communities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rank", "community-id", "claim-count", "claim-ids"],
+        "properties": {
+          "rank": {"type": "integer", "minimum": 1},
+          "community-id": {"type": "string", "minLength": 1},
+          "claim-count": {"type": "integer", "minimum": 1},
+          "claim-ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "load-bearing-claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim-id",
+          "text",
+          "status",
+          "confidence",
+          "source-span-ids"
+        ],
+        "properties": {
+          "claim-id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "status": {"type": ["string", "null"]},
+          "confidence": {"type": ["number", "null"]},
+          "source-span-ids": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "unresolved-rebuttals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "counter-claim-id",
+          "target-claim-id",
+          "status",
+          "created-at"
+        ],
+        "properties": {
+          "counter-claim-id": {"type": "string"},
+          "target-claim-id": {"type": "string"},
+          "status": {"const": "open"},
+          "created-at": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "source-span-anchors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["span-id", "claim-id", "doc-id", "locator-text"],
+        "properties": {
+          "span-id": {"type": "string"},
+          "claim-id": {"type": "string"},
+          "doc-id": {"type": ["string", "null"]},
+          "node-id": {"type": ["string", "null"]},
+          "page-index": {"type": ["integer", "null"]},
+          "locator-text": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "code-links": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["code-id"],
+          "properties": {
+            "code-id": {"type": "string"}
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "flags": {
+      "type": "object",
+      "properties": {
+        "unanchored-load-bearing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim-id", "reason"],
+            "properties": {
+              "claim-id": {"type": "string"},
+              "reason": {"const": "no-source-span"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

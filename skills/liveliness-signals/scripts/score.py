@@ -10,6 +10,9 @@ from scripts.text_util import iter_sentences
 # Scorers are appended in later tasks.
 SIGNALS: list = []
 
+from scripts import signal_cadence
+SIGNALS.append(("cadence", signal_cadence.score))
+
 
 def _load_profile_safe(profile):
     if profile is not None:

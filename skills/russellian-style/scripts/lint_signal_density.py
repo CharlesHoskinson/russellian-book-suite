@@ -71,10 +71,23 @@ def lint_signal_density(path: Path, rules: dict | None = None, register: str | N
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 2:
-        print("usage: lint_signal_density.py <markdown-file>", file=sys.stderr)
+    args = argv[1:]
+    ruleset = "russellian-rules.json"
+    register: str | None = None
+    rest = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--ruleset" and i + 1 < len(args):
+            ruleset = args[i + 1]; i += 2
+        elif args[i] == "--register" and i + 1 < len(args):
+            register = args[i + 1]; i += 2
+        else:
+            rest.append(args[i]); i += 1
+    if not rest:
+        print("usage: lint_signal_density.py [--ruleset NAME] [--register REG] <markdown-file>", file=sys.stderr)
         return 2
-    findings = lint_signal_density(Path(argv[1]))
+    rules = load_rules(ruleset)
+    findings = lint_signal_density(Path(rest[0]), rules=rules, register=register)
     print(json.dumps(findings, indent=2))
     return 1 if findings else 0
 

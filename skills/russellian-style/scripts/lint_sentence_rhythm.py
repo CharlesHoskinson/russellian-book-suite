@@ -124,10 +124,20 @@ def lint_sentence_rhythm(path: Path, rules: dict | None = None) -> list[dict]:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 2:
-        print("usage: lint_sentence_rhythm.py <markdown-file>", file=sys.stderr)
+    args = argv[1:]
+    ruleset = "russellian-rules.json"
+    rest = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--ruleset" and i + 1 < len(args):
+            ruleset = args[i + 1]; i += 2
+        else:
+            rest.append(args[i]); i += 1
+    if not rest:
+        print("usage: lint_sentence_rhythm.py [--ruleset NAME] <markdown-file>", file=sys.stderr)
         return 2
-    findings = lint_sentence_rhythm(Path(argv[1]))
+    rules = load_rules(ruleset)
+    findings = lint_sentence_rhythm(Path(rest[0]), rules=rules)
     print(json.dumps(findings, indent=2))
     return 1 if findings else 0
 

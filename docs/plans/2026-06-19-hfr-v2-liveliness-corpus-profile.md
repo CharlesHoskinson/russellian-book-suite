@@ -82,15 +82,18 @@ requires-python = ">=3.11"
 dependencies = ["spacy>=3.7,<4.0"]
 
 [project.optional-dependencies]
-ci = ["spacy>=3.7,<4.0", "pyyaml>=6.0,<7.0", "jsonschema>=4.21,<5.0", "pytest>=8.0,<10.0"]
-dev = ["pytest>=8.0,<10.0", "pyyaml>=6.0,<7.0"]
+ci = ["spacy>=3.7,<4.0", "pyyaml>=6.0,<7.0", "jsonschema>=4.21,<5.0", "pytest>=8.0,<10.0", "click>=8", "typer>=0.9"]
+dev = ["pytest>=8.0,<10.0", "pyyaml>=6.0,<7.0", "click>=8", "typer>=0.9"]
 
 [tool.setuptools]
 packages = ["scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["windows_canary: platform-sensitive test that must run on Windows"]
+markers = [
+  "windows_canary: platform-sensitive test that must run on Windows",
+  "needs_model: test requires the spaCy en_core_web_sm model",
+]
 addopts = "-q"
 ```
 
@@ -173,8 +176,16 @@ Build the profile: `python -m scripts.build_corpus_profile`
 
 - [ ] **Step 4: Run the smoke test to confirm it passes**
 
-Run: `cd skills/liveliness-signals && python -m venv .venv && .venv/Scripts/python.exe -m pip install -q -e ".[ci]" && .venv/Scripts/python.exe -m pytest tests/test_smoke.py -q`
-Expected: 1 passed.
+Run (the `[ci]` extra omits `click`/`typer`, which `spacy download` imports — install them before downloading the model, or it fails with `ModuleNotFoundError: No module named 'click'` on Python 3.14):
+```
+cd skills/liveliness-signals
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -q -e ".[ci]"
+.venv/Scripts/python.exe -m pip install -q "click>=8" "typer>=0.9"
+.venv/Scripts/python.exe -m spacy download en_core_web_sm
+.venv/Scripts/python.exe -m pytest tests/test_smoke.py -q
+```
+Expected: 1 passed. (The model is installed here so later tasks' `needs_model` tests run rather than skip.)
 
 - [ ] **Step 5: Commit**
 
@@ -746,3 +757,34 @@ git commit -m "Build and expose Hoskinson style profile asset"
 **Type consistency:** `register_for`/`load_corpus`/`REGISTERS` (Task 2) are consumed unchanged in Task 5; `sentence_lengths`/`cadence_corridor` (Task 3) and `diction_device_metrics` (Task 4) feed `_profile_for` in Task 5; `load_profile` (Task 6) returns the `build_profile` shape. Consistent.
 
 **Deferred to later plans (not gaps):** concreteness/light-verb baselines (Plan 3), all eight scorers (Plan 3), floor ruleset (Plan 2), generation (Plan 4), eval (Plan 5).
+
+---
+
+## Execution notes (2026-06-19) — Plan reconciled with what shipped
+
+Executed subagent-driven into an isolated worktree (branch `hfr-v2-liveliness`),
+after a parallel-agent (Codex) collision on the shared `main` checkout forced a
+worktree recovery. All six tasks implemented, each task-reviewed, and the final
+whole-branch review returned **Ready to merge: Yes** (no Critical/Important). 11
+tests pass; the real asset generated from 57 paragraphs.
+
+**Amendments folded into the task text above** (the plan now matches what shipped):
+- `pyproject` `ci`/`dev` extras add `click>=8`/`typer>=0.9`; the `needs_model`
+  pytest marker is registered alongside `windows_canary`.
+- Task 1 Step 4 venv recipe installs the spaCy model (with the click/typer
+  pre-install) so later `needs_model` tests run instead of skipping.
+
+**Real register distribution:** technical-exposition 7, narrative-editorial 26,
+polemic 24 — all clear `min_per_register=5`, so no register fell back.
+
+**Plan-3 follow-ups (advisory-stat semantics; not blockers):**
+- `diction_device_metrics` `example_spacing` indexes sentences globally across the
+  concatenated corpus, so cross-paragraph gaps are counted — add a clarifying
+  comment / tighten when a signal graduates toward gating.
+- `_EXAMPLE_MARKERS` uses substring match (`"say"` matches `"essay"`) — switch to
+  word-boundary matching in Plan 3.
+
+**Dependency for Plan 2:** the profile asset does NOT yet carry modifier-ratio
+percentiles per register, which Plan 2's register-conditioned modifier corridor
+needs. Plan 2's first task extends the profiler to compute them and regenerates
+the asset before wiring the corridor.

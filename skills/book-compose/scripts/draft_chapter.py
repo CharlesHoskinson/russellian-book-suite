@@ -54,6 +54,34 @@ def _unanchored_claim_ids(payload: dict[str, Any]) -> set[str]:
     }
 
 
+def _code_grounding(payload: dict[str, Any], support_claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    links_by_claim = payload.get("code-links") or {}
+    rows: list[dict[str, Any]] = []
+    for claim in support_claims:
+        claim_id = claim["claim-id"]
+        links = links_by_claim.get(claim_id) or []
+        for link in sorted(links, key=lambda item: str(item.get("code-id") or "")):
+            code_id = str(link.get("code-id") or "").strip()
+            if not code_id:
+                continue
+            row = {
+                "claim-id": claim_id,
+                "code-id": code_id,
+            }
+            for source_key, target_key in (
+                ("code-label", "code-label"),
+                ("label", "code-label"),
+                ("source-file", "source-file"),
+                ("source_file", "source-file"),
+                ("kind", "link-kind"),
+                ("link-kind", "link-kind"),
+            ):
+                if link.get(source_key):
+                    row[target_key] = link[source_key]
+            rows.append(row)
+    return rows
+
+
 def build_bundle_scaffold(bundle: dict[str, Any]) -> dict[str, Any]:
     """Build the deterministic writer scaffold consumed by the live draft path."""
     payload = bundle["payload"]
@@ -81,7 +109,7 @@ def build_bundle_scaffold(bundle: dict[str, Any]) -> dict[str, Any]:
     if withheld and "unanchored-load-bearing" not in flags:
         flags["unanchored-load-bearing"] = withheld
 
-    return {
+    scaffold = {
         "schema": "claim-first-drafting-scaffold/v1",
         "chapter-id": payload["chapter-id"],
         "thesis-cue": bundle.get("prompt_scaffold", "").strip(),
@@ -90,6 +118,10 @@ def build_bundle_scaffold(bundle: dict[str, Any]) -> dict[str, Any]:
         "caveats": payload.get("unresolved-rebuttals") or [],
         "flags": flags,
     }
+    code_grounding = _code_grounding(payload, support_claims)
+    if code_grounding:
+        scaffold["code-grounding"] = code_grounding
+    return scaffold
 
 
 def _format_anchor(anchor: dict[str, Any]) -> str:
@@ -134,6 +166,20 @@ def render_drafting_prompt(scaffold: dict[str, Any]) -> str:
             )
     else:
         lines.extend(["", "Support claims: (none anchored)"])
+
+    code_grounding = scaffold.get("code-grounding") or []
+    if code_grounding:
+        lines.extend(["", "Code grounding:"])
+        for item in code_grounding:
+            code_text = item["code-id"]
+            details = [
+                str(item[key])
+                for key in ("code-label", "source-file", "link-kind")
+                if item.get(key)
+            ]
+            if details:
+                code_text += f" ({'; '.join(details)})"
+            lines.append(f"- {item['claim-id']} -> {code_text}")
 
     caveats = scaffold.get("caveats") or []
     if caveats:

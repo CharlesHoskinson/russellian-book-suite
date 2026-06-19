@@ -6,10 +6,10 @@ agents that need to improve design, utility, or traceability.
 ## Summary
 
 - capabilities with work: 9
-- active coverage gaps: 18
+- active coverage gaps: 12
 - archived coverage gaps: 97
 - stale evidence links: 42
-- top priority: claim-first-drafting
+- top priority: homoiconic-kg
 
 ## Agent Workflow
 
@@ -19,21 +19,6 @@ agents that need to improve design, utility, or traceability.
 - For archived-only gaps, prefer documenting historical status over implementing stale requirements.
 
 ## Priorities
-
-### claim-first-drafting
-
-- priority score: 126
-- active coverage gaps: 12
-- archived coverage gaps: 6
-- stale evidence links: 0
-- missing implementation/test/ci: 18/18/18
-- recommended action: add or promote traceability for active requirements covering ci, implementation, test
-
-- example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:26
-- example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:41
-- example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:56
-- example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:70
-- example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:85
 
 ### homoiconic-kg
 
@@ -79,6 +64,21 @@ agents that need to improve design, utility, or traceability.
 - example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:56
 - example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:72
 - example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:88
+
+### claim-first-drafting
+
+- priority score: 66
+- active coverage gaps: 6
+- archived coverage gaps: 6
+- stale evidence links: 0
+- missing implementation/test/ci: 12/12/12
+- recommended action: add or promote traceability for active requirements covering ci, implementation, test
+
+- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:29
+- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:45
+- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:60
+- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:75
+- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:90
 
 ### attributed-generation
 

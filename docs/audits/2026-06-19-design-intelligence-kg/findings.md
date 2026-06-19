@@ -2,14 +2,14 @@
 
 ## Important findings
 
-- coverage-gaps: 115 requirements lack at least one promoted implementation, test, or CI link.
+- coverage-gaps: 109 requirements lack at least one promoted implementation, test, or CI link.
 - stale-docs: 42 evidence-only links need review before promotion.
 - untested-god-nodes: 0 high-rank graphify nodes lack promoted test links.
-- promoted traceability links: 117 of 159 total traceability links.
+- promoted traceability links: 135 of 177 total traceability links.
 
 ## coverage-gaps
 
-Total rows: 115
+Total rows: 109
 
 - `openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md:27`
   `{"capability": "argumentation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ARG-001", "source_line": 27, "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"}`
@@ -51,7 +51,7 @@ Total rows: 115
   `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-012", "source_line": 77, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
 - `openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md:92`
   `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-013", "source_line": 92, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
-- omitted rows: 95
+- omitted rows: 89
 
 ## stale-docs
 

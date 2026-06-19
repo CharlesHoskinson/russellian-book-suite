@@ -7,61 +7,6 @@
   ],
   "priorities": [
     {
-      "active_coverage_gaps": 12,
-      "archived_coverage_gaps": 6,
-      "capability": "claim-first-drafting",
-      "examples": [
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-013",
-          "source_line": 26,
-          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-014",
-          "source_line": 41,
-          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-015",
-          "source_line": 56,
-          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-016",
-          "source_line": 70,
-          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-017",
-          "source_line": 85,
-          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
-        }
-      ],
-      "missing": {
-        "ci": 18,
-        "implementation": 18,
-        "test": 18
-      },
-      "priority_score": 126,
-      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
-      "stale_evidence_links": 0
-    },
-    {
       "active_coverage_gaps": 0,
       "archived_coverage_gaps": 46,
       "capability": "homoiconic-kg",
@@ -223,6 +168,61 @@
         "test": 13
       },
       "priority_score": 67,
+      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 6,
+      "archived_coverage_gaps": 6,
+      "capability": "claim-first-drafting",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-007",
+          "source_line": 29,
+          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-008",
+          "source_line": 45,
+          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-009",
+          "source_line": 60,
+          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-010",
+          "source_line": 75,
+          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-011",
+          "source_line": 90,
+          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 12,
+        "implementation": 12,
+        "test": 12
+      },
+      "priority_score": 66,
       "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
       "stale_evidence_links": 0
     },
@@ -439,10 +439,10 @@
     }
   ],
   "summary": {
-    "active_coverage_gaps": 18,
+    "active_coverage_gaps": 12,
     "archived_coverage_gaps": 97,
     "capability_count": 9,
     "stale_evidence_links": 42,
-    "top_priority": "claim-first-drafting"
+    "top_priority": "homoiconic-kg"
   }
 }

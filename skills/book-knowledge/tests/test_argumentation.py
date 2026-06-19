@@ -296,3 +296,48 @@ def test_acceptance_deterministic(tmp_path: Path) -> None:
     project_ledger(layout, projected)
     run_argumentation(projected)
     assert layout.ledger.read_bytes() == before
+
+
+def _chain_store() -> CozoStore:
+    """Independent fixture: a length-4 attack chain 101->102->103->104."""
+    store = CozoStore.in_memory(SCHEMA)
+    ids = [f"clm-2026-{n:06d}" for n in (101, 102, 103, 104)]
+    store.load(
+        "claim",
+        [
+            {
+                "id": cid,
+                "canonical_text": f"chain {cid}",
+                "status": "verified",
+                "claim_type": "fact",
+                "confidence": 0.9,
+                "load_bearing": False,
+                "axiom": False,
+                "created_at": "2026-06-18T00:00:00+00:00",
+            }
+            for cid in ids
+        ],
+    )
+    store.load(
+        "claim-conflict",
+        [
+            {"id": f"{a}\x1f{b}", "claim_id": a, "other_id": b}
+            for a, b in zip(ids[:-1], ids[1:])
+        ],
+    )
+    return store
+
+
+def test_grounded_chain_generalizes_beyond_fixture() -> None:
+    """Auditor generality check: a length-4 attack chain on an independent graph
+    yields the correct grounded labels, confirming the fixed point is not
+    fixture-fitted. Hand-derived: 101 accepted, 102 rejected, 103 accepted
+    (reinstated), 104 rejected."""
+    labels = _labels(run_argumentation(_chain_store()))
+
+    assert labels == {
+        "clm-2026-000101": "accepted",
+        "clm-2026-000102": "rejected",
+        "clm-2026-000103": "accepted",
+        "clm-2026-000104": "rejected",
+    }

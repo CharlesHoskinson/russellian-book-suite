@@ -19,6 +19,8 @@ def _is_payoff(sent) -> bool:
     return (not sent.text.rstrip().endswith("?")) and len(sent.content) >= 3
 
 
+# Note: curiosity scores setup->payoff PRESENCE; semantic linkage between a
+# setup and its payoff is delegated to signal_novelty (the coherence guard).
 def score(sentences, register, profile) -> dict:
     findings: list[dict] = []
     n = len(sentences)

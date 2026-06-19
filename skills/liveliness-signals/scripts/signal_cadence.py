@@ -7,7 +7,8 @@ def score(sentences, register, profile) -> dict:
     lengths = [s.n_alpha for s in sentences if s.n_alpha > 0]
     findings: list[dict] = []
     if len(lengths) < 3:
-        return {"signal": "cadence", "score": 0.0, "findings": findings}
+        return {"signal": "cadence", "score": 0.0, "findings": findings,
+                "passage_cv": 0.0, "corpus_cv": 0.0}
     mu = mean(lengths)
     cv = pstdev(lengths) / mu if mu else 0.0
     corpus_cv = 0.5

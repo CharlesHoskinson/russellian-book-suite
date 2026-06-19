@@ -46,17 +46,27 @@ def score_passage(text: str, register: str = "narrative-editorial", profile=None
 
 
 def main(argv: list[str]) -> int:
-    args = [a for a in argv[1:] if not a.startswith("--")]
+    rest = argv[1:]
     reg = "narrative-editorial"
-    for i, a in enumerate(argv):
-        if a == "--register" and i + 1 < len(argv):
-            reg = argv[i + 1]
+    args: list[str] = []
+    i = 0
+    while i < len(rest):
+        a = rest[i]
+        if a == "--register" and i + 1 < len(rest):
+            reg = rest[i + 1]
+            i += 2
+            continue
+        if a.startswith("--"):
+            i += 1
+            continue
+        args.append(a)
+        i += 1
     if not args:
         print("usage: score.py [--register REG] <markdown-file>", file=sys.stderr)
         return 2
     text = Path(args[0]).read_text(encoding="utf-8")
     print(json.dumps(score_passage(text, register=reg), indent=2))
-    return 0  # advisory: always 0
+    return 0
 
 
 if __name__ == "__main__":

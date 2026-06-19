@@ -9,3 +9,14 @@ if str(_SKILL_ROOT) not in sys.path:
     sys.path.insert(0, str(_SKILL_ROOT))
 
 __all__ = ["API_VERSION"]
+
+import json as _json
+
+
+def load_profile():
+    """Return the committed Hoskinson style profile (statistics only)."""
+    path = _SKILL_ROOT / "assets" / "hoskinson-style-profile.json"
+    return _json.loads(path.read_text(encoding="utf-8"))
+
+
+__all__.append("load_profile")

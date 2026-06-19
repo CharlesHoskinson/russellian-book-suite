@@ -1,0 +1,129 @@
+{
+  "version": "0.1.0",
+  "source_policy": "Statistics only; no source prose stored.",
+  "built_at": "2026-06-19T22:47:39.780354+00:00",
+  "global": {
+    "cadence": {
+      "p10": 1.0,
+      "p25": 7.0,
+      "p50": 16.0,
+      "p75": 39.0,
+      "p90": 86.0,
+      "cv": 1.113752,
+      "count": 215
+    },
+    "diction": {
+      "first_word_dist": {
+        "and": 0.162791,
+        "so": 0.134884,
+        "it": 0.074419,
+        "hi": 0.060465,
+        "okay": 0.055814,
+        "i": 0.037209,
+        "but": 0.037209,
+        "you": 0.032558,
+        "this": 0.023256,
+        "what": 0.023256
+      },
+      "discourse_marker_rate": 0.348837,
+      "direct_address_rate": 0.488372,
+      "short_long_ratio": 0.577778,
+      "example_spacing": 7.807692
+    }
+  },
+  "registers": {
+    "technical-exposition": {
+      "count": 7,
+      "fallback": false,
+      "cadence": {
+        "p10": 1.0,
+        "p25": 5.0,
+        "p50": 8.0,
+        "p75": 27.0,
+        "p90": 72.0,
+        "cv": 1.357386,
+        "count": 32
+      },
+      "diction": {
+        "first_word_dist": {
+          "it": 0.1875,
+          "and": 0.09375,
+          "you": 0.0625,
+          "what": 0.0625,
+          "yeah": 0.0625,
+          "so": 0.0625,
+          "had": 0.03125,
+          "i": 0.03125,
+          "okay": 0.03125,
+          "there": 0.03125
+        },
+        "discourse_marker_rate": 0.1875,
+        "direct_address_rate": 0.40625,
+        "short_long_ratio": 1.3,
+        "example_spacing": 5.0
+      }
+    },
+    "narrative-editorial": {
+      "count": 26,
+      "fallback": false,
+      "cadence": {
+        "p10": 3.0,
+        "p25": 8.0,
+        "p50": 16.0,
+        "p75": 39.0,
+        "p90": 86.0,
+        "cv": 1.115998,
+        "count": 96
+      },
+      "diction": {
+        "first_word_dist": {
+          "and": 0.1875,
+          "so": 0.166667,
+          "it": 0.072917,
+          "okay": 0.072917,
+          "hi": 0.0625,
+          "i": 0.03125,
+          "uh": 0.03125,
+          "but": 0.03125,
+          "that": 0.020833,
+          "delegation": 0.010417
+        },
+        "discourse_marker_rate": 0.395833,
+        "direct_address_rate": 0.46875,
+        "short_long_ratio": 0.560976,
+        "example_spacing": 3.714286
+      }
+    },
+    "polemic": {
+      "count": 24,
+      "fallback": false,
+      "cadence": {
+        "p10": 6.0,
+        "p25": 8.0,
+        "p50": 17.0,
+        "p75": 39.0,
+        "p90": 86.0,
+        "cv": 1.034807,
+        "count": 87
+      },
+      "diction": {
+        "first_word_dist": {
+          "and": 0.16092,
+          "so": 0.126437,
+          "hi": 0.068966,
+          "but": 0.057471,
+          "you": 0.057471,
+          "i": 0.045977,
+          "this": 0.045977,
+          "okay": 0.045977,
+          "it": 0.034483,
+          "hey": 0.022989
+        },
+        "discourse_marker_rate": 0.356322,
+        "direct_address_rate": 0.54023,
+        "short_long_ratio": 0.410256,
+        "example_spacing": 9.444444
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "comparatives": {
+    "claim-first-vs-flat": {
+      "control": {
+        "arm": "flat-claim-list",
+        "raw_score": 2
+      },
+      "delta": 1,
+      "status": "scored",
+      "treatment": {
+        "arm": "claim-first-bundle",
+        "raw_score": 3
+      }
+    }
+  },
+  "families": {
+    "attribution": {
+      "counts": {
+        "cited_spans": 3,
+        "correct_citations": 3,
+        "gold_spans": 3
+      },
+      "macro": {
+        "chapter_count": 1,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "micro": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "sentence_count": 3
+      },
+      "status": "scored"
+    },
+    "contradiction": {
+      "macro": {
+        "status": "unscored"
+      },
+      "micro": {
+        "status": "unscored"
+      },
+      "reason": "contradiction-alert gold is not present",
+      "status": "unscored"
+    },
+    "factuality": {
+      "atomic_fact_count": 4,
+      "macro": {
+        "chapter_count": 1,
+        "claim_backed_rate": 0.75,
+        "span_pass_rate": 0.5
+      },
+      "micro": {
+        "claim_backed_rate": 0.75,
+        "fact_count": 4,
+        "span_pass_rate": 0.5
+      },
+      "partitions": {
+        "disputed-claim-backed": 1,
+        "no-claim-binding": 1,
+        "span-check-failed": 1,
+        "verified-claim-backed": 1
+      },
+      "status": "scored"
+    },
+    "fusion": {
+      "macro": {
+        "status": "unscored"
+      },
+      "micro": {
+        "status": "unscored"
+      },
+      "reason": "cross-domain fusion artifacts are not present",
+      "status": "unscored"
+    },
+    "reasoning": {
+      "macro": {
+        "status": "unscored"
+      },
+      "micro": {
+        "status": "unscored"
+      },
+      "reason": "reasoning proof-trace artifacts are not present",
+      "status": "unscored"
+    },
+    "rigor": {
+      "macro": {
+        "status": "unscored"
+      },
+      "micro": {
+        "status": "unscored"
+      },
+      "reason": "proof-obligation artifacts are not present",
+      "status": "unscored"
+    }
+  },
+  "schema": "kg-prose-metrics/v1",
+  "task-id": "task-claim-first-mini"
+}

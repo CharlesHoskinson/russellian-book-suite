@@ -1,0 +1,23 @@
+{
+  "schema": "kg-prose-attribution-gold/v1",
+  "sentences": [
+    {
+      "assertion_id": "wa-ch-01-p001-0001",
+      "required_span_ids": [
+        "span-verified-1"
+      ]
+    },
+    {
+      "assertion_id": "wa-ch-01-p001-0002",
+      "required_span_ids": [
+        "span-disputed-1"
+      ]
+    },
+    {
+      "assertion_id": "wa-ch-01-p001-0003",
+      "required_span_ids": [
+        "span-failed-1"
+      ]
+    }
+  ]
+}

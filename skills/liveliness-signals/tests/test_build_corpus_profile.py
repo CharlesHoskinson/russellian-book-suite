@@ -31,3 +31,13 @@ def test_build_profile_is_deterministic_and_storeless():
     assert drop(a) == drop(b)
     blob = str(a)
     assert "You must act" not in blob  # no verbatim prose
+
+
+@pytest.mark.needs_model
+def test_build_profile_has_modifier_block():
+    rows = [{"id": f"p{i}", "text": "The very bright young student quickly solved the hard problem.",
+             "register": "narrative-editorial"} for i in range(6)]
+    p = build_profile(rows, min_per_register=5)
+    blk = p["registers"]["narrative-editorial"]["modifier"]
+    assert set(blk) >= {"p50", "p75", "p90", "count"}
+    assert "modifier" in p["global"]

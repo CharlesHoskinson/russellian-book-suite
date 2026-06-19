@@ -1,7 +1,7 @@
 """Cites REQ-LIVE-001, REQ-LIVE-005 (cadence corridor stats)."""
 import pytest
 pytestmark = pytest.mark.windows_canary
-from scripts.profile_metrics import sentence_lengths, cadence_corridor, diction_device_metrics
+from scripts.profile_metrics import sentence_lengths, cadence_corridor, diction_device_metrics, modifier_ratios
 
 
 @pytest.mark.needs_model
@@ -33,3 +33,12 @@ def test_diction_device_metrics_shape():
     assert isinstance(m["first_word_dist"], dict)
     # "for example" is a discourse/example marker -> spacing recorded
     assert m["example_spacing"] >= 0.0
+
+
+@pytest.mark.needs_model
+def test_modifier_ratios_only_counts_long_sentences():
+    # first sentence has >=8 alpha tokens with 2 modifiers; "No." is too short to count
+    texts = ["The very bright young student quickly solved the hard problem. No."]
+    r = modifier_ratios(texts)
+    assert len(r) == 1            # short sentence excluded
+    assert 0.0 < r[0] < 1.0

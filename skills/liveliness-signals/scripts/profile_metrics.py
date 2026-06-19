@@ -96,3 +96,23 @@ def diction_device_metrics(texts: list[str]) -> dict:
         "short_long_ratio": round(short / long, 6) if long else float(short),
         "example_spacing": round(sum(gaps) / len(gaps), 6) if gaps else 0.0,
     }
+
+
+def modifier_ratios(texts: list[str], min_alpha: int = 8) -> list[float]:
+    """Per-sentence modifier (ADJ+ADV) ratio over alpha tokens.
+
+    Only sentences with at least `min_alpha` alpha tokens are measured, matching
+    the russellian-style signal-density linter's assessment threshold. The shared
+    `_nlp()` keeps the POS tagger (only ner/lemmatizer are disabled), so `pos_`
+    is available.
+    """
+    nlp = _nlp()
+    out: list[float] = []
+    for text in texts:
+        for sent in nlp(text).sents:
+            content = [t for t in sent if t.is_alpha]
+            if len(content) < min_alpha:
+                continue
+            mods = sum(1 for t in content if t.pos_ in ("ADJ", "ADV"))
+            out.append(mods / len(content))
+    return out

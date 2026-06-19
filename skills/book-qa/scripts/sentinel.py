@@ -26,7 +26,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-HARD_FAIL_CHECKS = {"C2", "C13"}
+HARD_FAIL_CHECKS = {"C2", "C13", "gated-sentence-escape"}
 HARD_FAIL_D_CLASSES = {
     "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8",
     "D9", "D10", "D11", "D13",
@@ -149,13 +149,58 @@ def _load_stage2(workspace: Path) -> list[Ticket]:
     return out
 
 
+def _load_gated_sentence_escape(workspace: Path) -> list[Ticket]:
+    """Pull proof-obligation final-prose escapes from qa/gated-sentences.jsonl."""
+    path = workspace / "qa" / "gated-sentences.jsonl"
+    if not path.exists():
+        return []
+    out: list[Ticket] = []
+    allowed = {"discharged", "waived"}
+    for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not raw.strip():
+            continue
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError as e:
+            out.append(_corrupt_input_ticket(path, e))
+            continue
+        if row.get("assertion_kind") != "verified":
+            continue
+        status = row.get("obligation_status")
+        if status in allowed:
+            continue
+        claim_id = row.get("claim_id", "")
+        obligation_id = row.get("obligation_id", "")
+        out.append(
+            Ticket(
+                ticket_id=f"gated-sentence-escape-{i:04d}",
+                source="proof-obligations",
+                chapter=row.get("chapter", "doc"),
+                class_="gated-sentence-escape",
+                severity="critical",
+                where=row.get("sentence", ""),
+                detail=(
+                    f"verified sentence asserts {claim_id} while proof obligation "
+                    f"{obligation_id} is {status or 'unknown'}"
+                ),
+                fix_hint="discharge or waive the obligation, or remove the verified assertion",
+                hard_fail=True,
+            )
+        )
+    return out
+
+
 def aggregate(workspace: Path, version: str | None = None) -> SentinelReport:
     """Merge Stage-1 and Stage-2 tickets into a single ``SentinelReport``.
 
     When *version* is supplied, ``propose_writeback`` is called after
     aggregation so that writeback artefacts land alongside QA outputs.
     """
-    tickets = _load_stage1(workspace) + _load_stage2(workspace)
+    tickets = (
+        _load_stage1(workspace)
+        + _load_stage2(workspace)
+        + _load_gated_sentence_escape(workspace)
+    )
     by_class: dict[str, int] = {}
     by_chapter: dict[str, int] = {}
     by_severity: dict[str, int] = {"critical": 0, "important": 0, "minor": 0}

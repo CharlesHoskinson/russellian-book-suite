@@ -1,0 +1,7 @@
+;; Single authored source of the proof-obligation status vocabulary.
+;; Feeds scripts/proof_obligations.py (OBLIGATION_STATUSES + VALID_TRANSITIONS).
+{:states [:pending :discharged :refuted :waived]
+ :transitions {:pending #{:discharged :refuted :waived}
+               :discharged #{}
+               :refuted #{}
+               :waived #{}}}

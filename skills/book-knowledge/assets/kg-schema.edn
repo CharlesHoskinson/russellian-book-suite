@@ -309,6 +309,29 @@
    :relations [[:of-code :code-node]
                [:of-claim :claim]]}
 
+  ;; Proof obligation — S7 first-class replayable verification entity. These
+  ;; rows are append-only records under claims/proof-obligations.jsonl projected
+  ;; latest-per-id into Cozo. The claim ledger itself is not mutated by opening
+  ;; or checking an obligation.
+  :proof-obligation
+  {:attrs [:id :statement :linked-claim :checker-kind :status :assumptions
+           :artifact-path :countermodel-path :checked-at :normal-form
+           :waiver-reason]
+   :relations [[:of-claim :claim]]}
+
+  ;; Verification artifact — one committed checker artifact for a discharged
+  ;; proof obligation. Replays read this path rather than invoking a checker.
+  :verification-artifact
+  {:attrs [:id :obligation-id :artifact-path :checker-kind :checked-at :status]
+   :relations [[:for-obligation :proof-obligation]]}
+
+  ;; Requires-proof — derived claim->obligation edge. The identity is the
+  ;; synthetic (claim-id . obligation-id) pair.
+  :requires-proof
+  {:attrs [:id :claim-id :obligation-id :checker-kind]
+   :relations [[:of-claim :claim]
+               [:opens :proof-obligation]]}
+
   ;; Effective confidence — S5 materialized belief-erosion result. One row per
   ;; latest-per-id claim for a supplied snapshot reference time. The row is
   ;; derived by scripts/effective_confidence.py from propagate_belief's posterior

@@ -72,6 +72,7 @@ from urllib.parse import quote
 from .counter_claims import read_counter_claims
 from .io_utils import latest_per, read_jsonl
 from .normalized_claims import normalized_rows_for_claim
+from .proof_obligations import latest_proof_obligations, latest_verification_artifacts
 from .workspace import WorkspaceLayout
 
 # Mirror project_graph's chapter URI minting so the relational chapter
@@ -326,6 +327,18 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
             row["created_at"] = cc["created_at"]
         counter_claim_rows.append(row)
 
+    proof_obligation_rows = list(latest_proof_obligations(layout).values())
+    verification_artifact_rows = list(latest_verification_artifacts(layout).values())
+    requires_proof_rows = [
+        {
+            "id": f"{row.get('linked_claim')}\x1f{row['id']}",
+            "claim_id": row.get("linked_claim"),
+            "obligation_id": row["id"],
+            "checker_kind": row.get("checker_kind"),
+        }
+        for row in proof_obligation_rows
+    ]
+
     store.load("claim", claim_rows)
     store.load("claim-quantity", claim_quantity_rows)
     store.load("claim-unit", claim_unit_rows)
@@ -342,6 +355,9 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     store.load("chapter", list(chapter_rows.values()))
     store.load("claim-conflict", claim_conflict_rows)
     store.load("counter-claim", counter_claim_rows)
+    store.load("proof-obligation", proof_obligation_rows)
+    store.load("verification-artifact", verification_artifact_rows)
+    store.load("requires-proof", requires_proof_rows)
     store.load("wiki-page", wiki_page_rows)
     # chapter_wiki_ref has no ledger-derived source today (project_graph emits no
     # tbf:referencesPage triples), so it is loaded empty. The relation exists so

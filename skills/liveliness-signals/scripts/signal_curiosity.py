@@ -14,8 +14,9 @@ def _is_setup(sent) -> bool:
 
 
 def _is_payoff(sent) -> bool:
-    # a payoff is a non-interrogative declarative that carries content
-    return (not sent.text.rstrip().endswith("?")) and sent.n_alpha >= 4
+    # a payoff is a non-interrogative declarative carrying real content
+    # (several non-stop content words), not a filler line.
+    return (not sent.text.rstrip().endswith("?")) and len(sent.content) >= 3
 
 
 def score(sentences, register, profile) -> dict:

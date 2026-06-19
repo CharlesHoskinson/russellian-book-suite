@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .io_utils import read_jsonl, latest_per
@@ -63,12 +64,44 @@ def load_belief_graph(workspace_root: Path) -> BeliefGraph:
     return g
 
 
-def load_source_trust(workspace_root: Path) -> dict[str, float]:
+def _parse_utc(value: str) -> datetime:
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def source_freshness_factor(
+    ingested_at: str,
+    as_of: str | datetime,
+    *,
+    half_life_days: float = 365.0,
+) -> float:
+    """Return deterministic age decay for a source at an explicit reference time."""
+    if half_life_days <= 0:
+        raise ValueError("half_life_days must be positive")
+    ingested = _parse_utc(ingested_at)
+    reference = _parse_utc(as_of) if isinstance(as_of, str) else as_of
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=timezone.utc)
+    reference = reference.astimezone(timezone.utc)
+    age_seconds = max(0.0, (reference - ingested).total_seconds())
+    age_days = age_seconds / 86400.0
+    return 0.5 ** (age_days / half_life_days)
+
+
+def load_source_trust(
+    workspace_root: Path,
+    *,
+    as_of: str | datetime | None = None,
+    half_life_days: float = 365.0,
+) -> dict[str, float]:
     """Load source trust values from manifest files.
 
     Reads raw/manifests/*.json files. Each manifest may carry
     {"doc_id": "...", "trust": 0.6}. Missing field defaults to 1.0.
-    Missing manifest dir returns {}.
+    Missing manifest dir returns {}. When as_of is supplied, trust is
+    deterministically age-discounted from the manifest ingested_at timestamp.
     """
     layout = WorkspaceLayout(workspace_root)
     manifest_dir = layout.root / "raw" / "manifests"
@@ -82,5 +115,12 @@ def load_source_trust(workspace_root: Path) -> dict[str, float]:
             continue
         doc_id = data.get("doc_id")
         if doc_id:
-            out[doc_id] = float(data.get("trust", 1.0))
+            trust = float(data.get("trust", 1.0))
+            if as_of is not None and data.get("ingested_at"):
+                trust *= source_freshness_factor(
+                    str(data["ingested_at"]),
+                    as_of,
+                    half_life_days=half_life_days,
+                )
+            out[doc_id] = trust
     return out

@@ -305,6 +305,18 @@
    :relations [[:of-code :code-node]
                [:of-claim :claim]]}
 
+  ;; Effective confidence — S5 materialized belief-erosion result. One row per
+  ;; latest-per-id claim for a supplied snapshot reference time. The row is
+  ;; derived by scripts/effective_confidence.py from propagate_belief's posterior
+  ;; pass plus deterministic source-freshness decay and trusted conflict inputs;
+  ;; it is not a ledger record.
+  :effective-confidence
+  {:attrs [:id :claim-id :prior :posterior :effective :freshness-factor
+           :support-erosion-reason-json :as-of]
+   :types {:prior :float :posterior :float :effective :float
+           :freshness-factor :float}
+   :relations [[:of-claim :claim]]}
+
   ;; Chapter retrieval bundle — deterministic writer input for one chapter
   ;; (REQ-CHAP-001..008). The row is materialized by
   ;; scripts/project_chapter_bundle.py from existing graph relations. The payload

@@ -1,7 +1,8 @@
 # Tasks — HFR v2
 
-Lightweight checklist. The exhaustive per-component TDD plan is written via the
-writing-plans skill and lives at `docs/plans/2026-06-19-hfr-v2-liveliness.md`.
+Lightweight checklist. The exhaustive per-component TDD plans are written via the
+writing-plans skill as a 5-plan set under `docs/plans/2026-06-19-hfr-v2-liveliness-*`
+(Plan 1: corpus-profile is written; Plans 2–5 follow in sequence).
 Sequence: profile → floor ruleset → signals → generation v2 → eval.
 
 ## Corpus profile (foundation)

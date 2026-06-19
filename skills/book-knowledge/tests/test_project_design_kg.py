@@ -1,6 +1,7 @@
 """Tests for design-intelligence KG projection (REQ-KG-048/053)."""
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -886,6 +887,175 @@ def test_extracts_promoted_traceability_links_from_exact_evidence() -> None:
             "promoted": True,
             "source_path": ".github/workflows/ci.yml",
             "source_line": 12,
+        },
+    ]
+
+
+def test_reviewed_traceability_manifest_promotes_explicit_links(
+    tmp_path: Path,
+) -> None:
+    spec_dir = tmp_path / "openspec" / "changes" / "reviewed" / "specs" / "manifest"
+    spec_dir.mkdir(parents=True)
+    (spec_dir / "spec.md").write_text(
+        "\n".join(
+            [
+                "# Capability: manifest",
+                "",
+                "### Requirement: REQ-KG-905 - Reviewed manifest links (Ubiquitous)",
+                "",
+                "The fixture SHALL promote reviewed traceability evidence.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    graph_dir = tmp_path / "graphify"
+    graph_dir.mkdir()
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "impl.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (graph_dir / "graph.json").write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {
+                        "id": "impl_module",
+                        "label": "impl.py",
+                        "source_file": "src/impl.py",
+                    }
+                ],
+                "links": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    test_dir = tmp_path / "tests"
+    test_dir.mkdir()
+    (test_dir / "test_manifest.py").write_text(
+        "\n".join(
+            [
+                "def test_manifest_contract():",
+                "    assert True",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text(
+        "\n".join(
+            [
+                "name: ci",
+                "on: [pull_request]",
+                "jobs:",
+                "  tools-test:",
+                "    runs-on: ubuntu-24.04",
+                "    steps:",
+                "      - run: python -m pytest tests/test_manifest.py -q",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "openspec" / "changes" / "reviewed" / "traceability.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "links": [
+                    {
+                        "requirement_id": "REQ-KG-905",
+                        "capability": "manifest",
+                        "requirement_source": (
+                            "openspec/changes/reviewed/specs/manifest/spec.md"
+                        ),
+                        "kind": "requirement-implemented-by",
+                        "target_type": "code-path",
+                        "target": "src/impl.py",
+                    },
+                    {
+                        "requirement_id": "REQ-KG-905",
+                        "capability": "manifest",
+                        "requirement_source": (
+                            "openspec/changes/reviewed/specs/manifest/spec.md"
+                        ),
+                        "kind": "requirement-covered-by",
+                        "target_type": "test-case",
+                        "target": (
+                            "tests/test_manifest.py::test_manifest_contract"
+                        ),
+                    },
+                    {
+                        "requirement_id": "REQ-KG-905",
+                        "capability": "manifest",
+                        "requirement_source": (
+                            "openspec/changes/reviewed/specs/manifest/spec.md"
+                        ),
+                        "kind": "requirement-gated-by",
+                        "target_type": "ci-job",
+                        "target": ".github/workflows/ci.yml:tools-test",
+                    },
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    reviewed = [
+        row
+        for row in extract_traceability_links(tmp_path)
+        if row["provenance"] == "reviewed:traceability-manifest"
+    ]
+
+    assert reviewed == [
+        {
+            "id": (
+                "trace:requirement-covered-by:openspec:manifest:REQ-KG-905->"
+                "test-case:pytest:tests/test_manifest.py::"
+                "test_manifest_contract:tests-test-manifest-py-test-manifest-contract"
+            ),
+            "from_id": "openspec:manifest:REQ-KG-905",
+            "to_id": (
+                "test-case:pytest:tests/test_manifest.py::"
+                "test_manifest_contract"
+            ),
+            "kind": "requirement-covered-by",
+            "confidence": 1.0,
+            "witness": "tests/test_manifest.py::test_manifest_contract",
+            "provenance": "reviewed:traceability-manifest",
+            "promoted": True,
+            "source_path": "openspec/changes/reviewed/traceability.json",
+            "source_line": 18,
+        },
+        {
+            "id": (
+                "trace:requirement-gated-by:openspec:manifest:REQ-KG-905->"
+                "ci-job:.github/workflows/ci.yml:tools-test:"
+                "github-workflows-ci-yml-tools-test"
+            ),
+            "from_id": "openspec:manifest:REQ-KG-905",
+            "to_id": "ci-job:.github/workflows/ci.yml:tools-test",
+            "kind": "requirement-gated-by",
+            "confidence": 1.0,
+            "witness": ".github/workflows/ci.yml:tools-test",
+            "provenance": "reviewed:traceability-manifest",
+            "promoted": True,
+            "source_path": "openspec/changes/reviewed/traceability.json",
+            "source_line": 26,
+        },
+        {
+            "id": (
+                "trace:requirement-implemented-by:openspec:manifest:"
+                "REQ-KG-905->impl_module:src-impl-py"
+            ),
+            "from_id": "openspec:manifest:REQ-KG-905",
+            "to_id": "impl_module",
+            "kind": "requirement-implemented-by",
+            "confidence": 1.0,
+            "witness": "src/impl.py",
+            "provenance": "reviewed:traceability-manifest",
+            "promoted": True,
+            "source_path": "openspec/changes/reviewed/traceability.json",
+            "source_line": 10,
         },
     ]
 

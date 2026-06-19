@@ -6,10 +6,10 @@ agents that need to improve design, utility, or traceability.
 ## Summary
 
 - capabilities with work: 9
-- active coverage gaps: 34
+- active coverage gaps: 24
 - archived coverage gaps: 97
 - stale evidence links: 42
-- top priority: homoiconic-kg
+- top priority: proof-obligations
 
 ## Agent Workflow
 
@@ -19,21 +19,6 @@ agents that need to improve design, utility, or traceability.
 - For archived-only gaps, prefer documenting historical status over implementing stale requirements.
 
 ## Priorities
-
-### homoiconic-kg
-
-- priority score: 194
-- active coverage gaps: 10
-- archived coverage gaps: 46
-- stale evidence links: 16
-- missing implementation/test/ci: 48/56/56
-- recommended action: add or promote traceability for active requirements covering ci, implementation, test
-
-- example: coverage-gap openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md:5
-- example: coverage-gap openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md:22
-- example: coverage-gap openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md:39
-- example: coverage-gap openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md:55
-- example: coverage-gap openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md:71
 
 ### proof-obligations
 
@@ -64,6 +49,21 @@ agents that need to improve design, utility, or traceability.
 - example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:56
 - example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:70
 - example: coverage-gap openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md:85
+
+### homoiconic-kg
+
+- priority score: 94
+- active coverage gaps: 0
+- archived coverage gaps: 46
+- stale evidence links: 16
+- missing implementation/test/ci: 38/46/46
+- recommended action: review evidence-only links and promote only exact, source-backed matches
+
+- example: stale-evidence openspec/specs/homoiconic-kg/spec.md:65
+- example: stale-evidence openspec/specs/homoiconic-kg/spec.md:65
+- example: stale-evidence openspec/specs/homoiconic-kg/spec.md:145
+- example: stale-evidence openspec/specs/homoiconic-kg/spec.md:145
+- example: stale-evidence openspec/specs/homoiconic-kg/spec.md:145
 
 ### kg-prose-eval
 

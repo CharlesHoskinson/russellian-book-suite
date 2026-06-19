@@ -61,6 +61,12 @@ _RUST_TEST_FN = re.compile(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 _CLJS_TEST = re.compile(r"\(deftest\s+([^\s\)]+)")
 _BACKTICK_TOKEN = re.compile(r"`([^`]+)`")
 _CODE_PATH_SUFFIXES = {".clj", ".cljs", ".py", ".rs", ".yaml", ".yml"}
+_TRACEABILITY_MANIFEST_NAMES = {"traceability.json", "design-traceability.json"}
+_REVIEWED_TRACE_TARGETS = {
+    "requirement-implemented-by": "code-path",
+    "requirement-covered-by": "test-case",
+    "requirement-gated-by": "ci-job",
+}
 _GIT_SNAPSHOT_CACHE: dict[Path, set[Path] | None] = {}
 
 
@@ -164,6 +170,25 @@ def _workflow_paths(root: Path) -> list[Path]:
         path
         for path in workflow_dir.iterdir()
         if path.is_file() and path.suffix in {".yml", ".yaml"}
+    )
+
+
+def _traceability_manifest_paths(root: Path) -> list[Path]:
+    snapshot = _git_snapshot_paths(root)
+    if snapshot is not None:
+        return sorted(
+            root / path
+            for path in snapshot
+            if path.name in _TRACEABILITY_MANIFEST_NAMES
+            and path.parts[:1] in {("docs",), ("openspec",)}
+            and not _skip_path(path)
+        )
+    return sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.name in _TRACEABILITY_MANIFEST_NAMES
+        and not _skip_path(path)
     )
 
 
@@ -497,6 +522,21 @@ def _trace_row(
         "source_path": source_path,
         "source_line": source_line,
     }
+
+
+def _line_for_manifest_entry(lines: list[str], entry: dict) -> int:
+    tokens = [
+        str(entry.get("target") or ""),
+        str(entry.get("requirement_id") or ""),
+        str(entry.get("kind") or ""),
+    ]
+    for token in tokens:
+        if not token:
+            continue
+        for index, line in enumerate(lines, start=1):
+            if token in line:
+                return index
+    return 1
 
 
 def _module_path_for_import(module: str) -> str | None:
@@ -1117,6 +1157,174 @@ def _test_code_links(root: Path, tests: list[dict], nodes_by_path: dict[str, dic
     return links
 
 
+def _requirement_key(row: dict) -> tuple[str, str, str]:
+    return (
+        str(row.get("capability") or ""),
+        str(row.get("requirement_id") or ""),
+        str(row.get("source_path") or ""),
+    )
+
+
+def _manifest_requirement(
+    entry: dict, requirements_by_key: dict[tuple[str, str, str], dict]
+) -> dict:
+    source_path = _normalise_path(entry.get("requirement_source")) or ""
+    key = (
+        str(entry.get("capability") or ""),
+        str(entry.get("requirement_id") or ""),
+        source_path,
+    )
+    requirement = requirements_by_key.get(key)
+    if requirement is None:
+        raise ValueError(
+            "traceability manifest references unknown requirement "
+            f"{key[1]} in {key[2] or '<missing source>'}"
+        )
+    return requirement
+
+
+def _test_selectors(tests: list[dict]) -> dict[str, dict]:
+    selectors: dict[str, dict] = {}
+    for test in tests:
+        selectors[test["id"]] = test
+        selectors[f"{test['source_path']}::{test['name']}"] = test
+    return selectors
+
+
+def _ci_job_selectors(jobs: list[dict]) -> dict[str, dict]:
+    selectors: dict[str, dict] = {}
+    for job in jobs:
+        selectors[job["id"]] = job
+        selectors[f"{job['source_path']}:{job['id'].rsplit(':', 1)[-1]}"] = job
+    return selectors
+
+
+def _reviewed_code_target(
+    target: str,
+    *,
+    root: Path,
+    nodes: list[dict],
+    nodes_by_path: dict[str, dict],
+) -> str:
+    normalized = _normalise_path(target) or target.strip()
+    for node in nodes:
+        if node["id"] == normalized:
+            return node["id"]
+    module_node = nodes_by_path.get(normalized)
+    if module_node is not None:
+        return module_node["id"]
+    source_matches = [node for node in nodes if node.get("source_file") == normalized]
+    if len(source_matches) == 1:
+        return source_matches[0]["id"]
+    if not (root / normalized).is_file():
+        raise ValueError(
+            f"traceability manifest references unknown code path {normalized}"
+        )
+    return normalized
+
+
+def _reviewed_target_id(
+    entry: dict,
+    *,
+    tests_by_selector: dict[str, dict],
+    jobs_by_selector: dict[str, dict],
+    root: Path,
+    nodes: list[dict],
+    nodes_by_path: dict[str, dict],
+) -> str:
+    kind = str(entry.get("kind") or "")
+    target = str(entry.get("target") or "").strip()
+    expected_type = _REVIEWED_TRACE_TARGETS.get(kind)
+    if expected_type is None:
+        raise ValueError(f"unsupported reviewed traceability kind: {kind}")
+    target_type = str(entry.get("target_type") or expected_type)
+    if target_type != expected_type:
+        raise ValueError(
+            f"reviewed traceability kind {kind} expects target_type "
+            f"{expected_type}, got {target_type}"
+        )
+
+    if expected_type == "code-path":
+        return _reviewed_code_target(
+            target,
+            root=root,
+            nodes=nodes,
+            nodes_by_path=nodes_by_path,
+        )
+    if expected_type == "test-case":
+        test = tests_by_selector.get(target)
+        if test is None:
+            raise ValueError(
+                f"traceability manifest references unknown test case {target}"
+            )
+        return test["id"]
+    if expected_type == "ci-job":
+        job = jobs_by_selector.get(target)
+        if job is None:
+            raise ValueError(f"traceability manifest references unknown CI job {target}")
+        return job["id"]
+    raise AssertionError(expected_type)
+
+
+def _reviewed_traceability_links(
+    root: Path,
+    *,
+    requirements: list[dict],
+    tests: list[dict],
+    jobs: list[dict],
+    nodes: list[dict],
+    nodes_by_path: dict[str, dict],
+) -> list[dict]:
+    requirements_by_key = {
+        _requirement_key(requirement): requirement for requirement in requirements
+    }
+    tests_by_selector = _test_selectors(tests)
+    jobs_by_selector = _ci_job_selectors(jobs)
+    links: list[dict] = []
+
+    for path in _traceability_manifest_paths(root):
+        source_path = _rel(path, root)
+        lines = _read_text_lines(path)
+        try:
+            manifest = json.loads("\n".join(lines))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid traceability manifest {source_path}") from exc
+        if manifest.get("version") != 1:
+            raise ValueError(f"unsupported traceability manifest version {source_path}")
+        entries = manifest.get("links")
+        if not isinstance(entries, list):
+            raise ValueError(f"traceability manifest has no links list {source_path}")
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError(f"traceability manifest link is not an object {source_path}")
+            requirement = _manifest_requirement(entry, requirements_by_key)
+            target = str(entry.get("target") or "").strip()
+            if not target:
+                raise ValueError("traceability manifest link has no target")
+            links.append(
+                _trace_row(
+                    kind=str(entry.get("kind") or ""),
+                    from_id=requirement["id"],
+                    to_id=_reviewed_target_id(
+                        entry,
+                        tests_by_selector=tests_by_selector,
+                        jobs_by_selector=jobs_by_selector,
+                        root=root,
+                        nodes=nodes,
+                        nodes_by_path=nodes_by_path,
+                    ),
+                    confidence=1.0,
+                    witness=str(entry.get("witness") or target),
+                    provenance="reviewed:traceability-manifest",
+                    promoted=True,
+                    source_path=source_path,
+                    source_line=_line_for_manifest_entry(lines, entry),
+                )
+            )
+    return links
+
+
 def extract_traceability_links(root: Path) -> list[dict]:
     """Return deterministic evidence-first ``traceability-link`` rows."""
     root = Path(root)
@@ -1148,6 +1356,16 @@ def extract_traceability_links(root: Path) -> list[dict]:
     rows.extend(_requirement_test_links(requirements, tests))
     rows.extend(_ci_test_links(requirements, tests, jobs))
     rows.extend(_test_code_links(root, tests, nodes_by_path))
+    rows.extend(
+        _reviewed_traceability_links(
+            root,
+            requirements=requirements,
+            tests=tests,
+            jobs=jobs,
+            nodes=nodes,
+            nodes_by_path=nodes_by_path,
+        )
+    )
     rows.sort(key=lambda row: row["id"])
     return rows
 

@@ -7,61 +7,6 @@
   ],
   "priorities": [
     {
-      "active_coverage_gaps": 10,
-      "archived_coverage_gaps": 46,
-      "capability": "homoiconic-kg",
-      "examples": [
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-KG-047",
-          "source_line": 5,
-          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-KG-048",
-          "source_line": 22,
-          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-KG-049",
-          "source_line": 39,
-          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-KG-050",
-          "source_line": 55,
-          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-KG-051",
-          "source_line": 71,
-          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
-        }
-      ],
-      "missing": {
-        "ci": 56,
-        "implementation": 48,
-        "test": 56
-      },
-      "priority_score": 194,
-      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
-      "stale_evidence_links": 16
-    },
-    {
       "active_coverage_gaps": 6,
       "archived_coverage_gaps": 9,
       "capability": "proof-obligations",
@@ -170,6 +115,61 @@
       "priority_score": 126,
       "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
       "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 46,
+      "capability": "homoiconic-kg",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 65,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "claim"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 65,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "claim"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 145,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 145,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 145,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "status"
+        }
+      ],
+      "missing": {
+        "ci": 46,
+        "implementation": 38,
+        "test": 46
+      },
+      "priority_score": 94,
+      "recommended_action": "review evidence-only links and promote only exact, source-backed matches",
+      "stale_evidence_links": 16
     },
     {
       "active_coverage_gaps": 6,
@@ -439,10 +439,10 @@
     }
   ],
   "summary": {
-    "active_coverage_gaps": 34,
+    "active_coverage_gaps": 24,
     "archived_coverage_gaps": 97,
     "capability_count": 9,
     "stale_evidence_links": 42,
-    "top_priority": "homoiconic-kg"
+    "top_priority": "proof-obligations"
   }
 }

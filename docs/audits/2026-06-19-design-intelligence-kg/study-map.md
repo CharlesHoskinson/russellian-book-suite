@@ -6,10 +6,10 @@ agents that need to improve design, utility, or traceability.
 ## Summary
 
 - capabilities with work: 9
-- active coverage gaps: 24
+- active coverage gaps: 18
 - archived coverage gaps: 97
 - stale evidence links: 42
-- top priority: proof-obligations
+- top priority: claim-first-drafting
 
 ## Agent Workflow
 
@@ -19,21 +19,6 @@ agents that need to improve design, utility, or traceability.
 - For archived-only gaps, prefer documenting historical status over implementing stale requirements.
 
 ## Priorities
-
-### proof-obligations
-
-- priority score: 141
-- active coverage gaps: 6
-- archived coverage gaps: 9
-- stale evidence links: 24
-- missing implementation/test/ci: 13/15/15
-- recommended action: add or promote traceability for active requirements covering ci, implementation, test
-
-- example: coverage-gap openspec/changes/live-proof-gate/specs/proof-obligations/spec.md:29
-- example: coverage-gap openspec/changes/live-proof-gate/specs/proof-obligations/spec.md:44
-- example: coverage-gap openspec/changes/live-proof-gate/specs/proof-obligations/spec.md:58
-- example: coverage-gap openspec/changes/live-proof-gate/specs/proof-obligations/spec.md:72
-- example: coverage-gap openspec/changes/live-proof-gate/specs/proof-obligations/spec.md:86
 
 ### claim-first-drafting
 
@@ -64,6 +49,21 @@ agents that need to improve design, utility, or traceability.
 - example: stale-evidence openspec/specs/homoiconic-kg/spec.md:145
 - example: stale-evidence openspec/specs/homoiconic-kg/spec.md:145
 - example: stale-evidence openspec/specs/homoiconic-kg/spec.md:145
+
+### proof-obligations
+
+- priority score: 81
+- active coverage gaps: 0
+- archived coverage gaps: 9
+- stale evidence links: 24
+- missing implementation/test/ci: 7/9/9
+- recommended action: review evidence-only links and promote only exact, source-backed matches
+
+- example: stale-evidence openspec/specs/proof-obligations/spec.md:34
+- example: stale-evidence openspec/specs/proof-obligations/spec.md:34
+- example: stale-evidence openspec/specs/proof-obligations/spec.md:34
+- example: stale-evidence openspec/specs/proof-obligations/spec.md:34
+- example: stale-evidence openspec/specs/proof-obligations/spec.md:34
 
 ### kg-prose-eval
 

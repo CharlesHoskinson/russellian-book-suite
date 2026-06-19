@@ -7,61 +7,6 @@
   ],
   "priorities": [
     {
-      "active_coverage_gaps": 6,
-      "archived_coverage_gaps": 9,
-      "capability": "proof-obligations",
-      "examples": [
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-PROOF-010",
-          "source_line": 29,
-          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-PROOF-011",
-          "source_line": 44,
-          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-PROOF-012",
-          "source_line": 58,
-          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-PROOF-013",
-          "source_line": 72,
-          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-PROOF-014",
-          "source_line": 86,
-          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
-        }
-      ],
-      "missing": {
-        "ci": 15,
-        "implementation": 13,
-        "test": 15
-      },
-      "priority_score": 141,
-      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
-      "stale_evidence_links": 24
-    },
-    {
       "active_coverage_gaps": 12,
       "archived_coverage_gaps": 6,
       "capability": "claim-first-drafting",
@@ -170,6 +115,61 @@
       "priority_score": 94,
       "recommended_action": "review evidence-only links and promote only exact, source-backed matches",
       "stale_evidence_links": 16
+    },
+    {
+      "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 9,
+      "capability": "proof-obligations",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "requirement-implemented-by",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        }
+      ],
+      "missing": {
+        "ci": 9,
+        "implementation": 7,
+        "test": 9
+      },
+      "priority_score": 81,
+      "recommended_action": "review evidence-only links and promote only exact, source-backed matches",
+      "stale_evidence_links": 24
     },
     {
       "active_coverage_gaps": 6,
@@ -439,10 +439,10 @@
     }
   ],
   "summary": {
-    "active_coverage_gaps": 24,
+    "active_coverage_gaps": 18,
     "archived_coverage_gaps": 97,
     "capability_count": 9,
     "stale_evidence_links": 42,
-    "top_priority": "proof-obligations"
+    "top_priority": "claim-first-drafting"
   }
 }

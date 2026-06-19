@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "links": [
+    {
+      "requirement_id": "REQ-PROOF-010",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/halmos/scripts/proof_gate.py"
+    },
+    {
+      "requirement_id": "REQ-PROOF-010",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/halmos/tests/test_live_proof_gate.py::test_rendered_sentence_emits_gated_row"
+    },
+    {
+      "requirement_id": "REQ-PROOF-010",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-PROOF-011",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-qa/scripts/sentinel.py"
+    },
+    {
+      "requirement_id": "REQ-PROOF-011",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-qa/tests/test_live_proof_gate.py::test_gate_reads_live_gated_sentences"
+    },
+    {
+      "requirement_id": "REQ-PROOF-011",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-PROOF-012",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/halmos/scripts/proof_gate.py"
+    },
+    {
+      "requirement_id": "REQ-PROOF-012",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/halmos/tests/test_live_proof_gate.py::test_undischarged_claim_not_verified"
+    },
+    {
+      "requirement_id": "REQ-PROOF-012",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-PROOF-013",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-qa/scripts/sentinel.py"
+    },
+    {
+      "requirement_id": "REQ-PROOF-013",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-qa/tests/test_live_proof_gate.py::test_escaped_gated_claim_hard_fails"
+    },
+    {
+      "requirement_id": "REQ-PROOF-013",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-PROOF-014",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/halmos/scripts/proof_gate.py"
+    },
+    {
+      "requirement_id": "REQ-PROOF-014",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-qa/tests/test_live_proof_gate.py::test_ownership_and_no_live_verifier"
+    },
+    {
+      "requirement_id": "REQ-PROOF-014",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-PROOF-015",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/halmos/scripts/proof_gate.py"
+    },
+    {
+      "requirement_id": "REQ-PROOF-015",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/halmos/tests/test_live_proof_gate.py::test_waived_obligation_conjectural"
+    },
+    {
+      "requirement_id": "REQ-PROOF-015",
+      "capability": "proof-obligations",
+      "requirement_source": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    }
+  ]
+}

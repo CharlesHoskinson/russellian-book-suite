@@ -1,0 +1,53 @@
+{
+  "name": "posterior-floor-filter-negation",
+  "query_path": "assets/kg-queries/posterior-floor.edn",
+  "subset": "defquery-basic-v1",
+  "relations": {
+    "claim": [
+      {
+        "id": "clm-2026-000001",
+        "canonical_text": "Below-floor unpinned claim.",
+        "status": "verified",
+        "p_posterior": 0.3,
+        "pin_low_confidence": false
+      },
+      {
+        "id": "clm-2026-000002",
+        "canonical_text": "Above-floor unpinned claim.",
+        "status": "verified",
+        "p_posterior": 0.9,
+        "pin_low_confidence": false
+      },
+      {
+        "id": "clm-2026-000003",
+        "canonical_text": "Below-floor pinned claim.",
+        "status": "verified",
+        "p_posterior": 0.2,
+        "pin_low_confidence": true
+      }
+    ],
+    "claim-chapter": [
+      {
+        "id": "chapter-link-1",
+        "claim_id": "clm-2026-000001",
+        "chapter": "https://example.org/book-knowledge/chapters/ch-01"
+      },
+      {
+        "id": "chapter-link-2",
+        "claim_id": "clm-2026-000002",
+        "chapter": "https://example.org/book-knowledge/chapters/ch-01"
+      },
+      {
+        "id": "chapter-link-3",
+        "claim_id": "clm-2026-000003",
+        "chapter": "https://example.org/book-knowledge/chapters/ch-01"
+      }
+    ]
+  },
+  "expected_rows": [
+    [
+      "clm-2026-000001",
+      0.3
+    ]
+  ]
+}

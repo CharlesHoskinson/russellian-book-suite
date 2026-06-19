@@ -1,0 +1,42 @@
+{
+  "name": "contradiction-scan-basic",
+  "query_path": "assets/kg-queries/contradiction_scan.edn",
+  "subset": "defquery-basic-v1",
+  "relations": {
+    "claim": [
+      {
+        "id": "clm-2026-000001",
+        "canonical_text": "Claim one conflicts with claim two.",
+        "status": "verified"
+      },
+      {
+        "id": "clm-2026-000002",
+        "canonical_text": "Claim two is the conflict target.",
+        "status": "verified"
+      },
+      {
+        "id": "clm-2026-000003",
+        "canonical_text": "Claim three is not projected as a conflict source.",
+        "status": "proposed"
+      }
+    ],
+    "claim-conflict": [
+      {
+        "id": "conflict-1",
+        "claim_id": "clm-2026-000001",
+        "other_id": "clm-2026-000002"
+      },
+      {
+        "id": "conflict-2",
+        "claim_id": "clm-2026-999999",
+        "other_id": "clm-2026-000003"
+      }
+    ]
+  },
+  "expected_rows": [
+    [
+      "clm-2026-000001",
+      "clm-2026-000002"
+    ]
+  ]
+}

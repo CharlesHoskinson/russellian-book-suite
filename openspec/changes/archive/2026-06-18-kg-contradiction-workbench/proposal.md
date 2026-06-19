@@ -58,17 +58,17 @@ existing `consistency_cozo` D9–D11 pass rather than replacing it.
 
 See `specs/homoiconic-kg/spec.md` (EARS). These append to the existing
 `homoiconic-kg` REQ-KG numbering (the landed change reached REQ-KG-011); this
-change uses REQ-KG-012..018. Summary:
+change uses REQ-KG-021..027. Summary:
 
 | REQ id | Pattern | One-line |
 |---|---|---|
-| REQ-KG-012 | Ubiquitous | The schema declares `claim-quantity`, `claim-unit`, `claim-time-interval`, `claim-normal-form` |
-| REQ-KG-013 | Event-driven | When two in-scope claims assert incompatible quantities after unit normalization, the system marks a hard contradiction |
-| REQ-KG-014 | Event-driven | When two claims' time intervals are inconsistent, the system flags an interval inconsistency |
-| REQ-KG-015 | Event-driven | When a supersession chain is stale or invalid, the system flags it |
-| REQ-KG-016 | Ubiquitous | The symbolic contradiction checks are deterministic (result-set-equal, golden-able) |
-| REQ-KG-017 | Optional | Where a candidate pair fails all symbolic checks but stays a candidate, it routes to the NLI seam as paraphrastic residue |
-| REQ-KG-018 | Unwanted | If the NLI seam is unavailable, the symbolic checks still run and the residue is marked unresolved, not dropped |
+| REQ-KG-021 | Ubiquitous | The schema declares `claim-quantity`, `claim-unit`, `claim-time-interval`, `claim-normal-form` |
+| REQ-KG-022 | Event-driven | When two in-scope claims assert incompatible quantities after unit normalization, the system marks a hard contradiction |
+| REQ-KG-023 | Event-driven | When two claims' time intervals are inconsistent, the system flags an interval inconsistency |
+| REQ-KG-024 | Event-driven | When a supersession chain is stale or invalid, the system flags it |
+| REQ-KG-025 | Ubiquitous | The symbolic contradiction checks are deterministic (result-set-equal, golden-able) |
+| REQ-KG-026 | Optional | Where a candidate pair fails all symbolic checks but stays a candidate, it routes to the NLI seam as paraphrastic residue |
+| REQ-KG-027 | Unwanted | If the NLI seam is unavailable, the symbolic checks still run and the residue is marked unresolved, not dropped |
 
 ## Out of scope
 

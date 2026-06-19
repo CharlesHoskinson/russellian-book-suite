@@ -30,12 +30,12 @@ See `specs/homoiconic-kg/spec.md` (EARS). Summary:
 
 | REQ id | Pattern | One-line |
 |---|---|---|
-| REQ-KG-026 | Ubiquitous | The schema declares a `link-evidence` relation with `kind`, `score`, `witness`, `provenance` |
-| REQ-KG-027 | Event-driven | When a claim's `source.file` matches a `code-node` module path, a `file-path` link is materialized with its evidence |
-| REQ-KG-028 | Event-driven | When a mention resolves to a `code-node` symbol via a CONTAINS/USES trail, an `exact-symbol` link is materialized |
-| REQ-KG-029 | Ubiquitous | Only deterministic or thresholded-reviewed links become canonical; lower-confidence candidates stay as `link-evidence` |
-| REQ-KG-030 | Ubiquitous | The linker is deterministic over a snapshot (result-set-equal, golden-able) |
-| REQ-KG-031 | Unwanted | If a mention is ambiguous, candidates are stored as evidence and none is promoted without the S9 decision |
+| REQ-KG-035 | Ubiquitous | The schema declares a `link-evidence` relation with `kind`, `score`, `witness`, `provenance` |
+| REQ-KG-036 | Event-driven | When a claim's `source.file` matches a `code-node` module path, a `file-path` link is materialized with its evidence |
+| REQ-KG-037 | Event-driven | When a mention resolves to a `code-node` symbol via a CONTAINS/USES trail, an `exact-symbol` link is materialized |
+| REQ-KG-038 | Ubiquitous | Only deterministic or thresholded-reviewed links become canonical; lower-confidence candidates stay as `link-evidence` |
+| REQ-KG-039 | Ubiquitous | The linker is deterministic over a snapshot (result-set-equal, golden-able) |
+| REQ-KG-040 | Unwanted | If a mention is ambiguous, candidates are stored as evidence and none is promoted without the S9 decision |
 
 ## Out of scope
 

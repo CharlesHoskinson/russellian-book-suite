@@ -1,7 +1,7 @@
 # Capability: homoiconic-kg (delta for kg-substrate-hardening)
 
 This change EXTENDS the `homoiconic-kg` capability. It ADDS requirements
-REQ-KG-032 through REQ-KG-037. It hardens REQ-KG-002 (single Cozo store),
+REQ-KG-041 through REQ-KG-046. It hardens REQ-KG-002 (single Cozo store),
 REQ-KG-002b (seam isolation), REQ-KG-007 (swappable backend), and REQ-KG-008
 (determinism) without altering them.
 
@@ -25,7 +25,7 @@ text and pinned by its scenarios.
 
 ## ADDED Requirements
 
-### Requirement: REQ-KG-032 — Conformance harness over frozen fixtures (Ubiquitous)
+### Requirement: REQ-KG-041 — Conformance harness over frozen fixtures (Ubiquitous)
 
 The framework SHALL provide a conformance harness behind the `cozo_store` seam that
 runs a set of frozen EDN query fixtures, reaching the store only through the seam
@@ -40,7 +40,7 @@ cheap to evaluate; routing it through the seam keeps the `pycozo` engine isolate
 - **THEN** each frozen EDN fixture executes against the store via `cozo_store`, with no module bypassing the seam
 - **AND** `tests/test_substrate_conformance.py::test_harness_runs_frozen_fixtures` passes
 
-### Requirement: REQ-KG-033 — Dual-run result-set equality (Event-driven)
+### Requirement: REQ-KG-042 — Dual-run result-set equality (Event-driven)
 
 When a fixture runs against both Cozo and the reference backend, the system SHALL
 find their outputs result-set equal under canonical ordering.
@@ -54,7 +54,7 @@ reproduces the rule surface"; it is what turns the seam from a shape into a proo
 - **THEN** the two result sets are result-set equal under canonical ordering
 - **AND** `tests/test_substrate_conformance.py::test_dual_run_result_set_equal` passes
 
-### Requirement: REQ-KG-034 — Reference backend is authoring-time only (Ubiquitous)
+### Requirement: REQ-KG-043 — Reference backend is authoring-time only (Ubiquitous)
 
 The framework SHALL provide a reference backend that evaluates a declared rule subset
 and SHALL NOT use it as the production store; the production store remains the single
@@ -70,13 +70,13 @@ constraints Cozo satisfies.
 - **THEN** it evaluates that subset, and the production query path still resolves through the single Cozo store
 - **AND** `tests/test_substrate_conformance.py::test_reference_backend_is_authoring_only` passes
 
-### Requirement: REQ-KG-035 — Canonical result ordering (Ubiquitous)
+### Requirement: REQ-KG-044 — Canonical result ordering (Ubiquitous)
 
 Query result sets SHALL be canonically ordered before comparison so that dual-run
 comparison is deterministic.
 
 Rationale: Cozo and the reference backend do not guarantee row order; a pinned
-canonical order is what makes REQ-KG-033's equality decidable and reconciles with
+canonical order is what makes REQ-KG-042's equality decidable and reconciles with
 REQ-KG-008's determinism clause.
 
 #### Scenario: ordering is fixed and deterministic
@@ -85,7 +85,7 @@ REQ-KG-008's determinism clause.
 - **THEN** the two orderings are byte-identical, and the order is independent of backend row emission
 - **AND** `tests/test_substrate_conformance.py::test_canonical_ordering_deterministic` passes
 
-### Requirement: REQ-KG-036 — Documented switch-trigger list (Ubiquitous)
+### Requirement: REQ-KG-045 — Documented switch-trigger list (Ubiquitous)
 
 The framework SHALL carry a documented switch-trigger list stating the explicit
 conditions under which a backend swap is reconsidered: Python or platform support
@@ -102,7 +102,7 @@ reviewable; a swap is a recorded decision against named conditions, not a reflex
 - **THEN** the switch-trigger list exists and names the four triggers
 - **AND** `tests/test_substrate_conformance.py::test_switch_trigger_doc_lists_triggers` passes
 
-### Requirement: REQ-KG-037 — Divergence fails loudly (Unwanted)
+### Requirement: REQ-KG-046 — Divergence fails loudly (Unwanted)
 
 If the reference backend and Cozo diverge on a fixture, then the harness SHALL fail
 loudly and SHALL name the fixture and the diverging rows.

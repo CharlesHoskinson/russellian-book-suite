@@ -70,9 +70,9 @@ Five new capabilities plus extensions to the landed `homoiconic-kg`:
 | `attributed-generation` (new) | `ATTR` | book-compose + book-qa + book-knowledge | S2 |
 | `argumentation` (new) | `ARG` | book-knowledge | S3 |
 | `proof-obligations` (new) | `PROOF` | book-knowledge + neurosym-forge + halmos | S7 |
-| `homoiconic-kg` (extend) | `KG` | book-knowledge | S4, S5, S6, S8 (REQ-KG-012+) |
+| `homoiconic-kg` (extend) | `KG` | book-knowledge | S4, S5, S6, S8 (REQ-KG-021+) |
 
-Per OpenSpec workflow, new capabilities have no steady-state `openspec/specs/<capability>/spec.md` until their first change archives; this roadmap writes only the change-local deltas under `changes/<change>/specs/<capability>/spec.md`. `homoiconic-kg` extensions continue its existing REQ-KG numbering from REQ-KG-012 (the landed change reached REQ-KG-011).
+Per OpenSpec workflow, new capabilities have no steady-state `openspec/specs/<capability>/spec.md` until their first change archives; this roadmap writes only the change-local deltas under `changes/<change>/specs/<capability>/spec.md`. `homoiconic-kg` extensions continue its existing REQ-KG numbering from REQ-KG-021 (the homoiconic-kg cutover's P0–P5 phases reached REQ-KG-020).
 
 ### REQ-slug allocation
 
@@ -86,7 +86,7 @@ Added to the table in `openspec/README.md`:
 | `ARG` | argumentation |
 | `PROOF` | proof-obligations |
 
-`homoiconic-kg` keeps slug `KG`; S4/S5/S6/S8 append REQ-KG-012… in sprint order without renumbering existing IDs.
+`homoiconic-kg` keeps slug `KG`; S4/S5/S6/S8 append REQ-KG-021… in sprint order without renumbering existing IDs (S4=021–027, S5=028–034, S6=035–040, S8=041–046).
 
 ### EARS conventions
 
@@ -102,15 +102,15 @@ Unchanged from `openspec/README.md`: five patterns (Ubiquitous, Event-driven `Wh
 
 **S3 — `kg-argumentation-layer` (`argumentation`, ARG).** EDN/Datalog rules deriving `attacked`, `defended`, `undefeated-attacker`, `grounded-accepted`, `grounded-rejected` over `supports`/`conflicts-with`/`counter-claim`/`sub-argument`/`load-bearing`, plus warnings (e.g. `contested-load-bearing-with-undefended-attack`). Grounded semantics only at first (deterministic, explainable); preferred/stable deferred to S9. *Evidence B (Dung; ASPIC+/ASP).* REQ-ARG-001…00n.
 
-**S4 — `kg-contradiction-workbench` (extends `homoiconic-kg`, KG).** Normalized helper relations `claim-quantity`, `claim-unit`, `claim-time-interval`, `claim-normal-form`; symbolic rules for exact contradictions, interval inconsistencies, quantity clashes after unit conversion, and stale supersession chains. Only paraphrastic residue routes to an external NLI seam. *Evidence A symbolic / B residue.* REQ-KG-012…0n.
+**S4 — `kg-contradiction-workbench` (extends `homoiconic-kg`, KG).** Normalized helper relations `claim-quantity`, `claim-unit`, `claim-time-interval`, `claim-normal-form`; symbolic rules for exact contradictions, interval inconsistencies, quantity clashes after unit conversion, and stale supersession chains. Only paraphrastic residue routes to an external NLI seam. *Evidence A symbolic / B residue.* REQ-KG-021…027.
 
-**S5 — `kg-belief-erosion-completion` (extends `homoiconic-kg`, KG).** Materialize `effective-confidence` as a Cozo relation derived from `p-prior`/`p-posterior`/`supports`/`derived-from`/`conflicts-with`/source trust/freshness; emit `support-erosion-reason` from minimal justification sets; add bounded why-provenance on-demand for `load-bearing` claims only; add source-freshness decay. Completes `propagate_belief.py`. *Evidence B (provenance semirings).* REQ-KG-0n….
+**S5 — `kg-belief-erosion-completion` (extends `homoiconic-kg`, KG).** Materialize `effective-confidence` as a Cozo relation derived from `p-prior`/`p-posterior`/`supports`/`derived-from`/`conflicts-with`/source trust/freshness; emit `support-erosion-reason` from minimal justification sets; add bounded why-provenance on-demand for `load-bearing` claims only; add source-freshness decay. Completes `propagate_belief.py`. *Evidence B (provenance semirings).* REQ-KG-028…034.
 
-**S6 — `kg-code-claim-autolink` (extends `homoiconic-kg`, KG).** Replace the wholly-explicit `code-claim-link` with a derived relation whose evidence is stored in a new `link-evidence` relation (`kind`, `score`, `witness`, `provenance`). Stage one is deterministic only: `source.file` matches a module path, a mention resolves to a `code-node` symbol, or a cited symbol has a CONTAINS/USES edge. Learned ranking is S9. *Evidence B (CODEXGRAPH; De-Hallucinator).* REQ-KG-0n….
+**S6 — `kg-code-claim-autolink` (extends `homoiconic-kg`, KG).** Replace the wholly-explicit `code-claim-link` with a derived relation whose evidence is stored in a new `link-evidence` relation (`kind`, `score`, `witness`, `provenance`). Stage one is deterministic only: `source.file` matches a module path, a mention resolves to a `code-node` symbol, or a cited symbol has a CONTAINS/USES edge. Learned ranking is S9. *Evidence B (CODEXGRAPH; De-Hallucinator).* REQ-KG-035…040.
 
 **S7 — `kg-proof-obligations` (`proof-obligations`, PROOF).** A `proof-obligation` entity (`statement`, `linked-claim`, `checker-kind` ∈ {z3, cvc5, lean, units, stats-report}, `status`, `assumptions`, `artifact-path`, `countermodel-path`, `checked-at`, `normal-form`) plus a `verification-artifact` record and `requires-proof` relation. The halmos / math-science writer passes consume only claims whose obligations are discharged or explicitly waived. A `scientific-claim-check` seam validates units, uncertainty qualifiers, and statistical-reporting norms. *Evidence B (Lean kernel; Z3 proof objects; EQUATOR/PRISMA).* REQ-PROOF-001…00n.
 
-**S8 — `kg-substrate-hardening` (extends `homoiconic-kg`, KG).** A conformance harness behind `cozo_store`: frozen EDN query fixtures, dual-run result-set equality between Cozo and a small reference backend (DataScript-class, authoring-time only), canonical ordering checks, and a documented switch-trigger list. Buys swap optionality without a migration. *Evidence B.* REQ-KG-0n….
+**S8 — `kg-substrate-hardening` (extends `homoiconic-kg`, KG).** A conformance harness behind `cozo_store`: frozen EDN query fixtures, dual-run result-set equality between Cozo and a small reference backend (DataScript-class, authoring-time only), canonical ordering checks, and a documented switch-trigger list. Buys swap optionality without a migration. *Evidence B.* REQ-KG-041…046.
 
 **S9 — `kg-advanced-semantics` (speculative stub).** Learned code↔claim ranking (TransE/RotatE/GNN link-prediction as a *candidate ranker*, never an unreviewed fact ingester); richer ASPIC+/preferred/stable argumentation semantics in an ASP solver for offline audits; autoformalization loops for complex math prose, scoped tightly with explicit uncertainty. Proposal-only stub; each item graduates to its own sprint when the deterministic layer beneath it is proven. *Evidence C/B.*
 

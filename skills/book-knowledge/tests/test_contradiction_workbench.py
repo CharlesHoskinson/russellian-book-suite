@@ -1,4 +1,4 @@
-"""Tests for the S4 normalized contradiction workbench (REQ-KG-012..018)."""
+"""Tests for the S4 normalized contradiction workbench (REQ-KG-021..027)."""
 from __future__ import annotations
 
 import json
@@ -62,7 +62,7 @@ def _alerts_by_rule(result: dict, rule: str) -> list[dict]:
 
 
 def test_schema_declares_helper_relations(tmp_path: Path) -> None:
-    """REQ-KG-012: schema declares and projector emits normalized helper rows."""
+    """REQ-KG-021: schema declares and projector emits normalized helper rows."""
     schema = edn_format.loads(SCHEMA.read_text(encoding="utf-8"))
     entities = schema[edn_format.Keyword("entities")]
     for name in (
@@ -93,7 +93,7 @@ def test_schema_declares_helper_relations(tmp_path: Path) -> None:
 
 
 def test_quantity_clash_after_unit_normalization(tmp_path: Path) -> None:
-    """REQ-KG-013: incompatible normalized quantities clash; equal conversions do not."""
+    """REQ-KG-022: incompatible normalized quantities clash; equal conversions do not."""
     layout = _workspace(tmp_path)
     append_claim(layout, _claim(1, "route length is 30 km"))
     append_claim(layout, _claim(2, "route length is 300 km"))
@@ -118,7 +118,7 @@ def test_quantity_clash_after_unit_normalization(tmp_path: Path) -> None:
 
 
 def test_interval_inconsistency_flagged(tmp_path: Path) -> None:
-    """REQ-KG-014: interval requirements flag only violated temporal relations."""
+    """REQ-KG-023: interval requirements flag only violated temporal relations."""
     layout = _workspace(tmp_path)
     append_claim(layout, _claim(1, "site occupation active from 1910 to 1915 requires overlap"))
     append_claim(layout, _claim(2, "site occupation active from 1920 to 1925 requires overlap"))
@@ -140,7 +140,7 @@ def test_interval_inconsistency_flagged(tmp_path: Path) -> None:
 
 
 def test_stale_or_invalid_supersession_flagged(tmp_path: Path) -> None:
-    """REQ-KG-015: stale, missing, and cyclic supersession chains are flagged."""
+    """REQ-KG-024: stale, missing, and cyclic supersession chains are flagged."""
     layout = _workspace(tmp_path)
     append_claim(layout, _claim(1, "old route length is 30 km"))
     append_claim(layout, _claim(2, "new route length is 31 km", supersedes="clm-2026-000001"))
@@ -169,7 +169,7 @@ def test_stale_or_invalid_supersession_flagged(tmp_path: Path) -> None:
 
 
 def test_symbolic_checks_deterministic(tmp_path: Path) -> None:
-    """REQ-KG-016: symbolic checks are result-set-equal and do not mutate ledger."""
+    """REQ-KG-025: symbolic checks are result-set-equal and do not mutate ledger."""
     layout = _workspace(tmp_path)
     append_claim(layout, _claim(1, "route length is 30 km"))
     append_claim(layout, _claim(2, "route length is 300 km"))
@@ -185,7 +185,7 @@ def test_symbolic_checks_deterministic(tmp_path: Path) -> None:
 
 
 def test_residue_routes_to_nli_seam(tmp_path: Path) -> None:
-    """REQ-KG-017: only non-symbolic candidate pairs route to the injected seam."""
+    """REQ-KG-026: only non-symbolic candidate pairs route to the injected seam."""
     layout = _workspace(tmp_path)
     append_claim(layout, _claim(1, "route length is 30 km", conflicts_with=["clm-2026-000002"]))
     append_claim(layout, _claim(2, "route length is 300 km"))
@@ -208,7 +208,7 @@ def test_residue_routes_to_nli_seam(tmp_path: Path) -> None:
 
 
 def test_residue_unresolved_when_seam_down(tmp_path: Path) -> None:
-    """REQ-KG-018: seam-down residue is marked unresolved, not dropped."""
+    """REQ-KG-027: seam-down residue is marked unresolved, not dropped."""
     layout = _workspace(tmp_path)
     append_claim(layout, _claim(1, "route length is 30 km", conflicts_with=["clm-2026-000002"]))
     append_claim(layout, _claim(2, "route length is 300 km"))

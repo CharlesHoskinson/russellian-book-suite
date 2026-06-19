@@ -33,12 +33,12 @@ See `specs/homoiconic-kg/spec.md` (EARS). Summary:
 
 | REQ id | Pattern | One-line |
 |---|---|---|
-| REQ-KG-032 | Ubiquitous | A conformance harness runs frozen EDN query fixtures behind the `cozo_store` seam |
-| REQ-KG-033 | Event-driven | When a fixture runs against Cozo and the reference backend, their outputs are result-set-equal under canonical ordering |
-| REQ-KG-034 | Ubiquitous | A reference backend evaluates a declared rule subset and is authoring-time only, never the production store |
-| REQ-KG-035 | Ubiquitous | Query result sets are canonically ordered so dual-run comparison is deterministic |
-| REQ-KG-036 | Ubiquitous | A documented switch-trigger list states the explicit conditions under which a backend swap is reconsidered |
-| REQ-KG-037 | Unwanted | If the reference backend and Cozo diverge on a fixture, the harness fails loudly and names the fixture and the diverging rows |
+| REQ-KG-041 | Ubiquitous | A conformance harness runs frozen EDN query fixtures behind the `cozo_store` seam |
+| REQ-KG-042 | Event-driven | When a fixture runs against Cozo and the reference backend, their outputs are result-set-equal under canonical ordering |
+| REQ-KG-043 | Ubiquitous | A reference backend evaluates a declared rule subset and is authoring-time only, never the production store |
+| REQ-KG-044 | Ubiquitous | Query result sets are canonically ordered so dual-run comparison is deterministic |
+| REQ-KG-045 | Ubiquitous | A documented switch-trigger list states the explicit conditions under which a backend swap is reconsidered |
+| REQ-KG-046 | Unwanted | If the reference backend and Cozo diverge on a fixture, the harness fails loudly and names the fixture and the diverging rows |
 
 ## Out of scope
 

@@ -1,7 +1,7 @@
 # Capability: homoiconic-kg (delta for kg-code-claim-autolink)
 
 This change EXTENDS the `homoiconic-kg` capability. It ADDS requirements
-REQ-KG-026 through REQ-KG-031; no existing requirement is changed or renumbered.
+REQ-KG-035 through REQ-KG-040; no existing requirement is changed or renumbered.
 
 EARS classification is noted per requirement. Each requirement leads with its
 subject and SHALL/SHALL NOT; the EARS trigger/condition is in the requirement
@@ -26,7 +26,7 @@ text and pinned by its scenarios.
 
 ## ADDED Requirements
 
-### Requirement: REQ-KG-026 — Link-evidence relation declared (Ubiquitous)
+### Requirement: REQ-KG-035 — Link-evidence relation declared (Ubiquitous)
 
 The schema SHALL declare a `link-evidence` relation carrying `kind`, `score`,
 `witness`, and `provenance`, such that every proposed code↔claim link has a
@@ -41,7 +41,7 @@ canonical link justifiable and a rejected candidate inspectable rather than lost
 - **THEN** a `link-evidence` relation is present with `kind`, `score`, `witness`, and `provenance` attributes
 - **AND** `tests/test_code_claim_autolink.py::test_schema_declares_link_evidence` passes
 
-### Requirement: REQ-KG-027 — File-path links materialized from module-path match (Event-driven)
+### Requirement: REQ-KG-036 — File-path links materialized from module-path match (Event-driven)
 
 When a claim's `source.file` matches a `code-node` module path, the system SHALL
 materialize a `code-claim-link` of `kind` `file-path` between that claim and the
@@ -57,7 +57,7 @@ that module by construction; the filename is a deterministic, replayable witness
 - **AND** a `link-evidence` row records `kind` `file-path` with the matched module path as `witness`
 - **AND** `tests/test_code_claim_autolink.py::test_file_path_link_materialized` passes
 
-### Requirement: REQ-KG-028 — Exact-symbol links materialized via CONTAINS/USES trail (Event-driven)
+### Requirement: REQ-KG-037 — Exact-symbol links materialized via CONTAINS/USES trail (Event-driven)
 
 When a claim mentions a symbol resolvable to a `code-node` reached by a
 CONTAINS/USES trail over `code-edge`, the system SHALL materialize a
@@ -74,7 +74,7 @@ deterministic anchor; storing the trail as `witness` makes the link replayable.
 - **AND** a `link-evidence` row records `kind` `exact-symbol` with the resolved symbol and trail as `witness`
 - **AND** `tests/test_code_claim_autolink.py::test_exact_symbol_link_materialized` passes
 
-### Requirement: REQ-KG-029 — Only deterministic or reviewed links are canonical (Ubiquitous)
+### Requirement: REQ-KG-038 — Only deterministic or reviewed links are canonical (Ubiquitous)
 
 The system SHALL promote to canonical only links that are deterministic or
 thresholded-and-reviewed; lower-confidence candidates SHALL be stored as
@@ -91,7 +91,7 @@ weaker signals for the S9 ranker.
 - **AND** the lower-confidence candidate exists only as a `link-evidence` row
 - **AND** `tests/test_code_claim_autolink.py::test_only_deterministic_canonical` passes
 
-### Requirement: REQ-KG-030 — Deterministic linker over a snapshot (Ubiquitous)
+### Requirement: REQ-KG-039 — Deterministic linker over a snapshot (Ubiquitous)
 
 The linker SHALL be a deterministic function of a graph snapshot, producing
 result-set-equal canonical links and `link-evidence` rows for the same snapshot.
@@ -105,7 +105,7 @@ the S0 harness to measure code-link precision/recall.
 - **THEN** the canonical links and `link-evidence` rows are result-set equal under canonical ordering across both runs
 - **AND** `tests/test_code_claim_autolink.py::test_linker_deterministic` passes
 
-### Requirement: REQ-KG-031 — Ambiguous mention is not promoted (Unwanted)
+### Requirement: REQ-KG-040 — Ambiguous mention is not promoted (Unwanted)
 
 If a mention is ambiguous — multiple symbols match — then the system SHALL store
 each candidate as a `link-evidence` row and SHALL NOT promote any of them to a

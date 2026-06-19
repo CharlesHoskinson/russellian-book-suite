@@ -1,6 +1,6 @@
 # Capability: homoiconic-kg (delta for kg-belief-erosion-completion)
 
-This change ADDS requirements REQ-KG-019 through REQ-KG-025 to the existing
+This change ADDS requirements REQ-KG-028 through REQ-KG-034 to the existing
 `homoiconic-kg` capability. It extends the landed capability; it does not restate
 or renumber its REQ-KG-001..018 (the prior change ported the claim stack to the
 Cozo seam, and a parallel S4 change appends its own REQ-KG block in sprint order).
@@ -33,7 +33,7 @@ text and pinned by its scenarios.
 
 ## ADDED Requirements
 
-### Requirement: REQ-KG-019 — Effective-confidence materialized (Ubiquitous)
+### Requirement: REQ-KG-028 — Effective-confidence materialized (Ubiquitous)
 
 The system SHALL materialize `effective-confidence` as a Cozo relation derived
 from `p-prior`, `p-posterior`, `supports`, `derived-from`, `conflicts-with`,
@@ -52,7 +52,7 @@ S0 read the signal, mirroring the `ledger→cozo` projector's read-only contract
 - **AND** the ledger file is byte-identical before and after
 - **AND** `tests/test_belief_erosion.py::test_effective_confidence_materialized` passes
 
-### Requirement: REQ-KG-020 — Erosion reason from minimal justification (Event-driven)
+### Requirement: REQ-KG-029 — Erosion reason from minimal justification (Event-driven)
 
 When propagation runs, each claim whose effective-confidence falls below its prior
 SHALL carry a `support-erosion-reason` drawn from a minimal justification set
@@ -68,7 +68,7 @@ justification set tells it *why* the claim eroded so it can caveat or omit.
 - **AND** a claim whose confidence did not drop carries no erosion reason
 - **AND** `tests/test_belief_erosion.py::test_erosion_reason_minimal` passes
 
-### Requirement: REQ-KG-021 — Refreshed conflicting source erodes the claim (Event-driven)
+### Requirement: REQ-KG-030 — Refreshed conflicting source erodes the claim (Event-driven)
 
 When a source is refreshed and now conflicts with a claim, that claim's
 effective-confidence SHALL drop and its `support-erosion-reason` SHALL name the
@@ -84,7 +84,7 @@ the staleness is auditable.
 - **THEN** the claim's effective-confidence drops and its erosion reason names the refreshed source and the trusted conflict
 - **AND** `tests/test_belief_erosion.py::test_refreshed_source_conflict_erodes` passes
 
-### Requirement: REQ-KG-022 — Bounded why-provenance on demand only (Optional)
+### Requirement: REQ-KG-031 — Bounded why-provenance on demand only (Optional)
 
 Where a load-bearing claim is flagged for explanation by the writer or checker, the
 system SHALL compute a bounded why-provenance returning minimal-cardinality witness
@@ -101,7 +101,7 @@ that carry the chapter.
 - **AND** the flagged claim's witness set is cached in the ledger
 - **AND** `tests/test_belief_erosion.py::test_why_provenance_on_demand` passes
 
-### Requirement: REQ-KG-023 — Source freshness decay (Ubiquitous)
+### Requirement: REQ-KG-032 — Source freshness decay (Ubiquitous)
 
 Source trust SHALL carry a freshness decay such that a stale high-trust source is
 discounted by age, and the decayed trust SHALL feed the effective-confidence
@@ -117,7 +117,7 @@ a stale supporting one.
 - **THEN** the stale-source claim's contributing trust is discounted by age relative to the fresh-source claim
 - **AND** `tests/test_belief_erosion.py::test_freshness_decay` passes
 
-### Requirement: REQ-KG-024 — Deterministic and engine-reusing (Ubiquitous)
+### Requirement: REQ-KG-033 — Deterministic and engine-reusing (Ubiquitous)
 
 Effective-confidence SHALL be deterministic over a ledger snapshot — producing
 result-set-equal output for the same snapshot — and SHALL reuse the existing
@@ -133,7 +133,7 @@ S5 materializes its result rather than reimplementing it.
 - **THEN** the two `effective-confidence` relations are result-set-equal under canonical ordering, and the erosion values are those produced by `propagate_belief` (not a reimplementation)
 - **AND** `tests/test_belief_erosion.py::test_effective_confidence_deterministic_reuses_engine` passes
 
-### Requirement: REQ-KG-025 — Why-provenance truncates at the bound (Unwanted)
+### Requirement: REQ-KG-034 — Why-provenance truncates at the bound (Unwanted)
 
 If a load-bearing claim's why-provenance exceeds the bounded witness cardinality,
 then the system SHALL return the bounded witness set marked truncated rather than

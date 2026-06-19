@@ -34,13 +34,13 @@ See `specs/homoiconic-kg/spec.md` (EARS). Summary:
 
 | REQ id | Pattern | One-line |
 |---|---|---|
-| REQ-KG-019 | Ubiquitous | The system materializes `effective-confidence` as a Cozo relation derived from p-prior/p-posterior/supports/derived-from/conflicts-with/source-trust/freshness |
-| REQ-KG-020 | Event-driven | When propagation runs, each claim's effective-confidence carries a `support-erosion-reason` from a minimal justification set |
-| REQ-KG-021 | Event-driven | When a refreshed source now conflicts, the affected claim's effective-confidence drops and its reason names the refreshed source + trusted conflict |
-| REQ-KG-022 | Optional | Where a load-bearing claim is flagged for explanation, the system computes bounded why-provenance and not for every claim |
-| REQ-KG-023 | Ubiquitous | Source trust carries a freshness decay so a stale high-trust source is discounted by age |
-| REQ-KG-024 | Ubiquitous | Effective-confidence is deterministic over a snapshot (golden-able) and reuses the `propagate_belief` engine without rewriting it |
-| REQ-KG-025 | Unwanted | If a load-bearing claim's why-provenance exceeds the bounded cardinality, the system returns the bounded witness set marked truncated |
+| REQ-KG-028 | Ubiquitous | The system materializes `effective-confidence` as a Cozo relation derived from p-prior/p-posterior/supports/derived-from/conflicts-with/source-trust/freshness |
+| REQ-KG-029 | Event-driven | When propagation runs, each claim's effective-confidence carries a `support-erosion-reason` from a minimal justification set |
+| REQ-KG-030 | Event-driven | When a refreshed source now conflicts, the affected claim's effective-confidence drops and its reason names the refreshed source + trusted conflict |
+| REQ-KG-031 | Optional | Where a load-bearing claim is flagged for explanation, the system computes bounded why-provenance and not for every claim |
+| REQ-KG-032 | Ubiquitous | Source trust carries a freshness decay so a stale high-trust source is discounted by age |
+| REQ-KG-033 | Ubiquitous | Effective-confidence is deterministic over a snapshot (golden-able) and reuses the `propagate_belief` engine without rewriting it |
+| REQ-KG-034 | Unwanted | If a load-bearing claim's why-provenance exceeds the bounded cardinality, the system returns the bounded witness set marked truncated |
 
 ## Out of scope
 

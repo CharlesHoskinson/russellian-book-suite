@@ -112,7 +112,7 @@ The skill pauses. The user reads the outline, confirms the must-include coverage
 
 ### 6. Draft from the bundle and style the chapter
 
-The live draft step uses the same bundle serializer and writes the prompt, scaffold, and draft under `chapters/drafts/ch-03/`:
+The live draft step uses the same bundle serializer, records writer assertions, runs the faithfulness/revise/decompose gates, and writes the draft artifacts under `chapters/drafts/ch-03/`:
 
 ```python
 from scripts.draft_chapter import draft_chapter

@@ -1,6 +1,6 @@
 ---
 name: book-compose
-description: Compile chapter drafts from a validated book workspace. Loads chapter contracts, obtains the chapter-retrieval bundle scaffold, drafts claim-first prose, applies Russellian style, runs release-gate validation, and produces release bundles (Markdown plus optional PDF/EPUB/LaTeX). All processing is local — no external APIs. Use when user says "draft chapter X", "compile chapter from contract", "build release bundle for chapter X", "render chapter to PDF", "build the book release", or "publish the book". Do NOT use for source ingestion (use book-knowledge) or prose-only rewrites (use russellian-style). Also builds book-level releases (manuscript Markdown, React+Tailwind HTML browser, Playwright PDF). Stage 4 includes a multi-persona editorial review (Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader) via the book-review sibling; chapter releases soft-gate on `persona_critical_count == 0`.
+description: Compile chapter drafts from a validated book workspace. Loads chapter contracts, obtains the chapter-retrieval bundle scaffold, drafts claim-first prose, records and checks writer assertions, applies Russellian style, runs release-gate validation, and produces release bundles (Markdown plus optional PDF/EPUB/LaTeX). All processing is local — no external APIs. Use when user says "draft chapter X", "compile chapter from contract", "build release bundle for chapter X", "render chapter to PDF", "build the book release", or "publish the book". Do NOT use for source ingestion (use book-knowledge) or prose-only rewrites (use russellian-style). Also builds book-level releases (manuscript Markdown, React+Tailwind HTML browser, Playwright PDF). Stage 4 includes a multi-persona editorial review (Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader) via the book-review sibling; chapter releases soft-gate on `persona_critical_count == 0`.
 license: MIT
 metadata:
   author: charles-hoskinson
@@ -35,7 +35,7 @@ You compile validated knowledge into reader-facing chapter drafts and book relea
 2. **Pre-flight gate** — call book-knowledge SHACL + competency queries in-process.
 3. **Chapter bundle scaffold** — `draft_chapter.py` calls `chapter_bundle.build_chapter_bundle_input`, which obtains the book-knowledge chapter-retrieval bundle through `sibling_skills`; the flat `query_chapter_evidence` list is not the drafting scaffold.
 4. **Outline** — section plan from the bundle's load-bearing claims and caveats; user approval before drafting.
-5. **Draft** — build the deterministic bundle prompt (thesis cue, ordered claim+anchor support, rebuttal caveats, flags) → first pass through the injected generation seam → `russellian-style` → `humanizer` → write back under `chapters/drafts/<chapter_id>/`.
+5. **Draft + assertion contract** — build the deterministic bundle prompt (thesis cue, ordered claim+anchor support, rebuttal caveats, flags) → first pass through the injected generation seam → bind emitted sentences to scaffold claim/span pairs → record writer assertions → run the S2 faithfulness check and revise/downgrade before assembly → decompose resolved paragraphs into atomic facts → block novel-draft-claim paragraphs and route proposals through `qa/proposed-transitions.jsonl` → `russellian-style` → `humanizer` → write back under `chapters/drafts/<chapter_id>/`.
 6. **Linters** — `chapter_contract_check.py` enforces hedge / passive / listicle / rhythm / citation / `ai_fingerprint_total == 0`.
 7. **Personas** — `persona_review_pass.run_panel` delegates to `review-conductor.run_panel` with the `chapter-default` panel (seven personas: Gottlieb, Lay Reader, Domain Expert, Copyeditor, Enjoyment Reader, AI-slop Detector, First-Time Visitor). One Task subagent per persona; the conductor's `aggregate_panel` produces `panel-review.md` and `verdict.json`. Soft-gate when `verdict.verdict == "soft-gate-fail"` (any critical from gating personas: Gottlieb, Domain Expert, Copyeditor, AI-slop Detector).
 8. **Chapter bundle** — `build_release_bundle.py` writes draft.md + evidence-summary.md + claims-slice.jsonl + manifest.yaml + optional Pandoc renders.
@@ -44,14 +44,14 @@ You compile validated knowledge into reader-facing chapter drafts and book relea
 ## Components
 
 - `chapter_contract.py`, `chapter_contract_check.py` — load, validate, check. Bundle C: `load_brief(workspace_root, contract_path)` augments the validated contract with `must_address` — a list of `{counter_claim_id, text, target_claim_id}` derived from open counter-claims in `claims/counter-claims.jsonl` whose `target_claim_id` is in the contract's `claims` list. Chapter contracts may now declare an optional `claims: [clm-YYYY-NNNNNN, ...]` field.
-- `preflight.py`, `chapter_bundle.py`, `draft_chapter.py`, `query_chapter_evidence.py`, `evidence_summary.py`, `toc.py`.
+- `preflight.py`, `chapter_bundle.py`, `draft_chapter.py`, `writer_assertion.py`, `query_chapter_evidence.py`, `evidence_summary.py`, `toc.py`.
 - `humanizer_pass.py`, `persona_review_pass.py`, `sibling_skills.py`.
 - `build_release_bundle.py`, `diff_drafts.py`.
 - `book_preflight.py`, `book_summary.py`, `render_book_html.py`, `print_pdf.py`, `build_book.py`.
 
 ## Outputs
 
-- `chapters/drafts/<chapter_id>/{outline.md, draft-prompt.md, draft-scaffold.json, draft.md, persona-review.md, style-report.md}`.
+- `chapters/drafts/<chapter_id>/{outline.md, draft-prompt.md, draft-scaffold.json, writer-assertions.jsonl, draft-atomic-facts.jsonl, blocked-paragraphs.json, draft.md, persona-review.md, style-report.md}`.
 - `chapters/releases/<chapter_id>-<version>/{draft.md, evidence-summary.md, claims-slice.jsonl, manifest.yaml, draft.pdf|epub|tex}`.
 - `book/releases/<version>/{manuscript.md, manuscript.html (React/Tailwind/shadcn), manuscript.pdf (Playwright), summary.json, book-manifest.yaml, claims-bibliography.jsonl, chapter-bundles/}`.
 
@@ -62,7 +62,7 @@ You compile validated knowledge into reader-facing chapter drafts and book relea
 - `humanizer` — per-section invocation + assess_draft.
 - `book-review` — persona dispatch packets and aggregation.
 - `web-artifacts-builder-anthropic` — book HTML browser.
-- `book-qa` — runs after `build_book`, before shipping.
+- `book-qa` — receives novel-draft-claim proposals during drafting and runs after `build_book`, before shipping.
 
 ## Usage
 

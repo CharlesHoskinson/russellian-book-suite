@@ -191,9 +191,11 @@ def test_bundle_access_read_only(monkeypatch, tmp_path: Path) -> None:
         if path.is_file()
     )
     assert written_files == [
+        "chapters/drafts/ch-01/blocked-paragraphs.json",
         "chapters/drafts/ch-01/draft-prompt.md",
         "chapters/drafts/ch-01/draft-scaffold.json",
         "chapters/drafts/ch-01/draft.md",
+        "chapters/drafts/ch-01/writer-assertions.jsonl",
         "claims/ledger.jsonl",
     ]
 

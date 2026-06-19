@@ -1,5 +1,5 @@
 """Locate sibling skills (russellian-style, book-knowledge, feynman-style,
-book-review, review-conductor): the in-repo sibling FIRST, then the installed
+book-review, review-conductor, book-qa): the in-repo sibling FIRST, then the installed
 ~/.claude/skills/ copy, and load their scripts under guarded alias packages."""
 from __future__ import annotations
 
@@ -276,6 +276,40 @@ def load_book_review_module(name: str) -> types.ModuleType:
     except BaseException:
         # Drop the half-executed module so a retry re-raises the original
         # error instead of returning a partial module from the cache.
+        sys.modules.pop(full_name, None)
+        raise
+    return module
+
+
+_BQ_PACKAGE_ALIAS = "_book_qa_scripts"
+
+
+def book_qa_root() -> Path:
+    return _repo_sibling("book-qa")
+
+
+def _ensure_bq_package() -> types.ModuleType:
+    return _register_alias(_BQ_PACKAGE_ALIAS, book_qa_root() / "scripts", "book-qa")
+
+
+def load_book_qa_module(name: str) -> types.ModuleType:
+    _ensure_bq_package()
+    full_name = f"{_BQ_PACKAGE_ALIAS}.{name}"
+    if full_name in sys.modules:
+        return sys.modules[full_name]
+    bq_scripts = book_qa_root() / "scripts"
+    module_path = bq_scripts / f"{name}.py"
+    if not module_path.is_file():
+        raise SiblingNotFoundError(f"book-qa module not found: {module_path}")
+    spec = importlib.util.spec_from_file_location(full_name, module_path,
+                                                  submodule_search_locations=None)
+    if spec is None or spec.loader is None:
+        raise SiblingNotFoundError(f"could not load spec for {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[full_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
         sys.modules.pop(full_name, None)
         raise
     return module

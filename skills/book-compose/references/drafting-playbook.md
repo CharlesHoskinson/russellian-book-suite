@@ -1,6 +1,6 @@
 # Drafting Playbook
 
-Drafting is the fourth of five stages. Inputs: an approved outline, a validated contract, and a release-ready workspace. Outputs: a bundle-built prompt scaffold, `draft.md`, and the chapter-level style reports. No prose is written until the prior stages have passed.
+Drafting is the fourth of five stages. Inputs: an approved outline, a validated contract, and a release-ready workspace. Outputs: a bundle-built prompt scaffold, writer assertions, atomic-fact records, `draft.md`, and the chapter-level style reports. No prose is written until the prior stages have passed.
 
 ## The 5-stage workflow
 
@@ -44,7 +44,9 @@ from scripts.draft_chapter import draft_chapter
 result = draft_chapter(workspace, "ch-03", llm_call=chapter_writer)
 ```
 
-`draft_chapter` obtains the bundle through `chapter_bundle.build_chapter_bundle_input`, renders a deterministic prompt, and writes only under `chapters/drafts/<chapter_id>/`: `draft-prompt.md`, `draft-scaffold.json`, and `draft.md`. The prompt presents load-bearing claims in bundle order with their minimal span anchors, caveats open rebuttals, and withholds unanchored load-bearing claims from assertable support.
+`draft_chapter` obtains the bundle through `chapter_bundle.build_chapter_bundle_input`, renders a deterministic prompt, generates through the injected writer seam, and then runs the S2 assertion contract before assembling `draft.md`. Each emitted sentence is bound in scaffold order to a support claim and its minimal span anchor, recorded in `writer-assertions.jsonl`, checked for sentence-to-span faithfulness, and resolved by revise-or-downgrade before it can enter the chapter. Resolved paragraphs are decomposed into `draft-atomic-facts.jsonl`; paragraphs with a `novel-draft-claim` are withheld and proposed through `qa/proposed-transitions.jsonl` for book-knowledge writeback review.
+
+The draft step writes under `chapters/drafts/<chapter_id>/`: `draft-prompt.md`, `draft-scaffold.json`, `writer-assertions.jsonl`, `draft-atomic-facts.jsonl` when facts exist, `blocked-paragraphs.json`, and `draft.md`. The prompt presents load-bearing claims in bundle order with their minimal span anchors, caveats open rebuttals, and withholds unanchored load-bearing claims from assertable support.
 
 Invoke the russellian-style skill on the draft file:
 

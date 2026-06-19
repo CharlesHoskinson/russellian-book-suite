@@ -44,6 +44,8 @@ Capability slugs and their full capability names:
 | `ARG` | argumentation |
 | `PROOF` | proof-obligations |
 | `DRAFT` | claim-first-drafting |
+| `LIVE` | liveliness-signals |
+| `TRIAD` | triadic-voice |
 
 ## EARS patterns
 

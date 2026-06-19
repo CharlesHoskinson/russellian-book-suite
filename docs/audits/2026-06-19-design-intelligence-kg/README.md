@@ -1,7 +1,7 @@
 # Design-intelligence KG audit
 
 - date: 2026-06-19
-- commit: 42a99d0
+- commit: 16eab42
 - graphify version: graphify 0.8.35
 - graphify graph: graphify-out/graph.json
 
@@ -11,7 +11,7 @@
 - design scenarios: 205
 - design decisions: 116
 - operator commands: 4170
-- tests: 2262
+- tests: 2263
 - ci workflows: 5
 - ci jobs: 24
 - traceability links: 111
@@ -32,4 +32,5 @@
 - `coverage-map.md`: graphify community samples and trace hits.
 - `findings.md`: coverage gaps, stale evidence, and test gaps.
 - `queries.md`: reproducible named query samples with provenance.
+- `study-map.json` / `study-map.md`: AI-facing priority map.
 - `review-gate.md`: Phase 6 compliance and code-quality review.

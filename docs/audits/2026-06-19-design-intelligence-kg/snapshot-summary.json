@@ -10,11 +10,11 @@
     "operator_commands": 4170,
     "promoted_links": 69,
     "requirements": 131,
-    "tests": 2262,
+    "tests": 2263,
     "traceability_links": 111
   },
   "metadata": {
-    "commit": "42a99d0",
+    "commit": "16eab42",
     "date": "2026-06-19",
     "graphify_graph": "graphify-out/graph.json",
     "graphify_version": "graphify 0.8.35",
@@ -29,6 +29,8 @@
       "queries": "queries.md",
       "readme": "README.md",
       "review_gate": "review-gate.md",
+      "study_map": "study-map.md",
+      "study_map_json": "study-map.json",
       "summary": "snapshot-summary.json"
     },
     "schema": "skills/book-knowledge/assets/kg-schema.edn"

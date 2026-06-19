@@ -1,0 +1,448 @@
+{
+  "agent_workflow": [
+    "Start with active_coverage_gaps before archived_coverage_gaps.",
+    "Inspect each example source_path/source_line before changing code.",
+    "Promote evidence-only links only when exact identifiers, paths, or reviewed design evidence support them.",
+    "For archived-only gaps, prefer documenting historical status over implementing stale requirements."
+  ],
+  "priorities": [
+    {
+      "active_coverage_gaps": 10,
+      "archived_coverage_gaps": 46,
+      "capability": "homoiconic-kg",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-KG-047",
+          "source_line": 5,
+          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-KG-048",
+          "source_line": 22,
+          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-KG-049",
+          "source_line": 39,
+          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-KG-050",
+          "source_line": 55,
+          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-KG-051",
+          "source_line": 71,
+          "source_path": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 56,
+        "implementation": 48,
+        "test": 56
+      },
+      "priority_score": 194,
+      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
+      "stale_evidence_links": 16
+    },
+    {
+      "active_coverage_gaps": 6,
+      "archived_coverage_gaps": 9,
+      "capability": "proof-obligations",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-PROOF-010",
+          "source_line": 29,
+          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-PROOF-011",
+          "source_line": 44,
+          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-PROOF-012",
+          "source_line": 58,
+          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-PROOF-013",
+          "source_line": 72,
+          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-PROOF-014",
+          "source_line": 86,
+          "source_path": "openspec/changes/live-proof-gate/specs/proof-obligations/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 15,
+        "implementation": 13,
+        "test": 15
+      },
+      "priority_score": 141,
+      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
+      "stale_evidence_links": 24
+    },
+    {
+      "active_coverage_gaps": 12,
+      "archived_coverage_gaps": 6,
+      "capability": "claim-first-drafting",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-013",
+          "source_line": 26,
+          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-014",
+          "source_line": 41,
+          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-015",
+          "source_line": 56,
+          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-016",
+          "source_line": 70,
+          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-017",
+          "source_line": 85,
+          "source_path": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 18,
+        "implementation": 18,
+        "test": 18
+      },
+      "priority_score": 126,
+      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 6,
+      "archived_coverage_gaps": 7,
+      "capability": "kg-prose-eval",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-008",
+          "source_line": 27,
+          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-009",
+          "source_line": 42,
+          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-010",
+          "source_line": 56,
+          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-011",
+          "source_line": 72,
+          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": false,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-012",
+          "source_line": 88,
+          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 13,
+        "implementation": 13,
+        "test": 13
+      },
+      "priority_score": 67,
+      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 14,
+      "capability": "attributed-generation",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-001",
+          "source_line": 27,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-002",
+          "source_line": 42,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-003",
+          "source_line": 56,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-004",
+          "source_line": 71,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-005",
+          "source_line": 87,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 14,
+        "implementation": 14,
+        "test": 14
+      },
+      "priority_score": 14,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 8,
+      "capability": "chapter-retrieval",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-001",
+          "source_line": 23,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-002",
+          "source_line": 39,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-003",
+          "source_line": 54,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-004",
+          "source_line": 65,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-005",
+          "source_line": 81,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 8,
+        "implementation": 8,
+        "test": 8
+      },
+      "priority_score": 8,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 7,
+      "capability": "argumentation",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-001",
+          "source_line": 27,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-002",
+          "source_line": 44,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-003",
+          "source_line": 59,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-004",
+          "source_line": 73,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-005",
+          "source_line": 88,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 7,
+        "implementation": 7,
+        "test": 7
+      },
+      "priority_score": 7,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 0,
+      "capability": "2026-05-11-bundle-c-closed-loop-ledger-design.md",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "decision-constrains-code",
+          "source_line": 229,
+          "source_path": "docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md",
+          "witness": "detect_conflicts"
+        }
+      ],
+      "missing": {
+        "ci": 0,
+        "implementation": 0,
+        "test": 0
+      },
+      "priority_score": 3,
+      "recommended_action": "review evidence-only links and promote only exact, source-backed matches",
+      "stale_evidence_links": 1
+    },
+    {
+      "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 0,
+      "capability": "2026-06-03-carve-completion-design.md",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "stale-evidence",
+          "link_kind": "decision-constrains-code",
+          "source_line": 16,
+          "source_path": "docs/superpowers/specs/2026-06-03-carve-completion-design.md",
+          "witness": "load_skill_api"
+        }
+      ],
+      "missing": {
+        "ci": 0,
+        "implementation": 0,
+        "test": 0
+      },
+      "priority_score": 3,
+      "recommended_action": "review evidence-only links and promote only exact, source-backed matches",
+      "stale_evidence_links": 1
+    }
+  ],
+  "summary": {
+    "active_coverage_gaps": 34,
+    "archived_coverage_gaps": 97,
+    "capability_count": 9,
+    "stale_evidence_links": 42,
+    "top_priority": "homoiconic-kg"
+  }
+}

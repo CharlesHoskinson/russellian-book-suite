@@ -376,6 +376,216 @@ def _sample(rows: list[dict[str, Any]], limit: int = 20) -> list[dict[str, Any]]
     return rows[:limit]
 
 
+def _is_archived_source(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return "/archive/" in normalized or normalized.startswith("openspec/changes/archive/")
+
+
+def _capability_from_stale(row: dict[str, Any]) -> str:
+    from_id = str(row.get("from_id") or "")
+    if from_id.startswith("openspec:"):
+        parts = from_id.split(":")
+        if len(parts) >= 3:
+            return parts[1]
+    source_path = str(row.get("source_path") or "")
+    parts = source_path.replace("\\", "/").split("/")
+    if "specs" in parts:
+        idx = parts.index("specs")
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return "unclassified"
+
+
+def _study_action(
+    *,
+    active_gaps: int,
+    archived_gaps: int,
+    stale_evidence: int,
+    missing: dict[str, int],
+) -> str:
+    if active_gaps:
+        missing_focus = ", ".join(
+            key for key, value in sorted(missing.items()) if value
+        )
+        return (
+            "add or promote traceability for active requirements"
+            + (f" covering {missing_focus}" if missing_focus else "")
+        )
+    if stale_evidence:
+        return "review evidence-only links and promote only exact, source-backed matches"
+    if archived_gaps:
+        return "confirm archived requirements are historical, then keep them out of active design gates"
+    return "no immediate action"
+
+
+def _build_study_map(
+    query_outputs: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    groups: dict[str, dict[str, Any]] = {}
+
+    def ensure(capability: str) -> dict[str, Any]:
+        return groups.setdefault(
+            capability,
+            {
+                "capability": capability,
+                "active_coverage_gaps": 0,
+                "archived_coverage_gaps": 0,
+                "stale_evidence_links": 0,
+                "missing": {"implementation": 0, "test": 0, "ci": 0},
+                "examples": [],
+            },
+        )
+
+    for row in query_outputs.get("coverage-gaps", []):
+        capability = str(row.get("capability") or "unclassified")
+        group = ensure(capability)
+        path = str(row.get("source_path") or "")
+        if _is_archived_source(path):
+            group["archived_coverage_gaps"] += 1
+        else:
+            group["active_coverage_gaps"] += 1
+        for missing in str(row.get("missing") or "").split(","):
+            missing = missing.strip()
+            if missing in group["missing"]:
+                group["missing"][missing] += 1
+        group["examples"].append(
+            {
+                "kind": "coverage-gap",
+                "archived": _is_archived_source(path),
+                "requirement_id": row.get("requirement_id"),
+                "missing": row.get("missing"),
+                "source_path": row.get("source_path"),
+                "source_line": row.get("source_line"),
+            }
+        )
+
+    for row in query_outputs.get("stale-docs", []):
+        group = ensure(_capability_from_stale(row))
+        group["stale_evidence_links"] += 1
+        source_path = str(row.get("source_path") or "")
+        group["examples"].append(
+            {
+                "kind": "stale-evidence",
+                "archived": _is_archived_source(source_path),
+                "link_kind": row.get("link_kind"),
+                "witness": row.get("witness"),
+                "source_path": row.get("source_path"),
+                "source_line": row.get("source_line"),
+            }
+        )
+
+    priorities: list[dict[str, Any]] = []
+    for group in groups.values():
+        score = (
+            group["active_coverage_gaps"] * 10
+            + group["stale_evidence_links"] * 3
+            + group["archived_coverage_gaps"]
+        )
+        group["priority_score"] = score
+        group["recommended_action"] = _study_action(
+            active_gaps=group["active_coverage_gaps"],
+            archived_gaps=group["archived_coverage_gaps"],
+            stale_evidence=group["stale_evidence_links"],
+            missing=group["missing"],
+        )
+        group["examples"] = sorted(
+            group["examples"],
+            key=lambda item: (
+                bool(item.get("archived")),
+                str(item.get("kind") or ""),
+                str(item.get("source_path") or ""),
+                int(item.get("source_line") or 0),
+            ),
+        )[:5]
+        priorities.append(group)
+
+    priorities.sort(
+        key=lambda item: (
+            -int(item["priority_score"]),
+            str(item["capability"]),
+        )
+    )
+    summary = {
+        "capability_count": len(priorities),
+        "active_coverage_gaps": sum(
+            int(item["active_coverage_gaps"]) for item in priorities
+        ),
+        "archived_coverage_gaps": sum(
+            int(item["archived_coverage_gaps"]) for item in priorities
+        ),
+        "stale_evidence_links": sum(
+            int(item["stale_evidence_links"]) for item in priorities
+        ),
+        "top_priority": priorities[0]["capability"] if priorities else None,
+    }
+    return {
+        "summary": summary,
+        "priorities": priorities,
+        "agent_workflow": [
+            "Start with active_coverage_gaps before archived_coverage_gaps.",
+            "Inspect each example source_path/source_line before changing code.",
+            "Promote evidence-only links only when exact identifiers, paths, or reviewed design evidence support them.",
+            "For archived-only gaps, prefer documenting historical status over implementing stale requirements.",
+        ],
+    }
+
+
+def _write_study_map(out_dir: Path, *, study_map: dict[str, Any]) -> None:
+    (out_dir / "study-map.json").write_text(
+        _json_dumps(study_map),
+        encoding="utf-8",
+    )
+
+    summary = study_map["summary"]
+    lines = [
+        "# AI study map",
+        "",
+        "This file turns raw design-KG query results into a prioritized map for",
+        "agents that need to improve design, utility, or traceability.",
+        "",
+        "## Summary",
+        "",
+        f"- capabilities with work: {summary['capability_count']}",
+        f"- active coverage gaps: {summary['active_coverage_gaps']}",
+        f"- archived coverage gaps: {summary['archived_coverage_gaps']}",
+        f"- stale evidence links: {summary['stale_evidence_links']}",
+        f"- top priority: {summary['top_priority'] or 'none'}",
+        "",
+        "## Agent Workflow",
+        "",
+    ]
+    for step in study_map["agent_workflow"]:
+        lines.append(f"- {step}")
+    lines.extend(["", "## Priorities", ""])
+    if not study_map["priorities"]:
+        lines.extend(["No priority rows.", ""])
+    for row in study_map["priorities"]:
+        lines.extend(
+            [
+                f"### {row['capability']}",
+                "",
+                f"- priority score: {row['priority_score']}",
+                f"- active coverage gaps: {row['active_coverage_gaps']}",
+                f"- archived coverage gaps: {row['archived_coverage_gaps']}",
+                f"- stale evidence links: {row['stale_evidence_links']}",
+                f"- missing implementation/test/ci: "
+                f"{row['missing']['implementation']}/"
+                f"{row['missing']['test']}/"
+                f"{row['missing']['ci']}",
+                f"- recommended action: {row['recommended_action']}",
+                "",
+            ]
+        )
+        for example in row["examples"]:
+            lines.append(
+                "- example: "
+                f"{example.get('kind')} "
+                f"{example.get('source_path')}:{example.get('source_line')}"
+            )
+        lines.append("")
+    _write_markdown(out_dir / "study-map.md", lines)
+
+
 def _write_readme(
     out_dir: Path,
     *,
@@ -413,6 +623,7 @@ def _write_readme(
             "- `coverage-map.md`: graphify community samples and trace hits.",
             "- `findings.md`: coverage gaps, stale evidence, and test gaps.",
             "- `queries.md`: reproducible named query samples with provenance.",
+            "- `study-map.json` / `study-map.md`: AI-facing priority map.",
             "- `review-gate.md`: Phase 6 compliance and code-quality review.",
             "",
         ]
@@ -568,6 +779,8 @@ def build_design_kg_audit(
         "coverage_map": "coverage-map.md",
         "findings": "findings.md",
         "queries": "queries.md",
+        "study_map": "study-map.md",
+        "study_map_json": "study-map.json",
         "review_gate": "review-gate.md",
     }
     metadata = {
@@ -604,6 +817,7 @@ def build_design_kg_audit(
     _write_coverage_map(out_dir, communities=communities)
     _write_findings(out_dir, query_outputs=query_outputs, counts=counts)
     _write_queries(out_dir, query_outputs=query_outputs)
+    _write_study_map(out_dir, study_map=_build_study_map(query_outputs))
 
     return {
         "artifact_dir": str(out_dir),

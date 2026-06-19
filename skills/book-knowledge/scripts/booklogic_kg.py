@@ -86,7 +86,12 @@ import edn_format
 
 from .cozo_store import to_snake
 
-__all__ = ["compile_query", "compile_constraint", "compile_argumentation_rules"]
+__all__ = [
+    "compile_query",
+    "compile_constraint",
+    "compile_argumentation_rules",
+    "compile_contradiction_workbench_rules",
+]
 
 _FIND = edn_format.Keyword("find")
 _WHERE = edn_format.Keyword("where")
@@ -125,6 +130,12 @@ _ARGUMENTATION_OUTPUTS = {
     "grounded-rejected",
     "labels",
     "warnings",
+}
+_TOLERANCE = edn_format.Keyword("tolerance")
+_CONTRADICTION_OUTPUTS = {
+    "quantity-clash",
+    "interval-inconsistency",
+    "candidate-pairs",
 }
 
 
@@ -636,6 +647,152 @@ def compile_argumentation_rules(
         + [_argumentation_query(output)]
     )
     return "\n".join(rules)
+
+
+# -- contradiction workbench defrules -> Cozo program (S4) ----------------
+
+
+def _workbench_prelude(tolerance: float) -> list[str]:
+    return [
+        (
+            "quantity_pair[a, b, subject, predicate, qa, qb, va, vb, unit] := "
+            "*claim_normal_form{claim_id: a, subject, predicate, quantity_id: qa}, "
+            "*claim_normal_form{claim_id: b, subject, predicate, quantity_id: qb}, "
+            "a < b, "
+            "*claim_quantity{id: qa, canonical_value: va, canonical_unit: unit}, "
+            "*claim_quantity{id: qb, canonical_value: vb, canonical_unit: unit}"
+        ),
+        (
+            "quantity_clash_rel[a, b, subject, predicate, va, vb, unit] := "
+            "quantity_pair[a, b, subject, predicate, qa, qb, va, vb, unit], "
+            f"va + {tolerance} < vb"
+        ),
+        (
+            "quantity_clash_rel[a, b, subject, predicate, va, vb, unit] := "
+            "quantity_pair[a, b, subject, predicate, qa, qb, va, vb, unit], "
+            f"vb + {tolerance} < va"
+        ),
+        (
+            "interval_pair[a, b, subject, predicate, sa, ea, sb, eb, required] := "
+            "*claim_time_interval{claim_id: a, subject, predicate, start: sa, "
+            "end: ea, required_relation: required}, "
+            "*claim_time_interval{claim_id: b, subject, predicate, start: sb, "
+            "end: eb, required_relation: required}, a < b"
+        ),
+        (
+            "interval_disjoint[a, b] := "
+            "interval_pair[a, b, subject, predicate, sa, ea, sb, eb, required], "
+            "ea < sb"
+        ),
+        (
+            "interval_disjoint[a, b] := "
+            "interval_pair[a, b, subject, predicate, sa, ea, sb, eb, required], "
+            "eb < sa"
+        ),
+        (
+            "interval_overlap[a, b] := "
+            "interval_pair[a, b, subject, predicate, sa, ea, sb, eb, required], "
+            "sa <= eb, sb <= ea"
+        ),
+        (
+            "interval_inconsistency_rel[a, b, subject, predicate, required, sa, ea, sb, eb] := "
+            "interval_pair[a, b, subject, predicate, sa, ea, sb, eb, required], "
+            'required == "overlap", interval_disjoint[a, b]'
+        ),
+        (
+            "interval_inconsistency_rel[a, b, subject, predicate, required, sa, ea, sb, eb] := "
+            "interval_pair[a, b, subject, predicate, sa, ea, sb, eb, required], "
+            'required == "disjoint", interval_overlap[a, b]'
+        ),
+        (
+            "candidate_pair[a, b] := *claim_conflict{claim_id: a, other_id: b}, "
+            "*claim{id: a}, *claim{id: b}, a < b"
+        ),
+        (
+            "candidate_pair[a, b] := *claim_conflict{claim_id: b, other_id: a}, "
+            "*claim{id: a}, *claim{id: b}, a < b"
+        ),
+    ]
+
+
+def _workbench_query(output: str) -> str:
+    if output == "quantity-clash":
+        return (
+            "?[claim_a, claim_b, subject, predicate, left_value, right_value, unit] := "
+            "quantity_clash_rel[claim_a, claim_b, subject, predicate, "
+            "left_value, right_value, unit]"
+        )
+    if output == "interval-inconsistency":
+        return (
+            "?[claim_a, claim_b, subject, predicate, required, "
+            "left_start, left_end, right_start, right_end] := "
+            "interval_inconsistency_rel[claim_a, claim_b, subject, predicate, "
+            "required, left_start, left_end, right_start, right_end]"
+        )
+    if output == "candidate-pairs":
+        return "?[claim_a, claim_b] := candidate_pair[claim_a, claim_b]"
+    raise ValueError(
+        f"unknown contradiction workbench output {output!r}; expected one of "
+        f"{', '.join(sorted(_CONTRADICTION_OUTPUTS))}"
+    )
+
+
+def compile_contradiction_workbench_rules(
+    edn: str,
+    schema_path: Path,
+    *,
+    output: str,
+) -> str:
+    """Compile S4 contradiction workbench ``defrules`` EDN to CozoScript."""
+    schema = _load_schema_attrs(Path(schema_path))
+    _require_schema_attrs(
+        schema,
+        {
+            "claim": {"id"},
+            "claim-conflict": {"claim-id", "other-id"},
+            "claim-quantity": {
+                "id",
+                "claim-id",
+                "canonical-value",
+                "canonical-unit",
+            },
+            "claim-time-interval": {
+                "claim-id",
+                "subject",
+                "predicate",
+                "start",
+                "end",
+                "required-relation",
+            },
+            "claim-normal-form": {
+                "claim-id",
+                "subject",
+                "predicate",
+                "quantity-id",
+            },
+        },
+    )
+    form = edn_format.loads(edn)
+    if not isinstance(form, (tuple, list)) or len(form) < 1:
+        raise ValueError("rules must be a (defrules ...) form")
+    head = form[0]
+    if not (hasattr(head, "name") and head.name == _DEFRULES):
+        raise ValueError(f"expected a defrules form, got {head!r}")
+
+    sections: dict[Any, Any] = {}
+    i = 2
+    while i + 1 < len(form):
+        sections[form[i]] = form[i + 1]
+        i += 2
+    outputs = _keyword_names(sections.get(_OUTPUTS, []))
+    if output not in outputs:
+        raise ValueError(
+            f"contradiction workbench defrules does not declare output {output!r}"
+        )
+    if output not in _CONTRADICTION_OUTPUTS:
+        raise ValueError(f"unsupported contradiction workbench output {output!r}")
+    tolerance = float(sections.get(_TOLERANCE, 1.0e-6))
+    return "\n".join(_workbench_prelude(tolerance) + [_workbench_query(output)])
 
 
 def _compile_find_term(term: Any, env: set[str]) -> str:

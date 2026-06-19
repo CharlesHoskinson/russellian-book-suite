@@ -178,6 +178,31 @@
   {:attrs [:id :subject :value]
    :relations [[:of-claim :claim]]}
 
+  ;; Normalized contradiction workbench helper relations (S4). These rows are
+  ;; deterministic projections from existing claim records, not ledger fields.
+  ;; The parser is conservative: a claim with no parseable quantity/interval
+  ;; simply emits no helper row.
+  :claim-quantity
+  {:attrs [:id :claim-id :value :unit :canonical-value :canonical-unit :dimension]
+   :types {:value :float :canonical-value :float}
+   :relations [[:of-claim :claim]]}
+
+  :claim-unit
+  {:attrs [:id :claim-id :unit :canonical-unit :dimension :scale-to-canonical]
+   :types {:scale-to-canonical :float}
+   :relations [[:of-claim :claim]]}
+
+  :claim-time-interval
+  {:attrs [:id :claim-id :subject :predicate :start :end :required-relation]
+   :types {:start :int :end :int}
+   :relations [[:of-claim :claim]]}
+
+  :claim-normal-form
+  {:attrs [:id :claim-id :subject :predicate :object :quantity-id :time-interval-id]
+   :relations [[:of-claim :claim]
+               [:has-quantity :claim-quantity]
+               [:has-interval :claim-time-interval]]}
+
   ;; claim A implies claim B (implies(A,B)) — the transitive-contradiction edge.
   ;; Identity is the synthetic (claim-id . target-id) pair so re-projection upserts.
   :claim-implies

@@ -71,6 +71,7 @@ from urllib.parse import quote
 
 from .counter_claims import read_counter_claims
 from .io_utils import latest_per, read_jsonl
+from .normalized_claims import normalized_rows_for_claim
 from .workspace import WorkspaceLayout
 
 # Mirror project_graph's chapter URI minting so the relational chapter
@@ -236,6 +237,10 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
     claim_chapter_rows: list[dict] = []
     chapter_rows: dict[str, dict] = {}  # uri -> row (dedup distinct chapters)
     claim_conflict_rows: list[dict] = []
+    claim_quantity_rows: list[dict] = []
+    claim_unit_rows: list[dict] = []
+    claim_time_interval_rows: list[dict] = []
+    claim_normal_form_rows: list[dict] = []
 
     for record in latest.values():
         if record.get("status") == "superseded":
@@ -251,6 +256,12 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
                     else record[field]
                 )
         claim_rows.append(row)
+
+        normalized = normalized_rows_for_claim(record)
+        claim_quantity_rows.extend(normalized["claim-quantity"])
+        claim_unit_rows.extend(normalized["claim-unit"])
+        claim_time_interval_rows.extend(normalized["claim-time-interval"])
+        claim_normal_form_rows.extend(normalized["claim-normal-form"])
 
         for chapter in record.get("supports_chapters", []):
             chapter_uri = _chapter_uri(chapter)
@@ -316,6 +327,10 @@ def project_ledger(layout: WorkspaceLayout, store) -> None:
         counter_claim_rows.append(row)
 
     store.load("claim", claim_rows)
+    store.load("claim-quantity", claim_quantity_rows)
+    store.load("claim-unit", claim_unit_rows)
+    store.load("claim-time-interval", claim_time_interval_rows)
+    store.load("claim-normal-form", claim_normal_form_rows)
     store.load("source-span", span_rows)
     # Source manifests (REQ-KG-006): one row per raw/manifests/*.json, mirroring
     # project_graph's schema:dateCreated emission. The claim->span->source join

@@ -40,10 +40,14 @@ def _modifier_ratio(spacy_doc, overrides: set[str]) -> float:
     return modifiers / len(content)
 
 
-def lint_signal_density(path: Path) -> list[dict]:
+def lint_signal_density(path: Path, rules: dict | None = None, register: str | None = None) -> list[dict]:
     text = load_markdown(path)
-    rules = load_rules()
+    if rules is None:
+        rules = load_rules()
     budget = rules["modifier_budget_ratio"]
+    by_reg = rules.get("modifier_budget_by_register")
+    if register and by_reg and register in by_reg:
+        budget = by_reg[register]
     nlp = _nlp()
     overrides = _load_overrides()
 

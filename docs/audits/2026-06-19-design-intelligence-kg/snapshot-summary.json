@@ -1,0 +1,45 @@
+{
+  "counts": {
+    "ci_jobs": 24,
+    "ci_workflows": 5,
+    "design_decisions": 116,
+    "design_scenarios": 205,
+    "evidence_only_links": 42,
+    "graph_edges": 27011,
+    "graph_nodes": 15206,
+    "operator_commands": 4170,
+    "promoted_links": 69,
+    "requirements": 131,
+    "tests": 2262,
+    "traceability_links": 111
+  },
+  "metadata": {
+    "commit": "42a99d0",
+    "date": "2026-06-19",
+    "graphify_graph": "graphify-out/graph.json",
+    "graphify_version": "graphify 0.8.35",
+    "projection_commands": [
+      "python -m graphify update . --no-cluster --force",
+      "python -m graphify cluster-only . --no-viz --no-label",
+      "python skills/book-knowledge/scripts/build_design_kg_audit.py --root . --out docs/audits/<date>-design-intelligence-kg --date <date>"
+    ],
+    "report_paths": {
+      "coverage_map": "coverage-map.md",
+      "findings": "findings.md",
+      "queries": "queries.md",
+      "readme": "README.md",
+      "review_gate": "review-gate.md",
+      "summary": "snapshot-summary.json"
+    },
+    "schema": "skills/book-knowledge/assets/kg-schema.edn"
+  },
+  "query_counts": {
+    "ci-gates": 0,
+    "claim-grounding": 0,
+    "coverage-gaps": 131,
+    "impact": 10,
+    "stale-docs": 42,
+    "untested-god-nodes": 0,
+    "why": 2
+  }
+}

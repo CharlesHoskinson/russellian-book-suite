@@ -53,6 +53,25 @@ EXPECTED_ENTITIES = {
     "effective-confidence",
     "chapter-section",
     "chapter-retrieval-bundle",
+    "design-requirement",
+    "design-scenario",
+    "design-decision",
+    "test-case",
+    "ci-workflow",
+    "ci-job",
+    "operator-command",
+    "traceability-link",
+}
+
+DESIGN_INTELLIGENCE_ENTITIES = {
+    "design-requirement",
+    "design-scenario",
+    "design-decision",
+    "test-case",
+    "ci-workflow",
+    "ci-job",
+    "operator-command",
+    "traceability-link",
 }
 
 
@@ -139,3 +158,33 @@ def test_attr_names_are_kebab_case_keywords(entities):
             assert _name(target) in EXPECTED_ENTITIES, (
                 f"{ename}: relation target {_name(target)} is not a declared entity"
             )
+
+
+def test_design_intelligence_entities_carry_source_provenance(entities):
+    """REQ-KG-047: design-intelligence rows are source-backed."""
+    for ename in DESIGN_INTELLIGENCE_ENTITIES:
+        attrs = {
+            _name(attr)
+            for attr in _normalize_keys(entities[ename])["attrs"]
+        }
+        assert {"id", "source-path", "source-line"} <= attrs, (
+            f"{ename}: missing source provenance attrs"
+        )
+
+
+def test_traceability_link_is_evidence_first(entities):
+    """REQ-KG-049: traceability links preserve evidence before promotion."""
+    attrs = {
+        _name(attr)
+        for attr in _normalize_keys(entities["traceability-link"])["attrs"]
+    }
+    assert {
+        "id",
+        "from-id",
+        "to-id",
+        "kind",
+        "confidence",
+        "witness",
+        "provenance",
+        "promoted",
+    } <= attrs

@@ -351,4 +351,93 @@
   ;; bundle rather than a flat passage list.
   :chapter-retrieval-bundle
   {:attrs [:id :chapter-id :chapter-uri :payload-json :payload-edn :prompt-scaffold]
-   :relations [[:for-chapter :chapter]]}}}
+   :relations [[:for-chapter :chapter]]}
+
+  ;; Design requirement - one source-backed EARS requirement from OpenSpec.
+  ;; :requirement-id is the authored REQ id (e.g. REQ-KG-047), :capability is
+  ;; the OpenSpec capability slug, :status is proposed/accepted/archived, and
+  ;; :text is the requirement body. These rows let agents ask which code, tests,
+  ;; claims, and CI gates support a requirement.
+  :design-requirement
+  {:attrs [:id :requirement-id :capability :status :text :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:implemented-by :code-node]
+               [:covered-by :test-case]
+               [:gated-by :ci-job]
+               [:constrained-by :design-decision]]}
+
+  ;; Design scenario - one OpenSpec scenario under a design requirement. Keeping
+  ;; scenarios separate from requirement text lets agents answer "what behavior
+  ;; proves this requirement?" with exact source-line provenance.
+  :design-scenario
+  {:attrs [:id :requirement-id :capability :text :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:of-requirement :design-requirement]]}
+
+  ;; Design decision - one explicit decision, rationale, alternative, risk,
+  ;; non-goal, switch trigger, or ownership rule from specs/plans/runbooks.
+  ;; :kind is a closed-vocabulary label owned by the extractor; :status is the
+  ;; authored lifecycle where available. The row is intentionally prose-backed:
+  ;; agents may use it only with the source provenance attached.
+  :design-decision
+  {:attrs [:id :kind :status :text :rationale :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:constrains :design-requirement]
+               [:constrains-code :code-node]
+               [:mentions-command :operator-command]]}
+
+  ;; Test case - one pytest/Rust/cljs/shell check discovered by the
+  ;; test-and-CI extractor. :framework is pytest/cargo/cljs/shell/etc.;
+  ;; :target is the best-effort path, symbol, or requirement id it exercises.
+  :test-case
+  {:attrs [:id :name :framework :target :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:exercises-code :code-node]
+               [:covers-requirement :design-requirement]]}
+
+  ;; CI workflow - one .github/workflows/*.yml file.
+  :ci-workflow
+  {:attrs [:id :name :trigger :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:has-job :ci-job]]}
+
+  ;; CI job - one GitHub Actions job or required aggregator. :required marks
+  ;; merge-gating jobs (e.g. ci-required), :selector records path/matrix/needs
+  ;; logic in a compact string, and :command records the primary run command
+  ;; where one exists.
+  :ci-job
+  {:attrs [:id :workflow-id :name :required :selector :command :source-path :source-line]
+   :types {:required :bool :source-line :int}
+   :relations [[:in-workflow :ci-workflow]
+               [:runs-test :test-case]
+               [:gates-requirement :design-requirement]]}
+
+  ;; Operator command - one documented command from a runbook, Makefile, Nix
+  ;; target, or workflow command block. Commands are graph nodes so agents can
+  ;; ask how a documented operation maps to tests, CI, graph generation, or
+  ;; artifacts.
+  :operator-command
+  {:attrs [:id :command :shell :purpose :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:invokes-job :ci-job]
+               [:runs-test :test-case]
+               [:touches-code :code-node]]}
+
+  ;; Traceability link - evidence-first cross-graph link. :from-id and :to-id
+  ;; are graph ids, :kind names the semantic edge, :confidence is a deterministic
+  ;; score or reviewed confidence, :witness is the exact matched symbol/path/REQ
+  ;; id, :provenance describes how the link was derived, and :promoted controls
+  ;; whether canonical queries may use the link.
+  :traceability-link
+  {:attrs [:id :from-id :to-id :kind :confidence :witness :provenance
+           :promoted :source-path :source-line]
+   :types {:confidence :float :promoted :bool :source-line :int}
+   :relations [[:from-requirement :design-requirement]
+               [:from-decision :design-decision]
+               [:from-test :test-case]
+               [:from-ci-job :ci-job]
+               [:to-code :code-node]
+               [:to-claim :claim]
+               [:to-test :test-case]
+               [:to-ci-job :ci-job]
+               [:to-requirement :design-requirement]]}}}

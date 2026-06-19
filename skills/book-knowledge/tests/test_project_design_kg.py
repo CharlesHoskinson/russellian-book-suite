@@ -461,7 +461,7 @@ def test_extracts_pytest_cases_with_source_provenance() -> None:
             "framework": "pytest",
             "target": "REQ-KG-901",
             "source_path": "tests/test_fixture_pipeline.py",
-            "source_line": 4,
+            "source_line": 9,
         }
     ]
 
@@ -587,7 +587,7 @@ def test_project_tests_and_ci_is_read_only_and_idempotent() -> None:
             "pytest",
             "REQ-KG-901",
             "tests/test_fixture_pipeline.py",
-            4,
+            9,
         ]
     ]
     assert workflows == [
@@ -748,7 +748,7 @@ def test_design_kg_snapshot_has_canonical_fixture_rows() -> None:
                 "framework": "pytest",
                 "target": "REQ-KG-901",
                 "source_path": "tests/test_fixture_pipeline.py",
-                "source_line": 4,
+                "source_line": 9,
             }
         ],
         "ci-workflow": [
@@ -815,7 +815,7 @@ def test_extracts_promoted_traceability_links_from_exact_evidence() -> None:
             "provenance": "deterministic:exact-req-id",
             "promoted": True,
             "source_path": "tests/test_fixture_pipeline.py",
-            "source_line": 4,
+            "source_line": 9,
         },
         {
             "id": (
@@ -865,7 +865,7 @@ def test_extracts_promoted_traceability_links_from_exact_evidence() -> None:
             "provenance": "deterministic:python-import",
             "promoted": True,
             "source_path": "tests/test_fixture_pipeline.py",
-            "source_line": 1,
+            "source_line": 6,
         },
         {
             "id": (

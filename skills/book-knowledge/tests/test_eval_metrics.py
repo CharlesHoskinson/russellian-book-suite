@@ -76,3 +76,20 @@ def test_missing_gold_is_unscored() -> None:
     assert result["status"] == "unscored"
     assert "score" not in result
     assert result["reason"]
+
+
+def test_factuality_partitions_match_independent_gold() -> None:
+    """REQ-EVAL-002: computed factuality partition counts match the curated gold.
+
+    The metric golden (metrics.json) is self-generated, so it cannot catch a
+    misassignment in the partition logic. The hand-curated factuality gold is an
+    independent reference; cross-checking the counts against it does.
+    """
+    task = load_task(TASK_DIR)
+    gold_membership = load_gold(task)["factuality_partitions"]["partitions"]
+    expected_counts = {bucket: len(ids) for bucket, ids in gold_membership.items()}
+
+    factuality = _metrics()["families"]["factuality"]
+
+    assert factuality["partitions"] == expected_counts
+    assert sum(expected_counts.values()) == factuality["atomic_fact_count"]

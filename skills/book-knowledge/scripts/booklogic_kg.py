@@ -86,7 +86,7 @@ import edn_format
 
 from .cozo_store import to_snake
 
-__all__ = ["compile_query", "compile_constraint"]
+__all__ = ["compile_query", "compile_constraint", "compile_argumentation_rules"]
 
 _FIND = edn_format.Keyword("find")
 _WHERE = edn_format.Keyword("where")
@@ -112,6 +112,20 @@ _COMPARATORS = {"<": "<", "<=": "<=", ">": ">", ">=": ">=", "!=": "!="}
 # its CozoScript head-aggregation function. ``count`` is the plain row count;
 # ``count-distinct`` lowers to Cozo's ``count_unique`` (SPARQL COUNT(DISTINCT)).
 _AGGREGATES = {"count": "count", "count-distinct": "count_unique"}
+
+_DEFRULES = "defrules"
+_OUTPUTS = edn_format.Keyword("outputs")
+_ATTACK_MODEL = edn_format.Keyword("attack-model")
+_SUPPORT_EDGE = edn_format.Keyword("support-edge")
+_ARGUMENTATION_OUTPUTS = {
+    "attacked",
+    "defended",
+    "undefeated-attacker",
+    "grounded-accepted",
+    "grounded-rejected",
+    "labels",
+    "warnings",
+}
 
 
 def _load_schema_attrs(schema_path: Path) -> dict[str, set[str]]:
@@ -388,6 +402,240 @@ def compile_query(edn: str, schema_path: Path) -> str:
     body_str = ", ".join(positive + filters + negations)
     head_str = f"?[{', '.join(head_terms)}]"
     return f"{head_str} := {body_str}"
+
+
+# -- argumentation defrules -> stratified Cozo program (REQ-ARG-007) -------
+
+
+def _keyword_names(values: Any) -> set[str]:
+    return {
+        item.name if hasattr(item, "name") else str(item)
+        for item in values
+    }
+
+
+def _require_schema_attrs(
+    schema: dict[str, set[str]],
+    requirements: dict[str, set[str]],
+) -> None:
+    for entity, attrs in requirements.items():
+        if entity not in schema:
+            raise ValueError(f"kg-schema.edn is missing required entity :{entity}")
+        missing = attrs - schema[entity]
+        if missing:
+            missing_list = ", ".join(f":{entity}/{attr}" for attr in sorted(missing))
+            raise ValueError(f"kg-schema.edn is missing required attrs: {missing_list}")
+
+
+def _empty_rule(name: str) -> str:
+    return f'{name}[c] := claim_node[c], c == "__argumentation_no_row__"'
+
+
+def _argumentation_prelude() -> list[str]:
+    return [
+        "claim_node[c] := *claim{id: c}",
+        (
+            "claim_attack[a, c] := *claim_conflict{claim_id: a, other_id: c}, "
+            "*claim{id: a}, *claim{id: c}"
+        ),
+        (
+            'external_attack[a, c] := *counter_claim{cc_id: a, '
+            'target_claim_id: c, cc_status: "open"}, *claim{id: c}'
+        ),
+        (
+            'attacked_rel[c, a, attacker_type] := claim_attack[a, c], '
+            'attacker_type = "claim"'
+        ),
+        (
+            'attacked_rel[c, a, attacker_type] := external_attack[a, c], '
+            'attacker_type = "counter-claim"'
+        ),
+        (
+            "defended_rel[c, a, d] := claim_attack[a, c], "
+            "claim_attack[d, a]"
+        ),
+        "has_any_attacker[c] := claim_attack[a, c]",
+        "has_any_attacker[c] := external_attack[a, c]",
+        (
+            "support_rel[s, c] := *claim_implies{claim_id: s, target_id: c}, "
+            "*claim{id: s}, *claim{id: c}"
+        ),
+        "sub_argument_node[n] := *sub_argument{id: n}",
+        (
+            "claim_sub_argument_support[c, n] := "
+            "*paragraph_supports{claim_id: c, node: n}, sub_argument_node[n]"
+        ),
+        "axiom_claim[c] := *claim{id: c, axiom: true}",
+        "non_axiom_support[c, s] := support_rel[s, c], not axiom_claim[s]",
+        "non_axiom_support_exists[c] := non_axiom_support[c, s]",
+        "any_support[c] := support_rel[s, c]",
+    ]
+
+
+def _argumentation_stages(max_iterations: int) -> list[str]:
+    rules = [
+        _empty_rule("grounded_rejected_0"),
+        "grounded_accepted_0[c] := claim_node[c], not has_any_attacker[c]",
+    ]
+    for idx in range(1, max_iterations + 1):
+        prev = idx - 1
+        rules.extend(
+            [
+                f"grounded_rejected_{idx}[c] := grounded_rejected_{prev}[c]",
+                (
+                    f"grounded_rejected_{idx}[c] := claim_attack[a, c], "
+                    f"grounded_accepted_{prev}[a]"
+                ),
+                f"grounded_rejected_{idx}[c] := external_attack[a, c]",
+                (
+                    f"unrejected_attacker_{idx}[c] := claim_attack[a, c], "
+                    f"not grounded_rejected_{idx}[a]"
+                ),
+                f"unrejected_attacker_{idx}[c] := external_attack[a, c]",
+                f"grounded_accepted_{idx}[c] := grounded_accepted_{prev}[c]",
+                (
+                    f"grounded_accepted_{idx}[c] := claim_node[c], "
+                    f"not unrejected_attacker_{idx}[c]"
+                ),
+            ]
+        )
+    return rules
+
+
+def _argumentation_final(max_iterations: int) -> list[str]:
+    return [
+        f"grounded_accepted[c] := grounded_accepted_{max_iterations}[c]",
+        f"grounded_rejected[c] := grounded_rejected_{max_iterations}[c]",
+        'grounded_label[c, label] := grounded_accepted[c], label = "accepted"',
+        'grounded_label[c, label] := grounded_rejected[c], label = "rejected"',
+        (
+            'grounded_label[c, label] := claim_node[c], not grounded_accepted[c], '
+            'not grounded_rejected[c], label = "undecided"'
+        ),
+        (
+            'undefeated_attacker_rel[c, a, attacker_type] := claim_attack[a, c], '
+            'grounded_accepted[a], attacker_type = "claim"'
+        ),
+        (
+            'undefeated_attacker_rel[c, a, attacker_type] := external_attack[a, c], '
+            'attacker_type = "counter-claim"'
+        ),
+        (
+            'warning_rel[warning_type, c, related, justification_kind, detail] := '
+            '*claim{id: c, load_bearing: true}, undefeated_attacker_rel[c, related, t], '
+            'warning_type = "contested-load-bearing-with-undefended-attack", '
+            'justification_kind = "defeater-set", detail = related'
+        ),
+        (
+            'warning_rel[warning_type, c, related, justification_kind, detail] := '
+            '*claim{id: c, load_bearing: true}, support_rel[related, c], '
+            'axiom_claim[related], not non_axiom_support_exists[c], '
+            'warning_type = "axiom-only-support", '
+            'justification_kind = "axiom-support", detail = related'
+        ),
+        (
+            'warning_rel[warning_type, c, related, justification_kind, detail] := '
+            '*claim{id: c, load_bearing: true}, not any_support[c], '
+            'warning_type = "unsupported-load-bearing", related = "", '
+            'justification_kind = "missing-support", '
+            'detail = "load-bearing claim has no support edge"'
+        ),
+    ]
+
+
+def _argumentation_query(output: str) -> str:
+    if output == "attacked":
+        return (
+            "?[claim_id, attacker_id, attacker_type] := "
+            "attacked_rel[claim_id, attacker_id, attacker_type]"
+        )
+    if output == "defended":
+        return (
+            "?[claim_id, attacker_id, defender_id] := "
+            "defended_rel[claim_id, attacker_id, defender_id]"
+        )
+    if output == "undefeated-attacker":
+        return (
+            "?[claim_id, attacker_id, attacker_type] := "
+            "undefeated_attacker_rel[claim_id, attacker_id, attacker_type]"
+        )
+    if output == "grounded-accepted":
+        return "?[claim_id] := grounded_accepted[claim_id]"
+    if output == "grounded-rejected":
+        return "?[claim_id] := grounded_rejected[claim_id]"
+    if output == "labels":
+        return "?[claim_id, label] := grounded_label[claim_id, label]"
+    if output == "warnings":
+        return (
+            "?[warning_type, claim_id, related_id, justification_kind, "
+            "justification_detail] := "
+            "warning_rel[warning_type, claim_id, related_id, "
+            "justification_kind, justification_detail]"
+        )
+    raise ValueError(
+        f"unknown argumentation output {output!r}; expected one of "
+        f"{', '.join(sorted(_ARGUMENTATION_OUTPUTS))}"
+    )
+
+
+def compile_argumentation_rules(
+    edn: str,
+    schema_path: Path,
+    *,
+    max_iterations: int,
+    output: str,
+) -> str:
+    """Compile an argumentation ``defrules`` EDN file to CozoScript.
+
+    The generated program is a stratified, stage-bounded form of the grounded
+    least fixed point. It stays pure: only the EDN and schema are read, no store
+    is touched, and no backend module is imported.
+    """
+    if max_iterations < 0:
+        raise ValueError("max_iterations must be >= 0")
+    schema = _load_schema_attrs(Path(schema_path))
+    _require_schema_attrs(
+        schema,
+        {
+            "claim": {"id", "load-bearing", "axiom"},
+            "claim-conflict": {"claim-id", "other-id"},
+            "counter-claim": {"cc-id", "target-claim-id", "cc-status"},
+            "claim-implies": {"claim-id", "target-id"},
+            "paragraph-supports": {"claim-id", "node"},
+            "sub-argument": {"id"},
+        },
+    )
+    form = edn_format.loads(edn)
+    if not isinstance(form, (tuple, list)) or len(form) < 1:
+        raise ValueError("rules must be a (defrules ...) form")
+    head = form[0]
+    if not (hasattr(head, "name") and head.name == _DEFRULES):
+        raise ValueError(f"expected a defrules form, got {head!r}")
+
+    sections: dict[Any, Any] = {}
+    i = 2
+    while i + 1 < len(form):
+        sections[form[i]] = form[i + 1]
+        i += 2
+    outputs = _keyword_names(sections.get(_OUTPUTS, []))
+    if output not in outputs:
+        raise ValueError(
+            f"argumentation defrules does not declare output {output!r}"
+        )
+    if output not in _ARGUMENTATION_OUTPUTS:
+        raise ValueError(f"unsupported argumentation output {output!r}")
+    if _ATTACK_MODEL not in sections:
+        raise ValueError("argumentation defrules missing :attack-model")
+    if _SUPPORT_EDGE not in sections:
+        raise ValueError("argumentation defrules missing :support-edge")
+
+    rules = (
+        _argumentation_prelude()
+        + _argumentation_stages(max_iterations)
+        + _argumentation_final(max_iterations)
+        + [_argumentation_query(output)]
+    )
+    return "\n".join(rules)
 
 
 def _compile_find_term(term: Any, env: set[str]) -> str:

@@ -1,5 +1,6 @@
 """Deterministic, stats-only metrics over corpus text. spaCy for sentence split."""
 from __future__ import annotations
+from collections import Counter
 from functools import lru_cache
 from statistics import mean, pstdev
 import spacy
@@ -41,4 +42,57 @@ def cadence_corridor(lengths: list[int]) -> dict:
         "p10": _percentile(s, 0.10), "p25": _percentile(s, 0.25),
         "p50": _percentile(s, 0.50), "p75": _percentile(s, 0.75),
         "p90": _percentile(s, 0.90), "cv": cv, "count": len(s),
+    }
+
+
+_DISCOURSE_MARKERS = {"but", "so", "now", "then", "because", "however", "instead",
+                      "therefore", "and", "yet", "still", "here"}
+_DIRECT_ADDRESS = {"you", "your", "you're", "let's", "we", "our"}
+_EXAMPLE_MARKERS = ("for example", "for instance", "imagine", "picture", "think about",
+                    "consider", "watch", "say")
+
+
+def _sentences(texts: list[str]):
+    nlp = _nlp()
+    for text in texts:
+        for sent in nlp(text).sents:
+            toks = [t for t in sent if not t.is_space]
+            if toks:
+                yield sent.text.strip(), toks
+
+
+def diction_device_metrics(texts: list[str]) -> dict:
+    first_words: Counter = Counter()
+    n_sent = 0
+    n_marker = 0
+    n_address = 0
+    short = 0
+    long = 0
+    example_positions: list[int] = []
+    for i, (sent_text, toks) in enumerate(_sentences(texts)):
+        n_sent += 1
+        words = [t.text.lower() for t in toks if not t.is_punct]
+        if words:
+            first_words[words[0]] += 1
+            if words[0] in _DISCOURSE_MARKERS:
+                n_marker += 1
+            if any(w in _DIRECT_ADDRESS for w in words):
+                n_address += 1
+            wl = len(words)
+            if wl <= 6:
+                short += 1
+            elif wl >= 20:
+                long += 1
+        low = sent_text.lower()
+        if any(m in low for m in _EXAMPLE_MARKERS):
+            example_positions.append(i)
+    total_first = sum(first_words.values()) or 1
+    top = {w: round(c / total_first, 6) for w, c in first_words.most_common(10)}
+    gaps = [b - a for a, b in zip(example_positions, example_positions[1:])]
+    return {
+        "first_word_dist": top,
+        "discourse_marker_rate": round(n_marker / n_sent, 6) if n_sent else 0.0,
+        "direct_address_rate": round(n_address / n_sent, 6) if n_sent else 0.0,
+        "short_long_ratio": round(short / long, 6) if long else float(short),
+        "example_spacing": round(sum(gaps) / len(gaps), 6) if gaps else 0.0,
     }

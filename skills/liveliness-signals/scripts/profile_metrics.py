@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from functools import lru_cache
 from statistics import mean, pstdev
+import re
 import spacy
 
 
@@ -50,6 +51,7 @@ _DISCOURSE_MARKERS = {"but", "so", "now", "then", "because", "however", "instead
 _DIRECT_ADDRESS = {"you", "your", "you're", "let's", "we", "our"}
 _EXAMPLE_MARKERS = ("for example", "for instance", "imagine", "picture", "think about",
                     "consider", "watch", "say")
+_EXAMPLE_RE = re.compile(r"\b(" + "|".join(re.escape(m) for m in _EXAMPLE_MARKERS) + r")\b")
 
 
 def _sentences(texts: list[str]):
@@ -84,7 +86,7 @@ def diction_device_metrics(texts: list[str]) -> dict:
             elif wl >= 20:
                 long += 1
         low = sent_text.lower()
-        if any(m in low for m in _EXAMPLE_MARKERS):
+        if _EXAMPLE_RE.search(low):
             example_positions.append(i)
     total_first = sum(first_words.values()) or 1
     top = {w: round(c / total_first, 6) for w, c in first_words.most_common(10)}

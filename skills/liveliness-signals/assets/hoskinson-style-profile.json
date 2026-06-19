@@ -1,7 +1,7 @@
 {
   "version": "0.1.0",
   "source_policy": "Statistics only; no source prose stored.",
-  "built_at": "2026-06-19T23:08:44.608455+00:00",
+  "built_at": "2026-06-19T23:43:40.406568+00:00",
   "global": {
     "cadence": {
       "p10": 1.0,
@@ -28,7 +28,7 @@
       "discourse_marker_rate": 0.348837,
       "direct_address_rate": 0.488372,
       "short_long_ratio": 0.577778,
-      "example_spacing": 7.807692
+      "example_spacing": 10.15
     },
     "modifier": {
       "p50": 0.125,
@@ -66,7 +66,7 @@
         "discourse_marker_rate": 0.1875,
         "direct_address_rate": 0.40625,
         "short_long_ratio": 1.3,
-        "example_spacing": 5.0
+        "example_spacing": 0.0
       },
       "modifier": {
         "p50": 0.15625,
@@ -103,7 +103,7 @@
         "discourse_marker_rate": 0.395833,
         "direct_address_rate": 0.46875,
         "short_long_ratio": 0.560976,
-        "example_spacing": 3.714286
+        "example_spacing": 4.333333
       },
       "modifier": {
         "p50": 0.142857,
@@ -140,7 +140,7 @@
         "discourse_marker_rate": 0.356322,
         "direct_address_rate": 0.54023,
         "short_long_ratio": 0.410256,
-        "example_spacing": 9.444444
+        "example_spacing": 12.142857
       },
       "modifier": {
         "p50": 0.12,

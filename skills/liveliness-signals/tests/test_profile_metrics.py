@@ -42,3 +42,10 @@ def test_modifier_ratios_only_counts_long_sentences():
     r = modifier_ratios(texts)
     assert len(r) == 1            # short sentence excluded
     assert 0.0 < r[0] < 1.0
+
+
+@pytest.mark.needs_model
+def test_example_marker_is_word_boundary():
+    # "essay" contains "say" but is NOT an example marker; no marker, no spacing pair
+    m = diction_device_metrics(["I wrote an essay about trust. It was long enough to matter here."])
+    assert m["example_spacing"] == 0.0

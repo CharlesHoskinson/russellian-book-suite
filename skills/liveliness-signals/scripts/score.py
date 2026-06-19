@@ -16,6 +16,9 @@ SIGNALS.append(("cadence", signal_cadence.score))
 from scripts import signal_curiosity
 SIGNALS.append(("curiosity", signal_curiosity.score))
 
+from scripts import signal_novelty
+SIGNALS.append(("novelty_continuity", signal_novelty.score))
+
 
 def _load_profile_safe(profile):
     if profile is not None:

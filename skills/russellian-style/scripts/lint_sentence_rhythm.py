@@ -10,6 +10,11 @@ from pathlib import Path
 
 from .lint_common import iter_sentences, load_markdown, load_rules
 
+FUNCTION_OPENERS = {
+    "the", "a", "an", "this", "that", "these", "those",
+    "it", "they", "we", "you", "he", "she", "there", "here",
+}
+
 
 def _word_count(s: str) -> int:
     return len(re.findall(r"\b\w+\b", s))
@@ -20,11 +25,42 @@ def _first_word(s: str) -> str:
     return match.group(1).lower() if match else ""
 
 
-def lint_sentence_rhythm(path: Path) -> list[dict]:
+def _content_words(s: str) -> set[str]:
+    return {w.lower() for w in re.findall(r"\b\w+\b", s)}
+
+
+def _is_drumbeat(run_sents, capper_exists: bool, rules: dict) -> bool:
+    """Four conditions (REQ-VOICE-009): shallow opener; progressive (distinct
+    remainders); lengths not mechanically identical; capped by a turn within 1-2."""
+    opener = _first_word(run_sents[0].text)
+    if opener not in FUNCTION_OPENERS:
+        return False
+    if not capper_exists:
+        return False
+    counts = [_word_count(s.text) for s in run_sents]
+    mu = sum(counts) / len(counts)
+    cv = (sum((c - mu) ** 2 for c in counts) / len(counts)) ** 0.5 / mu if mu else 0.0
+    if cv <= float(rules.get("drumbeat_min_length_cv", 0.10)):
+        return False
+    # progressive: average pairwise Jaccard of content words (minus the shared opener) is low
+    sets = [_content_words(s.text) - {opener} for s in run_sents]
+    pairs = [(i, j) for i in range(len(sets)) for j in range(i + 1, len(sets))]
+
+    def jac(a, b):
+        u = a | b
+        return len(a & b) / len(u) if u else 0.0
+
+    avg_overlap = sum(jac(sets[i], sets[j]) for i, j in pairs) / len(pairs) if pairs else 0.0
+    return avg_overlap < float(rules.get("drumbeat_max_pairwise_overlap", 0.6))
+
+
+def lint_sentence_rhythm(path: Path, rules: dict | None = None) -> list[dict]:
     text = load_markdown(path)
-    rules = load_rules()
+    if rules is None:
+        rules = load_rules()
     min_run = int(rules.get("rhythm_run_min_length", 4))
     tolerance = int(rules.get("rhythm_word_count_tolerance", 3))
+    exemption = bool(rules.get("rhythm_drumbeat_exemption", False))
 
     sentences = list(iter_sentences(text))
     findings: list[dict] = []
@@ -62,13 +98,24 @@ def lint_sentence_rhythm(path: Path) -> list[dict]:
             j += 1
         run_len = j - i
         if run_len >= min_run:
-            findings.append({
-                "rule": "rhythm-repeated-opening",
-                "first_word": run_first,
-                "start_line": sentences[i].line,
-                "run_length": run_len,
-                "snippet": " ".join(s.text for s in sentences[i:j])[:400],
-            })
+            run_sents = sentences[i:j]
+            capper_exists = j < len(firsts)
+            if exemption and _is_drumbeat(run_sents, capper_exists, rules):
+                findings.append({
+                    "rule": "parallel-list",
+                    "first_word": run_first,
+                    "start_line": sentences[i].line,
+                    "run_length": run_len,
+                    "snippet": " ".join(s.text for s in run_sents)[:400],
+                })
+            else:
+                findings.append({
+                    "rule": "rhythm-repeated-opening",
+                    "first_word": run_first,
+                    "start_line": sentences[i].line,
+                    "run_length": run_len,
+                    "snippet": " ".join(s.text for s in run_sents)[:400],
+                })
             i = j
         else:
             i += 1

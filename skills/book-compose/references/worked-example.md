@@ -4,7 +4,7 @@ End-to-end walkthrough on a seeded book-knowledge workspace at `C:\path\to\book`
 
 ## Scenario
 
-The chapter contract `chapters/contracts/ch-03.yaml` declares a synthesis chapter on coroutine state machines. The workspace ledger has accumulated 27 verified claims; the SPARQL query for `ch-03` returns 12 of them. Pandoc is on `PATH`. The user wants the chapter built at version `0.1.0` in Markdown and PDF.
+The chapter contract `chapters/contracts/ch-03.yaml` declares a synthesis chapter on coroutine state machines. The workspace ledger has accumulated verified claims; the chapter-retrieval bundle for `ch-03` surfaces 12 anchored load-bearing claims. Pandoc is on `PATH`. The user wants the chapter built at version `0.1.0` in Markdown and PDF.
 
 ## Step-by-step
 
@@ -51,23 +51,22 @@ result = preflight(Path(r"C:\path\to\book"))
 
 The pre-flight gate returns `passes=True`. The pipeline advances. If it had returned `passes=False`, drafting would halt; the script would write `chapters/drafts/ch-03/blocked.md` listing the issues and the user would be expected to triage them in the workspace before re-invoking the skill.
 
-### 3. Query verified claims
+### 3. Build the chapter bundle scaffold
 
 ```python
-from scripts.query_chapter_evidence import query_chapter_evidence
+from scripts.chapter_bundle import build_chapter_bundle_input
+from scripts.draft_chapter import build_bundle_scaffold
 
-evidence = query_chapter_evidence(Path(r"C:\path\to\book"), "ch-03")
-# {"chapter_id": "ch-03",
-#  "claims": ["c-0001", "c-0007", "c-0011", "c-0012", "c-0014",
-#             "c-0017", "c-0019", "c-0020", "c-0023", "c-0024",
-#             "c-0025", "c-0026"]}
+bundle = build_chapter_bundle_input(Path(r"C:\path\to\book"), "ch-03")
+scaffold = build_bundle_scaffold(bundle)
+# scaffold["support-claims"] is an ordered claim+anchor list.
 ```
 
-Twelve claims. The contract requires a minimum of ten. The chapter is feasible.
+Twelve anchored support claims. The contract requires a minimum of ten. The chapter is feasible.
 
 ### 4. Generate the outline
 
-Claude reads the contract and the claim list, opens each claim's canonical text from the workspace ledger, and writes the outline to `chapters/drafts/ch-03/outline.md`:
+Claude reads the contract and the bundle scaffold, then writes the outline to `chapters/drafts/ch-03/outline.md`:
 
 ```markdown
 # ch-03 Outline
@@ -111,29 +110,18 @@ Forecast density: 7.0
 
 The skill pauses. The user reads the outline, confirms the must-include coverage, and replies `approve`. Drafting begins.
 
-### 6. Draft and style each section
+### 6. Draft from the bundle and style the chapter
 
-For section 1:
-
-```python
-# Draft to disk
-section_path = Path(r"C:\path\to\book\chapters\drafts\ch-03\section-1.md")
-section_path.write_text(initial_draft, encoding="utf-8")
-```
-
-Then invoke russellian-style via the Skill tool with the absolute path. The skill returns the rewritten prose plus a per-section report. The rewritten prose replaces the file contents; the report is appended to `chapters/drafts/ch-03/style-pass-report.md` with header `## section-1`.
-
-Repeat for sections 2 through 4. After all sections are styled, concatenate them:
+The live draft step uses the same bundle serializer and writes the prompt, scaffold, and draft under `chapters/drafts/ch-03/`:
 
 ```python
-from pathlib import Path
+from scripts.draft_chapter import draft_chapter
 
-draft_dir = Path(r"C:\path\to\book\chapters\drafts\ch-03")
-sections = sorted(draft_dir.glob("section-*.md"))
-draft_md = draft_dir / "draft.md"
-draft_md.write_text("\n\n".join(p.read_text(encoding="utf-8") for p in sections),
-                    encoding="utf-8")
+result = draft_chapter(Path(r"C:\path\to\book"), "ch-03", llm_call=chapter_writer)
+draft_md = result.draft_path
 ```
+
+Then invoke russellian-style via the Skill tool with the absolute draft path. The skill returns the rewritten prose plus a style-pass report. The rewritten prose replaces `draft.md`; the report is appended to `chapters/drafts/ch-03/style-pass-report.md`.
 
 ### 7. Verify against the contract
 
@@ -177,7 +165,7 @@ cd C:\Users\charl\.claude\skills\book-compose
 
 .venv\Scripts\python.exe -c "from pathlib import Path; from scripts.preflight import preflight; r = preflight(Path(r'C:\path\to\book')); print('passes:', r.passes, 'issues:', r.issues)"
 
-.venv\Scripts\python.exe -c "from pathlib import Path; from scripts.query_chapter_evidence import query_chapter_evidence; print(query_chapter_evidence(Path(r'C:\path\to\book'), 'ch-03'))"
+.venv\Scripts\python.exe -c "from pathlib import Path; from scripts.chapter_bundle import build_chapter_bundle_input; from scripts.draft_chapter import build_bundle_scaffold; print(build_bundle_scaffold(build_chapter_bundle_input(Path(r'C:\path\to\book'), 'ch-03'))['support-claims'])"
 
 .venv\Scripts\python.exe -c "from pathlib import Path; from scripts.build_release_bundle import build_release_bundle; print(build_release_bundle(Path(r'C:\path\to\book'), 'ch-03', '0.1.0', ['markdown', 'pdf']))"
 ```
@@ -186,7 +174,6 @@ When the scripts gain `if __name__ == '__main__'` entry points in a future revis
 
 ```powershell
 .venv\Scripts\python.exe -m scripts.preflight C:\path\to\book
-.venv\Scripts\python.exe -m scripts.query_chapter_evidence C:\path\to\book ch-03
 .venv\Scripts\python.exe -m scripts.build_release_bundle C:\path\to\book ch-03 0.1.0
 ```
 

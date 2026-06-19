@@ -1,6 +1,6 @@
 # Drafting Playbook
 
-Drafting is the fourth of five stages. Inputs: an approved outline, a validated contract, a SHACL-conforming workspace. Outputs: a styled section file per outline section, a concatenated `draft.md`, and a chapter-level style-pass report. No prose is written until the prior stages have passed.
+Drafting is the fourth of five stages. Inputs: an approved outline, a validated contract, and a release-ready workspace. Outputs: a bundle-built prompt scaffold, `draft.md`, and the chapter-level style reports. No prose is written until the prior stages have passed.
 
 ## The 5-stage workflow
 
@@ -24,31 +24,36 @@ if not result.passes:
 
 `preflight` calls `book-knowledge`'s `validate_shacl` and `run_competency_queries` in-process. Failure conditions: SHACL non-conformance, unsupported verified claims, contradiction pairs touching cited claims. The function writes a timestamped report under `graph/reports/`. Fail closed: do not proceed to outlining when `result.passes` is `False`.
 
-### Stage 3. Outline
+### Stage 3. Bundle scaffold and outline
 
 ```python
-from scripts.query_chapter_evidence import query_chapter_evidence
-evidence = query_chapter_evidence(workspace, "ch-03")
+from scripts.chapter_bundle import build_chapter_bundle_input
+from scripts.draft_chapter import build_bundle_scaffold
+
+bundle = build_chapter_bundle_input(workspace, "ch-03")
+scaffold = build_bundle_scaffold(bundle)
 ```
 
-The returned `{"chapter_id": ..., "claims": [...]}` enumerates every verified claim whose `tbf:supportsChapter` triple names this chapter. Claude reads the contract plus the evidence list, writes the outline to `chapters/drafts/<chapter_id>/outline.md`, and asks the user to approve. See `outline-discipline.md` for the structural rules.
+The scaffold is built from the chapter-retrieval bundle: dominant communities, ordered load-bearing claims, minimal source-span anchors, open rebuttal caveats, and flags. Claude reads the contract plus this scaffold, writes the outline to `chapters/drafts/<chapter_id>/outline.md`, and asks the user to approve. See `outline-discipline.md` for the structural rules.
 
-### Stage 4. Section drafting
+### Stage 4. Bundle-backed drafting
 
-For each outline section:
+```python
+from scripts.draft_chapter import draft_chapter
 
-1. Select the verified claims assigned to the section by the outline.
-2. Read each claim's `canonical_text` plus its `source_spans`. Quote source text verbatim or paraphrase with citation; never paraphrase without citation.
-3. Write the first draft to `chapters/drafts/<chapter_id>/section-<n>.md`. Apply code-as-proof discipline (below).
-4. Invoke the russellian-style skill on the section file:
-   ```
-   Skill tool: russellian-style
-   args: rewrite chapters/drafts/<chapter_id>/section-<n>.md
-   ```
-   Wait for the rewritten prose plus the per-section style-pass report.
-5. Write the styled prose back to `section-<n>.md`. Append the report to `chapters/drafts/<chapter_id>/style-pass-report.md`.
+result = draft_chapter(workspace, "ch-03", llm_call=chapter_writer)
+```
 
-After all sections are styled, concatenate them into `chapters/drafts/<chapter_id>/draft.md` with section headers preserved. Run `chapter_contract_check.check_draft(draft, contract)`. The result must report `passes=True`. On failure, the failed acceptance tests indicate which sections need rework; the playbook re-enters step 3 for those sections only.
+`draft_chapter` obtains the bundle through `chapter_bundle.build_chapter_bundle_input`, renders a deterministic prompt, and writes only under `chapters/drafts/<chapter_id>/`: `draft-prompt.md`, `draft-scaffold.json`, and `draft.md`. The prompt presents load-bearing claims in bundle order with their minimal span anchors, caveats open rebuttals, and withholds unanchored load-bearing claims from assertable support.
+
+Invoke the russellian-style skill on the draft file:
+
+```
+Skill tool: russellian-style
+args: rewrite chapters/drafts/<chapter_id>/draft.md
+```
+
+Write the styled prose back to `draft.md` and append the report to `chapters/drafts/<chapter_id>/style-pass-report.md`. Then run `chapter_contract_check.check_draft(draft, contract)`. The result must report `passes=True`. On failure, the failed acceptance tests indicate which sections need rework; the playbook re-enters the bundle-backed drafting step with the approved outline and revised instruction.
 
 ### Stage 5. Release bundle
 

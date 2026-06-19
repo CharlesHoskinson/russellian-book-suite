@@ -43,6 +43,7 @@ Capability slugs and their full capability names:
 | `ATTR` | attributed-generation |
 | `ARG` | argumentation |
 | `PROOF` | proof-obligations |
+| `DRAFT` | claim-first-drafting |
 
 ## EARS patterns
 

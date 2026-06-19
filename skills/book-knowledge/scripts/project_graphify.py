@@ -16,7 +16,8 @@ graphify graph.json shape (mirrors the real
   - each link: ``{source, target, relation, confidence, weight, ...}``
 
 Field mapping (graphify -> schema column):
-  - node ``id`` -> ``code-node/id`` (identity), node ``label`` -> ``code-node/label``.
+  - node ``id`` -> ``code-node/id`` (identity), node ``label`` ->
+    ``code-node/label``, node ``source_file`` -> ``code-node/source-file``.
     ``rank`` and ``community`` are left null; an in-engine recompute pass (P4.2,
     Cozo PageRank + Louvain) is what fills them — graphify's graph.json carries
     no precomputed rank/community of its own.
@@ -107,6 +108,8 @@ def project_graphify(path: Path, store) -> None:
         row: dict = {"id": node["id"]}
         if "label" in node:
             row["label"] = node["label"]
+        if "source_file" in node:
+            row["source_file"] = node["source_file"]
         node_rows.append(row)
 
     edge_rows: list[dict] = []

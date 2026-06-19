@@ -46,6 +46,7 @@ EXPECTED_ENTITIES = {
     "code-edge",
     "community",
     "code-claim-link",
+    "link-evidence",
     "effective-confidence",
     "chapter-section",
     "chapter-retrieval-bundle",

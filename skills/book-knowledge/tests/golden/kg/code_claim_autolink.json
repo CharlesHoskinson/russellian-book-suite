@@ -1,0 +1,38 @@
+{
+  "canonical_links": [
+    {
+      "claim_id": "clm-2026-000001",
+      "code_id": "fn-rebalance",
+      "id": "fn-rebalance\u001fclm-2026-000001\u001fexact-symbol",
+      "kind": "exact-symbol"
+    },
+    {
+      "claim_id": "clm-2026-000001",
+      "code_id": "mod-evictor",
+      "id": "mod-evictor\u001fclm-2026-000001\u001ffile-path",
+      "kind": "file-path"
+    }
+  ],
+  "link_evidence": [
+    {
+      "claim_id": "clm-2026-000001",
+      "code_id": "fn-rebalance",
+      "id": "ev:exact-symbol:fn-rebalance:clm-2026-000001",
+      "kind": "exact-symbol",
+      "promoted": true,
+      "provenance": "deterministic:exact-symbol",
+      "score": 1.0,
+      "witness": "{\"symbol\":\"Evictor.rebalance\",\"trail\":[{\"relationship\":\"contains\",\"source\":\"mod-evictor\",\"target\":\"cls-evictor\"},{\"relationship\":\"uses\",\"source\":\"cls-evictor\",\"target\":\"fn-rebalance\"}]}"
+    },
+    {
+      "claim_id": "clm-2026-000001",
+      "code_id": "mod-evictor",
+      "id": "ev:file-path:mod-evictor:clm-2026-000001",
+      "kind": "file-path",
+      "promoted": true,
+      "provenance": "deterministic:file-path",
+      "score": 1.0,
+      "witness": "src/evictor.py"
+    }
+  ]
+}

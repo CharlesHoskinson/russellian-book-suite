@@ -51,6 +51,15 @@ def test_loads_nodes_and_edges() -> None:
     assert labels["mod_alpha"] == "alpha.py"
     assert labels["fn_gamma"] == "gamma()"
 
+    source_files = {
+        r[0]: r[1]
+        for r in store.query(
+            "?[id, source_file] := *code_node{id, source_file}"
+        )
+    }
+    assert source_files["mod_alpha"] == "src/alpha.py"
+    assert source_files["fn_gamma"] == "src/alpha.py"
+
     # rank/community left null until the recompute pass (P4.2).
     ranks = store.query("?[id, rank] := *code_node{id, rank}")
     assert all(row[1] is None for row in ranks)

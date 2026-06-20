@@ -19,7 +19,9 @@ _LIGHT_VERBS = {
     "perform", "performs", "performed",
     "provide", "provides", "provided",
 }
-_EVENT_NOUN = re.compile(r"(tion|ment|ance|ence|sion|ity|ing|al|ure|ness|ship)$")
+# Deverbal event-noun suffixes (cmp-lg/9503010). -al/-ure are deverbal (proposal,
+# approval, failure, departure); -ness/-ship are state/relational, NOT events, excluded.
+_EVENT_NOUN = re.compile(r"(tion|ment|ance|ence|sion|ity|ing|al|ure)$")
 
 
 def score_text(text: str) -> dict:

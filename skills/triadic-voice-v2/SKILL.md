@@ -39,6 +39,12 @@ Register routing (technical/narrative/polemic dials), a rotating six-archetype c
 (not the fixed open-Hoskinson/develop-Feynman/close-Russell), corpus-derived numeric
 targets injected into the write, and an explicit anti-copy gate.
 
+> Note: cadence targets are derived from Hoskinson's spoken transcripts (high variance,
+> run-on sentences); the target text says so and caps the written upper bound — treat
+> cadence as loose guidance, not a literal rule. The chassis rotates within a register's
+> eligible archetypes (narrative 5, technical 5, polemic 3), so long single-register
+> batches will cycle; vary the topic/register to maximize chassis variety.
+
 ## Helpers
 `scripts/register_router.py`, `scripts/chassis.py`, `scripts/profile_targets.py`,
 `scripts/anti_copy.py`, `scripts/brief.py`. All stdlib, deterministic, unit-tested.

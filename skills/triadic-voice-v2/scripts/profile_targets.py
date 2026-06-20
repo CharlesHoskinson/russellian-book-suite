@@ -26,11 +26,19 @@ def targets(register: str, profile: dict) -> dict:
 
 def as_prompt(t: dict) -> str:
     lo, hi = t["sentence_len_band"]
-    return (
-        f"Cadence target: vary sentence length mostly between {lo:.0f} and {hi:.0f} words "
-        f"(coefficient of variation near {t['cadence_cv']:.2f} — alternate short punches with longer unpacking). "
-        f"Address the reader directly about {t['direct_address_rate']*100:.0f}% of sentences; "
-        f"open roughly 1 sentence in {max(1, round(1/ max(t['discourse_marker_rate'],1e-6))) if t['discourse_marker_rate'] else 0} "
-        f"with a discourse marker. Land a concrete example about every {t['example_spacing']:.0f} sentences. "
-        f"Keep the modifier (adjective+adverb) ratio at or below {t['modifier_budget']:.2f}."
-    )
+    written_hi = min(hi, 45)
+    parts = [
+        f"Cadence target (derived from spoken-transcript corpus — treat as loose written-prose "
+        f"guidance, not a literal rule): vary sentence length, most sentences between {lo:.0f} and "
+        f"roughly {written_hi:.0f} words. Alternate short punches with longer unpacking; do NOT write "
+        f"{hi:.0f}-word run-on sentences just because the spoken corpus reaches that length.",
+        f"Address the reader directly in roughly {t['direct_address_rate'] * 100:.0f}% of sentences.",
+    ]
+    dm = t["discourse_marker_rate"]
+    if dm > 1e-6:
+        parts.append(f"Open about 1 sentence in {max(1, round(1 / dm))} with a discourse marker.")
+    es = t["example_spacing"]
+    if es > 0:
+        parts.append(f"Land a concrete example about every {es:.0f} sentences.")
+    parts.append(f"Keep the modifier (adjective+adverb) ratio at or below {t['modifier_budget']:.2f}.")
+    return " ".join(parts)

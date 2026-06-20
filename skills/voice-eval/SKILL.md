@@ -25,6 +25,7 @@ API key), exactly like `triadic-voice`/`triadic-voice-v2`. v1 is the frozen cont
    passage with violations is **regenerated** before scoring, so both arms are equally
    floor-clean (REQ-VEVAL-010).
 4. **Signal deltas.** `compute_deltas(passages, scorer=default_scorer, signals=SIGNAL_NAMES)`
+   (import `SIGNAL_NAMES` from the `liveliness-signals` skill_api — the 8 signal names)
    → per-signal mean delta v2−v1, overall and per register (REQ-VEVAL-011).
 5. **Blind pairwise judge.** `build_ballots(v1_passages, v2_passages)` → 40 ballots
    (each pair judged in both orders, length-matched). For each ballot, judge blind:

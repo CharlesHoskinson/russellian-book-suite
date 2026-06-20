@@ -6,7 +6,7 @@ agents that need to improve design, utility, or traceability.
 ## Summary
 
 - capabilities with work: 9
-- active coverage gaps: 6
+- active coverage gaps: 0
 - archived coverage gaps: 97
 - stale evidence links: 42
 - top priority: homoiconic-kg
@@ -49,21 +49,6 @@ agents that need to improve design, utility, or traceability.
 - example: stale-evidence openspec/specs/proof-obligations/spec.md:34
 - example: stale-evidence openspec/specs/proof-obligations/spec.md:34
 - example: stale-evidence openspec/specs/proof-obligations/spec.md:34
-
-### claim-first-drafting
-
-- priority score: 66
-- active coverage gaps: 6
-- archived coverage gaps: 6
-- stale evidence links: 0
-- missing implementation/test/ci: 12/12/12
-- recommended action: add or promote traceability for active requirements covering ci, implementation, test
-
-- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:29
-- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:45
-- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:60
-- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:75
-- example: coverage-gap openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md:90
 
 ### attributed-generation
 
@@ -124,6 +109,21 @@ agents that need to improve design, utility, or traceability.
 - example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:69
 - example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:84
 - example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:95
+
+### claim-first-drafting
+
+- priority score: 6
+- active coverage gaps: 0
+- archived coverage gaps: 6
+- stale evidence links: 0
+- missing implementation/test/ci: 6/6/6
+- recommended action: confirm archived requirements are historical, then keep them out of active design gates
+
+- example: coverage-gap openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md:23
+- example: coverage-gap openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md:38
+- example: coverage-gap openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md:53
+- example: coverage-gap openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md:68
+- example: coverage-gap openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md:84
 
 ### 2026-05-11-bundle-c-closed-loop-ledger-design.md
 

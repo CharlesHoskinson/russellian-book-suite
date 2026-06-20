@@ -117,61 +117,6 @@
       "stale_evidence_links": 24
     },
     {
-      "active_coverage_gaps": 6,
-      "archived_coverage_gaps": 6,
-      "capability": "claim-first-drafting",
-      "examples": [
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-007",
-          "source_line": 29,
-          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-008",
-          "source_line": 45,
-          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-009",
-          "source_line": 60,
-          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-010",
-          "source_line": 75,
-          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-DRAFT-011",
-          "source_line": 90,
-          "source_path": "openspec/changes/live-warning-surface/specs/claim-first-drafting/spec.md"
-        }
-      ],
-      "missing": {
-        "ci": 12,
-        "implementation": 12,
-        "test": 12
-      },
-      "priority_score": 66,
-      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
-      "stale_evidence_links": 0
-    },
-    {
       "active_coverage_gaps": 0,
       "archived_coverage_gaps": 14,
       "capability": "attributed-generation",
@@ -393,6 +338,61 @@
     },
     {
       "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 6,
+      "capability": "claim-first-drafting",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-001",
+          "source_line": 23,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-002",
+          "source_line": 38,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-003",
+          "source_line": 53,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-004",
+          "source_line": 68,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-005",
+          "source_line": 84,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 6,
+        "implementation": 6,
+        "test": 6
+      },
+      "priority_score": 6,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
       "archived_coverage_gaps": 0,
       "capability": "2026-05-11-bundle-c-closed-loop-ledger-design.md",
       "examples": [
@@ -439,7 +439,7 @@
     }
   ],
   "summary": {
-    "active_coverage_gaps": 6,
+    "active_coverage_gaps": 0,
     "archived_coverage_gaps": 97,
     "capability_count": 9,
     "stale_evidence_links": 42,

@@ -114,6 +114,57 @@ def _code_links(store: CozoStore, selected: set[str]) -> dict[str, list[dict[str
     }
 
 
+def _parse_reason_json(raw: str | None) -> list[dict[str, Any]]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return [{"kind": raw}]
+    if isinstance(parsed, list):
+        return [item for item in parsed if isinstance(item, dict)]
+    if isinstance(parsed, dict):
+        return [parsed]
+    return []
+
+
+def _effective_confidence(
+    store: CozoStore,
+    selected_load_bearing: set[str],
+) -> list[dict[str, Any]]:
+    rows = store.query(
+        "?[id, claim_id, prior, posterior, effective, freshness_factor, "
+        "support_erosion_reason_json, as_of] := "
+        "*effective_confidence{id, claim_id, prior, posterior, effective, "
+        "freshness_factor, support_erosion_reason_json, as_of}"
+    )
+    out: list[dict[str, Any]] = []
+    for (
+        row_id,
+        claim_id,
+        prior,
+        posterior,
+        effective,
+        freshness_factor,
+        reason_json,
+        as_of,
+    ) in rows:
+        if claim_id not in selected_load_bearing:
+            continue
+        out.append({
+            "id": row_id,
+            "claim_id": claim_id,
+            "prior": prior,
+            "posterior": posterior,
+            "effective": effective,
+            "freshness_factor": freshness_factor,
+            "support_erosion_reason": _parse_reason_json(reason_json),
+            "support_erosion_reason_json": reason_json,
+            "as_of": as_of,
+        })
+    return sorted(out, key=lambda item: (item["claim_id"], item["id"] or ""))
+
+
 def _dominant_communities(
     store: CozoStore, selected_load_bearing: set[str]
 ) -> list[dict[str, Any]]:
@@ -247,6 +298,9 @@ def materialize_chapter_bundle(store: CozoStore, chapter_id: str) -> dict[str, A
     links = _code_links(store, selected_load_bearing)
     if links:
         payload["code-links"] = links
+    effective_confidence = _effective_confidence(store, selected_load_bearing)
+    if effective_confidence:
+        payload["effective-confidence"] = effective_confidence
     if unanchored:
         payload["flags"] = {"unanchored-load-bearing": unanchored}
 

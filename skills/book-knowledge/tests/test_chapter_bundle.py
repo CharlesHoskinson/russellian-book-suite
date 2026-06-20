@@ -267,6 +267,52 @@ def test_code_links_included(tmp_path: Path) -> None:
     assert "code-links" not in no_code_payload
 
 
+def test_effective_confidence_included_when_materialized(tmp_path: Path) -> None:
+    """Materialized S5 rows pass through the bundle without recomputation."""
+    layout, store = _store_with_fixture_graph(tmp_path)
+    store.load(
+        "effective-confidence",
+        [
+            {
+                "id": "ec-clm-2026-000001",
+                "claim_id": "clm-2026-000001",
+                "prior": 0.91,
+                "posterior": 0.42,
+                "effective": 0.42,
+                "freshness_factor": 1.0,
+                "support_erosion_reason_json": '[{"kind":"counter-claim"}]',
+                "as_of": "2026-06-19T00:00:00Z",
+            },
+            {
+                "id": "ec-clm-2026-outside",
+                "claim_id": "clm-2026-outside",
+                "prior": 0.9,
+                "posterior": 0.1,
+                "effective": 0.1,
+                "freshness_factor": 1.0,
+                "support_erosion_reason_json": '[{"kind":"outside"}]',
+                "as_of": "2026-06-19T00:00:00Z",
+            },
+        ],
+    )
+
+    payload = _payload(layout, store)
+
+    assert payload["effective-confidence"] == [
+        {
+            "id": "ec-clm-2026-000001",
+            "claim_id": "clm-2026-000001",
+            "prior": 0.91,
+            "posterior": 0.42,
+            "effective": 0.42,
+            "freshness_factor": 1.0,
+            "support_erosion_reason": [{"kind": "counter-claim"}],
+            "support_erosion_reason_json": '[{"kind":"counter-claim"}]',
+            "as_of": "2026-06-19T00:00:00Z",
+        }
+    ]
+
+
 def test_unanchored_load_bearing_flagged(tmp_path: Path) -> None:
     """REQ-CHAP-008: load-bearing claims without spans are flagged."""
     store = CozoStore.in_memory(schema_path=SCHEMA_PATH)

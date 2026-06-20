@@ -8,13 +8,13 @@
     "graph_edges": 27011,
     "graph_nodes": 15206,
     "operator_commands": 4170,
-    "promoted_links": 135,
+    "promoted_links": 153,
     "requirements": 131,
-    "tests": 2276,
-    "traceability_links": 177
+    "tests": 2282,
+    "traceability_links": 195
   },
   "metadata": {
-    "commit": "c9119da",
+    "commit": "2d22f41",
     "date": "2026-06-19",
     "graphify_graph": "graphify-out/graph.json",
     "graphify_version": "graphify 0.8.35",
@@ -38,7 +38,7 @@
   "query_counts": {
     "ci-gates": 0,
     "claim-grounding": 0,
-    "coverage-gaps": 109,
+    "coverage-gaps": 103,
     "impact": 10,
     "stale-docs": 42,
     "untested-god-nodes": 0,

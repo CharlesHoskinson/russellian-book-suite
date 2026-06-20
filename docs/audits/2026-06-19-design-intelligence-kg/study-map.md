@@ -6,7 +6,7 @@ agents that need to improve design, utility, or traceability.
 ## Summary
 
 - capabilities with work: 9
-- active coverage gaps: 12
+- active coverage gaps: 6
 - archived coverage gaps: 97
 - stale evidence links: 42
 - top priority: homoiconic-kg
@@ -49,21 +49,6 @@ agents that need to improve design, utility, or traceability.
 - example: stale-evidence openspec/specs/proof-obligations/spec.md:34
 - example: stale-evidence openspec/specs/proof-obligations/spec.md:34
 - example: stale-evidence openspec/specs/proof-obligations/spec.md:34
-
-### kg-prose-eval
-
-- priority score: 67
-- active coverage gaps: 6
-- archived coverage gaps: 7
-- stale evidence links: 0
-- missing implementation/test/ci: 13/13/13
-- recommended action: add or promote traceability for active requirements covering ci, implementation, test
-
-- example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:27
-- example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:42
-- example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:56
-- example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:72
-- example: coverage-gap openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md:88
 
 ### claim-first-drafting
 
@@ -124,6 +109,21 @@ agents that need to improve design, utility, or traceability.
 - example: coverage-gap openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md:59
 - example: coverage-gap openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md:73
 - example: coverage-gap openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md:88
+
+### kg-prose-eval
+
+- priority score: 7
+- active coverage gaps: 0
+- archived coverage gaps: 7
+- stale evidence links: 0
+- missing implementation/test/ci: 7/7/7
+- recommended action: confirm archived requirements are historical, then keep them out of active design gates
+
+- example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:24
+- example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:46
+- example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:69
+- example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:84
+- example: coverage-gap openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md:95
 
 ### 2026-05-11-bundle-c-closed-loop-ledger-design.md
 

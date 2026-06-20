@@ -118,61 +118,6 @@
     },
     {
       "active_coverage_gaps": 6,
-      "archived_coverage_gaps": 7,
-      "capability": "kg-prose-eval",
-      "examples": [
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-EVAL-008",
-          "source_line": 27,
-          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-EVAL-009",
-          "source_line": 42,
-          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-EVAL-010",
-          "source_line": 56,
-          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-EVAL-011",
-          "source_line": 72,
-          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
-        },
-        {
-          "archived": false,
-          "kind": "coverage-gap",
-          "missing": "implementation,test,ci",
-          "requirement_id": "REQ-EVAL-012",
-          "source_line": 88,
-          "source_path": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md"
-        }
-      ],
-      "missing": {
-        "ci": 13,
-        "implementation": 13,
-        "test": 13
-      },
-      "priority_score": 67,
-      "recommended_action": "add or promote traceability for active requirements covering ci, implementation, test",
-      "stale_evidence_links": 0
-    },
-    {
-      "active_coverage_gaps": 6,
       "archived_coverage_gaps": 6,
       "capability": "claim-first-drafting",
       "examples": [
@@ -393,6 +338,61 @@
     },
     {
       "active_coverage_gaps": 0,
+      "archived_coverage_gaps": 7,
+      "capability": "kg-prose-eval",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-001",
+          "source_line": 24,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-002",
+          "source_line": 46,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-003",
+          "source_line": 69,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-004",
+          "source_line": 84,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-005",
+          "source_line": 95,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 7,
+        "implementation": 7,
+        "test": 7
+      },
+      "priority_score": 7,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
       "archived_coverage_gaps": 0,
       "capability": "2026-05-11-bundle-c-closed-loop-ledger-design.md",
       "examples": [
@@ -439,7 +439,7 @@
     }
   ],
   "summary": {
-    "active_coverage_gaps": 12,
+    "active_coverage_gaps": 6,
     "archived_coverage_gaps": 97,
     "capability_count": 9,
     "stale_evidence_links": 42,

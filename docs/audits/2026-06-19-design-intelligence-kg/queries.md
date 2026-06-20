@@ -27,7 +27,7 @@ Rows: 2
 
 ## coverage-gaps
 
-Rows: 109
+Rows: 103
 
 - `{"capability": "argumentation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ARG-001", "source_line": 27, "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"}`
 - `{"capability": "argumentation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ARG-002", "source_line": 44, "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"}`
@@ -49,7 +49,7 @@ Rows: 109
 - `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-011", "source_line": 59, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
 - `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-012", "source_line": 77, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
 - `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-013", "source_line": 92, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
-- omitted rows: 89
+- omitted rows: 83
 
 ## stale-docs
 

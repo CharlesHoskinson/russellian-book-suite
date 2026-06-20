@@ -34,4 +34,6 @@ def iter_sentences(text: str) -> list[Sentence]:
 def iter_spacy_sentences(text: str) -> list:
     """Yield spaCy sentence spans (parser + tagger on) for dependency scorers."""
     nlp = _nlp()
+    if "parser" not in nlp.pipe_names:
+        raise RuntimeError("iter_spacy_sentences requires the dependency parser")
     return [s for s in nlp(text).sents if any(t.is_alpha for t in s)]

@@ -23,7 +23,7 @@ def score_text(text: str) -> dict:
         else:
             ok += 1
     score = ok / measured if measured else 0.0
-    return {"signal": "sv_distance", "score": round(score, 4), "findings": findings}
+    return {"signal": "sv_distance", "score": round(score, 4), "measured": measured, "findings": findings}
 
 
 def score(sentences, register, profile) -> dict:

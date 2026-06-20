@@ -15,9 +15,9 @@ _LIGHT_VERBS = {
     "give", "gives", "gave", "giving",
     "take", "takes", "took", "taking",
     "do", "does", "did", "doing",
-    "conduct", "conducts", "conducted",
-    "perform", "performs", "performed",
-    "provide", "provides", "provided",
+    "conduct", "conducts", "conducted", "conducting",
+    "perform", "performs", "performed", "performing",
+    "provide", "provides", "provided", "providing",
 }
 # Deverbal event-noun suffixes (cmp-lg/9503010). -al/-ure are deverbal (proposal,
 # approval, failure, departure); -ness/-ship are state/relational, NOT events, excluded.

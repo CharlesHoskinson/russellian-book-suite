@@ -137,6 +137,13 @@ def _promoted_links(store) -> list[dict[str, Any]]:
     return [row for row in _trace_links(store) if row["promoted"] is True]
 
 
+def _promoted_trace_signatures(store) -> set[tuple[str, str, str]]:
+    return {
+        (str(row["kind"]), str(row["from_id"]), str(row["to_id"]))
+        for row in _promoted_links(store)
+    }
+
+
 def _matching_code_ids(store, target: str) -> set[str]:
     needle = target.lower()
     matches: set[str] = set()
@@ -274,9 +281,13 @@ def coverage_gaps(store) -> list[dict[str, Any]]:
 
 def stale_docs(store) -> list[dict[str, Any]]:
     """Return evidence-only design links that need review before use."""
+    promoted = _promoted_trace_signatures(store)
     rows: list[dict[str, Any]] = []
     for link in _trace_links(store):
         if link["promoted"] is True:
+            continue
+        signature = (str(link["kind"]), str(link["from_id"]), str(link["to_id"]))
+        if signature in promoted:
             continue
         rows.append(
             {

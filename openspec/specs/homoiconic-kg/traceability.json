@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "links": [
+    {
+      "requirement_id": "REQ-KG-001",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/assets/kg-schema.edn"
+    },
+    {
+      "requirement_id": "REQ-KG-001",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_kg_schema.py::test_schema_declares_all_entities_attrs_relations"
+    },
+    {
+      "requirement_id": "REQ-KG-001",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-004",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/project_ledger_cozo.py"
+    },
+    {
+      "requirement_id": "REQ-KG-004",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_ledger_projector.py::test_projects_latest_nonsuperseded_claims"
+    },
+    {
+      "requirement_id": "REQ-KG-004",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-KG-013",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "scripts_validate_shacl_validate_shacl"
+    },
+    {
+      "requirement_id": "REQ-KG-013",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "scripts_book_preflight_book_preflight"
+    },
+    {
+      "requirement_id": "REQ-KG-013",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "scripts_build_release_bundle_build_release_bundle"
+    },
+    {
+      "requirement_id": "REQ-KG-013",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_validate_shacl.py::test_conforming_workspace_validates"
+    },
+    {
+      "requirement_id": "REQ-KG-013",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_validate_shacl.py::test_callers_import_unchanged"
+    },
+    {
+      "requirement_id": "REQ-KG-013",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-KG-019",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "scripts_query_chapter_evidence_query_chapter_evidence"
+    },
+    {
+      "requirement_id": "REQ-KG-019",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-compose/tests/test_query_chapter_evidence.py::test_query_chapter_evidence_reads_ledger_not_trig"
+    },
+    {
+      "requirement_id": "REQ-KG-019",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-KG-035",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/assets/kg-schema.edn"
+    },
+    {
+      "requirement_id": "REQ-KG-035",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_code_claim_autolink.py::test_schema_declares_link_evidence"
+    },
+    {
+      "requirement_id": "REQ-KG-035",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    }
+  ]
+}

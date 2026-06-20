@@ -27,7 +27,7 @@ Rows: 2
 
 ## coverage-gaps
 
-Rows: 97
+Rows: 92
 
 - `{"capability": "argumentation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ARG-001", "source_line": 27, "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"}`
 - `{"capability": "argumentation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ARG-002", "source_line": 44, "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"}`
@@ -49,11 +49,11 @@ Rows: 97
 - `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-011", "source_line": 59, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
 - `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-012", "source_line": 77, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
 - `{"capability": "attributed-generation", "kind": "coverage-gap", "missing": "implementation,test,ci", "query": "coverage-gaps", "requirement_id": "REQ-ATTR-013", "source_line": 92, "source_path": "openspec/changes/archive/2026-06-18-live-writer-assertion/specs/attributed-generation/spec.md"}`
-- omitted rows: 77
+- omitted rows: 72
 
 ## stale-docs
 
-Rows: 42
+Rows: 38
 
 - `{"from_id": "design-doc:docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md:229:non-goal:replacing-the-antonym-pair-detect-conflicts-py-bundle-c-runs-alongside-it-abductive-counter-claims-are-a-strictly-broader-detector", "kind": "evidence-only-link", "link_kind": "decision-constrains-code", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 229, "source_path": "docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md", "to_id": "scripts_detect_conflicts_detect_conflicts", "witness": "detect_conflicts"}`
 - `{"from_id": "design-doc:docs/superpowers/specs/2026-06-03-carve-completion-design.md:16:decision:193-fix-move-the-from-sibling-skills-import-load-skill-api-imports-inside-the-consuming-functions-in-the-six-scripts-import-skill-api-becomes-sibling-free-again-matching-the-smoke-gate-s-contract-and-the-suite-s-graceful-degradation-pattern-no-ci-changes", "kind": "evidence-only-link", "link_kind": "decision-constrains-code", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 16, "source_path": "docs/superpowers/specs/2026-06-03-carve-completion-design.md", "to_id": "sibling_skills_loader_load_skill_api", "witness": "load_skill_api"}`
@@ -67,15 +67,15 @@ Rows: 42
 - `{"from_id": "openspec:homoiconic-kg:REQ-KG-004", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 145, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "assets_verification_artifact_schema_properties_status", "witness": "status"}`
 - `{"from_id": "openspec:homoiconic-kg:REQ-KG-004", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 145, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "substrate_conformance_contradiction_scan_basic_relations_claim", "witness": "claim"}`
 - `{"from_id": "openspec:homoiconic-kg:REQ-KG-004", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 145, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "substrate_conformance_posterior_floor_filter_negation_relations_claim", "witness": "claim"}`
-- `{"from_id": "openspec:homoiconic-kg:REQ-KG-013", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 305, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "scripts_book_preflight_book_preflight", "witness": "book_preflight"}`
-- `{"from_id": "openspec:homoiconic-kg:REQ-KG-013", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 305, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "scripts_build_release_bundle_build_release_bundle", "witness": "build_release_bundle"}`
-- `{"from_id": "openspec:homoiconic-kg:REQ-KG-013", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 305, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "scripts_validate_shacl_validate_shacl", "witness": "validate_shacl"}`
-- `{"from_id": "openspec:homoiconic-kg:REQ-KG-019", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 435, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "scripts_query_chapter_evidence_query_chapter_evidence", "witness": "query_chapter_evidence"}`
 - `{"from_id": "openspec:homoiconic-kg:REQ-KG-035", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 702, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "fixtures_openalex_arxiv_primary_topic_score", "witness": "score"}`
 - `{"from_id": "openspec:homoiconic-kg:REQ-KG-035", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 702, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "scripts_score_russell_delta_score", "witness": "score"}`
 - `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_chapter_retrieval_bundle_schema_properties_status", "witness": "status"}`
 - `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_claim_record_schema_properties_status", "witness": "status"}`
-- omitted rows: 22
+- `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_counter_claim_schema_properties_status", "witness": "status"}`
+- `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_kg_prose_side_products_schema_properties_status", "witness": "status"}`
+- `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_proof_obligation_schema_properties_status", "witness": "status"}`
+- `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_verification_artifact_schema_properties_status", "witness": "status"}`
+- omitted rows: 18
 
 ## untested-god-nodes
 

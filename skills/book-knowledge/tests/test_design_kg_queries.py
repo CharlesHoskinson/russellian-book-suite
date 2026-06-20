@@ -154,6 +154,40 @@ def test_stale_docs_reports_evidence_only_links() -> None:
     _assert_provenance(rows)
 
 
+def test_stale_docs_skips_evidence_only_links_with_exact_promoted_match() -> None:
+    store = _fixture_store()
+    shared = {
+        "from_id": "openspec:sample-capability:REQ-KG-901",
+        "to_id": "fixture_entrypoint",
+        "kind": "requirement-implemented-by",
+        "source_path": "openspec/specs/sample-capability/spec.md",
+        "source_line": 5,
+    }
+    store.load(
+        "traceability-link",
+        [
+            {
+                "id": "reviewed-link",
+                **shared,
+                "confidence": 1.0,
+                "witness": "fixture_entrypoint",
+                "provenance": "reviewed:traceability-manifest",
+                "promoted": True,
+            },
+            {
+                "id": "weak-doc-link",
+                **shared,
+                "confidence": 0.25,
+                "witness": "fixture_entrypoint",
+                "provenance": "deterministic:lexical-symbol",
+                "promoted": False,
+            },
+        ],
+    )
+
+    assert run_design_query(store, "stale-docs") == []
+
+
 def test_untested_god_nodes_report_high_rank_nodes_without_tests() -> None:
     store = _fixture_store()
     store.load(

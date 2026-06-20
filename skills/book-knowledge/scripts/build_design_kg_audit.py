@@ -400,7 +400,8 @@ def _study_action(
     *,
     active_gaps: int,
     archived_gaps: int,
-    stale_evidence: int,
+    reviewable_evidence: int,
+    ambiguous_evidence: int,
     missing: dict[str, int],
 ) -> str:
     if active_gaps:
@@ -411,10 +412,12 @@ def _study_action(
             "add or promote traceability for active requirements"
             + (f" covering {missing_focus}" if missing_focus else "")
         )
-    if stale_evidence:
+    if reviewable_evidence:
         return "review evidence-only links and promote only exact, source-backed matches"
     if archived_gaps:
         return "confirm archived requirements are historical, then keep them out of active design gates"
+    if ambiguous_evidence:
+        return "deprioritize broad ambiguous evidence unless source context proves an exact design link"
     return "no immediate action"
 
 
@@ -431,6 +434,8 @@ def _build_study_map(
                 "active_coverage_gaps": 0,
                 "archived_coverage_gaps": 0,
                 "stale_evidence_links": 0,
+                "reviewable_evidence_links": 0,
+                "ambiguous_evidence_links": 0,
                 "missing": {"implementation": 0, "test": 0, "ci": 0},
                 "examples": [],
             },
@@ -462,13 +467,19 @@ def _build_study_map(
     for row in query_outputs.get("stale-docs", []):
         group = ensure(_capability_from_stale(row))
         group["stale_evidence_links"] += 1
+        ambiguous = row.get("provenance") == "deterministic:ambiguous-symbol"
+        if ambiguous:
+            group["ambiguous_evidence_links"] += 1
+        else:
+            group["reviewable_evidence_links"] += 1
         source_path = str(row.get("source_path") or "")
         group["examples"].append(
             {
-                "kind": "stale-evidence",
+                "kind": "ambiguous-evidence" if ambiguous else "stale-evidence",
                 "archived": _is_archived_source(source_path),
                 "link_kind": row.get("link_kind"),
                 "witness": row.get("witness"),
+                "provenance": row.get("provenance"),
                 "source_path": row.get("source_path"),
                 "source_line": row.get("source_line"),
             }
@@ -477,15 +488,17 @@ def _build_study_map(
     priorities: list[dict[str, Any]] = []
     for group in groups.values():
         score = (
-            group["active_coverage_gaps"] * 10
-            + group["stale_evidence_links"] * 3
+            group["active_coverage_gaps"] * 1000
+            + group["reviewable_evidence_links"] * 100
             + group["archived_coverage_gaps"]
+            + group["ambiguous_evidence_links"]
         )
         group["priority_score"] = score
         group["recommended_action"] = _study_action(
             active_gaps=group["active_coverage_gaps"],
             archived_gaps=group["archived_coverage_gaps"],
-            stale_evidence=group["stale_evidence_links"],
+            reviewable_evidence=group["reviewable_evidence_links"],
+            ambiguous_evidence=group["ambiguous_evidence_links"],
             missing=group["missing"],
         )
         group["examples"] = sorted(
@@ -515,6 +528,12 @@ def _build_study_map(
         ),
         "stale_evidence_links": sum(
             int(item["stale_evidence_links"]) for item in priorities
+        ),
+        "reviewable_evidence_links": sum(
+            int(item["reviewable_evidence_links"]) for item in priorities
+        ),
+        "ambiguous_evidence_links": sum(
+            int(item["ambiguous_evidence_links"]) for item in priorities
         ),
         "top_priority": priorities[0]["capability"] if priorities else None,
     }
@@ -549,6 +568,8 @@ def _write_study_map(out_dir: Path, *, study_map: dict[str, Any]) -> None:
         f"- active coverage gaps: {summary['active_coverage_gaps']}",
         f"- archived coverage gaps: {summary['archived_coverage_gaps']}",
         f"- stale evidence links: {summary['stale_evidence_links']}",
+        f"- reviewable evidence links: {summary['reviewable_evidence_links']}",
+        f"- ambiguous evidence links: {summary['ambiguous_evidence_links']}",
         f"- top priority: {summary['top_priority'] or 'none'}",
         "",
         "## Agent Workflow",
@@ -568,6 +589,8 @@ def _write_study_map(out_dir: Path, *, study_map: dict[str, Any]) -> None:
                 f"- active coverage gaps: {row['active_coverage_gaps']}",
                 f"- archived coverage gaps: {row['archived_coverage_gaps']}",
                 f"- stale evidence links: {row['stale_evidence_links']}",
+                f"- reviewable evidence links: {row['reviewable_evidence_links']}",
+                f"- ambiguous evidence links: {row['ambiguous_evidence_links']}",
                 f"- missing implementation/test/ci: "
                 f"{row['missing']['implementation']}/"
                 f"{row['missing']['test']}/"

@@ -62,6 +62,8 @@ def test_build_design_kg_audit_writes_reproducible_artifact(tmp_path: Path) -> N
         "active_coverage_gaps": 0,
         "archived_coverage_gaps": 0,
         "stale_evidence_links": 0,
+        "reviewable_evidence_links": 0,
+        "ambiguous_evidence_links": 0,
         "top_priority": None,
     }
 
@@ -105,6 +107,8 @@ def test_study_map_prioritizes_active_gaps_over_archived_noise() -> None:
         "active_coverage_gaps": 1,
         "archived_coverage_gaps": 1,
         "stale_evidence_links": 1,
+        "reviewable_evidence_links": 1,
+        "ambiguous_evidence_links": 0,
         "top_priority": "active-capability",
     }
     assert study_map["priorities"][0]["recommended_action"] == (
@@ -116,3 +120,60 @@ def test_study_map_prioritizes_active_gaps_over_archived_noise() -> None:
         "confirm archived requirements are historical, then keep them out of active design gates"
     )
     assert study_map["priorities"][1]["examples"][0]["archived"] is True
+
+
+def test_study_map_deprioritizes_ambiguous_stale_evidence() -> None:
+    study_map = _build_study_map(
+        {
+            "coverage-gaps": [
+                {
+                    "capability": "archive-only",
+                    "missing": "implementation,test,ci",
+                    "requirement_id": "REQ-OLD-001",
+                    "source_path": (
+                        "openspec/changes/archive/2026-06-01-old/specs/"
+                        "archive-only/spec.md"
+                    ),
+                    "source_line": 20,
+                }
+            ],
+            "stale-docs": [
+                {
+                    "from_id": "openspec:noisy:REQ-NOISE-001",
+                    "link_kind": "requirement-implemented-by",
+                    "provenance": "deterministic:ambiguous-symbol",
+                    "witness": "status",
+                    "source_path": "openspec/specs/noisy/spec.md",
+                    "source_line": 30,
+                },
+                {
+                    "from_id": "design-doc:docs/specs/exact.md:7:decision:exact",
+                    "link_kind": "decision-constrains-code",
+                    "provenance": "deterministic:lexical-symbol",
+                    "witness": "exact_symbol",
+                    "source_path": "docs/specs/exact.md",
+                    "source_line": 7,
+                },
+            ],
+        }
+    )
+
+    assert study_map["summary"] == {
+        "capability_count": 3,
+        "active_coverage_gaps": 0,
+        "archived_coverage_gaps": 1,
+        "stale_evidence_links": 2,
+        "reviewable_evidence_links": 1,
+        "ambiguous_evidence_links": 1,
+        "top_priority": "exact.md",
+    }
+    assert study_map["priorities"][0]["recommended_action"] == (
+        "review evidence-only links and promote only exact, source-backed matches"
+    )
+    noisy = next(
+        row for row in study_map["priorities"] if row["capability"] == "noisy"
+    )
+    assert noisy["recommended_action"] == (
+        "deprioritize broad ambiguous evidence unless source context proves an exact design link"
+    )
+    assert noisy["examples"][0]["kind"] == "ambiguous-evidence"

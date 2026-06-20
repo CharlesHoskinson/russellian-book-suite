@@ -1,7 +1,7 @@
 # Design-intelligence KG audit
 
 - date: 2026-06-19
-- commit: cf15afd
+- commit: 0a2770c
 - graphify version: graphify 0.8.35
 - graphify graph: graphify-out/graph.json
 
@@ -11,11 +11,11 @@
 - design scenarios: 205
 - design decisions: 116
 - operator commands: 4170
-- tests: 2289
+- tests: 2291
 - ci workflows: 5
 - ci jobs: 24
-- traceability links: 213
-- promoted links: 171
+- traceability links: 231
+- promoted links: 189
 - evidence only links: 42
 - graph nodes: 15206
 - graph edges: 27011

@@ -1072,7 +1072,7 @@ communities, so hit counts are conservative.
 
 - nodes: 20
 - coverage flag: sample-covered-or-low-node-count
-- promoted sample hits: 0
+- promoted sample hits: 1
 - evidence-only sample hits: 1
 - sample: build_release_bundle(), _claim_slice(), Assemble a chapter release bundle (Markdown always; Pandoc-derived formats if Pa, Compute (shacl_conforms, competency_clean) for the current workspace graph., _run_pandoc(), _workspace_conformance(), build_evidence_summary(), Per-section list of verified claims cited by a chapter.
 
@@ -1984,7 +1984,7 @@ communities, so hit counts are conservative.
 
 - nodes: 15
 - coverage flag: sample-covered-or-low-node-count
-- promoted sample hits: 0
+- promoted sample hits: 1
 - evidence-only sample hits: 1
 - sample: book_preflight(), BookPreflightResult, _check_chapter_release(), _enumerate_contracts(), Pre-flight gate for book-level release.  Verifies that every chapter contract ha, _run_workspace_audit(), Path, Path
 
@@ -2552,7 +2552,7 @@ communities, so hit counts are conservative.
 
 - nodes: 13
 - coverage flag: sample-covered-or-low-node-count
-- promoted sample hits: 0
+- promoted sample hits: 1
 - evidence-only sample hits: 1
 - sample: _chapter_evidence_edn(), query_chapter_evidence(), Query the workspace graph for evidence available to a chapter (P5.1, REQ-KG-019), A booklogic defquery: verified claims that support ``chapter_uri``.      The cha, Path, Path, P5.1 cutover: evidence comes from the Cozo projection of the claim LEDGER, n, The query must mint the chapter URI the SAME way the projector does     (urllib
 

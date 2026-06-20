@@ -29,3 +29,9 @@ def iter_sentences(text: str) -> list[Sentence]:
         out.append(Sentence(text=sent.text.strip(), first=first,
                             content=content, n_alpha=len(alpha)))
     return out
+
+
+def iter_spacy_sentences(text: str) -> list:
+    """Yield spaCy sentence spans (parser + tagger on) for dependency scorers."""
+    nlp = _nlp()
+    return [s for s in nlp(text).sents if any(t.is_alpha for t in s)]

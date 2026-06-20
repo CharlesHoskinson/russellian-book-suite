@@ -1,7 +1,7 @@
 """Cites REQ-LIVE-003 (sentence helper for scorers)."""
 import pytest
 pytestmark = pytest.mark.windows_canary
-from scripts.text_util import iter_sentences, Sentence
+from scripts.text_util import iter_sentences, iter_spacy_sentences, Sentence
 
 
 @pytest.mark.needs_model
@@ -13,6 +13,16 @@ def test_iter_sentences_basic():
     assert "bank" in sents[0].content and "money" in sents[0].content
     assert "the" not in sents[0].content  # stopword excluded
     assert sents[0].n_alpha >= 4
+
+
+@pytest.mark.needs_model
+def test_iter_spacy_sentences_exposes_deps():
+    sents = iter_spacy_sentences("The careful reader tracks each cue.")
+    assert len(sents) == 1
+    root = sents[0].root
+    assert root.pos_ in ("VERB", "AUX")            # "tracks"
+    subs = [t for t in sents[0] if t.dep_ == "nsubj"]
+    assert subs and subs[0].text.lower() == "reader"
 
 
 @pytest.mark.needs_model

@@ -28,6 +28,9 @@ SIGNALS.append(("verb_energy", signal_verb_energy.score))
 from scripts import signal_sv_distance
 SIGNALS.append(("sv_distance", signal_sv_distance.score))
 
+from scripts import signal_concrete
+SIGNALS.append(("concrete_anchor", signal_concrete.score))
+
 
 def _load_profile_safe(profile):
     if profile is not None:

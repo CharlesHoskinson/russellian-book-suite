@@ -47,6 +47,8 @@ updates:
       - /skills/russellian-style
       - /skills/scrapling-fetch
       - /skills/syntopical-metabook
+      - /skills/triadic-voice-v2
+      - /skills/voice-eval
       # tools/ (not a skill, but has a pyproject + its own CI test job)
       - /tools/build-voice-corpus
     schedule:

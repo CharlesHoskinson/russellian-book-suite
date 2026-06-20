@@ -52,6 +52,15 @@
       "skill": "triadic-voice",
       "ci": "none",
       "reason": "SKILL.md-only in-session writing skill; no Python package or tests. Backed by russellian-style corpora assets and tools/build-voice-corpus."
+    },
+    {
+      "skill": "triadic-voice-v2",
+      "extra": "dev"
+    },
+    {
+      "skill": "voice-eval",
+      "extra": "dev",
+      "siblings": ["russellian-style", "liveliness-signals", "triadic-voice-v2"]
     }
   ]
 }

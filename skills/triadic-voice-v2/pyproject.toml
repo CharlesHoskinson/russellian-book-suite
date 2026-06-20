@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "triadic-voice-v2"
+version = "0.1.0"
+description = "HFR v2 in-session generator: register router, chassis library, profile targets, anti-copy"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<10.0"]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["windows_canary: platform-sensitive test that must run on Windows"]
+addopts = "-q"

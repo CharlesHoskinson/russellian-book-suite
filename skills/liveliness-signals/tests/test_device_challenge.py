@@ -12,3 +12,10 @@ def test_sample_registers_curiosity_and_worked_case():
     out = score_passage(SAMPLE, register="narrative-editorial")
     assert out["signals"]["curiosity"]["score"] > 0.0      # not curiosity-absent
     assert out["signals"]["worked_case"]["score"] == 1.0   # bank worked example present
+
+
+@pytest.mark.needs_model
+def test_sample_is_verb_driven_and_tightly_bound():
+    out = score_passage(SAMPLE, register="narrative-editorial")
+    assert out["signals"]["verb_energy"]["score"] > 0.12   # action-bearing prose
+    assert out["signals"]["sv_distance"]["score"] >= 0.93  # mostly tight subject-verb

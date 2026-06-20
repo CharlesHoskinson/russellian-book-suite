@@ -25,6 +25,9 @@ SIGNALS.append(("worked_case", signal_worked_case.score))
 from scripts import signal_verb_energy
 SIGNALS.append(("verb_energy", signal_verb_energy.score))
 
+from scripts import signal_sv_distance
+SIGNALS.append(("sv_distance", signal_sv_distance.score))
+
 
 def _load_profile_safe(profile):
     if profile is not None:

@@ -18,3 +18,10 @@ def test_mapped_concrete_frame_is_analogy():
 def test_abstract_prose_without_frame_is_not_analogy():
     out = score_text("Justice and freedom require principled consideration and careful judgement.")
     assert out["score"] == 0.0
+
+
+@pytest.mark.needs_model
+def test_opinion_about_concrete_object_is_not_analogy():
+    # recurring concrete anchor (box) but only epistemic "think" — no mapping cue
+    out = score_text("I think the box is wrong. I think the box is fine.")
+    assert out["score"] == 0.0

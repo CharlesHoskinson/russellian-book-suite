@@ -10,7 +10,7 @@ from scripts.concreteness import load_concreteness, conc
 _VERY_HIGH = 4.5
 _MAP_CUE = re.compile(
     r"\b(like|as if|as though|works? like|behaves? like|acts? like|functions? as|"
-    r"think|imagine|picture|hides?|trades?|reveals?|mirrors?|seals?)\b")
+    r"think (?:of|about)|imagine|picture|hides?|trades?|reveals?|mirrors?|seals?)\b")
 
 
 def score_text(text: str) -> dict:

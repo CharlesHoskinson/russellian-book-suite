@@ -24,8 +24,8 @@ use std::str::FromStr as _;
 #[cfg(feature = "smt")]
 #[allow(unused_imports)]
 use z3::{
-    Solver,
-    ast::{Array, Bool, Int, Real, Set, String as Z3String},
+    FuncDecl, Solver, Sort, Symbol, ast,
+    ast::{Array, Bool, Datatype, Dynamic, Int, Real, Set, String as Z3String},
 };
 
 #[cfg(feature = "smt")]

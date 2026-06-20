@@ -1,3 +1,9 @@
+> **HISTORICAL PLAN — DO NOT COPY PATHS.** This plan was authored for a single
+> operator's local workstation and contains absolute Windows paths
+> (`C:\Users\charl`, `C:\bermuda-manual`, etc.) that will not resolve on
+> other machines or after directory restructures. Treat it as a historical
+> record of intent, not as executable guidance.
+
 # book-craft v4 + Bermuda 75-page Regen Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

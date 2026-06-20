@@ -61,6 +61,11 @@
       "skill": "voice-eval",
       "extra": "dev",
       "siblings": ["russellian-style", "liveliness-signals", "triadic-voice-v2"]
+    },
+    {
+      "skill": "review-revise-validate",
+      "ci": "none",
+      "reason": "depends on the external llm-infra package (revise.py imports llm_infra.persona_dispatch at module level); not pip-installable in CI. Flip to a runnable extra:dev entry once llm-infra is packaged for CI or that import is made lazy/gated."
     }
   ]
 }

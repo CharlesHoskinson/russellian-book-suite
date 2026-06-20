@@ -74,7 +74,8 @@ def test_ai_slop_detector_persona_loads():
     p = load_persona("ai-slop-detector")
     assert p.persona_id == "ai-slop-detector"
     assert p.display_name == "AI-Slop Detector"
-    assert "humanizer" in p.body_md.lower()
+    # Persona body references the source catalog (Wikipedia) without
+    # claiming tool access to a humanizer skill the model can't reach.
     assert "Wikipedia" in p.body_md
     assert "## Severity rubric" in p.body_md
     assert "Critical" in p.body_md

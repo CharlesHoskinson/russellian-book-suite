@@ -41,6 +41,40 @@ def _latest_claim_record(workspace_root: Path, claim_id: str) -> dict | None:
     return found
 
 
+_VALID_VECTORS = {"mechanism", "measurement", "scope", "time_period", "population"}
+
+
+def _strip_code_fence(raw: str) -> str:
+    """Strip leading/trailing markdown code fences (```json ... ```)."""
+    stripped = raw.strip()
+    if stripped.startswith("```"):
+        # Remove the opening fence line (e.g. ```json or just ```)
+        first_newline = stripped.find("\n")
+        if first_newline != -1:
+            stripped = stripped[first_newline + 1:]
+        # Remove the closing fence
+        if stripped.endswith("```"):
+            stripped = stripped[: stripped.rfind("```")].rstrip()
+    return stripped
+
+
+def _normalize_disagreement_vector(val: object) -> str:
+    """Coerce model output to a valid disagreement_vector string.
+
+    The model sometimes emits an array of ints or an unexpected string.
+    Fall back to 'mechanism' if nothing maps cleanly.
+    """
+    if isinstance(val, str) and val in _VALID_VECTORS:
+        return val
+    # Try to infer from string partial match
+    if isinstance(val, str):
+        lower = val.lower()
+        for v in _VALID_VECTORS:
+            if v in lower:
+                return v
+    return "mechanism"
+
+
 def generate_for_claim(workspace_root: Path, claim_id: str,
                        llm_call: Callable[[str], str]) -> list[str]:
     target = _latest_claim_record(workspace_root, claim_id)
@@ -50,9 +84,10 @@ def generate_for_claim(workspace_root: Path, claim_id: str,
     raw = llm_call(prompt)
     # The LLM boundary is untrusted: validate JSON-ness and shape before
     # indexing into rivals, so malformed output fails loud and specific instead
-    # of as a raw JSONDecodeError/KeyError/TypeError downstream.
+    # of as a raw JSONDecodeError/KeyError/TypeError downstream. Tolerate
+    # markdown code fences (gemma-style output) before parsing.
     try:
-        rivals = json.loads(raw)
+        rivals = json.loads(_strip_code_fence(raw))
     except json.JSONDecodeError as e:
         raise ValueError(
             f"counter-claim LLM output for {claim_id} is not valid JSON: {e}"
@@ -74,6 +109,9 @@ def generate_for_claim(workspace_root: Path, claim_id: str,
                 f"counter-claim LLM output for {claim_id}: item {i} missing "
                 f"required key(s) {missing}"
             )
+        rival["disagreement_vector"] = _normalize_disagreement_vector(
+            rival.get("disagreement_vector")
+        )
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     new_ids: list[str] = []

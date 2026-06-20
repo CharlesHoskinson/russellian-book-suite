@@ -9,6 +9,7 @@ self-contained, and bounded to 3 iterations.
 Workflow:
 
     python -m scripts.healer <workspace> --prepare
+        [--llm-backend {subagent|ollama}] [--model MODEL] [--num-predict N]
         Read sentinel.json, emit one JSON payload per hard-fail ticket
         under ``<workspace>/qa/healer-payloads/<ticket-id>.json``.
         Hard-fail tickets are prepared first; soft-gate tickets are
@@ -20,6 +21,7 @@ Workflow:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import sys
@@ -175,13 +177,55 @@ def apply_patch_result(workspace: Path, result_path: Path) -> dict[str, Any]:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 3:
-        print("usage: healer.py <workspace> --prepare | --apply <patch-result.json>",
-              file=sys.stderr)
-        return 2
-    workspace = Path(argv[1]).resolve()
-    mode = argv[2]
-    if mode == "--prepare":
+    parser = argparse.ArgumentParser(
+        prog="healer.py",
+        description="Stage-4 per-ticket Healer dispatcher.",
+    )
+    parser.add_argument("workspace", help="Path to the book workspace root.")
+    mode_group = parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument(
+        "--prepare",
+        action="store_true",
+        help="Read sentinel.json, emit one JSON payload per hard-fail ticket.",
+    )
+    mode_group.add_argument(
+        "--apply",
+        metavar="PATCH_RESULT_JSON",
+        help="Record a Healer patch result and increment the iteration counter.",
+    )
+    parser.add_argument(
+        "--llm-backend",
+        choices=["subagent", "ollama"],
+        default="subagent",
+        help=(
+            "Backend capability matrix: "
+            "subagent — PAYLOAD_ONLY; writes JSON payloads to "
+            "<workspace>/qa/healer-payloads/. Does NOT execute the LLM. "
+            "The controlling agent consumes payloads via Task-tool dispatch. "
+            "ollama — UNSUPPORTED; this stage's outputs are designed for "
+            "fresh-context subagent repair. Exits with code 2."
+        ),
+    )
+    parser.add_argument("--model", default="gemma4:31b",
+                        help="Ollama model (only used when --llm-backend=ollama).")
+    parser.add_argument(
+        "--num-predict",
+        type=int,
+        default=None,
+        help="Caps Ollama output tokens (only used when --llm-backend=ollama).",
+    )
+    args = parser.parse_args(argv[1:])
+
+    workspace = Path(args.workspace).resolve()
+
+    if args.prepare:
+        if args.llm_backend == "ollama":
+            print(
+                "[healer] --llm-backend ollama is unsupported for this stage — "
+                "this stage prepares payloads for subagent dispatch only.",
+                file=sys.stderr,
+            )
+            return 2
         payloads = prepare_payloads(workspace)
         print(f"Prepared {len(payloads)} healer payload(s) at "
               f"{workspace / 'qa' / 'healer-payloads'}")
@@ -189,18 +233,13 @@ def main(argv: list[str]) -> int:
             print(f"  {p.ticket_id} [{p.class_}/{p.severity}] iter {p.iteration}"
                   f"/{p.max_iterations}")
         return 0
-    if mode == "--apply":
-        if len(argv) != 4:
-            print("usage: healer.py <workspace> --apply <patch-result.json>",
-                  file=sys.stderr)
-            return 2
-        info = apply_patch_result(workspace, Path(argv[3]))
-        print(f"Recorded patch for {info['ticket_id']} "
-              f"(iter {info['iteration']}/{MAX_ITERATIONS})"
-              + ("  EXHAUSTED" if info["exhausted"] else ""))
-        return 0
-    print(f"unknown mode: {mode}", file=sys.stderr)
-    return 2
+
+    # --apply mode
+    info = apply_patch_result(workspace, Path(args.apply))
+    print(f"Recorded patch for {info['ticket_id']} "
+          f"(iter {info['iteration']}/{MAX_ITERATIONS})"
+          + ("  EXHAUSTED" if info["exhausted"] else ""))
+    return 0
 
 
 if __name__ == "__main__":

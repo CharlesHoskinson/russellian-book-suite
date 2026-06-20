@@ -47,6 +47,7 @@ Capability slugs and their full capability names:
 | `LIVE` | liveliness-signals |
 | `TRIAD` | triadic-voice |
 | `VEVAL` | voice-eval |
+| `REVISE` | review-revise-validate |
 
 ## EARS patterns
 

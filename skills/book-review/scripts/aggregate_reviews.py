@@ -1,6 +1,7 @@
 """Aggregate per-persona review reports into chapters/drafts/<chapter>/persona-review.md."""
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,11 +34,61 @@ def _gather_reviews(workspace: Path, chapter_id: str) -> tuple[list[ReviewResult
         return [], []
     out: list[ReviewResult] = []
     failures: list[tuple[str, str]] = []
-    for path in sorted(reviews_dir.glob("*.md")):
+    candidates = sorted(reviews_dir.glob("*.md"))
+    for path in candidates:
         try:
             out.append(parse_review_report(path))
         except (ValueError, KeyError) as exc:
-            failures.append((path.name, str(exc)))
+            reason = str(exc)
+            failures.append((path.name, reason))
+            print(f"[aggregate_reviews] WARNING: skipping {path.name}: {reason}", file=sys.stderr)
+
+    if failures:
+        print(
+            f"[aggregate_reviews] {len(failures)} of {len(candidates)} candidate report(s) skipped.",
+            file=sys.stderr,
+        )
+
+    if candidates and not out:
+        raise ValueError(
+            f"[aggregate_reviews] All {len(candidates)} candidate report(s) for "
+            f"{chapter_id} were invalid — cannot produce aggregation. "
+            f"Check that reports have valid YAML frontmatter."
+        )
+
+    return out, failures
+
+
+def _gather_reviews_from_dir(reviews_dir: Path) -> tuple[list[ReviewResult], list[tuple[str, str]]]:
+    """Read persona-review-*.md files from a flat directory, returning (parsed, failures).
+
+    Mirrors _gather_reviews' behavior (warn on parse failures, surface them,
+    fail if all invalid) but accepts any directory path rather than computing
+    one from workspace + chapter_id.
+    """
+    reviews_dir = Path(reviews_dir)
+    if not reviews_dir.is_dir():
+        return [], []
+    out: list[ReviewResult] = []
+    failures: list[tuple[str, str]] = []
+    candidates = sorted(reviews_dir.glob("*.md"))
+    for path in candidates:
+        try:
+            out.append(parse_review_report(path))
+        except (ValueError, KeyError) as exc:
+            reason = str(exc)
+            failures.append((path.name, reason))
+            print(f"[aggregate_reviews] WARNING: skipping {path.name}: {reason}", file=sys.stderr)
+    if failures:
+        print(
+            f"[aggregate_reviews] {len(failures)} of {len(candidates)} candidate report(s) skipped.",
+            file=sys.stderr,
+        )
+    if candidates and not out:
+        raise ValueError(
+            f"[aggregate_reviews] All {len(candidates)} candidate report(s) in "
+            f"{reviews_dir} were invalid."
+        )
     return out, failures
 
 
@@ -64,6 +115,98 @@ def _dedup_findings(findings: list[tuple[str, str]]) -> list[dict]:
     for entry in out:
         entry.pop("_personas", None)
     return out
+
+
+def _build_aggregated_review(reviews: list[ReviewResult], chapter_id: str) -> AggregatedReview:
+    """Build an AggregatedReview from a list of ReviewResult objects.
+
+    Does not perform any I/O. The returned AggregatedReview has report_path=Path('.')
+    as a sentinel; callers should write the file themselves.
+    """
+    crit_pairs = [(r.persona_id, f.text) for r in reviews for f in r.critical]
+    imp_pairs = [(r.persona_id, f.text) for r in reviews for f in r.important]
+    min_pairs = [(r.persona_id, f.text) for r in reviews for f in r.minor]
+
+    critical = _dedup_findings(crit_pairs)
+    important = _dedup_findings(imp_pairs)
+    minor = _dedup_findings(min_pairs)
+
+    severity_counts = {
+        "critical": len(critical),
+        "important": len(important),
+        "minor": len(minor),
+    }
+    per_persona = {r.persona_id: r.verdict for r in reviews}
+
+    return AggregatedReview(
+        chapter_id=chapter_id,
+        severity_counts=severity_counts,
+        per_persona_verdicts=per_persona,
+        critical=critical,
+        important=important,
+        minor=minor,
+        report_path=Path("."),
+    )
+
+
+def render_panel_summary_markdown(agg: AggregatedReview) -> str:
+    """Render an AggregatedReview to a markdown string.
+
+    The output uses bullet-list format for per-persona verdicts and findings so
+    that the review-revise-validate orchestrator's synthesize_findings parser can
+    extract structured data from the sections:
+
+      ## Severity counts
+      - Critical: N
+      - Important: N
+      - Minor: N
+
+      ## Per-persona verdicts
+      - <persona>: VERDICT
+
+      ## Aggregated critical findings
+      - <persona>: <text>
+
+    (and likewise for important / minor findings).
+    """
+    lines: list[str] = [
+        f"# Persona Review - {agg.chapter_id}",
+        "",
+        f"_Aggregated {datetime.now(timezone.utc).isoformat(timespec='seconds')}_",
+        "",
+        "## Severity counts",
+        "",
+        f"- Critical: {agg.severity_counts['critical']}",
+        f"- Important: {agg.severity_counts['important']}",
+        f"- Minor: {agg.severity_counts['minor']}",
+        "",
+        "## Per-persona verdicts",
+        "",
+    ]
+    for pid, verdict in sorted(agg.per_persona_verdicts.items()):
+        lines.append(f"- {pid}: {verdict}")
+    if not agg.per_persona_verdicts:
+        lines.append("_(none)_")
+
+    lines += ["", "## Aggregated critical findings", ""]
+    for f in agg.critical:
+        lines.append(f"- {f['persona']}: {f['text']}")
+    if not agg.critical:
+        lines.append("_(none)_")
+
+    lines += ["", "## Aggregated important findings", ""]
+    for f in agg.important:
+        lines.append(f"- {f['persona']}: {f['text']}")
+    if not agg.important:
+        lines.append("_(none)_")
+
+    lines += ["", "## Aggregated minor findings", ""]
+    for f in agg.minor:
+        lines.append(f"- {f['persona']}: {f['text']}")
+    if not agg.minor:
+        lines.append("_(none)_")
+
+    return "\n".join(lines)
 
 
 def aggregate_reviews(workspace: Path, chapter_id: str) -> AggregatedReview:
@@ -177,3 +320,69 @@ def aggregate_reviews(workspace: Path, chapter_id: str) -> AggregatedReview:
         report_path=out_path,
         failed_personas=failed,
     )
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        help="Legacy workspace mode: read from <workspace>/chapters/drafts/<chapter-id>/reviews/",
+    )
+    parser.add_argument(
+        "--reviews-dir",
+        type=Path,
+        help="Direct-dir mode: read from this directory's *.md files",
+    )
+    parser.add_argument("--chapter-id", required=True)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Where to write panel-summary.md (default in legacy mode: workspace path)",
+    )
+    args = parser.parse_args(argv)
+
+    if not args.workspace and not args.reviews_dir:
+        parser.error("either --workspace or --reviews-dir is required")
+    if args.workspace and args.reviews_dir:
+        parser.error("--workspace and --reviews-dir are mutually exclusive")
+
+    if args.reviews_dir:
+        # Direct-dir mode: read review files in args.reviews_dir
+        reviews, _failed = _gather_reviews_from_dir(args.reviews_dir)
+        if not reviews:
+            print(
+                f"[aggregate_reviews] no reviews found in {args.reviews_dir}",
+                file=sys.stderr,
+            )
+            return 1
+        agg = _build_aggregated_review(reviews, args.chapter_id)
+        if args.output is None:
+            parser.error("--output is required when using --reviews-dir")
+        output_path = args.output
+    else:
+        # Legacy workspace mode
+        reviews, _failed = _gather_reviews(args.workspace, args.chapter_id)
+        if not reviews:
+            print(
+                f"[aggregate_reviews] no reviews under "
+                f"{args.workspace}/chapters/drafts/{args.chapter_id}/reviews/",
+                file=sys.stderr,
+            )
+            return 1
+        agg = _build_aggregated_review(reviews, args.chapter_id)
+        output_path = args.output or (
+            args.workspace / "chapters" / "drafts" / args.chapter_id / "persona-review.md"
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    md = render_panel_summary_markdown(agg)
+    output_path.write_text(md, encoding="utf-8")
+    print(f"[aggregate_reviews] wrote {output_path}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -46,6 +46,7 @@ Capability slugs and their full capability names:
 | `DRAFT` | claim-first-drafting |
 | `LIVE` | liveliness-signals |
 | `TRIAD` | triadic-voice |
+| `VEVAL` | voice-eval |
 
 ## EARS patterns
 

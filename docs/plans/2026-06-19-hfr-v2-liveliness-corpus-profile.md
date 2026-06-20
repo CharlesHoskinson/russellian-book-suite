@@ -14,7 +14,7 @@
 2. Floor calibration (`russellian-style` v2 ruleset: drumbeat exemption + register corridor)
 3. Liveliness signals (8 scorers + Brysbaert vendoring + regression set; augments the profile with concreteness/light-verb baselines)
 4. Generation v2 (`triadic-voice-v2`)
-5. Evaluation (`voice-eval` 20×20 harness)
+5. Evaluation (`voice-eval` 20×20 harness) — **written** (`docs/plans/2026-06-19-hfr-v2-voice-eval.md`)
 
 Each later plan gets its own writing-plans pass after this one executes.
 

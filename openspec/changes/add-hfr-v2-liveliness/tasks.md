@@ -43,6 +43,7 @@ Sequence: profile → floor ruleset → signals → generation v2 → eval.
       (REQ-TRIAD-006, REQ-TRIAD-007)
 
 ## Evaluation (voice-eval) — the 20×20 final test
+- Plan: docs/plans/2026-06-19-hfr-v2-voice-eval.md (Tasks 1–14)
 - [ ] 20-prompt stratified set; v1+v2 generation; equal-grounding floor gate
       (REQ-VEVAL-009, REQ-VEVAL-010)
 - [ ] Per-signal metric deltas; blind order-swapped in-session pairwise judge with

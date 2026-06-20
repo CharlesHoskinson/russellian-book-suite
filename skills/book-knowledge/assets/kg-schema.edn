@@ -1,0 +1,443 @@
+;; kg-schema.edn — unified knowledge-graph schema (REQ-KG-001)
+;;
+;; Homoiconic source of truth for the unified graph: claims + thesis + code
+;; graph. The projectors (ledger->cozo) and the EDN->CozoScript compiler read
+;; this contract; cozo_store creates one Cozo relation per entity from it
+;; (REQ-KG-011) and the compiler validates query references against it
+;; (REQ-KG-003).
+;;
+;; This is DISTINCT from assets/claim-record.schema.json (JSON-Schema), which
+;; still guards ledger-write shape. Do not conflate the two.
+;;
+;; Conventions:
+;;   - One map {:entities {...}}.
+;;   - Each entity is {<name> {:attrs [<keyword>...] :relations [[<verb> <target>]...]}}.
+;;   - All names are kebab-case keywords; relation targets reference declared
+;;     entities. The first attr of each entity is its identity column.
+;;   - Attr names are derived from the real field sources (claim-record schema,
+;;     book-thesis compile_thesis / RDF projection, graphify graph.json), not a
+;;     sketch — normalized to stable kebab-case keywords.
+
+{:entities
+ {;; Claim — derived from claim-record.schema.json (latest-per-id verified
+  ;; claims land here via the ledger->cozo projector, REQ-KG-004).
+  :claim
+  {:attrs [:id :canonical-text :status :claim-type :semantic-class
+           :confidence :p-prior :p-posterior :load-bearing :axiom
+           :pin-low-confidence :created-at :last-verified-at]
+   :types {:confidence :float :p-prior :float :p-posterior :float
+           :load-bearing :bool :axiom :bool :pin-low-confidence :bool}
+   :relations [[:has-source :source-span]
+               [:supports :thesis-node]
+               [:advances :sub-argument]
+               [:derived-from :claim]
+               [:conflicts-with :claim]
+               [:supersedes :claim]]}
+
+  ;; Source span — the provenance anchor for a claim
+  ;; (claim-record.schema.json source_spans[]). :claim-id is the back-reference
+  ;; to the owning claim: spans are nested under a claim record in the ledger,
+  ;; so the relational projection (REQ-KG-004) carries the parent claim id here
+  ;; to make the claim<->span join expressible.
+  ;; :wiki-page-id is an OPTIONAL back-reference to a wiki page (when this span's
+  ;; source IS a wiki page rather than an external doc). The RDF projection's
+  ;; orphan_wiki_pages query keys off ``?claim tbf:hasSourceSpan ?page``, i.e. a
+  ;; claim whose source span lands on a WikiPage URI; this column is the
+  ;; relational form of that link. The projector sets it (to the page's full URI)
+  ;; when a span's ``doc_id`` resolves to a wiki/*.md page path, else leaves it
+  ;; null. Spans citing ordinary docs keep it null, so the orphan negation only
+  ;; clears pages that a claim actually sources.
+  :source-span
+  {:attrs [:id :claim-id :doc-id :node-id :page-index :locator-text :wiki-page-id]
+   :types {:page-index :int}
+   :relations [[:of-claim :claim]
+               [:cites-page :wiki-page]]}
+
+  ;; Claim->chapter coverage edge — the relational form of a claim's
+  ;; supports_chapters list (claim-record schema). The RDF projection
+  ;; (project_graph) emits one tbf:supportsChapter triple per (claim, chapter)
+  ;; plus a tbf:Chapter type on each chapter URI; this entity is its relational
+  ;; counterpart: one row per (claim, chapter). :chapter holds the full chapter
+  ;; URI (https://example.org/book-knowledge/chapters/<id>) so the Cozo
+  ;; chapter_evidence_coverage port reproduces the SPARQL bindings exactly.
+  ;; The identity column is the synthetic (claim-id . chapter) pair id.
+  :claim-chapter
+  {:attrs [:id :claim-id :chapter]
+   :relations [[:of-claim :claim]
+               [:supports-chapter :chapter]]}
+
+  ;; Chapter — a book chapter that claims may support (tbf:Chapter in the RDF
+  ;; projection). :id is the full chapter URI; the projector mints one row per
+  ;; distinct chapter referenced by a projected claim's supports_chapters list.
+  :chapter
+  {:attrs [:id]
+   :relations []}
+
+  ;; Claim->claim conflict edge — the relational form of a claim's
+  ;; conflicts_with list (claim-record schema). The RDF projection
+  ;; (project_graph) emits one tbf:conflictsWith triple per (claim, target),
+  ;; directional (NOT symmetric — the reverse edge is only present if the target
+  ;; declares it too); this entity is its relational counterpart: one row per
+  ;; (claim, conflicts_with target). :claim-id is the declaring claim, :other-id
+  ;; the conflicting target. The identity column is the synthetic
+  ;; (claim-id . other-id) pair id so re-projection upserts rather than dups.
+  :claim-conflict
+  {:attrs [:id :claim-id :other-id]
+   :relations [[:of-claim :claim]
+               [:conflicts-with :claim]]}
+
+  ;; Counter-claim — a rebuttal targeting a claim (counter-claim.schema.json).
+  ;; P5.2 canonical decision: ONE row per cc carrying its LATEST status
+  ;; (dedupe-to-latest-per-id; project_ledger_cozo uses latest_per over the
+  ;; append-only counter-claims ledger). A cc that went open -> addressed lands as
+  ;; "addressed"; an addressed -> open reopen lands as "open" — the rebuttal-presence
+  ;; gate acts on the CURRENT status, so a reopened rebuttal counts as unaddressed.
+  ;; (This replaces the earlier history-preserving model that kept every distinct
+  ;; (cc, status) tuple to mirror project_graph's per-record tbf:ccStatus SET emit;
+  ;; the legacy RDF emit keeps that full set until it is deleted in P5.4.) Identity
+  ;; column :id is the bare cc id. :cc-id duplicates it for continuity;
+  ;; :target-claim-id is the rebutted claim id (the tbf:rebuts target, kept bare so
+  ;; it joins claim.id); :cc-status the latest lifecycle status
+  ;; ("open"/"addressed"/"dismissed"); :created-at rides along (ISO-8601 string;
+  ;; Cozo compares ISO-8601 lexically, no :types coercion).
+  :counter-claim
+  {:attrs [:id :cc-id :target-claim-id :cc-status :created-at]
+   :relations [[:rebuts :claim]]}
+
+  ;; Rebuttal-window-ok marker — the relational form of project_graph's
+  ;; tbf:rebuttalWindowOk triple (a disputed claim whose rebuttal landed inside
+  ;; the allowed window for a chapter). project_graph emits NO rebuttalWindowOk
+  ;; triple today, so the projector loads this relation EMPTY; it exists so the
+  ;; contested-rebuttal-window port can express its ``FILTER NOT EXISTS { ?claim
+  ;; tbf:rebuttalWindowOk ?chapter }`` negation arm faithfully (a never-emitted
+  ;; predicate => the negation clears nothing => every disputed chapter-supporting
+  ;; claim surfaces). :claim-id is the disputed claim, :chapter the full chapter
+  ;; URI; the identity column is the synthetic (claim-id . chapter) pair id.
+  :rebuttal-window-ok
+  {:attrs [:id :claim-id :chapter]
+   :relations [[:of-claim :claim]
+               [:for-chapter :chapter]]}
+
+  ;; Source — an ingested source document (raw/manifests/*.json). The RDF
+  ;; projection (project_graph) reads each manifest and emits
+  ;; ``<source> schema:dateCreated <ingested_at>`` keyed by the manifest's
+  ;; ``doc_id``; this entity is its relational counterpart, one row per manifest.
+  ;; :id is the manifest ``doc_id`` (the natural key a claim's source-span carries
+  ;; in its :doc-id column, so claim->span->source joins on it — the relational
+  ;; form of ``?claim prov:wasDerivedFrom ?src``). :ingested-at is the manifest's
+  ;; ``ingested_at`` (ISO-8601 string; Cozo compares ISO-8601 lexically, no :types
+  ;; coercion — schema:dateCreated in the .rq). :path and :title ride along from
+  ;; the manifest; :trust is the manifest's numeric trust score.
+  :source
+  {:attrs [:id :ingested-at :path :title :trust]
+   :types {:trust :float}
+   :relations [[:derives :claim]]}
+
+  ;; Thesis node — the book's root thesis (book-thesis :ThesisNode).
+  :thesis-node
+  {:attrs [:id :statement :polarity :scope]
+   :relations []}
+
+  ;; Sub-argument — a thesis sub-claim (book-thesis :SubArgument);
+  ;; supports its parent (thesis-node or another sub-argument).
+  :sub-argument
+  {:attrs [:id :statement :polarity :parent]
+   :relations [[:supports :thesis-node]
+               [:supports :sub-argument]
+               [:advanced-by :wiki-page]]}
+
+  ;; Invariant — a thesis-level manual invariant (book-thesis :Invariant), the
+  ;; relational form of compile_thesis's ``:<id> a :Invariant ; :rule ; :formal``
+  ;; emit. :rule is the human statement, :formal the authored Datalog clause. The
+  ;; P3.1 thesis projector also stores the MACHINE-READABLE comparison parsed from
+  ;; :formal (the same parse compile_thesis does for its invariantSubject /
+  ;; invariantPinnedValue / invariantForbiddenValue triples): :subject is the
+  ;; claim subject the invariant constrains, and exactly one of :pinned-value
+  ;; (the `!= lit` form — claims about :subject MUST equal it) or :forbidden-value
+  ;; (the `== lit` form — claims MUST NOT equal it) is set; the other stays null.
+  ;; These feed the P3.2 D11 invariant_violation check. No production projector
+  ;; emits these from book-knowledge's claim ledger; book-thesis loads them.
+  :invariant
+  {:attrs [:id :rule :formal :subject :pinned-value :forbidden-value]
+   :relations []}
+
+  ;; -- thesis-consistency fact tables (P3.2, REQ-KG-015) -------------------
+  ;; The D9-D11 consistency pass (book-thesis) is a recursive Datalog program
+  ;; (rules/consistency.cozo) over the thesis spine (thesis-node/sub-argument/
+  ;; invariant) PLUS these claim-derived facts. book-thesis's consistency_cozo
+  ;; loader fills them from claim-facts.yaml + the ledger (the same sources the
+  ;; pyDatalog pass reads); book-knowledge's own claim projector leaves them
+  ;; empty. They live in the unified schema because the consistency store is
+  ;; built from it (the schema already spans claims + thesis + code graph).
+
+  ;; A claim's structured (subject, value) — the states(C,S,V) inputs to the
+  ;; contradiction + invariant detectors. :id is the claim id (one row per
+  ;; claim). Either field may be null: subject without value yields no `states`
+  ;; (matching the pyDatalog rule, which needs both).
+  :claim-fact
+  {:attrs [:id :subject :value]
+   :relations [[:of-claim :claim]]}
+
+  ;; Normalized contradiction workbench helper relations (S4). These rows are
+  ;; deterministic projections from existing claim records, not ledger fields.
+  ;; The parser is conservative: a claim with no parseable quantity/interval
+  ;; simply emits no helper row.
+  :claim-quantity
+  {:attrs [:id :claim-id :value :unit :canonical-value :canonical-unit :dimension]
+   :types {:value :float :canonical-value :float}
+   :relations [[:of-claim :claim]]}
+
+  :claim-unit
+  {:attrs [:id :claim-id :unit :canonical-unit :dimension :scale-to-canonical]
+   :types {:scale-to-canonical :float}
+   :relations [[:of-claim :claim]]}
+
+  :claim-time-interval
+  {:attrs [:id :claim-id :subject :predicate :start :end :required-relation]
+   :types {:start :int :end :int}
+   :relations [[:of-claim :claim]]}
+
+  :claim-normal-form
+  {:attrs [:id :claim-id :subject :predicate :object :quantity-id :time-interval-id]
+   :relations [[:of-claim :claim]
+               [:has-quantity :claim-quantity]
+               [:has-interval :claim-time-interval]]}
+
+  ;; claim A implies claim B (implies(A,B)) — the transitive-contradiction edge.
+  ;; Identity is the synthetic (claim-id . target-id) pair so re-projection upserts.
+  :claim-implies
+  {:attrs [:id :claim-id :target-id]
+   :relations [[:of-claim :claim]]}
+
+  ;; A claim (manuscript paragraph) declares it supports thesis node :node
+  ;; (supports(P,N) for paragraphs; the sub-argument->parent edge comes from
+  ;; sub-argument/parent). A claim is a `paragraph` iff it has >=1 such row.
+  ;; Identity is the synthetic (claim-id . node) pair.
+  :paragraph-supports
+  {:attrs [:id :claim-id :node]
+   :relations [[:of-claim :claim]]}
+
+  ;; A sub-argument is advanced by chapter :chapter (advances(Ch,N) inverse).
+  ;; A sub-argument advanced by no chapter trips D11 sub_arg_no_chapter.
+  ;; Identity is the synthetic (sub-arg-id . chapter) pair.
+  :sub-arg-chapter
+  {:attrs [:id :sub-arg-id :chapter]
+   :relations [[:of-sub-argument :sub-argument]]}
+
+  ;; A sub-argument declares evidence slot :evidence (requires_evidence(N,E)).
+  ;; A slot no claim's subject meets trips D11 missing_evidence (only when the
+  ;; ledger carries structured subjects). Identity is (sub-arg-id . evidence).
+  :sub-arg-evidence
+  {:attrs [:id :sub-arg-id :evidence]
+   :relations [[:of-sub-argument :sub-argument]]}
+
+  ;; Wiki page — a *.md page under wiki/ (tbf:WikiPage in the RDF projection).
+  ;; The projector mints one row per wiki/**/*.md file, mirroring project_graph's
+  ;; per-file ``tbf:WikiPage`` emission: :id is the full page URI
+  ;; (https://example.org/book-knowledge/wiki/<rel-path>), :path the
+  ;; forward-slashed path relative to the workspace root, :title the file stem.
+  :wiki-page
+  {:attrs [:id :path :title]
+   :relations []}
+
+  ;; Chapter->wiki-page reference edge — the relational form of project_graph's
+  ;; tbf:referencesPage triple (a chapter pointing at a wiki page). It is the
+  ;; second negation arm of orphan_wiki_pages (a page referenced by a chapter is
+  ;; not an orphan). project_graph emits NO referencesPage triples today, so the
+  ;; projector currently loads this relation empty; it exists so the orphan port
+  ;; expresses both negation arms faithfully and so a future chapter->page
+  ;; signal has a home. :chapter is the full chapter URI, :wiki-page-id the full
+  ;; page URI; the identity column is the synthetic (chapter . page) pair id.
+  :chapter-wiki-ref
+  {:attrs [:id :chapter :wiki-page-id]
+   :relations [[:of-chapter :chapter]
+               [:references-page :wiki-page]]}
+
+  ;; Chapter section — a chapter section that cites claims (tbf:ChapterSection).
+  ;; NO production projector emits these yet (project_ledger loads it empty, like
+  ;; chapter-wiki-ref); the violating parity test loads synthetic rows directly.
+  ;; A real chapter-section projector is a future task.
+  :chapter-section
+  {:attrs [:id :uses-claim-id]
+   :relations [[:cites :claim]]}
+
+  ;; Code node — graphify graph.json node (id, label, source_file) plus its
+  ;; rank and community assignment.
+  :code-node
+  {:attrs [:id :label :source-file :rank :community]
+   :types {:rank :float}
+   :relations [[:edge :code-edge]
+               [:member-of :community]]}
+
+  ;; Code edge — graphify graph.json link (source, target, relation, weight).
+  ;; The identity column :id is the SYNTHETIC (source-id . target-id .
+  ;; relationship) triple key, not the bare :source-id. graphify is a multigraph:
+  ;; one node has many outgoing links (e.g. a module that both ``contains`` a
+  ;; function and ``imports`` another module), so keying on :source-id alone would
+  ;; collapse every edge out of a node to one row. The synthetic triple id is the
+  ;; minimal key that keeps each distinct (source, target, relationship) edge while
+  ;; staying upsert-stable across re-projection. :source-id / :target-id are kept
+  ;; bare so they join :code-node/id and so the in-engine PageRank/Louvain pass
+  ;; (P4.2) reads the edge endpoints directly.
+  :code-edge
+  {:attrs [:id :source-id :target-id :relationship :weight]
+   :types {:weight :float}
+   :relations [[:from :code-node]
+               [:to :code-node]]}
+
+  ;; Community — a detected cluster of code nodes (graphify community structure).
+  :community
+  {:attrs [:id :members]
+   :relations [[:has-member :code-node]]}
+
+  ;; Code<->claim link — the canonical join edge that fuses the code graph and
+  ;; the claims graph in ONE store. :code-id references a :code-node/id,
+  ;; :claim-id a :claim/id; the synthetic (code-id . claim-id . kind) key keeps
+  ;; file-path and exact-symbol links distinct. :kind is additive so legacy rows
+  ;; and S1 consumers that bind only code-id/claim-id remain valid.
+  :code-claim-link
+  {:attrs [:id :code-id :claim-id :kind]
+   :relations [[:of-code :code-node]
+               [:of-claim :claim]]}
+
+  ;; Link evidence — deterministic S6 candidates explaining why a code<->claim
+  ;; link was proposed. Canonical links have promoted=true and a matching
+  ;; code-claim-link row; ambiguous or weaker candidates remain evidence-only.
+  :link-evidence
+  {:attrs [:id :code-id :claim-id :kind :score :witness :provenance :promoted]
+   :types {:score :float :promoted :bool}
+   :relations [[:of-code :code-node]
+               [:of-claim :claim]]}
+
+  ;; Proof obligation — S7 first-class replayable verification entity. These
+  ;; rows are append-only records under claims/proof-obligations.jsonl projected
+  ;; latest-per-id into Cozo. The claim ledger itself is not mutated by opening
+  ;; or checking an obligation.
+  :proof-obligation
+  {:attrs [:id :statement :linked-claim :checker-kind :status :assumptions
+           :artifact-path :countermodel-path :checked-at :normal-form
+           :waiver-reason]
+   :relations [[:of-claim :claim]]}
+
+  ;; Verification artifact — one committed checker artifact for a discharged
+  ;; proof obligation. Replays read this path rather than invoking a checker.
+  :verification-artifact
+  {:attrs [:id :obligation-id :artifact-path :checker-kind :checked-at :status]
+   :relations [[:for-obligation :proof-obligation]]}
+
+  ;; Requires-proof — derived claim->obligation edge. The identity is the
+  ;; synthetic (claim-id . obligation-id) pair.
+  :requires-proof
+  {:attrs [:id :claim-id :obligation-id :checker-kind]
+   :relations [[:of-claim :claim]
+               [:opens :proof-obligation]]}
+
+  ;; Effective confidence — S5 materialized belief-erosion result. One row per
+  ;; latest-per-id claim for a supplied snapshot reference time. The row is
+  ;; derived by scripts/effective_confidence.py from propagate_belief's posterior
+  ;; pass plus deterministic source-freshness decay and trusted conflict inputs;
+  ;; it is not a ledger record.
+  :effective-confidence
+  {:attrs [:id :claim-id :prior :posterior :effective :freshness-factor
+           :support-erosion-reason-json :as-of]
+   :types {:prior :float :posterior :float :effective :float
+           :freshness-factor :float}
+   :relations [[:of-claim :claim]]}
+
+  ;; Chapter retrieval bundle — deterministic writer input for one chapter
+  ;; (REQ-CHAP-001..008). The row is materialized by
+  ;; scripts/project_chapter_bundle.py from existing graph relations. The payload
+  ;; is stored in canonical JSON plus EDN so book-compose receives a structured
+  ;; bundle rather than a flat passage list.
+  :chapter-retrieval-bundle
+  {:attrs [:id :chapter-id :chapter-uri :payload-json :payload-edn :prompt-scaffold]
+   :relations [[:for-chapter :chapter]]}
+
+  ;; Design requirement - one source-backed EARS requirement from OpenSpec.
+  ;; :requirement-id is the authored REQ id (e.g. REQ-KG-047), :capability is
+  ;; the OpenSpec capability slug, :status is proposed/accepted/archived, and
+  ;; :text is the requirement body. These rows let agents ask which code, tests,
+  ;; claims, and CI gates support a requirement.
+  :design-requirement
+  {:attrs [:id :requirement-id :capability :status :text :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:implemented-by :code-node]
+               [:covered-by :test-case]
+               [:gated-by :ci-job]
+               [:constrained-by :design-decision]]}
+
+  ;; Design scenario - one OpenSpec scenario under a design requirement. Keeping
+  ;; scenarios separate from requirement text lets agents answer "what behavior
+  ;; proves this requirement?" with exact source-line provenance.
+  :design-scenario
+  {:attrs [:id :requirement-id :capability :text :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:of-requirement :design-requirement]]}
+
+  ;; Design decision - one explicit decision, rationale, alternative, risk,
+  ;; non-goal, switch trigger, or ownership rule from specs/plans/runbooks.
+  ;; :kind is a closed-vocabulary label owned by the extractor; :status is the
+  ;; authored lifecycle where available. The row is intentionally prose-backed:
+  ;; agents may use it only with the source provenance attached.
+  :design-decision
+  {:attrs [:id :kind :status :text :rationale :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:constrains :design-requirement]
+               [:constrains-code :code-node]
+               [:mentions-command :operator-command]]}
+
+  ;; Test case - one pytest/Rust/cljs/shell check discovered by the
+  ;; test-and-CI extractor. :framework is pytest/cargo/cljs/shell/etc.;
+  ;; :target is the best-effort path, symbol, or requirement id it exercises.
+  :test-case
+  {:attrs [:id :name :framework :target :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:exercises-code :code-node]
+               [:covers-requirement :design-requirement]]}
+
+  ;; CI workflow - one .github/workflows/*.yml file.
+  :ci-workflow
+  {:attrs [:id :name :trigger :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:has-job :ci-job]]}
+
+  ;; CI job - one GitHub Actions job or required aggregator. :required marks
+  ;; merge-gating jobs (e.g. ci-required), :selector records path/matrix/needs
+  ;; logic in a compact string, and :command records the primary run command
+  ;; where one exists.
+  :ci-job
+  {:attrs [:id :workflow-id :name :required :selector :command :source-path :source-line]
+   :types {:required :bool :source-line :int}
+   :relations [[:in-workflow :ci-workflow]
+               [:runs-test :test-case]
+               [:gates-requirement :design-requirement]]}
+
+  ;; Operator command - one documented command from a runbook, Makefile, Nix
+  ;; target, or workflow command block. Commands are graph nodes so agents can
+  ;; ask how a documented operation maps to tests, CI, graph generation, or
+  ;; artifacts.
+  :operator-command
+  {:attrs [:id :command :shell :purpose :source-path :source-line]
+   :types {:source-line :int}
+   :relations [[:invokes-job :ci-job]
+               [:runs-test :test-case]
+               [:touches-code :code-node]]}
+
+  ;; Traceability link - evidence-first cross-graph link. :from-id and :to-id
+  ;; are graph ids, :kind names the semantic edge, :confidence is a deterministic
+  ;; score or reviewed confidence, :witness is the exact matched symbol/path/REQ
+  ;; id, :provenance describes how the link was derived, and :promoted controls
+  ;; whether canonical queries may use the link.
+  :traceability-link
+  {:attrs [:id :from-id :to-id :kind :confidence :witness :provenance
+           :promoted :source-path :source-line]
+   :types {:confidence :float :promoted :bool :source-line :int}
+   :relations [[:from-requirement :design-requirement]
+               [:from-decision :design-decision]
+               [:from-test :test-case]
+               [:from-ci-job :ci-job]
+               [:to-code :code-node]
+               [:to-claim :claim]
+               [:to-test :test-case]
+               [:to-ci-job :ci-job]
+               [:to-requirement :design-requirement]]}}}

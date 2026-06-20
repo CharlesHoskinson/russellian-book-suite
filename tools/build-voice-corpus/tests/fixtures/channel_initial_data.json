@@ -1,0 +1,20 @@
+{
+  "contents": {
+    "richGridRenderer": {
+      "contents": [
+        {"richItemRenderer": {"content": {"videoRenderer": {
+          "videoId": "aaa111",
+          "title": {"runs": [{"text": "Surprise AMA"}]},
+          "lengthText": {"simpleText": "1:02:03"},
+          "publishedTimeText": {"simpleText": "2 years ago"}
+        }}}},
+        {"richItemRenderer": {"content": {"videoRenderer": {
+          "videoId": "bbb222",
+          "title": {"runs": [{"text": "Whiteboard: Ouroboros"}]},
+          "lengthText": {"simpleText": "20:00"},
+          "publishedTimeText": {"simpleText": "1 year ago"}
+        }}}}
+      ]
+    }
+  }
+}

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from compile_thesis import compile_thesis  # noqa: E402
-from lint_supports import lint  # noqa: E402
+from lint_supports import lint, scan_paragraphs  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 THESIS_YAML = FIXTURES / "tiny-thesis.yaml"
@@ -37,6 +37,18 @@ def _prepare(tmp_path: Path, manuscript_name: str, extra_ttl: str = "") -> Path:
     release_dir.mkdir(parents=True)
     shutil.copy(FIXTURES / manuscript_name, release_dir / "manuscript.md")
     return tmp_path
+
+
+def test_scan_paragraphs_skips_footnote_definitions() -> None:
+    md = (
+        "# Chapter 1\n\n"
+        "<!-- supports: thesis -->\n"
+        "A genuine paragraph with enough words to count as prose.\n\n"
+        "[^a]: A footnote definition that must not be scanned as a paragraph.\n"
+    )
+    raws = [p.raw for p in scan_paragraphs(md)]
+    assert any("genuine paragraph" in r for r in raws)
+    assert not any(r.lstrip().startswith("[^a]") for r in raws)
 
 
 def test_finds_orphan_no_support(tmp_path: Path) -> None:
@@ -82,3 +94,24 @@ def test_clean_paragraph_passes(tmp_path: Path) -> None:
     assert summary["orphan_broken_supports"] == 0
     assert summary["orphan_unreachable"] == 0
     assert summary["supported"] == 2
+
+
+def test_untracked_manuscript_is_not_flagged_orphan(tmp_path: Path) -> None:
+    """3.7: a manuscript that declares NO supports carriers (e.g. a freshly
+    assembled one) is treated as not-in-supports-tracking-mode — it is not
+    flooded with D9 no-support orphans, nor D12 unadvanced sub-arguments."""
+    workspace = _prepare(tmp_path, "manuscript-untracked.md")
+    defects, summary = lint(workspace, "v1")
+    assert [d for d in defects if d.kind == "no-support"] == []
+    assert summary["orphan_no_support"] == 0
+    assert summary["unadvanced_sub_arguments"] == []
+    assert summary.get("supports_tracking") is False
+
+
+def test_partially_tracked_manuscript_still_flags_missing(tmp_path: Path) -> None:
+    """Opt-in is per-manuscript: once ANY paragraph declares a carrier, the
+    carrier-less ones are still flagged (the existing no-support fixture)."""
+    workspace = _prepare(tmp_path, "manuscript-no-support.md")
+    defects, summary = lint(workspace, "v1")
+    assert summary.get("supports_tracking") is True
+    assert summary["orphan_no_support"] >= 1

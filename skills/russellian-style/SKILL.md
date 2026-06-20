@@ -36,12 +36,50 @@ Rewrites technical prose in Bertrand Russell's analytic style and audits markdow
 - `scripts/lint_parallel_structure.py` — grammatical-opening parity across bullet lists.
 - `scripts/lint_sentence_rhythm.py` — sentence-length variance and cadence defects.
 - `scripts/lint_listicle_abstract.py` — abstract-noun listicles masquerading as content.
+- `scripts/lint_ai_staccato.py` — the negation-affirmation wall ("X is not Y. X is Z.") and "This is …" stacking. the highest-signal AI tell; passes every other linter while reading as machine prose. Also flags antithesis-as-default-closer and a repeated antithesis signature phrase (the negation/contrast tic the persona panel kept catching above the sentence).
+- `scripts/lint_footnotes.py` — orphaned footnotes: an inline `[^x]` marker with no `[^x]:` definition, or a definition no inline marker references. Deterministic and invisible to the prose linters; a draft can carry every footnote definition and none of the inline citations and still pass every style gate. Wired into `chapter_contract_check` as `footnote_orphan_count` (gated at 0).
+- `scripts/lint_burstiness.py`, `scripts/lint_sentence_rhythm.py` — uniform sentence length / repeated openings.
+- `scripts/lint_ai_vocabulary.py`, `scripts/lint_concrete_instance_density.py`, `scripts/lint_epistemic_precision.py`, `scripts/lint_paragraph_motion.py` — vitality linters (absence-of-the-positive-move detectors).
+
+## Delta calibration
+
+- `scripts/score_russell_delta.py <file>` — Burrows Delta vs the 50-paragraph Russell profile; verdict "within / at the edge of / outside Russell's range". Advisory.
+- `scripts/score_russell_delta.py --diagnose <file>` — the **calibration levers**: the most-frequent words ranked by divergence (z-score) and direction. Over-used emphatic absolutes ("never", "cannot", "no") and bare "it"/"and" drive Delta up; under-used subordinators ("of", "which", "but", "if") drive it down. Calibrate by *prose moves* (more subordination, fewer absolutes, named subjects), never by hunting single words — cutting one under-used word can raise the Delta. See the vitality guide.
+
+## Acceptance-threshold guidance (for chapter contracts)
+
+The linters are candidate-detectors; a chapter contract that gates them all at `== 0`
+will fail on genuine analytic prose. Calibrate the contract, not the prose:
+
+- `hedge_count` counts deontic permission ("the model **may** reason") and counterfactual/possibility "could" as candidates, which the no-VAGUE-hedging policy permits. Gate a small budget, not `== 0`. (Deontic/epistemic modality is not separable by a clean rule.)
+- `passive_voice_ratio` uses the precise true-passive detector; good analytic prose runs ~0.10–0.13 (legitimate "are performed", "is owed"). Gate `< 0.15`, not `< 0.10`.
+- `modifier_budget_violations` flags precise paired adjectives ("private and lossy"). Allow a small budget.
+- Keep the anti-slop / correctness gates strict at `0`: `ai_fingerprint_total`, `listicle_abstract_count`, `rhythm_violations`, `citation_token_count`.
 
 ## Style guide
 
 `references/russellian-style-guide.md` is the authoritative catalog, organised across vocabulary, voice, atomicity, flow, and structure.
 
 When prose is compliant but lifeless, read `references/russell-corpus-map.md` and compare against the 50-paragraph Russell corpus indexed in `assets/russell-corpus/index.json`.
+
+For a fused target that adds Feynman's intuition and Hoskinson's momentum to
+Russell's rigor, read `references/triadic-voice-guide.md`. It draws on three
+exemplar corpora: `assets/russell-corpus/index.json`,
+`assets/feynman-corpus/index.json` (pointers only), and
+`assets/hoskinson-corpus/index.json` (built by `tools/build-voice-corpus`). The
+discipline linters remain the quality floor for all three voices.
+
+## References index
+
+- `references/russellian-style-guide.md` — authoritative style catalog.
+- `references/russellian-vitality-guide.md` — vitality and rhythm rules for compliant-but-lifeless prose.
+- `references/russell-corpus-map.md` — guide to the 50-paragraph Russell corpus.
+- `references/triadic-voice-guide.md` — Russell × Feynman × Hoskinson fusion guide for the three-voice target.
+- `references/how-i-write-maxims.md` — Russell's seven sentence-craft maxims.
+- `references/logical-atomism-for-writers.md` — IF/AND IF/THEN decomposition for tangled conditionals.
+- `references/before-after-examples.md` — worked rewrites paired with the rule each one applies.
+- `references/section-headers.md` — taxonomy of section/subsection titles (four use / three ban categories) with the EpochPoET case study.
+- `references/negative-triggers.md` — genres in which the skill refuses to activate.
 
 ## Composes with
 

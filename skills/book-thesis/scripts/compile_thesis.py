@@ -29,6 +29,7 @@ Usage:
 """
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -100,6 +101,46 @@ def _add_sub_argument(graph: Graph, sub: dict[str, Any]) -> None:
         graph.add((node, NS["advancedBy"], _slug_uri(str(ch))))
 
 
+# An authored invariant's formal clause has the canonical shape
+#   contradicts(P, <name>) :- claims(P, <subject>, V), V <op> <literal>.
+# meaning: a claim about <subject> whose value <op> <literal> contradicts the
+# manual. We compile the (subject, op, literal) of that comparison into machine
+# -readable triples that datalog_consistency turns into an enforced rule. The
+# parser is deliberately narrow: it recognises exactly the != / == forms the
+# schema documents and leaves anything else as an advisory literal only.
+_CLAIMS_RE = re.compile(
+    r"claims\(\s*\w+\s*,\s*(?P<subject>[A-Za-z_][\w-]*)\s*,\s*(?P<var>\w+)\s*\)",
+)
+
+
+def _parse_invariant_formal(formal: str) -> tuple[str, str, str] | None:
+    """Return (subject, op, literal) for a recognised formal clause, else None.
+
+    ``op`` is the *comparison that signals a violation* (``!=`` or ``==``); the
+    literal is the canonical value the invariant pins. Returns None when the
+    clause does not match the documented ``claims(P, subj, V), V op lit`` shape.
+    """
+    claims = _CLAIMS_RE.search(formal)
+    if not claims:
+        return None
+    subject, var = claims.group("subject"), claims.group("var")
+    # Find a comparison on the bound variable: `<var> != <lit>` or `<var> == <lit>`.
+    # Literal: a quoted string, or a bare token (number/word, dots allowed for
+    # decimals) terminated by whitespace, comma, or a clause-ending period.
+    cmp_re = re.compile(
+        rf"\b{re.escape(var)}\s*(?P<op>!=|==)\s*"
+        r"(?P<lit>\"[^\"]*\"|'[^']*'|[^\s,)]+?)\s*[,)]?\s*\.?\s*$",
+        re.MULTILINE,
+    )
+    cmp = cmp_re.search(formal)
+    if not cmp:
+        return None
+    lit = cmp.group("lit").strip()
+    if (lit[:1], lit[-1:]) in {('"', '"'), ("'", "'")}:
+        lit = lit[1:-1]
+    return subject, cmp.group("op"), lit
+
+
 def _add_invariant(graph: Graph, inv: dict[str, Any]) -> None:
     if "id" not in inv:
         raise ValueError(f"invariant missing id: {inv!r}")
@@ -108,7 +149,16 @@ def _add_invariant(graph: Graph, inv: dict[str, Any]) -> None:
     if inv.get("rule"):
         graph.add((node, NS["rule"], Literal(inv["rule"].strip())))
     if inv.get("formal"):
-        graph.add((node, NS["formal"], Literal(inv["formal"].strip())))
+        formal = inv["formal"].strip()
+        graph.add((node, NS["formal"], Literal(formal)))
+        parsed = _parse_invariant_formal(formal)
+        if parsed is not None:
+            subject, op, lit = parsed
+            graph.add((node, NS["invariantSubject"], Literal(subject)))
+            # The canonical value the invariant pins. For the `!= lit` form the
+            # claim must EQUAL lit; for `== lit` the claim must NOT equal lit.
+            pred = "invariantPinnedValue" if op == "!=" else "invariantForbiddenValue"
+            graph.add((node, NS[pred], Literal(lit)))
 
 
 def compile_thesis(workspace: Path, book_id: str) -> CompileResult:

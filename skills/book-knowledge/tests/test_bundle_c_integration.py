@@ -16,7 +16,7 @@ from scripts.propagate_belief import run as propagate_run
 
 
 def _write_proposed(workspace_root: Path, transition: dict) -> None:
-    p = workspace_root / "claims" / "proposed-transitions.jsonl"
+    p = workspace_root / "qa" / "proposed-transitions.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(transition) + "\n", encoding="utf-8")
 

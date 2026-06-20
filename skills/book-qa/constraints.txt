@@ -1,0 +1,17 @@
+# Reproducible-install pilot for book-qa (P2-pip-lockfiles).
+#
+# Pins the full transitive closure of `book-qa[ci]` (pyyaml + pytest) so two
+# CI runs of the same commit resolve byte-identical versions. Passed to pip as
+# `-c constraints.txt` via the setup-book-python composite action; a constraint
+# only binds a package if it is actually pulled in, so platform-specific deps
+# (e.g. colorama on Windows) are safe to list unconditionally.
+#
+# Dependabot watches skills/book-qa/pyproject.toml; when it bumps a direct dep,
+# regenerate this file:  pip install -e skills/book-qa[ci] && pip freeze --exclude-editable
+colorama==0.4.6
+iniconfig==2.3.0
+packaging==26.2
+pluggy==1.6.0
+Pygments==2.20.0
+pytest==9.1.0
+PyYAML==6.0.3

@@ -1,40 +1,46 @@
 ---
 name: syntopical-metabook
-description: Self-curating world model for the book-* suite. Acquires papers via citation-graph traversal, synthesizes a syntopical layer (topic maps, disputed questions, concept reconciliation) over the claim ledger, and projects per-chapter lenses that book-compose reads when drafting. The metabook is the orchestrator — it never touches the network directly (only via scrapling-fetch) and never mutates the canonical workspace (only via book-knowledge). Use when the user says "acquire papers for chapter X", "synthesize the metabook", "project a lens for chapter Y", or "show me what's uncovered in chapter Z".
+description: General-purpose knowledge-curation layer for a book/knowledge workspace. Five capabilities — Acquire (grow the source set by citation-graph traversal and ingest via book-knowledge), Synthesize (topic maps, disputed questions, concept reconciliation over the claim ledger), Lens (project a per-chapter view book-compose reads), Gap (score thesis-node coverage and feed uncovered nodes back to acquisition), and Govern (partition rule/claim support by curated schools of thought; render reports, consensus map, adversarial review, induction gate). Use when the user wants to acquire or expand sources, synthesize a cross-source view, project a per-chapter lens, find coverage gaps, or position induced/asserted rules against schools of thought. The skill never touches the network directly (only via scrapling-fetch) and never mutates the canonical workspace (only via book-knowledge); it writes only under syntopical/.
 license: MIT
 metadata:
   author: charles-hoskinson
-  version: 0.1.0
+  version: 0.3.0
   category: writing
   workspace-aware: true
 ---
 
 # syntopical-metabook
 
-You are the world model above the book. Four sub-workflows: Acquire, Synthesize, Project Lens, Gap Report. See `references/` for each playbook.
+The world model above the book. Five capabilities over a workspace, each
+reachable from the `forge` CLI and exported from `skill_api.py`.
+
+## Capabilities
+
+| Capability | CLI | Playbook |
+|---|---|---|
+| Acquire | `forge meta acquire` | `references/acquire-playbook.md` |
+| Synthesize | `forge meta synthesize` | `references/synthesize-playbook.md` |
+| Lens | `forge meta lens` | `references/lens-and-gap-playbook.md` |
+| Gap | `forge meta gap` | `references/lens-and-gap-playbook.md` |
+| Govern | `forge govern …` | `references/governance-playbook.md` |
+
+The author loop: **Acquire → Synthesize → Gap → (feed back to Acquire) →
+Lens → book-compose**, with **Govern** as the quality gate over induced and
+asserted rules.
 
 ## Boundaries
 
-- Reads: `raw/`, `wiki/`, `claims/`, `graph/`, `chapters/`.
-- Writes: `syntopical/` only — never raw/claims/wiki/graph.
+- Reads: `raw/`, `wiki/`, `claims/`, `graph/`, `chapters/`, `rules/`, `syntopical/schools/`.
+- Writes: `syntopical/` only.
 - Network: only via `scrapling-fetch`. Never direct HTTP.
-- Symbolic reasoning: only via `booklogic_adapter`. Never EDN in Python.
+- Symbolic reasoning: only via `booklogic_adapter`. Never EDN logic in Python.
 
 ## Public surface
 
-v0.2 ships the **governance** sub-workflow. `skill_api.py` exports:
+`skill_api.py` (`API_VERSION = (0, 3)`) exports:
 
-- `build_positions(workspace, generated_at=None) -> Path`
-  Reads `syntopical/schools/*.edn`, the claim ledger, and `induced-theory.prov.edn`;
-  writes `syntopical/positions.edn`.
-- `render_per_rule(positions_path, out_dir) -> int`
-  Reads `positions.edn`; writes one Markdown report per rule under `out_dir`.
-
-CLI entry points (via `forge govern`):
-
-- `forge govern build <workspace>` — rebuild positions ledger.
-- `forge govern report <workspace>` — render per-rule reports.
-
-The four-sub-workflow v0.1 scaffolds (`acquire/`, `synthesize/`, `lens/`, `gap/`)
-remain in place but are not active in v0.2. They are scheduled for a v0.3
-revisit.
+- Acquire: `expand_seeds`, `rank`, `triage`, `apply_veto`, `download_and_ingest`, `run_acquire`
+- Synthesize: `build_topic_map`, `build_disputed_questions`, `build_concept_reconciliation`, `run_synthesize`
+- Lens: `project_lens`
+- Gap: `build_coverage_report`, `seed_from_gap_report`
+- Govern: `build_positions`, `render_per_rule`, `render_consensus_map`, `render_adversarial`, `governance_filter`, `GateDecision`

@@ -1,6 +1,6 @@
 import pytest
 
-pytestmark = pytest.mark.windows_canary
+pytestmark = [pytest.mark.windows_canary, pytest.mark.needs_spacy_model]
 
 from pathlib import Path
 
@@ -71,6 +71,37 @@ def test_persona_review_with_critical_findings_metric_reflects_count(tmp_path):
     review_path.touch()
     metrics = _compute_metrics(ws / "chapters" / "drafts" / "ch-01" / "draft.md")
     assert metrics["persona_critical_count"] == 3
+
+
+def test_no_workspace_root_does_not_trivially_complete(tmp_path):
+    # A draft with no CLAUDE.md anywhere above it must NOT report reviews complete.
+    ch = tmp_path / "loose" / "ch-01"
+    ch.mkdir(parents=True, exist_ok=True)
+    (ch / "draft.md").write_text("# Sample\n\nBody.\n", encoding="utf-8")
+    metrics = _compute_metrics(ch / "draft.md")
+    assert metrics["persona_reviews_complete"] is False
+
+
+def test_advisory_count_present_in_markdown_fallback(tmp_path):
+    ws = _make_workspace_with_draft(tmp_path)
+    review_path = ws / "chapters" / "drafts" / "ch-01" / "persona-review.md"
+    review_path.write_text(
+        "# Persona Review\n\n## Severity counts\n\n- Critical: 0\n- Important: 0\n- Minor: 0\n",
+        encoding="utf-8",
+    )
+    import time
+    time.sleep(0.05)
+    review_path.touch()
+    metrics = _compute_metrics(ws / "chapters" / "drafts" / "ch-01" / "draft.md")
+    # The advisory key must be present even on the legacy markdown path so a
+    # contract referencing it is actually evaluated, not silently skipped.
+    assert "persona_advisory_critical_count" in metrics
+
+
+def test_advisory_count_present_when_no_review(tmp_path):
+    ws = _make_workspace_with_draft(tmp_path)
+    metrics = _compute_metrics(ws / "chapters" / "drafts" / "ch-01" / "draft.md")
+    assert "persona_advisory_critical_count" in metrics
 
 
 def test_check_draft_fails_when_critical_count_nonzero(tmp_path):

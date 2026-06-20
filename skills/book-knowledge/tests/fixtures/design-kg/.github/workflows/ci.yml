@@ -1,0 +1,17 @@
+name: fixture-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  design-kg-required:
+    name: design-kg-required
+    runs-on: ubuntu-24.04
+    steps:
+      - name: run fixture test
+        run: python -m pytest tests/test_fixture_pipeline.py -q

@@ -54,6 +54,11 @@
       "enum": ["technical-exposition", "narrative-editorial", "polemic"],
       "description": "Optional. Selects which russellian-style system prompt the drafter loads. Defaults to technical-exposition.",
       "default": "technical-exposition"
+    },
+    "stage": {
+      "type": "string",
+      "enum": ["russell", "feynman-final"],
+      "description": "Optional gating stage. 'feynman-final' marks a Feynman-final chapter: Feynman metrics are computed and gated via acceptance_tests, and surface-class Russell thresholds are expected to be omitted from acceptance_tests (the chapter legitimately overrides them). Absent or 'russell' = unchanged default behavior."
     }
   },
   "additionalProperties": false

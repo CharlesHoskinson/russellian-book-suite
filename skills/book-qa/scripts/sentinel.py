@@ -7,7 +7,7 @@ Rolls up Stage-1 ``defects.json`` (mechanical D1-D8 from
 
 Hard-fail rules (release blocked):
 
-* Any critical D1-D8 mechanical defect.
+* Any critical D1-D8 mechanical defect or critical D9-D13 reasoning defect.
 * Any C2 (cross-references) or C13 (closing strength) ticket from Stage 2.
 * Any Stage-2 ticket with severity ``critical``.
 
@@ -26,8 +26,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-HARD_FAIL_CHECKS = {"C2", "C13"}
-HARD_FAIL_D_CLASSES = {"D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8"}
+HARD_FAIL_CHECKS = {"C2", "C13", "gated-sentence-escape"}
+HARD_FAIL_D_CLASSES = {
+    "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8",
+    "D9", "D10", "D11", "D13",
+}
 
 
 @dataclass
@@ -70,12 +73,34 @@ def _is_hard_fail(class_: str, severity: str) -> bool:
     return False
 
 
+def _corrupt_input_ticket(path: Path, exc: Exception) -> "Ticket":
+    """A synthetic hard-fail ticket for a malformed QA input file (4.2).
+
+    Corruption in a QA input must block the gate — not crash the run, and not be
+    silently skipped (which would pass a chapter whose findings were unreadable).
+    """
+    return Ticket(
+        ticket_id=f"corrupt-{path.stem}",
+        source="sentinel",
+        chapter=path.stem,
+        class_="C-CORRUPT",
+        severity="critical",
+        where=str(path),
+        detail=f"malformed QA input JSON: {exc}",
+        fix_hint="regenerate this QA artifact; it is not valid JSON",
+        hard_fail=True,
+    )
+
+
 def _load_stage1(workspace: Path) -> list[Ticket]:
     """Pull D1-D8 defects from ``qa/defects.json`` produced by lint_artifact."""
     path = workspace / "qa" / "defects.json"
     if not path.exists():
         return []
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return [_corrupt_input_ticket(path, e)]
     out: list[Ticket] = []
     for i, entry in enumerate(payload.get("defects", [])):
         cls = entry.get("class") or entry.get("class_") or "D?"
@@ -101,7 +126,11 @@ def _load_stage2(workspace: Path) -> list[Ticket]:
         return []
     out: list[Ticket] = []
     for path in sorted(tix_dir.glob("ch-*.json")):
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            out.append(_corrupt_input_ticket(path, e))
+            continue
         chapter = payload.get("chapter", path.stem)
         for i, t in enumerate(payload.get("tickets", [])):
             cls = t.get("check", "C?")
@@ -120,13 +149,58 @@ def _load_stage2(workspace: Path) -> list[Ticket]:
     return out
 
 
+def _load_gated_sentence_escape(workspace: Path) -> list[Ticket]:
+    """Pull proof-obligation final-prose escapes from qa/gated-sentences.jsonl."""
+    path = workspace / "qa" / "gated-sentences.jsonl"
+    if not path.exists():
+        return []
+    out: list[Ticket] = []
+    allowed = {"discharged", "waived"}
+    for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not raw.strip():
+            continue
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError as e:
+            out.append(_corrupt_input_ticket(path, e))
+            continue
+        if row.get("assertion_kind") != "verified":
+            continue
+        status = row.get("obligation_status")
+        if status in allowed:
+            continue
+        claim_id = row.get("claim_id", "")
+        obligation_id = row.get("obligation_id", "")
+        out.append(
+            Ticket(
+                ticket_id=f"gated-sentence-escape-{i:04d}",
+                source="proof-obligations",
+                chapter=row.get("chapter", "doc"),
+                class_="gated-sentence-escape",
+                severity="critical",
+                where=row.get("sentence", ""),
+                detail=(
+                    f"verified sentence asserts {claim_id} while proof obligation "
+                    f"{obligation_id} is {status or 'unknown'}"
+                ),
+                fix_hint="discharge or waive the obligation, or remove the verified assertion",
+                hard_fail=True,
+            )
+        )
+    return out
+
+
 def aggregate(workspace: Path, version: str | None = None) -> SentinelReport:
     """Merge Stage-1 and Stage-2 tickets into a single ``SentinelReport``.
 
     When *version* is supplied, ``propose_writeback`` is called after
     aggregation so that writeback artefacts land alongside QA outputs.
     """
-    tickets = _load_stage1(workspace) + _load_stage2(workspace)
+    tickets = (
+        _load_stage1(workspace)
+        + _load_stage2(workspace)
+        + _load_gated_sentence_escape(workspace)
+    )
     by_class: dict[str, int] = {}
     by_chapter: dict[str, int] = {}
     by_severity: dict[str, int] = {"critical": 0, "important": 0, "minor": 0}

@@ -38,7 +38,7 @@ def _seed_findings(ws: Path) -> None:
 def test_sentinel_runs_propose_writeback(tmp_path: Path) -> None:
     _seed_findings(tmp_path)
     aggregate(tmp_path, version="v6-test")
-    assert (tmp_path / "claims" / "proposed-transitions.jsonl").exists()
+    assert (tmp_path / "qa" / "proposed-transitions.jsonl").exists()
     assert (tmp_path / "qa" / "ledger-writeback-v6-test.md").exists()
 
 
@@ -47,4 +47,4 @@ def test_sentinel_writeback_skipped_without_version(tmp_path: Path) -> None:
     _seed_findings(tmp_path)
     report = aggregate(tmp_path)  # no version arg
     assert report.total == 0     # no stage-1 defects.json, no chapter tickets
-    assert not (tmp_path / "claims" / "proposed-transitions.jsonl").exists()
+    assert not (tmp_path / "qa" / "proposed-transitions.jsonl").exists()

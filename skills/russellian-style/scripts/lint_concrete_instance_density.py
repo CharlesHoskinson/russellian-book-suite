@@ -13,6 +13,8 @@ from pathlib import Path
 
 import spacy
 
+from .lint_common import _is_code_block, _is_heading, _is_list_marker, _split_paragraphs
+
 
 _NLP = None
 
@@ -37,7 +39,17 @@ _OCCUPATIONAL_NOUNS = {
 
 
 def _paragraphs(text: str) -> list[str]:
-    return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    # Reuse lint_common's splitter and skip structural markdown (headings,
+    # fenced/indented code, list markers) so they do not count as
+    # zero-concrete-instance paragraphs and inflate the consecutive-zero run.
+    out: list[str] = []
+    for _start_line, para in _split_paragraphs(text):
+        if _is_code_block(para) or _is_heading(para) or _is_list_marker(para):
+            continue
+        stripped = para.strip()
+        if stripped:
+            out.append(stripped)
+    return out
 
 
 def _concrete_count(para: str) -> int:
@@ -60,29 +72,37 @@ def lint_concrete_instance_density(path: Path) -> list[dict]:
     counts = [_concrete_count(p) for p in paras]
 
     findings: list[dict] = []
-    run_start = None
-    flagged = False
+    run_start: int | None = None
+
+    def _flush(start: int, end_exclusive: int) -> None:
+        run_length = end_exclusive - start
+        if run_length < 3:
+            return
+        # All vitality linters advisory in v1; tier records internal
+        # strength for the report, severity stays advisory.
+        findings.append({
+            "rule": "concrete-instance-density",
+            "tier": "important",
+            "severity": "advisory",
+            "run_start_paragraph": start,
+            "run_length": run_length,
+            "message": (
+                f"{run_length} consecutive paragraphs with zero concrete "
+                f"instances (PERSON/ORG/GPE/DATE/MONEY/ORDINAL or occupational noun)."
+            ),
+        })
+
+    # Emit one finding per distinct zero-instance run, not just the first.
     for i, c in enumerate(counts):
         if c == 0:
             if run_start is None:
                 run_start = i
-            if i - run_start + 1 >= 3 and not flagged:
-                # All vitality linters advisory in v1; tier records internal
-                # strength for the report, severity stays advisory.
-                findings.append({
-                    "rule": "concrete-instance-density",
-                    "tier": "important",
-                    "severity": "advisory",
-                    "run_start_paragraph": run_start,
-                    "run_length": i - run_start + 1,
-                    "message": (
-                        f"{i - run_start + 1} consecutive paragraphs with zero concrete "
-                        f"instances (PERSON/ORG/GPE/DATE/MONEY/ORDINAL or occupational noun)."
-                    ),
-                })
-                flagged = True
         else:
-            run_start = None
+            if run_start is not None:
+                _flush(run_start, i)
+                run_start = None
+    if run_start is not None:
+        _flush(run_start, len(counts))
 
     avg = sum(counts) / len(counts)
     if avg < 0.5 and not findings:

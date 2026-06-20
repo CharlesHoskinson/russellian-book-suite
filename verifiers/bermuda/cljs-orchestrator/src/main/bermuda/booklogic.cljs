@@ -131,8 +131,7 @@
    The shape mirrors v0.2's rules.edn entries; downstream meander code in
    `phases.cljs` consumes :lhs / :rhs directly."
   [form]
-  (let [[_ name equation & options] form
-        opts (if (seq options) (option-map options) {})]
+  (let [[_ name equation & options] form]
     (when-not (symbol? name)
       (throw (ex-info "defrule: name must be a symbol" {:form form})))
     (when-not (and (sequential? equation)
@@ -140,7 +139,11 @@
                    (= 3 (count equation)))
       (throw (ex-info "defrule: must contain an equation of form (= LHS RHS)"
                       {:form form})))
-    (let [[_ lhs rhs] equation]
+    ;; Parse options only after the equation validates, so a defrule whose
+    ;; equation slot is an option keyword (e.g. (defrule R :tags [...])) reports
+    ;; the missing equation rather than an even-arity option error.
+    (let [opts (if (seq options) (option-map options) {})
+          [_ lhs rhs] equation]
       {:name name
        :lhs  lhs
        :rhs  rhs
@@ -237,9 +240,14 @@
 ;; ----- defconstraint expansion -----
 
 (defn- assert-form-approx?
-  "True iff the :assert form uses the ~= (approximate-equality) head."
+  "True iff the :assert form uses the approx= (approximate-equality) head.
+   In BookLogic source files the operator is written as `approx=` (a valid
+   EDN symbol); `~=` is accepted as an alias for back-compat. Recognising
+   both keeps the constraint's :tolerance from being silently dropped from
+   codegen when an `approx=` form is used."
   [assert-form]
-  (and (sequential? assert-form) (= '~= (first assert-form))))
+  (and (sequential? assert-form)
+       (contains? #{'approx= '~=} (first assert-form))))
 
 (defn- extract-tolerance
   "For an :assert form of shape (~= LHS RHS :tolerance ε), return ε.
@@ -454,6 +462,7 @@
    Mapping:
      (parse-int ?n)   → :int
      (parse-float ?x) → :real
+     (parse-bool ?v)  → :bool
      true / false     → :bool
      anything else    → :string  (best-effort default)"
   [emit-form]
@@ -462,6 +471,7 @@
       (cond
         (and (sequential? body) (= (first body) 'parse-int))   :int
         (and (sequential? body) (= (first body) 'parse-float)) :real
+        (and (sequential? body) (= (first body) 'parse-bool))  :bool
         (boolean? body)                                        :bool
         :else                                                  :string))))
 

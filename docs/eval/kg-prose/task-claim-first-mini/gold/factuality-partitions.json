@@ -1,0 +1,17 @@
+{
+  "partitions": {
+    "disputed-claim-backed": [
+      "fact-ch-01-p001-0002"
+    ],
+    "no-claim-binding": [
+      "fact-ch-01-p001-0003"
+    ],
+    "span-check-failed": [
+      "fact-ch-01-p001-0004"
+    ],
+    "verified-claim-backed": [
+      "fact-ch-01-p001-0001"
+    ]
+  },
+  "schema": "kg-prose-factuality-gold/v1"
+}

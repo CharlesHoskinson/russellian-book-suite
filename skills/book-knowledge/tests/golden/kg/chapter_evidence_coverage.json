@@ -1,0 +1,42 @@
+[
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-01",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-02",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-03",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-04",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-05",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-06",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-07",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-08",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-09",
+    "verified_count": "1"
+  },
+  {
+    "chapter": "https://example.org/book-knowledge/chapters/ch-10",
+    "verified_count": "1"
+  }
+]

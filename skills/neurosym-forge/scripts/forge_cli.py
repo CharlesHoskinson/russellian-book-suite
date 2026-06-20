@@ -35,6 +35,8 @@ if _SYNTOPICAL_DIR.is_dir() and str(_SYNTOPICAL_DIR) not in _sys.path:
 import functools
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -122,6 +124,10 @@ def cli(ctx: click.Context, debug: bool) -> None:
 _VALID_BACKENDS = (":z3", ":cozo", ":egg")
 _VALID_SCOPES = (":subject", ":corpus")
 _VALID_SEVERITIES = (":critical", ":hard", ":advisory", ":info")
+# REQ-NSI-002 / H-02: a constraint id is an EDN keyword — an optional leading
+# ':' then a letter followed by letters/digits/hyphens. Nothing else may reach
+# the constraints.edn template or the generated Rust tracker name.
+_CONSTRAINT_ID_RE = re.compile(r"^:?[A-Za-z][A-Za-z0-9-]*$")
 
 
 def _constraints_path(project_root: Path) -> Path:
@@ -230,6 +236,14 @@ def add_constraint(
         return str(result)
 
     constraint_id = _need("id", constraint_id)
+    # REQ-NSI-002 / H-02: the id is interpolated into the EDN template and, via
+    # codegen, into Rust tracker names. Restrict it to a keyword allowlist so a
+    # value carrying quotes/parens/whitespace cannot inject downstream.
+    if not _CONSTRAINT_ID_RE.match(constraint_id):
+        raise click.UsageError(
+            f"--id {constraint_id!r} is not a valid constraint id; expected a "
+            "keyword like :C042-trial-n (letters, digits, hyphens; optional ':')"
+        )
     backend = _need("backend", backend, default=":z3", choices=_VALID_BACKENDS)
     scope = _need("scope", scope, default=":subject", choices=_VALID_SCOPES)
     assert_form = _need("assert_form", assert_form)
@@ -699,8 +713,11 @@ def _run_nbb_induce(
     a real nbb runtime.
     """
     script = Path(__file__).resolve().parent / "induce_theory.cljs"
+    # On Windows, nbb ships as nbb.cmd; subprocess.run without shell=True
+    # does not consult PATHEXT, so resolve the full executable path here.
+    nbb_exe = shutil.which("nbb") or "nbb"
     cmd = [
-        "nbb",
+        nbb_exe,
         "-m", "induce-theory",
         str(project_root),
         "--folds", str(folds),
@@ -833,7 +850,10 @@ def induce(
     click.echo("")
     click.echo(_format_induce_summary(prov))
     click.echo("")
-    click.echo(f"Wrote: {theory_path}")
+    if theory_path.exists():
+        click.echo(f"Wrote: {theory_path}")
+    else:
+        click.echo(f"Skipped: {theory_path} (no rules survived validation)")
     click.echo(f"Wrote: {prov_path}")
 
     if governance_gate and not dry_run:
@@ -1201,10 +1221,18 @@ def theory(project_root: Path, rule_id: str | None) -> None:
     project_root = Path(project_root).resolve()
     theory_path, prov_path = _induced_paths(project_root)
 
+    # When induction yields zero surviving rules the orchestrator skips
+    # writing induced-theory.edn but the sidecar is still written. Surface
+    # an empty-theory summary instead of erroring.
     if not theory_path.exists():
-        raise FileNotFoundError(
-            f"induced-theory.edn not found at {theory_path}"
-        )
+        if not prov_path.exists():
+            raise FileNotFoundError(
+                f"induced-theory.edn not found at {theory_path} "
+                f"and no sidecar at {prov_path} — has `forge induce` run?"
+            )
+        click.echo(f"No induced rules (sidecar at {prov_path}).")
+        click.echo("Run `forge induce <project>` to (re)attempt induction.")
+        return
 
     theory_data = _load_induced_theory(theory_path)
 
@@ -1335,6 +1363,93 @@ def govern_quarantine(workspace: Path) -> None:
         click.echo("No quarantine file. Run `forge induce --governance-gate` first.")
         return
     click.echo(quarantine_path.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# `forge meta` group — wraps syntopical-metabook curation sub-workflows
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def meta() -> None:
+    """syntopical-metabook curation: acquire, synthesize, lens, gap."""
+
+
+def _import_metabook(attr: str):
+    """Lazy-import a syntopical-metabook entry point; clean error if absent."""
+    import importlib
+    mod_map = {
+        "run_acquire": "scripts.acquire.pipeline",
+        "run_synthesize": "scripts.synthesize.run_synthesize",
+        "project_lens": "scripts.lens.project_lens",
+        "build_coverage_report": "scripts.gap.coverage_report",
+    }
+    try:
+        module = importlib.import_module(mod_map[attr])
+        return getattr(module, attr)
+    except ImportError as e:
+        raise click.ClickException(
+            "syntopical-metabook skill not on sys.path. Install both skills in "
+            "the same venv, or run from a workspace with PYTHONPATH set."
+        ) from e
+
+
+@meta.command("acquire")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id (for thesis-tree veto).")
+@click.option("--seed", "seeds", multiple=True, help="Seed paper id (repeatable).")
+@click.option("--query", "query_text", default="", help="Query text for ranking.")
+@click.option("--depth", default=2, type=int, help="Citation-graph traversal depth.")
+@_handle
+def meta_acquire(workspace: Path, chapter_id: str, seeds, query_text: str, depth: int) -> None:
+    """Acquire and ingest sources by citation-graph traversal."""
+    run_acquire = _import_metabook("run_acquire")
+    try:
+        out = run_acquire(workspace.resolve(), chapter_id=chapter_id,
+                          seeds=list(seeds), query_text=query_text, depth=depth)
+    except ImportError as e:
+        raise click.ClickException(
+            "acquire ranking needs the ML extras (torch, sentence-transformers). "
+            "Install them or run the lighter sub-steps directly."
+        ) from e
+    click.echo(f"ingested {len(out['ingested'])} source(s)")
+
+
+@meta.command("synthesize")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id for the topic map.")
+@_handle
+def meta_synthesize(workspace: Path, chapter_id: str) -> None:
+    """Build topic map, disputed questions, and concept reconciliation."""
+    run_synthesize = _import_metabook("run_synthesize")
+    out = run_synthesize(workspace.resolve(), chapter_id)
+    click.echo(f"topic map: {out['topic_map']}; "
+               f"{len(out['disputed'])} dispute file(s); "
+               f"{len(out['concepts'])} concept file(s)")
+
+
+@meta.command("lens")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id to project.")
+@_handle
+def meta_lens(workspace: Path, chapter_id: str) -> None:
+    """Project a per-chapter lens that book-compose reads."""
+    project_lens = _import_metabook("project_lens")
+    out = project_lens(workspace.resolve(), chapter_id)
+    click.echo(f"wrote {out}")
+
+
+@meta.command("gap")
+@click.argument("workspace", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chapter", "chapter_id", required=True, help="Chapter id to score.")
+@click.option("--required-per-node", default=3, type=int, help="Claims needed per node for full coverage.")
+@_handle
+def meta_gap(workspace: Path, chapter_id: str, required_per_node: int) -> None:
+    """Score thesis-node coverage and write a gap report."""
+    build_coverage_report = _import_metabook("build_coverage_report")
+    out = build_coverage_report(workspace.resolve(), chapter_id,
+                                required_per_node=required_per_node)
+    click.echo(f"wrote {out}")
 
 
 # ---------------------------------------------------------------------------

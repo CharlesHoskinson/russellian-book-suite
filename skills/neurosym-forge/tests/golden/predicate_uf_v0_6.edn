@@ -1,0 +1,41 @@
+{:cases
+ [{:name "universal-predicate-applies"
+   :doc "A predicate in a forall body lowers to FuncDecl.apply, not opaque Bool."
+   :sorts [{:name :proof-obligation}]
+   :predicates {:contradicts {:arg-sorts [:proof-obligation :proof-obligation] :return :bool}
+                :supersedes  {:arg-sorts [:proof-obligation :proof-obligation] :return :bool}}
+   :assert (forall [(?a :proof-obligation) (?b :proof-obligation)]
+             (=> (:contradicts ?a ?b) (:supersedes ?a ?b)))
+   :expected-z3-call "contradicts_fn.apply(&[&a_const, &b_const])"}
+
+  {:name "existential-negation-applies"
+   :doc "The witness shape: exists b. not p(b) — applies the same FuncDecl."
+   :sorts [{:name :obligation}]
+   :predicates {:p {:arg-sorts [:obligation] :return :bool}}
+   :assert (exists [(?b :obligation)]
+             (not (:p ?b)))
+   :expected-z3-call "p_fn.apply(&[&b_const])"}
+
+  {:name "ground-argument-sorted-const"
+   :doc "A non-?var argument becomes a sort-typed Dynamic const."
+   :sorts [{:name :obligation}]
+   :predicates {:related {:arg-sorts [:obligation :obligation] :return :bool}}
+   :assert (forall [(?a :obligation)]
+             (:related ?a :genesis))
+   :expected-z3-call "Dynamic::new_const(\"genesis\", &obligation_sort)"}
+
+  {:name "nil-arity-stays-opaque"
+   :doc "A predicate without :arg-sorts keeps the legacy named-Bool path."
+   :sorts [{:name :obligation}]
+   :predicates {:flagged {:arg-sorts nil :return nil}}
+   :assert (forall [(?a :obligation)]
+             (:flagged ?a))
+   :expected-z3-call "Bool::new_const(\"flagged_a\")"}
+
+  {:name "arity-mismatch-raises"
+   :doc "Too many arguments for a 2-arg predicate is a compile-time error."
+   :sorts [{:name :obligation}]
+   :predicates {:related {:arg-sorts [:obligation :obligation] :return :bool}}
+   :assert (forall [(?a :obligation)]
+             (:related ?a ?a ?a))
+   :expected-error "arity mismatch"}]}

@@ -22,8 +22,13 @@ sub_arguments:
       - <chapter_id>
 
 # Optional: cross-chapter invariants — things the book must NOT contradict.
-# Compiled to Datalog rules.
+# The `formal:` clause is compiled into an enforced Datalog rule by
+# compile_thesis + datalog_consistency. Recognised shape:
+#     contradicts(P, <name>) :- claims(P, <subject>, V), V != <literal>.
+# meaning a verified claim about <subject> must equal <literal>; any other
+# value raises a D11 invariant_violation. (== forbids the literal instead.)
+# Clauses outside this shape are kept as advisory text only (not enforced).
 invariants:
   - id: <slug>
     rule: <natural-language description>
-    formal: <datalog clause>
+    formal: <datalog clause, shape above>

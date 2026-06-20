@@ -2,6 +2,9 @@
 name    = "{{ project_slug }}-verifier"
 version = "0.1.0"
 edition = "2024"
+# Edition 2024 stabilised in Rust 1.85 (Feb 2025). Declaring the MSRV makes
+# cargo emit an actionable "requires rustc 1.85" error on older toolchains.
+rust-version = "1.85"
 
 [lib]
 crate-type = ["cdylib"]

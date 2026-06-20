@@ -23,10 +23,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 3
 SPAN_BEFORE = 4   # context lines before the offending line
@@ -91,7 +94,13 @@ def _load_state(workspace: Path) -> dict[str, int]:
     path = _state_path(workspace)
     if not path.exists():
         return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        # The state file is an idempotency cache, not authoritative QA input:
+        # a corrupt one resets iteration counts rather than crashing (4.2).
+        _log.warning("resetting corrupt healer state %s: %s", path, e)
+        return {}
 
 
 def _save_state(workspace: Path, state: dict[str, int]) -> None:

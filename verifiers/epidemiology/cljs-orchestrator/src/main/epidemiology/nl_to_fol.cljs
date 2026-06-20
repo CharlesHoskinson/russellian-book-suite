@@ -8,29 +8,31 @@
     "C"   (+ v 273.15)
     v))
 
+(defn- ->kw
+  "Coerce a subject/predicate token to a keyword. Keywords pass through;
+   a subject entity map contributes its :name; strings/symbols are keyword-ified."
+  [x]
+  (cond
+    (keyword? x) x
+    (map? x)     (keyword (str (or (:name x) (get x "name") x)))
+    :else        (keyword (str x))))
+
 (defn claim->formula [claim]
+  ;; Emit the FLAT atom contract the Rust SMT path (smt.rs::bind_atoms) and
+  ;; the Python ingesters consume:
+  ;;   {:kind :expression :id <id> :predicate <kw> :subject <kw> :value <scalar>}
+  ;; to-si unit conversion is preserved on the bound value.
   (m/rewrite claim
     {:id ?id
      :s  ?subj
      :p  ?pred
      :o  {:kind :quantity :value ?v :unit ?u}
      :c  [!conds ...]}
-    {:kind :expression :sort :formula
-     :head {:kind :symbol :name :forall :sort :rule}
-     :args [{:kind :variable :name "?subj" :sort :entity}
-            {:kind :expression :sort :formula
-             :head {:kind :symbol :name :implies :sort :rule}
-             :args [{:kind :expression :sort :formula
-                     :head {:kind :symbol :name :and :sort :rule}
-                     :args [!conds ...]}
-                    {:kind :expression :sort :formula
-                     :head {:kind :symbol :name := :sort :rule}
-                     :args [{:kind :expression :sort :real
-                             :head {:kind :symbol :name ~?pred :sort :real}
-                             :args [{:kind :variable :name "?subj" :sort :entity}]}
-                            {:kind :grounded :sort :real
-                             :name ~(to-si ?v ?u)
-                             :grounded {:lib "literal" :fn "value"}}]}]}]}
+    {:kind      :expression
+     :id        ~(str ?id)
+     :predicate ~(->kw ?pred)
+     :subject   ~(->kw ?subj)
+     :value     ~(to-si ?v ?u)}
     ?other {:kind :symbol :sort :formula :name :OPAQUE}))
 
 (defn translate-corpus [claims]

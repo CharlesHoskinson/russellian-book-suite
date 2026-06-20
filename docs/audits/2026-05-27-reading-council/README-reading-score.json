@@ -1,0 +1,12 @@
+{
+  "enjoyment": 3.0,
+  "flow": 3.5,
+  "style": 4.0,
+  "quality": 4.0,
+  "overall": 3.62,
+  "deterministic": {
+    "flesch": 52.53,
+    "burstiness": 1.031
+  },
+  "verdict": "Reads at 3.62/5 overall \u2014 strongest on style (4.0), weakest on enjoyment (3.0); plain readability (Flesch 52.53)."
+}

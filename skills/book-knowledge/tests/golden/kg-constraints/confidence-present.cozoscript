@@ -1,0 +1,2 @@
+confidence_present_present_0[focus] := *claim{id: focus, confidence: conf}, !is_null(conf)
+?[focus_node, path_node, message] := *claim{id: focus}, not confidence_present_present_0[focus], focus_node = focus, path_node = "https://example.org/book-knowledge#confidence", message = "Claim must have a confidence value (minCount 1)."

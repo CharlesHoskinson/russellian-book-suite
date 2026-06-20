@@ -1,0 +1,79 @@
+[
+  {
+    "source_id": "quote-jiggle",
+    "line_hint": "atoms idea",
+    "rhetorical_move": "plain-restatement",
+    "text": "Everything is made of atoms — little particles that move around in perpetual motion, attracting when a little distance apart, repelling when squeezed together."
+  },
+  {
+    "source_id": "quote-create-understand",
+    "rhetorical_move": "plain-restatement",
+    "text": "What I cannot create, I do not understand."
+  },
+  {
+    "source_id": "quote-nobody-understands-qm",
+    "line_hint": "quantum mechanics honesty",
+    "rhetorical_move": "honest-doubt",
+    "text": "I think I can safely say that nobody understands quantum mechanics."
+  },
+  {
+    "source_id": "quote-pleasure-finding-out",
+    "line_hint": "curiosity and reward",
+    "rhetorical_move": "plain-restatement",
+    "text": "The pleasure of finding things out."
+  },
+  {
+    "source_id": "quote-fool-yourself",
+    "line_hint": "self-deception warning",
+    "rhetorical_move": "direct-address",
+    "text": "The first principle is that you must not fool yourself — and you are the easiest person to fool."
+  },
+  {
+    "source_id": "quote-imagine-small",
+    "line_hint": "scale analogy",
+    "rhetorical_move": "analogy",
+    "text": "If you were to put a drop of water under a microscope — a drop about a quarter of an inch across — and magnified it two thousand times, the atoms would appear roughly the size of a tennis ball."
+  },
+  {
+    "source_id": "synthetic-001-before",
+    "rhetorical_move": "direct-address",
+    "text": "BEFORE (Russellized): The function memoizes results; a repeated call returns the cached value, eliminating redundant computation."
+  },
+  {
+    "source_id": "synthetic-001-after",
+    "rhetorical_move": "direct-address",
+    "text": "AFTER (Feynman): The first time you ask, it does the work and tucks the answer in its pocket. Ask again, and it just hands you what's in the pocket — no work at all."
+  },
+  {
+    "source_id": "synthetic-002-before",
+    "rhetorical_move": "honest-doubt",
+    "text": "BEFORE (Russellized): The renormalization procedure removes divergences by absorbing infinities into redefined physical constants, though the mathematical justification remains contested."
+  },
+  {
+    "source_id": "synthetic-002-after",
+    "rhetorical_move": "honest-doubt",
+    "text": "AFTER (Feynman): Here is what we actually do: we get an infinite answer, we sweep it under the rug by redefining our constants, and we get a finite answer that matches experiment beautifully. Should that bother you? Yes. Does it stop us? No."
+  },
+  {
+    "source_id": "synthetic-003-before",
+    "rhetorical_move": "analogy",
+    "text": "BEFORE (Russellized): Entropy measures the number of microstates compatible with a given macrostate; higher entropy corresponds to greater configurational degeneracy."
+  },
+  {
+    "source_id": "synthetic-003-after",
+    "rhetorical_move": "analogy",
+    "text": "AFTER (Feynman): Imagine you have a deck of cards perfectly sorted — ace to king, suit by suit. Shuffle it once and you almost certainly get a mess. There are millions of mess-arrangements and only one tidy one. Entropy is just counting: most ways to arrange things look like a mess."
+  },
+  {
+    "source_id": "quote-nature-cannot-be-fooled",
+    "line_hint": "Challenger Rogers Commission",
+    "rhetorical_move": "plain-restatement",
+    "text": "For a successful technology, reality must take precedence over public relations, for nature cannot be fooled."
+  },
+  {
+    "source_id": "quote-disagrees-with-experiment",
+    "line_hint": "scientific method",
+    "rhetorical_move": "plain-restatement",
+    "text": "It doesn't matter how beautiful your theory is, it doesn't matter how smart you are. If it doesn't agree with experiment, it's wrong."
+  }
+]

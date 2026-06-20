@@ -1,9 +1,0 @@
-PREFIX tbf: <https://example.org/book-knowledge#>
-SELECT ?claim ?chapter WHERE {
-  ?claim a tbf:Claim ;
-         tbf:status "disputed" ;
-         tbf:supportsChapter ?chapter .
-  FILTER NOT EXISTS {
-    ?claim tbf:rebuttalWindowOk ?chapter .
-  }
-}

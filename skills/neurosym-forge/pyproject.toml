@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
     "pytest-cov>=4.1,<8.0",
     "psutil>=5.9,<8.0",
     "z3-solver>=4.12,<5.0",
@@ -35,9 +35,9 @@ semantic = [
 # REQ-LLMLIFT-040, 041: optional LLM provider SDKs. The framework
 # operates fully offline with the StubLift provider; install these
 # extras only when wiring `:backend :llm` lifts to real providers.
-llm-openai = ["openai>=1.0,<2.0"]
+llm-openai = ["openai>=1.0,<3.0"]
 llm-anthropic = ["anthropic>=0.30,<1.0"]
-llm-all = ["openai>=1.0,<2.0", "anthropic>=0.30,<1.0"]
+llm-all = ["openai>=1.0,<3.0", "anthropic>=0.30,<1.0"]
 
 [project.scripts]
 forge = "scripts.forge_cli:main"

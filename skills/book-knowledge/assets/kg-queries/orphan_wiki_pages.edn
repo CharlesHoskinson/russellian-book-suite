@@ -1,0 +1,22 @@
+;; orphan_wiki_pages — wiki pages connected to nothing (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/coverage/orphan_wiki_pages.rq:
+;;   SELECT ?page WHERE {
+;;     ?page a tbf:WikiPage .
+;;     FILTER NOT EXISTS { ?claim tbf:hasSourceSpan ?page . }
+;;     FILTER NOT EXISTS { ?chapter tbf:referencesPage ?page . }
+;;   }
+;;
+;; The :where binds every projected wiki page id (one row per wiki/**/*.md file,
+;; minted to the SAME URI project_graph emits for tbf:WikiPage). The two :not
+;; arms are the two FILTER NOT EXISTS clauses:
+;;   - no source span cites the page (source-span/wiki-page-id = ?page), i.e. no
+;;     claim has the page as its hasSourceSpan target; and
+;;   - no chapter references the page (chapter-wiki-ref/wiki-page-id = ?page).
+;; Both negations join on the already-bound ?page, so they lower to safe Cozo
+;; negations. A page surviving both is connected to nothing -> an orphan.
+(defquery :orphan-wiki-pages
+  :find  [?page]
+  :where [[?p :wiki-page/id ?page]]
+  :not   [[?s :source-span/wiki-page-id ?page]
+          [?r :chapter-wiki-ref/wiki-page-id ?page]])

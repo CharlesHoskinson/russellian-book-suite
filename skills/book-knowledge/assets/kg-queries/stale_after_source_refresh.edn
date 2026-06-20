@@ -1,0 +1,46 @@
+;; stale_after_source_refresh — verified claims whose source was refreshed AFTER
+;; the claim was created (REQ-KG-006).
+;;
+;; Booklogic port of assets/queries/coverage/stale_after_source_refresh.rq:
+;;   SELECT ?claim ?claim_date ?src_date WHERE {
+;;     ?claim tbf:status "verified" ;
+;;            schema:dateCreated ?claim_date ;
+;;            prov:wasDerivedFrom ?src .
+;;     ?src schema:dateCreated ?src_date .
+;;     FILTER (?src_date > ?claim_date)
+;;   }
+;;
+;; The :where binds a verified claim's id and created_at, then joins
+;; claim -> source-span (claim-id) -> source (the span's doc-id unifies with the
+;; source row's id) and reads the source's ingested_at.
+;;
+;; DIVERGENCE FROM THE RDF QUERY — RESOLVED (P5.2): adopt this corrected doc_id
+;; join as canonical. The structurally-dead RDF join is retired with project_graph
+;; in P5.4; no project_graph URI-minting fix is warranted. The .rq join is in
+;; fact STRUCTURALLY DEAD over the current RDF projection: project_graph mints
+;; prov:wasDerivedFrom to the source-SPAN URI (.../sources/<doc>#<locator>, with a
+;; fragment) while schema:dateCreated lands on the BARE manifest URI
+;; (.../sources/<doc>). Those are different nodes, so `?src schema:dateCreated
+;; ?src_date` never binds and the SPARQL query always returns empty (verified: all
+;; 14 bermuda wasDerivedFrom targets have dateCreated = nil). This EDN port
+;; implements the INTENDED semantics — join on the underlying doc_id, which
+;; actually connects — so the two agree on bermuda ONLY because every claim there
+;; was created at the same instant its source was ingested (equal, not strictly
+;; later). On a workspace with a genuinely refreshed source the Cozo port WILL
+;; fire while the broken SPARQL stays silent — which is the intended behaviour, now
+;; the canonical one.
+;;
+;; :filter applies the var-vs-var ordered comparison `?src_date > ?claim_date`
+;; (source refreshed strictly after the claim was created). The projector
+;; canonicalizes aware ISO-8601 timestamps to UTC first, so Cozo's lexical string
+;; comparison follows instant order for mixed `Z` / `+00:00` inputs.
+(defquery :stale-after-source-refresh
+  :find   [?claim ?claim-date ?src-date]
+  :where  [[?c :claim/id ?claim]
+           [?c :claim/status "verified"]
+           [?c :claim/created-at ?claim-date]
+           [?span :source-span/claim-id ?claim]
+           [?span :source-span/doc-id ?src]
+           [?s :source/id ?src]
+           [?s :source/ingested-at ?src-date]]
+  :filter [[> ?src-date ?claim-date]])

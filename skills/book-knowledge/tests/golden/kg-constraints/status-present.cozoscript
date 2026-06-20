@@ -1,0 +1,2 @@
+status_present_present_0[focus] := *claim{id: focus, status: status}, !is_null(status)
+?[focus_node, path_node, message] := *claim{id: focus}, not status_present_present_0[focus], focus_node = focus, path_node = "https://example.org/book-knowledge#status", message = "Claim must have a status value (minCount 1)."

@@ -21,7 +21,7 @@ def test_writes_proposed_transitions_and_md(tmp_path):
          "severity": "important"}
     ]}), encoding="utf-8")
     propose_writeback(ws, version="v5")
-    proposed_lines = (ws / "claims" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
+    proposed_lines = (ws / "qa" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(proposed_lines) == 2
     md = (ws / "qa" / "ledger-writeback-v5.md").read_text(encoding="utf-8")
     assert "clm-2026-000001" in md
@@ -34,7 +34,7 @@ def test_missing_files_gracefully_returns_zero(tmp_path):
     (ws / "claims").mkdir(parents=True)
     # No findings files written.
     propose_writeback(ws, version="v5")
-    proposed = (ws / "claims" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
+    proposed = (ws / "qa" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
     assert proposed == []
 
 
@@ -71,7 +71,7 @@ def test_writeback_includes_booklogic_remedy_proposal(tmp_path):
         encoding="utf-8",
     )
     propose_writeback(ws, version="v5")
-    proposed_lines = (ws / "claims" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
+    proposed_lines = (ws / "qa" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
     # 1 from the ticket, 1 from the remedy
     assert len(proposed_lines) == 2
     by_target = {json.loads(line).get("claim_id"): json.loads(line) for line in proposed_lines}
@@ -96,5 +96,5 @@ def test_writeback_no_remedies_file_is_inert(tmp_path):
          "severity": "critical"}
     ]}), encoding="utf-8")
     propose_writeback(ws, version="v5")
-    proposed_lines = (ws / "claims" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
+    proposed_lines = (ws / "qa" / "proposed-transitions.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(proposed_lines) == 1

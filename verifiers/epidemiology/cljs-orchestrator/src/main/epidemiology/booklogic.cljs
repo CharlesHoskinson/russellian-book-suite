@@ -153,8 +153,7 @@
    The shape mirrors v0.2's rules.edn entries; downstream meander code in
    `phases.cljs` consumes :lhs / :rhs directly."
   [form]
-  (let [[_ name equation & options] form
-        opts (if (seq options) (option-map options) {})]
+  (let [[_ name equation & options] form]
     (when-not (symbol? name)
       (throw (ex-info "defrule: name must be a symbol" {:form form})))
     (when-not (and (sequential? equation)
@@ -162,7 +161,11 @@
                    (= 3 (count equation)))
       (throw (ex-info "defrule: must contain an equation of form (= LHS RHS)"
                       {:form form})))
-    (let [[_ lhs rhs] equation]
+    ;; Parse options only after the equation validates, so a defrule whose
+    ;; equation slot is an option keyword (e.g. (defrule R :tags [...])) reports
+    ;; the missing equation rather than an even-arity option error.
+    (let [opts (if (seq options) (option-map options) {})
+          [_ lhs rhs] equation]
       {:name name
        :lhs  lhs
        :rhs  rhs
@@ -464,9 +467,25 @@
            :word-to-int (or (:word-to-int lift) {})}]))
 
 (defn- emit-predicates-edn-string
-  "Build the EDN string for rules/predicates.edn from the lift rules."
+  "Build the EDN string for rules/predicates.edn from the lift rules.
+   Multiple lifts for the same predicate are merged: their :patterns lists
+   are concatenated; the last lift's subject/value-kind/word-to-int win."
   [{:keys [lift-rules]}]
-  (let [entries (into {} (map lift-to-predicate-entry lift-rules))]
+  (let [entries
+        (reduce
+         (fn [acc lift]
+           (let [pred (emit-target-predicate (:emit lift))]
+             (if (contains? acc pred)
+               ;; Merge: append the new pattern to the existing patterns list.
+               (update-in acc [pred :patterns] conj (:pattern lift))
+               ;; First lift for this predicate: create the entry.
+               (assoc acc pred {:patterns    [(:pattern lift)]
+                                :predicate   pred
+                                :subject     (infer-subject (:emit lift))
+                                :value-kind  (infer-value-kind (:emit lift))
+                                :word-to-int (or (:word-to-int lift) {})}))))
+         {}
+         lift-rules)]
     (pr-str {:version 1 :predicates entries})))
 
 (defn emit-predicates-edn

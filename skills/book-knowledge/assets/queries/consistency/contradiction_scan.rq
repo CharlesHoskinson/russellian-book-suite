@@ -1,5 +1,0 @@
-PREFIX tbf: <https://example.org/book-knowledge#>
-
-SELECT ?a ?b WHERE {
-  ?a a tbf:Claim ; tbf:conflictsWith ?b .
-}

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<audit_request>
+
+  <meta>
+    <target_model>GPT-5.5</target_model>
+    <iteration>2 (prose-quality + blend-stress)</iteration>
+    <role>
+      You are two readers at once. First, a line editor holding the text to Strunk and White's
+      "The Elements of Style" — the rules are concrete and you score against them. Second, Robert
+      Gottlieb at the editor's desk — voice, momentum, economy, and whether the piece earns the
+      reader's attention; this is judgment, not a checklist. You are not a fan. You are looking for
+      where the prose is flabby, where the blend collapses into formula, and where it stops sounding
+      like a person.
+    </role>
+    <repo_root>C:\russellian-book-suite</repo_root>
+    <branch>triadic-voice</branch>
+  </meta>
+
+  <mission>
+    Generate 10 fresh triadic-voice paragraphs (Russell rigor x Feynman intuition x Hoskinson
+    momentum) on 10 different topics, then grade them as prose against two standards — The Elements
+    of Style and Gottlieb's editorial sensibility — and analyze how the three-voice blend holds (or
+    fails) across the set. The point of 10 paragraphs is to expose what one or two cannot: formulaic
+    openings, a recurring analogy crutch, one voice quietly taking over, the discipline floor slipping
+    when the topic gets dry. Produce audit.md and corrections.json.
+  </mission>
+
+  <context>
+    <what_to_read>
+      - `tools/build-voice-corpus/scripts/generate.py` — the generator. Read `build_generation_prompt`
+        and the `triadic` branch; you will replicate that exact corpus-grounded prompt so the audit
+        reflects what the real system produces.
+      - `skills/russellian-style/assets/hoskinson-corpus/index.json` — 57 real exemplars (his own
+        transcribed words) with `rhetorical_move` + `tags`. This is the Hoskinson grounding.
+      - `skills/russellian-style/assets/hoskinson-corpus/transcripts/*.md` — full transcripts, to
+        internalize his actual cadence and tics ("always warm always sunny sometimes colorado",
+        "the thing people miss", systems-tradeoff framing, walk-before-you-run, candor).
+      - `skills/russellian-style/references/triadic-voice-guide.md` — the fusion contract: open
+        Hoskinson, develop Feynman, close Russell; discipline floor still applies.
+      - `skills/russellian-style/assets/feynman-corpus/index.json` — pointers only; draw Feynman's
+        contribution from the guide, never quote verbatim Feynman text.
+    </what_to_read>
+    <discipline_floor>
+      The russellian-style linters are the quality floor the prose must clear regardless of voice:
+      no hedging, active voice, signal density (restraint on adjectives/adverbs), parallel structure,
+      sentence-rhythm variance. Score these too; do not let "warmth" excuse a hedge or a passive.
+    </discipline_floor>
+  </context>
+
+  <generation_protocol>
+    <step n="1" name="replicate_the_real_prompt">
+      Read `generate.py::build_generation_prompt`. For each topic below, assemble the SAME triadic
+      prompt it builds: a deterministic selection of Hoskinson exemplars (vary the seed per topic so
+      the exemplar set is not identical across all 10 — use seed = topic index 1..10), plus the full
+      triadic-voice guide, plus the open-Hoskinson / develop-Feynman / close-Russell instruction.
+    </step>
+    <step n="2" name="generate_ten">
+      Write one paragraph (150-220 words) per topic, in the triadic fusion voice, grounded in the
+      exemplars. The 10 topics (use all, in order):
+        1. Why a zero-knowledge proof lets you verify a computation without learning its inputs.
+        2. Why formal verification belongs at the base layer of a blockchain.
+        3. Why proof-of-stake decentralizes better than proof-of-work.
+        4. What "finality" means in a proof-of-stake system, and why it is hard.
+        5. Why on-chain governance has to earn legitimacy rather than assume it.
+        6. Why a self-funding treasury changes the incentives of a protocol.
+        7. Why self-sovereign identity (DIDs) reorganizes trust online.
+        8. Why cross-chain interoperability is harder than scaling a single chain.
+        9. Why peer review and academic rigor belong inside engineering, not beside it.
+        10. What a financial operating system for a billion people actually has to get right.
+      Also write 2 PURE-Hoskinson control paragraphs (topics 2 and 9) so you can measure how much the
+      fusion changes the voice versus pure Hoskinson.
+      All passages must clear the discipline floor. Do not reuse the same opening move or the same
+      analogy across paragraphs; if you catch yourself doing it, that is itself a finding to report.
+    </step>
+  </generation_protocol>
+
+  <rubric_elements_of_style note="Strunk and White. Score each paragraph 0-5 per rule; 5 = exemplary, 0 = violated throughout. Cite the offending words.">
+    <rule id="omit_needless_words">Vigorous writing is concise. Every word tells. Flag filler, redundant pairs, throat-clearing.</rule>
+    <rule id="active_voice">Prefer the active voice. Flag every passive and judge whether it is load-bearing or lazy.</rule>
+    <rule id="definite_specific_concrete">Prefer the specific to the general, the concrete to the abstract. Flag vague abstractions ("solutions", "ecosystem", "leverage").</rule>
+    <rule id="positive_form">Put statements in positive form. Flag "not un-", "did not have much confidence in", hedged negatives.</rule>
+    <rule id="parallel_construction">Express coordinate ideas in parallel form. Flag broken parallelism in lists and pairs.</rule>
+    <rule id="related_words_together">Keep related words together; misplaced modifiers and split logic cost clarity.</rule>
+    <rule id="avoid_qualifiers">Avoid "rather, very, little, pretty" and other leeches; flag intensifier inflation.</rule>
+    <rule id="one_paragraph_one_topic">A paragraph is a unit of thought; flag drift across more than one.</rule>
+    <rule id="do_not_overstate">Do not overstate; flag hype the reader will discount ("revolutionary", "the greatest", "everyone knows").</rule>
+    <rule id="standard_not_offbeat">Prefer the standard to the offbeat; flag cleverness that draws attention to itself.</rule>
+  </rubric_elements_of_style>
+
+  <rubric_gottlieb note="Robert Gottlieb's editorial sensibility — judgment, not a checklist. Score each paragraph 0-5 per dimension and explain the call in one sentence.">
+    <dimension id="voice_fidelity">Does it sound like a specific person with these three influences, or like generic competent prose? The editor's first job is to protect the voice.</dimension>
+    <dimension id="momentum">Does each sentence pull you to the next, or does the piece stall? Pace is a real property; flat stretches are a defect.</dimension>
+    <dimension id="economy">Does every sentence earn its place? Gottlieb cut for the reader. Mark what you would cut and why.</dimension>
+    <dimension id="clarity">Is the idea delivered cleanly on first read, or does the reader have to reread? Cleverness that obscures is a failure.</dimension>
+    <dimension id="shape">Does the paragraph have an arc — a setup, a turn, a landing — or is it a flat list? The triadic contract (open/develop/close) should produce shape; check that it does.</dimension>
+    <dimension id="trusts_the_reader">Does it over-explain, restate, or condescend? Good editing removes the sentence that tells the reader what the previous sentence already showed.</dimension>
+    <dimension id="earns_its_length">At 150-220 words, is the length justified, or is it padded to hit a target? Would it be better at 120?</dimension>
+  </rubric_gottlieb>
+
+  <blend_analysis note="The heart of this iteration. Per paragraph and across the set.">
+    <per_paragraph>
+      Identify the Hoskinson, Feynman, and Russell contributions explicitly (quote the spans). Score
+      each voice's presence 0-5. State: is it balanced (each >= 3, spread <= 2), or does one dominate
+      and one vanish? Is the open/develop/close sequencing actually present, or stapled?
+    </per_paragraph>
+    <across_the_set>
+      This is what 10 paragraphs reveal that 1 cannot:
+        - Formula detection: do paragraphs reuse the same opening gambit, the same "imagine you and I"
+          analogy frame, the same closing "reduces to one sentence" move? Quote the repeats. A blend
+          that only works one way is a template, not a voice.
+        - Voice drift: does Feynman thin out on the abstract topics (governance, legitimacy) and
+          Hoskinson take over? Does Russell collapse into the same final aphorism every time?
+        - Topic sensitivity: which topics did the blend serve well, which did it fight? A real voice
+          adapts; a brittle one sounds the same regardless of subject.
+        - Compare the 2 pure-Hoskinson controls to their triadic versions: did the fusion add Feynman
+          intuition and Russell compression, or just decorate?
+    </across_the_set>
+  </blend_analysis>
+
+  <deliverables>
+    <deliverable file="audit.md">
+      Sections in order:
+        1. Verdict (one paragraph): overall prose grade (A-F) and whether the blend is a genuine
+           adaptive voice or a working-but-formulaic template. Be decisive.
+        2. The 10 paragraphs + 2 controls, verbatim.
+        3. Per-paragraph scorecards: a compact table with the Elements-of-Style rule scores, the
+           Gottlieb dimension scores, the three voice-presence scores, and a one-line editor's note.
+        4. Cross-set blend analysis (formula detection with quoted repeats, voice drift, topic
+           sensitivity, control comparison).
+        5. Discipline-floor results (hedge/passive/density flags; note false positives on his tics).
+        6. Prioritized fixes — concrete edits to `generate.py`'s triadic prompt or to
+           `triadic-voice-guide.md` that would raise the prose grade or break the formula (e.g. a
+           "vary the opening" instruction, a ban on the reused analogy, a Russell-close that is not
+           always an aphorism).
+      House style for your own prose: no "key insight", no rule-of-three padding, no em-dash overuse.
+    </deliverable>
+    <deliverable file="corrections.json">
+      {
+        "audit_id": "triadic-prose-quality-2026-06-15",
+        "overall_grade": "A|B|C|D|F",
+        "blend_is_adaptive_not_formulaic": true|false,
+        "paragraphs": [
+          {
+            "n": 1,
+            "topic": "...",
+            "elements_of_style": {"omit_needless_words": 0, "active_voice": 0, "definite_specific_concrete": 0, "positive_form": 0, "parallel_construction": 0, "related_words_together": 0, "avoid_qualifiers": 0, "one_paragraph_one_topic": 0, "do_not_overstate": 0, "standard_not_offbeat": 0},
+            "gottlieb": {"voice_fidelity": 0, "momentum": 0, "economy": 0, "clarity": 0, "shape": 0, "trusts_the_reader": 0, "earns_its_length": 0},
+            "voice_presence": {"russell": 0, "feynman": 0, "hoskinson": 0},
+            "balanced": true|false,
+            "editor_note": "..."
+          }
+        ],
+        "formula_findings": [
+          {"pattern": "reused opening", "evidence": "para 1,4,7 all open with 'Imagine you and I'", "fix": "..."}
+        ],
+        "issues": [
+          {"id": "PRZ-001", "severity": "critical|important|minor", "category": "prose|blend|discipline|generator-prompt", "file": "...", "problem": "...", "evidence": "...", "required_fix": "...", "acceptance_test": "..."}
+        ],
+        "guide_or_prompt_edits": [
+          {"file": "tools/build-voice-corpus/scripts/generate.py | skills/russellian-style/references/triadic-voice-guide.md", "change": "...", "rationale": "..."}
+        ]
+      }
+      Rules: every issue in audit.md has a matching entry here. Order issues by severity. If a
+      paragraph is genuinely good, score it high — do not invent defects. An honest mixed result is
+      the expected outcome; uniform high scores across 10 paragraphs would be suspicious and you
+      should say so.
+    </deliverable>
+  </deliverables>
+
+  <constraints>
+    <copyright>Never quote verbatim Feynman text; his contribution is drawn from the guide. Hoskinson exemplars are his own content. Do not store or reproduce anything beyond what the corpus already contains.</copyright>
+    <honesty>Cite specific words for every score below 4 and every claim of formula. Do not hand-wave. A short, evidence-backed audit beats a long one. If you cannot run the linters, score the discipline floor by hand and say so.</honesty>
+    <standards>The Elements of Style is a rulebook — score mechanically. Gottlieb is judgment — explain each call. Keep them separate; do not average them into one mush.</standards>
+  </constraints>
+
+  <output_format>
+    Produce the two files as separate fenced blocks: audit.md (markdown) first, then corrections.json
+    (valid JSON against the schema). No commentary outside the two files.
+  </output_format>
+
+</audit_request>

@@ -1,0 +1,66 @@
+{
+  "shared_paths": [
+    ".github/workflows/ci.yml",
+    ".github/actions/**",
+    ".github/ci/skills-matrix.json",
+    "ci/**",
+    "sibling_skills/**"
+  ],
+  "defaults": {
+    "os": ["ubuntu-24.04", "macos-15", "windows-2022"],
+    "extra": "ci",
+    "timeout": 15
+  },
+  "skills": [
+    { "skill": "book-qa", "constraints": "skills/book-qa/constraints.txt" },
+    { "skill": "book-thesis" },
+    { "skill": "book-knowledge" },
+    { "skill": "book-review" },
+    {
+      "skill": "book-compose",
+      "siblings": ["book-knowledge", "russellian-style", "book-review", "review-conductor"],
+      "spacy": true,
+      "pytest_deselect": "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
+    },
+    { "skill": "russellian-style", "spacy": true },
+    { "skill": "feynman-style", "spacy": true },
+    { "skill": "halmos" },
+    { "skill": "iacr-review" },
+    { "skill": "liveliness-signals" },
+    { "skill": "review-conductor" },
+    {
+      "skill": "neurosym-forge",
+      "extra": "dev,semantic",
+      "hf_model": "sentence-transformers/all-MiniLM-L6-v2",
+      "pytest_workers": "auto",
+      "timeout": 20
+    },
+    { "skill": "paragraph-weaver" },
+    { "skill": "scrapling-fetch", "os": ["ubuntu-24.04"], "extra": "none", "smoke": "import" },
+    {
+      "skill": "syntopical-metabook",
+      "os": ["ubuntu-24.04"],
+      "extra": "test",
+      "hf_model": "sentence-transformers/all-MiniLM-L6-v2"
+    },
+    {
+      "skill": "iacr-math-prose",
+      "ci": "none",
+      "reason": "reference/template-only skill; no Python package, no tests (AGENTS.md)"
+    },
+    {
+      "skill": "triadic-voice",
+      "ci": "none",
+      "reason": "SKILL.md-only in-session writing skill; no Python package or tests. Backed by russellian-style corpora assets and tools/build-voice-corpus."
+    },
+    {
+      "skill": "triadic-voice-v2",
+      "extra": "dev"
+    },
+    {
+      "skill": "voice-eval",
+      "extra": "dev",
+      "siblings": ["russellian-style", "liveliness-signals", "triadic-voice-v2"]
+    }
+  ]
+}

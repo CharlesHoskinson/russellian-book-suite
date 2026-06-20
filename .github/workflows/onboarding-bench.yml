@@ -4,23 +4,92 @@ on:
     - cron: '0 6 * * 1'   # Mondays 06:00 UTC
   workflow_dispatch:
 
+# Least privilege at the workflow default; issues:write is granted only to the
+# alert-on-failure job below, so the code-executing `run` job stays read-only.
 permissions:
   contents: read
+
+# Don't let a manual dispatch overlapping the Monday schedule double-run the bench.
+concurrency:
+  group: onboarding-bench
+  cancel-in-progress: false
 
 jobs:
   run:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      # Install the skill (pinned pip) so the harness runs against a known
+      # environment rather than a bare interpreter (P2-ci-budget-and-onboarding-value).
+      - uses: ./.github/actions/setup-book-python
         with:
           python-version: '3.13'
+          skill-path: skills/neurosym-forge
+          extra: dev
       - name: run onboarding bench (stub backend)
         run: python skills/neurosym-forge/eval/onboarding-bench.py --backend stub
       - name: aggregate runs into report
         run: python skills/neurosym-forge/eval/aggregate_runs.py
+      # Assert the report is a real, non-empty signal: it must exist, contain
+      # the expected section headers, and report a positive run count. A stub
+      # run that silently produced an empty/garbage report now fails the job
+      # (P2-ci-budget-and-onboarding-value).
+      - name: assert report structure
+        shell: bash
+        run: |
+          report=docs/eval/onboarding-bench-report.md
+          test -f "$report" || { echo "report missing: $report" >&2; exit 1; }
+          grep -q "^# Onboarding-bench report" "$report" || { echo "missing title" >&2; exit 1; }
+          grep -q "^Reach-ci:" "$report" || { echo "missing reach-ci metric" >&2; exit 1; }
+          total=$(grep -oE "^Total runs: [0-9]+" "$report" | grep -oE "[0-9]+")
+          if [ -z "$total" ] || [ "$total" -lt 1 ]; then
+            echo "report has no runs (total=$total) — empty/garbage signal" >&2
+            exit 1
+          fi
+          echo "onboarding-bench report OK: $total run(s)"
       - name: upload report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: onboarding-bench-report
           path: docs/eval/onboarding-bench-report.md
+
+  # P2-nightly-alerting-and-drift: open/update a dedup-by-title tracking issue
+  # when the scheduled bench fails, so a red run is actionable instead of silent.
+  alert-on-failure:
+    needs: [run]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const title = 'onboarding-bench failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled \`onboarding-bench\` run failed.`,
+              ``,
+              `- Run: ${runUrl}`,
+              `- Triggered: ${context.eventName} @ ${new Date().toISOString()}`,
+              ``,
+              `Check the bench harness / report-structure assertion. This issue`,
+              `is updated, not duplicated, on subsequent failures.`,
+            ].join('\n');
+            const existing = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
+            });
+            const hit = existing.data.items.find((i) => i.title === title);
+            if (hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: hit.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['ci-failure'],
+              });
+            }

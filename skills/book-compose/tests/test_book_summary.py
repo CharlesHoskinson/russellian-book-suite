@@ -9,19 +9,16 @@ import shutil
 import yaml
 
 from scripts.book_summary import collect_chapter_data, build_book_summary
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed_workspace(tmp_path: Path, chapter_specs: list[tuple[str, str, str]]) -> Path:
     """Each spec is (chapter_id, title, draft_body)."""
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
 
     contracts_dir = workspace / "chapters" / "contracts"
     contracts_dir.mkdir(parents=True, exist_ok=True)
@@ -55,7 +52,6 @@ def _seed_workspace(tmp_path: Path, chapter_specs: list[tuple[str, str, str]]) -
             "outputs": ["draft.md"], "sources_included": ["src"],
             "claim_slice_count": 1, "shacl_conforms": True, "competency_clean": True,
         }), encoding="utf-8")
-    project_graph_mod.project_graph(layout)
     return workspace
 
 

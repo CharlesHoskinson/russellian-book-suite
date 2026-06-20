@@ -1,0 +1,70 @@
+# rules/consistency.cozo — CozoScript port of rules/consistency.dl (P3.2, REQ-KG-015).
+#
+# A multi-rule, RECURSIVE Datalog program over book-knowledge's Cozo store: the
+# thesis spine (thesis_node / sub_argument / invariant, projected by P3.1) plus
+# the thesis-consistency fact tables (claim_fact / claim_implies /
+# paragraph_supports / sub_arg_chapter / sub_arg_evidence / claim_conflict,
+# loaded by consistency_cozo.project_consistency_facts). It mirrors consistency.dl
+# rule-for-rule; the booklogic single-rule compiler cannot express the recursion
+# (reaches / transitive_contradiction), so this is authored CozoScript run via the
+# raw store.query seam, with consistency_cozo assembling the identical DefectReport.
+#
+# This file is a PREFIX of named rules. consistency_cozo appends one entry rule
+# `?[...] := <head>[...]` per defect head and runs the whole program; Cozo computes
+# the dependency closure of that head. Negation is stratified (Cozo evaluates the
+# recursive positive rules — reaches, transitive_contradiction — before the rules
+# that negate over plain relations), matching pyDatalog's semantics.
+
+# -- thesis structure ------------------------------------------------------
+is_thesis[n] := *thesis_node{id: n}
+sub_arg[n] := *sub_argument{id: n}
+
+# supports(P, N): a sub-argument supports its parent, and a paragraph (claim)
+# supports each node it declares. The reachability closure spans both.
+supports[p, n] := *sub_argument{id: p, parent: n}
+supports[p, n] := *paragraph_supports{claim_id: p, node: n}
+
+# a paragraph is any claim that declares at least one supports edge.
+paragraph[p] := *paragraph_supports{claim_id: p}
+
+# -- D9 orphan + D11 unreachable-supports ----------------------------------
+# reaches_thesis: transitive closure of supports up to a thesis-typed node.
+reaches[p] := supports[p, n], is_thesis[n]
+reaches[p] := supports[p, n], reaches[n]
+
+orphan_paragraph[p] := paragraph[p], not reaches[p]
+
+unreachable_supports[p] := supports[p, n], not is_thesis[n], not sub_arg[n]
+
+# -- D10 contradictions ----------------------------------------------------
+# a claim states subject=value only when BOTH are present (non-null).
+states[c, s, v] := *claim_fact{id: c, subject: s, value: v}, !is_null(s), !is_null(v)
+
+direct_contradiction[a, b] := states[a, s, v1], states[b, s, v2], v1 != v2
+
+implies[a, b] := *claim_implies{claim_id: a, target_id: b}
+
+# transitive_contradiction: A implies B and B (transitively) contradicts C; plus
+# every direct contradiction (consistency.dl's third clause).
+transitive_contradiction[a, c] := implies[a, b], direct_contradiction[b, c]
+transitive_contradiction[a, c] := implies[a, b], transitive_contradiction[b, c]
+transitive_contradiction[a, c] := direct_contradiction[a, c]
+
+# -- D11 invariants --------------------------------------------------------
+declared_conflict[a, b] := *claim_conflict{claim_id: a, other_id: b}
+declared_conflict[a, b] := *claim_conflict{claim_id: b, other_id: a}
+
+advanced[n] := *sub_arg_chapter{sub_arg_id: n}
+sub_arg_no_chapter[n] := sub_arg[n], not advanced[n]
+
+requires_evidence[n, e] := *sub_arg_evidence{sub_arg_id: n, evidence: e}
+claim_subject[c, s] := *claim_fact{id: c, subject: s}, !is_null(s)
+evidence_met[n, e] := requires_evidence[n, e], claim_subject[c, e]
+missing_evidence[n, e] := requires_evidence[n, e], not evidence_met[n, e]
+
+# authored invariants: invariant_pin(I,S,Vok) -> a claim about S MUST equal Vok;
+# invariant_forbid(I,S,Vbad) -> it MUST NOT equal Vbad.
+invariant_pin[i, s, v] := *invariant{id: i, subject: s, pinned_value: v}, !is_null(v)
+invariant_forbid[i, s, v] := *invariant{id: i, subject: s, forbidden_value: v}, !is_null(v)
+invariant_violation[c, i] := invariant_pin[i, s, vok], states[c, s, v], v != vok
+invariant_violation[c, i] := invariant_forbid[i, s, vbad], states[c, s, vbad]

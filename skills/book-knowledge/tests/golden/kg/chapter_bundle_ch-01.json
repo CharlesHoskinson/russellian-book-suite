@@ -1,0 +1,86 @@
+{
+  "chapter-id": "ch-01",
+  "chapter-uri": "https://example.org/book-knowledge/chapters/ch-01",
+  "code-links": {
+    "clm-2026-000001": [
+      {
+        "code-id": "code-a"
+      },
+      {
+        "code-id": "code-c"
+      }
+    ],
+    "clm-2026-000002": [
+      {
+        "code-id": "code-b"
+      }
+    ]
+  },
+  "dominant-communities": [
+    {
+      "claim-count": 2,
+      "claim-ids": [
+        "clm-2026-000001",
+        "clm-2026-000002"
+      ],
+      "community-id": "comm-alpha",
+      "rank": 1
+    },
+    {
+      "claim-count": 1,
+      "claim-ids": [
+        "clm-2026-000001"
+      ],
+      "community-id": "comm-beta",
+      "rank": 2
+    }
+  ],
+  "load-bearing-claims": [
+    {
+      "claim-id": "clm-2026-000001",
+      "confidence": 0.91,
+      "source-span-ids": [
+        "span-77a240c3f3d57539",
+        "span-8d6d18705019dc0a"
+      ],
+      "status": "verified",
+      "text": "clm-2026-000001 supports the chapter argument"
+    },
+    {
+      "claim-id": "clm-2026-000002",
+      "confidence": 0.84,
+      "source-span-ids": [
+        "span-c13a8e588ad62fc8"
+      ],
+      "status": "verified",
+      "text": "clm-2026-000002 supports the chapter argument"
+    }
+  ],
+  "schema": "chapter-retrieval-bundle/v1",
+  "source-span-anchors": [
+    {
+      "claim-id": "clm-2026-000001",
+      "doc-id": "doc-a",
+      "locator-text": "alpha locator",
+      "node-id": null,
+      "page-index": null,
+      "span-id": "span-77a240c3f3d57539"
+    },
+    {
+      "claim-id": "clm-2026-000002",
+      "doc-id": "doc-2",
+      "locator-text": "locator clm-2026-000002",
+      "node-id": null,
+      "page-index": null,
+      "span-id": "span-c13a8e588ad62fc8"
+    }
+  ],
+  "unresolved-rebuttals": [
+    {
+      "counter-claim-id": "cc-2026-aaaaaa",
+      "created-at": "2026-06-17T01:00:00+00:00",
+      "status": "open",
+      "target-claim-id": "clm-2026-000001"
+    }
+  ]
+}

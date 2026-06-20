@@ -1,23 +1,33 @@
 [project]
 name = "book-thesis"
 version = "0.1.0"
-description = "Metabook reasoning layer: thesis spine + entailment loop + Datalog consistency"
+description = "Metabook reasoning layer: thesis spine + entailment loop + EDN/Cozo consistency"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
     "pyyaml>=6.0,<7.0",
-    "pyDatalog>=0.17,<1.0",
     "rdflib>=7.0,<9.0",
+    # P3: book-thesis projects its thesis spine into book-knowledge's Cozo store
+    # and runs the EDN->Cozo consistency pass, so it imports book-knowledge's
+    # cozo_store + booklogic_kg (NOT the claim-side project_ledger_cozo — see
+    # scripts/sibling_skills.py), which need these.
+    "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
 ]
 
 [project.optional-dependencies]
 ci = [
     "pyyaml>=6.0,<7.0",
     "rdflib>=7.0,<9.0",
-    "pyDatalog>=0.17,<1.0",
-    "pytest>=8.0,<9.0",
+    "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
+    "pytest>=8.0,<10.0",
 ]
-dev = ["pytest>=8.0,<9.0"]
+dev = [
+    "pytest>=8.0,<10.0",
+    "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
+]
 
 [tool.setuptools]
 packages = ["scripts"]
@@ -30,7 +40,6 @@ markers = [
 addopts = "-ra -q"
 filterwarnings = [
     "ignore::DeprecationWarning:rdflib.*",
-    "ignore::DeprecationWarning:pyDatalog.*",
 ]
 
 [build-system]

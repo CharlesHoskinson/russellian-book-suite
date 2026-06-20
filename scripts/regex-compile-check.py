@@ -17,6 +17,19 @@ from pathlib import Path
 _JS_ONLY = re.compile(r"\(\?<(?!P)")
 
 
+def _edn_unescape(s: str) -> str:
+    """Turn a raw extracted EDN string into the regex the EDN reader yields.
+
+    EDN strings only escape backslash as ``\\\\`` and quote as ``\\"``; every
+    other backslash sequence (regex metacharacters such as ``\\b``/``\\s``/``\\d``)
+    is data and must survive verbatim. The previous ``unicode_escape`` decode was
+    wrong on both counts: it rewrote ``\\b`` to a backspace (changing the pattern
+    under test) and raised an *uncaught* ``UnicodeDecodeError`` on a truncated
+    ``\\x``/``\\u`` escape. A targeted replacement avoids both.
+    """
+    return s.replace("\\\\", "\\").replace('\\"', '"')
+
+
 def _extract_when_patterns(text: str) -> list[str]:
     # Naive but sufficient: find every :when "..." form and return the
     # quoted string. EDN's quoting is simple: \\ and \" inside the string.
@@ -61,10 +74,10 @@ def check_one(path: Path) -> list[str]:
             continue
         # 2. Try compiling as actual Python regex.
         try:
-            # Decode EDN string escapes (\\ → \).
-            decoded = pat.encode("utf-8").decode("unicode_escape")
-            re.compile(decoded)
-        except re.error as exc:
+            re.compile(_edn_unescape(pat))
+        except (re.error, ValueError) as exc:
+            # ValueError also covers UnicodeDecodeError, so a malformed escape
+            # is reported as a clean failure instead of crashing the check.
             errors.append(f"{path}: regex {pat!r} won't compile: {exc}")
     return errors
 

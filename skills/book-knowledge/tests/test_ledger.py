@@ -4,7 +4,7 @@ import pytest
 from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.ledger import (
     next_claim_id, append_claim, read_claims, transition_status,
-    LedgerError,
+    current_claims, LedgerError,
 )
 
 
@@ -50,6 +50,19 @@ def test_transition_status_writes_new_record(tmp_path):
     claims = read_claims(layout)
     statuses = [c["status"] for c in claims if c["claim_id"] == "clm-2026-000001"]
     assert "verified" in statuses
+
+
+def test_current_claims_collapses_to_tip(tmp_path):
+    layout = WorkspaceLayout(init_workspace(tmp_path / "book"))
+    append_claim(layout, _stub_claim())  # proposed
+    transition_status(layout, "clm-2026-000001", "verified", note="test")
+    # read_claims keeps the full append-only log (proposed + verified).
+    assert len(read_claims(layout)) == 2
+    # current_claims collapses to one tip per claim_id, at its latest status.
+    current = current_claims(layout)
+    assert len(current) == 1
+    assert current[0]["claim_id"] == "clm-2026-000001"
+    assert current[0]["status"] == "verified"
 
 
 def test_transition_to_invalid_state_raises(tmp_path):

@@ -1,0 +1,4 @@
+{"id":"fact-ch-01-p001-0001","chapter_id":"ch-01","paragraph_id":"p001","text":"Claim-first retrieval improves attribution review.","claim_id":"clm-2026-000001","novel_draft_claim":null}
+{"id":"fact-ch-01-p001-0002","chapter_id":"ch-01","paragraph_id":"p001","text":"The flat list baseline preserves fewer anchors.","claim_id":"clm-2026-000002","novel_draft_claim":null}
+{"id":"fact-ch-01-p001-0003","chapter_id":"ch-01","paragraph_id":"p001","text":"The draft adds a claim not yet in the ledger.","claim_id":null,"novel_draft_claim":"novel-ch-01-p001-0003"}
+{"id":"fact-ch-01-p001-0004","chapter_id":"ch-01","paragraph_id":"p001","text":"The unsupported draft sentence overstates the evidence.","claim_id":"clm-2026-000003","novel_draft_claim":null}

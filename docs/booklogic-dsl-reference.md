@@ -843,6 +843,86 @@ before applying.
   matching the same condition — the order of application is
   consumer-defined. Avoid by writing distinct `:when` clauses.
 
+### 2.8 Boolean connectives (`and` / `or` / `not` / `=>`)
+
+A `defconstraint :assert` head may be a boolean connective whose operands are
+themselves Bool-valued forms (comparisons, equalities, predicate applications, or
+nested connectives). Shipped in v0.5.
+
+| Form | Arity | Lowers to |
+|---|---|---|
+| `(and b1 b2 ...)` | ≥2 | `Bool::and(&[&b1, &b2, ...])` |
+| `(or b1 b2 ...)` | ≥2 | `Bool::or(&[&b1, &b2, ...])` |
+| `(not b)` | 1 | `b.not()` |
+| `(=> premise conclusion)` | 2 | `premise.implies(&conclusion)` |
+
+Worked example — a joint threshold:
+
+```clojure
+(defconstraint :joint-threshold :backend :z3
+  :assert (and (>= (:domain-count :e) 3)
+               (< (:joint-corruption :e) 0.33))
+  :on-unsat {:defect :D13 :severity :critical
+             :message "joint threshold violated"})
+```
+
+### 2.9 Quantifiers (`forall` / `exists`)
+
+A general quantifier binds typed variables over a declared sort and asserts a Bool
+body. Bindings are a vector of `(?var :sort)` pairs; every `:sort` must be declared
+via `defsort` (an undeclared sort raises `CodegenError` at compile time). Shipped
+in v0.5 (structural); made sound for predicate bodies in v0.6 (see §2.10).
+
+| Form | Arity | Lowers to |
+|---|---|---|
+| `(forall [(?v :s) ...] body)` | bindings + body | `ast::forall_const(&[&v_const, ...], &[], &body)` |
+| `(exists [(?v :s) ...] body)` | bindings + body | `ast::exists_const(&[&v_const, ...], &[], &body)` |
+
+Bound variables (`?v`) inside the body resolve to the typed Z3 constant declared
+for the binding. Quantifiers emit empty trigger patterns; Z3 falls back to MBQI.
+
+Worked example — universal supersession:
+
+```clojure
+(defconstraint :universal-supersession :backend :z3
+  :assert (forall [(?a :obligation) (?b :obligation)]
+            (=> (:contradicts ?a ?b)
+                (or (:supersedes ?a ?b) (:supersedes ?b ?a))))
+  :on-unsat {:defect :D13 :severity :critical
+             :message "contradiction without supersession"})
+```
+
+### 2.10 Predicate-as-uninterpreted-function semantics
+
+When a predicate is declared (via `defpredicate`) with non-empty argument sorts and
+a Bool return, an application `(:pred a b)` lowers to a Z3 **uninterpreted function**
+applied to its arguments — `pred_fn.apply(&[&a, &b]).as_bool()` — rather than an
+opaque named Bool. This is what makes a quantified property over the predicate
+*sound*: the bound variables enter the function, so two applications to the same
+arguments are the same Z3 term and the quantifier constrains the predicate across
+its domain. Shipped in v0.6.
+
+| Argument | Resolves to |
+|---|---|
+| `?v` (quantifier-bound) | the binding's typed constant; an unbound `?v` raises `CodegenError` |
+| `:keyword` / literal (ground) | `Dynamic::new_const("<name>", &<arg-sort>)` |
+
+An application whose argument count disagrees with the declared `:arg-sorts` raises
+`CodegenError`. Predicates declared with `nil` argument sorts keep the legacy
+named-Bool emission (sound for ground atoms).
+
+Worked example — the predicate above (`:contradicts`, `:supersedes`) declared as
+binary Bool predicates:
+
+```clojure
+(defpredicate :contradicts [:obligation :obligation] :bool)
+(defpredicate :supersedes  [:obligation :obligation] :bool)
+```
+
+Z3 can now refute `(forall [(?a :obligation)] (:p ?a))` together with
+`(exists [(?b :obligation)] (not (:p ?b)))` — the case the v0.5 opaque encoding
+could not detect.
+
 ## 3. Sort system
 
 Sorts are the DSL's main typing lever.

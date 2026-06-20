@@ -134,7 +134,7 @@ def test_bundle_c_closed_loop_verified_to_disputed(tmp_path: Path) -> None:
     )
 
     propose_writeback(workspace, version=version)
-    proposed_path = workspace / "claims" / "proposed-transitions.jsonl"
+    proposed_path = workspace / "qa" / "proposed-transitions.jsonl"
     assert proposed_path.exists(), "propose_writeback must emit proposed-transitions.jsonl"
     lines = [
         json.loads(line)

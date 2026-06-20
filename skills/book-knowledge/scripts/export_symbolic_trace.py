@@ -18,13 +18,17 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import logging
 import sys
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 # scripts/__init__.py extends this package's __path__ to include forge's
 # scripts/ dir, so the imports below resolve to neurosym-forge's modules.
 from scripts._edn_reader import Keyword, Symbol  # noqa: E402
 from scripts._edn_writer import write_edn  # noqa: E402
+from scripts.io_utils import read_jsonl  # noqa: E402
 
 
 def _parse_instant(value: str) -> dt.datetime:
@@ -34,14 +38,16 @@ def _parse_instant(value: str) -> dt.datetime:
 
 
 def _infer_kind(manifest: dict) -> Symbol:
-    """Map a manifest hint to an :kind value."""
-    path = manifest.get("path", "")
-    if path.endswith(".pdf"):
+    """Map a manifest's authoritative source_kind to a :kind value.
+
+    Production manifests (written by ingest) carry source_kind ("pdf" or
+    "markdown") and never path/title — the manifest schema forbids those keys.
+    """
+    source_kind = manifest.get("source_kind")
+    if source_kind == "pdf":
         return Keyword("pdf")
-    if path.endswith(".md"):
+    if source_kind == "markdown":
         return Keyword("markdown")
-    if path.endswith(".yaml") or path.endswith(".yml"):
-        return Keyword("yaml")
     if "thesis" in manifest.get("doc_id", "").lower():
         return Keyword("thesis")
     return Keyword("unknown")
@@ -54,10 +60,8 @@ def _manifest_to_event(manifest: dict) -> tuple[Symbol, dict]:
         Keyword("ingested-at"): _parse_instant(manifest["ingested_at"]),
         Keyword("kind"): _infer_kind(manifest),
     }
-    if "path" in manifest:
-        payload[Keyword("path")] = manifest["path"]
-    if "title" in manifest:
-        payload[Keyword("title")] = manifest["title"]
+    if "doc_name" in manifest:
+        payload[Keyword("doc-name")] = manifest["doc_name"]
     if "sha256" in manifest:
         payload[Keyword("sha256")] = manifest["sha256"]
     return Symbol("ingested", namespace="source"), payload
@@ -124,17 +128,20 @@ def export_trace(workspace: Path, out_path: Path) -> int:
     manifests_dir = workspace / "raw" / "manifests"
     if manifests_dir.is_dir():
         for manifest_path in sorted(manifests_dir.glob("*.json")):
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                # Skip a corrupt manifest rather than abort the whole trace export.
+                _log.warning("skipping malformed manifest %s: %s", manifest_path, e)
+                continue
             events.append(_manifest_to_event(manifest))
 
+    # read_jsonl skips blank lines and warns on corrupt ones (4.2), so a single
+    # bad ledger/events line no longer aborts the export.
     ledger_path = workspace / "claims" / "ledger.jsonl"
     if ledger_path.exists():
         seen_claims: set[str] = set()
-        for line in ledger_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
+        for row in read_jsonl(ledger_path):
             cid = row.get("claim_id")
             if cid and cid not in seen_claims:
                 seen_claims.add(cid)
@@ -142,11 +149,8 @@ def export_trace(workspace: Path, out_path: Path) -> int:
 
     events_path = workspace / "claims" / "events.jsonl"
     if events_path.exists():
-        for line in events_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            events.append(_event_to_status_event(json.loads(line)))
+        for event in read_jsonl(events_path):
+            events.append(_event_to_status_event(event))
 
     events.sort(key=_event_sort_key)
 

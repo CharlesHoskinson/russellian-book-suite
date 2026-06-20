@@ -25,8 +25,8 @@ def load_markdown(path: Path) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
-def load_rules() -> dict:
-    return json.loads((ASSETS / "russellian-rules.json").read_text(encoding="utf-8"))
+def load_rules(name: str = "russellian-rules.json") -> dict:
+    return json.loads((ASSETS / name).read_text(encoding="utf-8"))
 
 
 def iter_sentences(text: str) -> Iterator[Sentence]:

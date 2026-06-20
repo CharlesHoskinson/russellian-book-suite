@@ -1,0 +1,73 @@
+% =============================================================================
+% Template: proof-block.tex
+% Skill:    iacr-math-prose
+%
+% Use for: a stand-alone proof body, when the theorem is stated elsewhere
+%          (e.g., the theorem is in section 3 and the proof is deferred to
+%          section 6 or appendix A).
+%
+% Invariants (do not delete):
+%   - Begin with "Proof of \cref{thm:...}" so the reader can locate the claim.
+%   - Use \paragraph{Name.} for sub-blocks; never \\ \\ as a separator.
+%   - End with \qed (auto-inserted by amsthm if the proof ends in plain text;
+%     manual if it ends in a displayed equation).
+%   - Cite every external lemma by name and source.
+%   - State every hardness assumption invoked explicitly.
+%
+% See:
+%   - references/proof-style-game-based.md
+%   - references/proof-style-uc.md
+%   - references/proof-style-concrete.md
+%   - references/common-rejection-reasons.md (R23, R29 in particular)
+% =============================================================================
+
+\begin{proof}[Proof of \cref{thm:\TODO{theorem-label}}]
+\TODO{One-sentence setup paragraph: restate the assumption, the adversary class,
+and the target bound. This serves as a recap so the proof body does not require
+the reader to flip back to the theorem statement.}
+
+\paragraph{Setup of the reduction.}
+\TODO{Describe the reduction construction. Given an adversary $A$ against the
+target notion, construct an adversary $B$ against the underlying hardness
+assumption. State $B$'s inputs and what $B$ outputs.}
+
+\paragraph{Simulation of $A$'s view.}
+\TODO{Describe how $B$ simulates $A$'s oracle responses. For each oracle:
+- Random oracle queries: lazy table with DST-prefixed keys.
+- Signing/decryption queries: programmed using $B$'s inputs.
+- Other queries: state explicitly.
+State that the simulation is statistically (or perfectly, or computationally)
+indistinguishable from the real game, with bound \TODO{$\varepsilon_\textsf{sim}$}.}
+
+\paragraph{Extracting from $A$'s output.}
+\TODO{Describe how $B$ uses $A$'s output (forgery, distinguishing bit, …) to
+produce the assumption-breaker's output. State the success probability:
+``$B$ succeeds whenever $A$ succeeds and event $E$ holds, where $\Pr[E] \geq
+\TODO{...}$.''}
+
+\paragraph{Bound.}
+\TODO{Concrete bound, e.g.}
+\[
+  \TODO{\Adv}^{\TODO{\textsf{ASSUMPTION}}}_{B}(\secparam)
+  \;\geq\;
+  \frac{1}{\TODO{q_H}} \cdot
+  \TODO{\Adv}^{\TODO{\textsf{NOTION}}}_{A}(\secparam)
+  \;-\; \TODO{\varepsilon_\textsf{sim}}.
+\]
+Rearranging,
+\[
+  \TODO{\Adv}^{\TODO{\textsf{NOTION}}}_{A}(\secparam)
+  \;\leq\;
+  \TODO{q_H} \cdot
+  \TODO{\Adv}^{\TODO{\textsf{ASSUMPTION}}}_{B}(\secparam)
+  \;+\; \TODO{q_H \cdot \varepsilon_\textsf{sim}}.
+\]
+
+\paragraph{Runtime.}
+$B$ runs in time
+$\TODO{t_A + O(q_H \cdot T_\textsf{rand-oracle} + q_S \cdot T_\textsf{sign})}$,
+where $\TODO{T_\textsf{rand-oracle}}$ is the cost of one random-oracle table
+lookup and $\TODO{T_\textsf{sign}}$ is the cost of one signing simulation.
+
+This completes the proof. \qed
+\end{proof}

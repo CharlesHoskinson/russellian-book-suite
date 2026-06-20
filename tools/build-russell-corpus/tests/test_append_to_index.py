@@ -46,7 +46,31 @@ def test_append_verified_to_index_projects_to_existing_schema(tmp_path: Path) ->
     assert new_entry["line_hint"] == 812
     assert new_entry["rhetorical_move"] == "Russell splits philosophy into two domains."
     assert new_entry["tags"] == ["domain_contrast"]
-    assert new_entry["content_locator"] == "Philosophy, throughout its history,"
+    # content_locator is the canonical dedup key: first 120 chars of paragraph_text,
+    # NOT the LLM's short free-form snippet (which never matched the candidate-side key
+    # and silently re-admitted duplicates). See sentinel-cross-index-dedup-broken.
+    assert new_entry["content_locator"] == (
+        "Philosophy, throughout its history, has consisted of two parts inharmoniously blended."
+    )
+
+
+def test_projection_uses_explicit_source_id_not_id_surgery(tmp_path: Path) -> None:
+    """source must come from the explicit source_id field, and id must be the verbatim
+    candidate_id — no split('-')/rejoin surgery that corrupts multi-segment sources like
+    'external-world' into 'external'. Finding append-index-entry-id-redundant-reconstruct."""
+    from scripts.append_to_index import _project_candidate_to_index_entry
+
+    entry = _project_candidate_to_index_entry({
+        "candidate_id": "external-099",
+        "source_id": "external-world",
+        "line_hint": 200,
+        "content_locator": "Hume, in his Treatise, observed",
+        "paragraph_text": "Hume, in his Treatise, observed that all our distinct perceptions are distinct existences.",
+        "rhetorical_move_tag": "concession",
+        "calibration_lesson": "Hume's atomism is acknowledged before being qualified.",
+    })
+    assert entry["id"] == "external-099"
+    assert entry["source"] == "external-world"
 
 
 def test_regenerate_corpus_map_emits_table_row_for_new_entry(tmp_path: Path) -> None:

@@ -1,0 +1,20 @@
+{
+  "chapter_bundle": "snapshot/chapters/drafts/ch-01/chapter-retrieval-bundle.json",
+  "chapter_id": "ch-01",
+  "comparatives": {
+    "claim-first-vs-flat": {
+      "control_flat_claims": [
+        "clm-2026-000001",
+        "clm-2026-000002"
+      ]
+    }
+  },
+  "contract": "snapshot/chapters/contracts/ch-01.yaml",
+  "draft": "snapshot/chapters/drafts/ch-01/draft.md",
+  "draft_atomic_facts": "snapshot/chapters/drafts/ch-01/draft-atomic-facts.jsonl",
+  "gold": "gold",
+  "ledger": "snapshot/claims/ledger.jsonl",
+  "snapshot": "snapshot",
+  "task_id": "task-claim-first-mini",
+  "writer_assertions": "snapshot/chapters/drafts/ch-01/writer-assertions.jsonl"
+}

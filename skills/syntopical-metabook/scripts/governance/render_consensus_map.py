@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from ._positions_io import Position, read_positions
 from ._stance import Stance
+from .._staleness import check_positions_fresh
 
 
 _STANCE_COLOUR = {
@@ -75,6 +76,7 @@ def _emit_svg(positions: list[Position]) -> str:
 
 
 def render_consensus_map(positions_path: Path, out_dir: Path) -> dict[str, Path]:
+    check_positions_fresh(positions_path)
     positions = read_positions(positions_path)
     out_dir.mkdir(parents=True, exist_ok=True)
     tex_path = out_dir / "consensus-map.tex"

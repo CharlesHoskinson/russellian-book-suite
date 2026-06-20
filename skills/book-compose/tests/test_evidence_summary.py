@@ -7,16 +7,14 @@ from pathlib import Path
 import shutil
 
 from scripts.evidence_summary import build_evidence_summary
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed(tmp_path: Path) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
     for i in range(2):
         ledger_mod.append_claim(layout, {
             "claim_id": f"clm-2026-00000{i+1}",

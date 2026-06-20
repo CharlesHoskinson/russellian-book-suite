@@ -33,6 +33,20 @@ Capability slugs and their full capability names:
 | `QA-PIPE` | qa-defect-pipeline |
 | `VERIFIER-BUILD` | verifier-build |
 | `OSMOTIC` | osmotic-pressure-verifier |
+| `VOICE` | russellian-voice |
+| `DELTA` | russell-delta |
+| `VOICE-EVAL` | voice-eval |
+| `READING` | reading-council |
+| `KG` | homoiconic-kg |
+| `EVAL` | kg-prose-eval |
+| `CHAP` | chapter-retrieval |
+| `ATTR` | attributed-generation |
+| `ARG` | argumentation |
+| `PROOF` | proof-obligations |
+| `DRAFT` | claim-first-drafting |
+| `LIVE` | liveliness-signals |
+| `TRIAD` | triadic-voice |
+| `VEVAL` | voice-eval |
 | `REVISE` | review-revise-validate |
 
 ## EARS patterns

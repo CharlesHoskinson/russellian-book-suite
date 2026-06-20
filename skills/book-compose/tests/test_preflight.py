@@ -8,18 +8,15 @@ import shutil
 
 import pytest
 from scripts.preflight import preflight, PreflightResult
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed_workspace(tmp_path: Path) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
     ledger_mod.append_claim(layout, {
         "claim_id": "clm-2026-000001",
         "canonical_text": "x" * 10,
@@ -29,7 +26,6 @@ def _seed_workspace(tmp_path: Path) -> Path:
         "source_spans": [{"doc_id": "small", "locator_text": "abcd"}],
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     })
-    project_graph_mod.project_graph(layout)
     return workspace
 
 

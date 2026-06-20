@@ -1,0 +1,25 @@
+;; source-span-present — a claim must have at least one source-span
+;; (REQ-KG-003 / REQ-KG-012).
+;;
+;; Booklogic port of the tbf:hasSourceSpan minCount constraint in
+;; assets/shapes.ttl:
+;;   sh:path tbf:hasSourceSpan ; sh:minCount 1 .
+;;
+;; minCount >= 1 lowers to a NEGATION over the source-span back-reference: a
+;; claim is a violation when NO source-span row carries its id in
+;; :source-span/claim-id (the projector populates that column as the back-ref to
+;; the owning claim). ?focus is bound by the positive :where and threaded into
+;; the negation, so this is a safe inline Cozo negation (no free var). The
+;; constraint fires for a claim of ANY status that lacks provenance — unlike the
+;; verified-derives sh:sparql shape, which restricts to verified claims.
+;;
+;; MESSAGE NOTE: pyshacl auto-generates the minCount message ("Less than 1
+;; values on <...>->tbf:hasSourceSpan", as in the C0.2 golden); EXACT
+;; pyshacl-message parity is a P2.3 concern. The human message below is clear
+;; and stable for P2.2.
+(defconstraint :source-span-present
+  :message "Claim must have at least one source-span (minCount 1 on hasSourceSpan)."
+  :path "https://example.org/book-knowledge#hasSourceSpan"
+  :component "http://www.w3.org/ns/shacl#MinCountConstraintComponent"
+  :where [[?c :claim/id ?focus]]
+  :not   [[?s :source-span/claim-id ?focus]])

@@ -37,3 +37,30 @@ def test_accepts_python_named_groups(tmp_path: Path) -> None:
         capture_output=True, text=True,
     )
     assert result.returncode == 0
+
+
+def test_accepts_regex_metachar_escapes(tmp_path: Path) -> None:
+    # `\b` (word boundary), `\s`, `\d` must survive intact. The old
+    # unicode_escape decode rewrote `\b` to a backspace, changing the pattern.
+    good = tmp_path / "lifts.edn"
+    _write_lifts(good, r"\\bn\\s*=\\s*(?P<v>\\d+)")
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(good)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_malformed_escape_reports_cleanly(tmp_path: Path) -> None:
+    # A truncated `\x` escape used to raise an uncaught UnicodeDecodeError from
+    # the unicode_escape decode and crash the gate with a traceback. It must now
+    # be reported as a clean compile failure.
+    bad = tmp_path / "lifts.edn"
+    _write_lifts(bad, r"\x")
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(bad)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 1
+    assert "Traceback" not in result.stderr
+    assert "won't compile" in result.stderr

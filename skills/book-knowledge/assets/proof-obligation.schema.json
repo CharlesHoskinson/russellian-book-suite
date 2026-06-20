@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "proof-obligation",
+  "type": "object",
+  "required": ["id", "statement", "linked_claim", "checker_kind", "status"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "statement": {"type": "string", "minLength": 1},
+    "linked_claim": {"type": "string", "pattern": "^clm-[0-9]{4}-[0-9]{6}$"},
+    "checker_kind": {"enum": ["z3", "cvc5", "lean", "units", "stats-report"]},
+    "status": {"enum": ["pending", "discharged", "refuted", "waived"]},
+    "assumptions": {"type": "string"},
+    "artifact_path": {"type": "string", "minLength": 1},
+    "countermodel_path": {"type": "string", "minLength": 1},
+    "checked_at": {"type": "string", "minLength": 1},
+    "normal_form": {"type": "string"},
+    "waiver_reason": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "discharged"}}, "required": ["status"]},
+      "then": {"required": ["artifact_path", "checked_at"]}
+    },
+    {
+      "if": {"properties": {"status": {"const": "refuted"}}, "required": ["status"]},
+      "then": {"required": ["countermodel_path", "checked_at"]}
+    },
+    {
+      "if": {"properties": {"status": {"const": "waived"}}, "required": ["status"]},
+      "then": {"required": ["waiver_reason"]}
+    }
+  ],
+  "additionalProperties": false
+}

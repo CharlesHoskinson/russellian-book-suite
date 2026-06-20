@@ -1,0 +1,31 @@
+;; confidence-range — a claim's confidence must lie in [0.0, 1.0]
+;; (REQ-KG-003 / REQ-KG-012).
+;;
+;; Booklogic port of the tbf:confidence range constraint in assets/shapes.ttl:
+;;   sh:path tbf:confidence ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 .
+;;
+;; This rule covers the sh:maxInclusive arm (confidence > 1.0) — the case the
+;; C0.1 violating fixture injects (inj-bad-confidence has confidence 1.5, and
+;; the C0.2 golden carries "Value is not <= ...1.0..."). The literal 1.0 stays
+;; UNQUOTED so it compares against the typed Float column; the compiler guards
+;; the comparison with !is_null so a null-confidence claim is dropped (its
+;; missing-value concern belongs to the minCount shape, not the range shape).
+;;
+;; The sh:minInclusive 0.0 arm (confidence < 0.0) is a SECOND rule
+;; (confidence-range-low.edn) — the compiler has no OR/disjunction within one
+;; rule, so each inequality is its own constraint. Both arms carry the SAME
+;; authored :message and the SAME :path so the canonical message-remap keyed on
+;; #confidence stays unambiguous (C-1: both engines now agree on the full
+;; [0.0, 1.0] range).
+;;
+;; MESSAGE NOTE: pyshacl auto-generates the range message
+;; ("Value is not <= Literal(\"1.0\", ...)") / ("Value is not >= ...0.0..."); the
+;; rdflib path remaps both, keyed on the #confidence path, to the authored
+;; message below.
+(defconstraint :confidence-range
+  :message "Claim confidence must be in [0.0, 1.0]."
+  :path "https://example.org/book-knowledge#confidence"
+  :component "http://www.w3.org/ns/shacl#MaxInclusiveConstraintComponent"
+  :where [[?c :claim/id ?focus]
+          [?c :claim/confidence ?conf]]
+  :filter [[> ?conf 1.0]])

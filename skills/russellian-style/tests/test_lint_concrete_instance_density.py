@@ -23,12 +23,48 @@ def test_three_abstract_paragraphs_flagged(tmp_path):
     assert any(f["rule"] == "concrete-instance-density" for f in findings)
 
 
+def test_multiple_distinct_dead_zones_each_flagged(tmp_path):
+    # Two separate 3-paragraph zero-instance runs, split by a concrete
+    # paragraph. Both runs must be reported, not just the first.
+    from scripts.lint_concrete_instance_density import lint_concrete_instance_density
+    text = (
+        "The system processes inputs. The framework outputs results.\n\n"
+        "The platform abstracts complexity. The pipeline orchestrates stages.\n\n"
+        "The architecture is layered. The implementation is modular.\n\n"
+        "Russell wrote in 1912 about Cambridge and the Royal Society in London.\n\n"
+        "The approach generalises the model. The process repeats the loop.\n\n"
+        "The structure nests the layers. The protocol defines the handshake.\n\n"
+        "The mechanism triggers the cascade. The procedure runs the routine.\n"
+    )
+    findings = lint_concrete_instance_density(_write(tmp_path, text))
+    runs = [f for f in findings if "run_start_paragraph" in f]
+    assert len(runs) == 2, f"expected two distinct runs, got {runs}"
+    starts = {f["run_start_paragraph"] for f in runs}
+    assert starts == {0, 4}
+
+
 def test_concrete_paragraphs_pass(tmp_path):
     from scripts.lint_concrete_instance_density import lint_concrete_instance_density
     text = (
         "Russell wrote in 1912 that philosophy starts with simple things.\n\n"
         "The Royal Society convened in London on May 14th, 1660.\n\n"
         "Cambridge admitted Wittgenstein in October 1911.\n"
+    )
+    findings = lint_concrete_instance_density(_write(tmp_path, text))
+    assert findings == []
+
+
+def test_headings_and_code_not_counted_as_zero_concrete(tmp_path):
+    # Two concrete paragraphs separated by headings and a fenced code block.
+    # Headings/code must NOT count as zero-concrete paragraphs, so no
+    # 3-consecutive-zero run exists and nothing should fire.
+    from scripts.lint_concrete_instance_density import lint_concrete_instance_density
+    text = (
+        "Russell wrote in 1912 about Cambridge.\n\n"
+        "# Section heading\n\n"
+        "```\nthe system processes the framework abstractly\n```\n\n"
+        "## Another heading\n\n"
+        "The Royal Society convened in London in 1660.\n"
     )
     findings = lint_concrete_instance_density(_write(tmp_path, text))
     assert findings == []

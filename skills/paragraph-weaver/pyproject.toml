@@ -1,0 +1,26 @@
+# pyproject.toml
+[project]
+name = "paragraph-weaver"
+version = "0.1.0"
+description = "Goal-directed paragraph threading: reorder + bridge + seam-edit toward argument/emotion/narrative"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<10.0"]
+ci = ["pytest>=8.0,<10.0"]
+
+[tool.setuptools]
+packages = ["engine", "targets", "scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "windows_canary: test exercises platform-sensitive behaviour and must run on Windows",
+]
+addopts = "-ra -q"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

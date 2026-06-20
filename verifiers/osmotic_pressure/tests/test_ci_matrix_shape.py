@@ -14,12 +14,32 @@ REQ map:
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+CI_BUDGET = REPO_ROOT / ".github" / "workflows" / "ci-budget.yml"
+MATRIX_JSON = REPO_ROOT / ".github" / "ci" / "skills-matrix.json"
+SETUP_MODELS = REPO_ROOT / ".github" / "actions" / "setup-models" / "action.yml"
+DEPENDABOT = REPO_ROOT / ".github" / "dependabot.yml"
 FLAKE = REPO_ROOT / "flake.nix"
 CI_PLATFORMS_DOC = REPO_ROOT / "docs" / "operations" / "ci-platforms.md"
+
+
+def _budget_text() -> str:
+    assert CI_BUDGET.exists(), f"ci-budget workflow not found at {CI_BUDGET}"
+    return CI_BUDGET.read_text(encoding="utf-8")
+
+
+def _matrix_config() -> dict:
+    assert MATRIX_JSON.exists(), f"skills matrix registry not found at {MATRIX_JSON}"
+    return json.loads(MATRIX_JSON.read_text(encoding="utf-8"))
+
+
+def _dependabot_text() -> str:
+    assert DEPENDABOT.exists(), f"dependabot config not found at {DEPENDABOT}"
+    return DEPENDABOT.read_text(encoding="utf-8")
 
 
 def _workflow_text() -> str:
@@ -31,10 +51,10 @@ def _workflow_text() -> str:
 
 
 def test_python_skill_matrix_has_three_oses():
-    """REQ-CI-040: python-skill matrix axis enumerates all three OSes."""
-    text = _workflow_text()
-    for os_label in ("ubuntu-24.04", "macos-latest", "windows-2022"):
-        assert os_label in text, f"workflow missing OS label {os_label}"
+    """REQ-CI-040: the default OS axis enumerates all three OSes."""
+    assert _matrix_config()["defaults"]["os"] == [
+        "ubuntu-24.04", "macos-15", "windows-2022",
+    ]
 
 
 def test_python_skill_runs_on_matrix_os():
@@ -57,31 +77,63 @@ def test_python_skill_matrix_fail_fast_false():
 
 
 def test_python_skill_include_overrides_are_in_skill_axis():
-    """REQ-CI-040: include-only skills must still receive every OS value."""
-    text = _workflow_text()
-    skill_axis = text.split("        include:", 1)[0].split("        skill:", 1)[1]
+    """REQ-CI-040: override-carrying skills are full-coverage entries (no
+    os restriction), so their overrides apply on every OS."""
+    entries = {e["skill"]: e for e in _matrix_config()["skills"]}
     for skill in ("book-compose", "neurosym-forge"):
-        assert f"          - {skill}" in skill_axis, (
-            f"{skill} must be in matrix.skill; otherwise its include override "
-            "creates a matrix row without matrix.os"
+        entry = entries[skill]
+        assert entry.get("ci") != "none", f"{skill} must be runnable"
+        assert "os" not in entry, (
+            f"{skill} must inherit the full default OS axis; an os override "
+            "would silently drop matrix legs"
         )
+
+
+def test_scrapling_fetch_keeps_smoke_leg():
+    """P2-matrix-coverage-gaps: scrapling-fetch (scrapling/playwright/trafilatura,
+    the highest supply-chain-risk skill) stays covered by an install+import smoke
+    leg rather than a full pytest run."""
+    entries = {e["skill"]: e for e in _matrix_config()["skills"]}
+    assert entries["scrapling-fetch"].get("smoke") == "import", (
+        "scrapling-fetch must be a `smoke: import` entry"
+    )
+
+
+def test_syntopical_metabook_runs_full_pytest_with_shadow_guard():
+    """syntopical-metabook was promoted from smoke:import to a full-pytest leg so
+    its suite runs in CI; the NFR-5 no-shadow-writes guard is registered in the
+    skill's conftest so it fires over real metabook code (was wired into ci/ only)."""
+    entries = {e["skill"]: e for e in _matrix_config()["skills"]}
+    mb = entries["syntopical-metabook"]
+    assert mb.get("smoke") != "import" and mb.get("ci") != "none", (
+        "syntopical-metabook must be a runnable full-pytest entry, not smoke-only"
+    )
+    assert (REPO_ROOT / "skills" / "syntopical-metabook" / "tests").is_dir(), (
+        "metabook full-pytest entry needs a tests/ dir"
+    )
+    conftest = (REPO_ROOT / "skills" / "syntopical-metabook" / "conftest.py").read_text(
+        encoding="utf-8"
+    )
+    assert "ci.lint_no_shadow_writes" in conftest, (
+        "metabook conftest must register the NFR-5 shadow-write guard plugin"
+    )
 
 
 # ---------- REQ-CI-041 ----------
 
 
 def test_cargo_test_job_exists():
-    """REQ-CI-041: a cargo-test job (Linux + macOS) is declared."""
+    """REQ-CI-041: a cargo-test job (Linux + macOS) is declared; toolchain
+    and z3 come from the flake's rust shell, not apt/brew/rustup."""
     text = _workflow_text()
-    # Loose check: the job key appears, and the macOS install step is wired.
     assert "cargo-test:" in text or "cargo test" in text, (
         "no cargo-test job declared"
     )
-    assert "brew install z3" in text, (
-        "cargo-test macOS leg should run `brew install z3`"
+    assert "nix develop .#rust" in text, (
+        "cargo-test must take its toolchain + z3 from the flake's rust shell"
     )
-    assert "libz3-dev" in text, (
-        "cargo-test Linux leg should install libz3-dev via apt"
+    assert "brew install z3" not in text, (
+        "apt/brew z3 installs were retired by nix-consolidation PR 3"
     )
 
 
@@ -203,3 +255,148 @@ def test_ci_platforms_doc_mentions_act():
     """REQ-CI-044: runbook explains local matrix testing via act."""
     text = CI_PLATFORMS_DOC.read_text(encoding="utf-8").lower()
     assert "act" in text, "runbook should mention nektos/act for local testing"
+
+
+# ---------- audit: dependabot coverage (findings #1, #3) ----------
+
+
+def test_dependabot_covers_osmotic_pressure_cargo():
+    """#1 dependabot-missing-osmotic-cargo: osmotic_pressure rust crate watched."""
+    text = _dependabot_text()
+    assert "/verifiers/osmotic_pressure/rust-verifier" in text, (
+        "dependabot must have a cargo entry for "
+        "/verifiers/osmotic_pressure/rust-verifier"
+    )
+
+
+def test_dependabot_covers_every_cargo_verifier():
+    """#1: every rust-verifier crate is watched by dependabot."""
+    text = _dependabot_text()
+    crates = sorted(
+        p.parent for p in (REPO_ROOT / "verifiers").glob("*/rust-verifier/Cargo.toml")
+    )
+    for crate in crates:
+        rel = "/" + crate.relative_to(REPO_ROOT).as_posix()
+        assert rel in text, f"dependabot missing cargo entry for {rel}"
+
+
+def test_dependabot_covers_every_pip_skill():
+    """#3 dependabot-missing-skill-pip-dirs: every skill pyproject is watched."""
+    text = _dependabot_text()
+    skills = sorted(
+        p.parent for p in (REPO_ROOT / "skills").glob("*/pyproject.toml")
+    )
+    for skill in skills:
+        rel = "/" + skill.relative_to(REPO_ROOT).as_posix()
+        assert rel in text, f"dependabot missing pip entry for {rel}"
+
+
+# ---------- audit: ci-budget workflow (findings #2, #4, #5) ----------
+
+
+def test_budget_post_step_never_consumes_missing_file():
+    """#2 budget-missing-comment-file: no-green-runs path must not break the
+    post-comment step. Either a fallback comment.md is written before the
+    early exit, or the post step is guarded by a file-existence check."""
+    text = _budget_text()
+    # The no-green-runs branch is the text from the diagnostic print up to its
+    # early exit. A fallback comment.md must be written *within* that branch
+    # (before the exit) — not in the later populated-window block.
+    no_green_branch = text.split("no green runs in window", 1)[1].split(
+        "SystemExit(0)", 1
+    )[0]
+    writes_fallback = "comment.md" in no_green_branch
+    post_guarded = "hashFiles('comment.md')" in text or "test -f comment.md" in text
+    assert writes_fallback or post_guarded, (
+        "no-green-runs branch must write a fallback comment.md (before the "
+        "early exit) OR the post step must guard on comment.md existence; "
+        "otherwise `gh pr comment --body-file comment.md` fails with no file"
+    )
+
+
+def test_budget_metric_labeled_turnaround_not_walltime():
+    """#4 ci-budget-window-conflates-queue-time: the metric is updatedAt-createdAt
+    (turnaround, includes queue wait), so it must not be labeled 'wall-time'."""
+    text = _budget_text()
+    # The duration is still derived from createdAt..updatedAt — confirm we did
+    # not silently change the data source out from under the label.
+    derives_from_created = "createdAt" in text and "updatedAt" in text
+    if derives_from_created and "run_started_at" not in text:
+        assert "wall-time" not in text and "wall time" not in text.lower(), (
+            "metric derived from updatedAt-createdAt includes queue/wait time; "
+            "do not label it 'wall-time' — call it 'turnaround time'"
+        )
+        assert "turnaround" in text.lower(), (
+            "rename the queue-inclusive metric to 'turnaround time'"
+        )
+
+
+def test_budget_enforces_or_documents_advisory():
+    """#5 budget-advisory-only: an over-budget run must either fail the job
+    (a nonzero exit gated on the budget), or the workflow must explicitly
+    document that the check is advisory-only."""
+    text = _budget_text()
+    enforces = "SystemExit(1)" in text or "sys.exit(1)" in text or "exit 1" in text
+    documents_advisory = "advisory" in text.lower()
+    assert enforces or documents_advisory, (
+        "ci-budget computes `ok` but never acts on it: add an over-budget "
+        "nonzero exit to gate, or document the check as advisory-only"
+    )
+
+
+# ---------- model-cache hardening (REQ-CI-047) + budget triggers (REQ-CI-048) ----------
+
+
+def test_model_caches_save_on_warm_success_not_post_job():
+    """REQ-CI-047: setup-models uses explicit cache/restore + cache/save so a
+    warmed model survives later step failures (the combined actions/cache
+    post-job save is skipped on job failure — the 2026-06-04 Windows
+    neurosym death spiral)."""
+    assert SETUP_MODELS.exists(), f"composite not found at {SETUP_MODELS}"
+    text = SETUP_MODELS.read_text(encoding="utf-8")
+    assert "actions/cache/restore@" in text, "setup-models must use cache/restore"
+    assert "actions/cache/save@" in text, "setup-models must use explicit cache/save"
+    assert "actions/cache@" not in text.replace(
+        "actions/cache/restore@", ""
+    ).replace("actions/cache/save@", ""), (
+        "setup-models must not use the combined actions/cache (post-job save "
+        "is skipped on job failure)"
+    )
+
+
+def test_python_matrix_uses_setup_models_composite():
+    """REQ-CI-047: the matrix job consumes the composite, not inline steps."""
+    text = _workflow_text()
+    assert "./.github/actions/setup-models" in text
+
+
+def test_budget_triggers_labeled_only():
+    """REQ-CI-048: ci-budget must not trigger on opened/synchronize — the
+    label gate made those runs permanent skipped-phantom noise (4-6 per PR
+    push)."""
+    text = _budget_text()
+    on_block = text.split("\njobs:", 1)[0]
+    assert "labeled" in on_block, "ci-budget must keep the labeled trigger"
+    for noisy in ("opened", "synchronize"):
+        assert noisy not in on_block, (
+            f"ci-budget pull_request trigger must not include {noisy!r}"
+        )
+
+
+# ---------- audit: ci divergence summary (finding #7) ----------
+
+
+def test_divergence_table_not_labeled_per_os():
+    """#7 divergence-summary-misreports-per-os: the result is a matrix-aggregate
+    scalar fanned identically across the OS columns, so the table must not be
+    headed with per-OS column labels that imply per-leg diagnosis."""
+    text = _workflow_text()
+    summary = text.split("ci-divergence-summary:", 1)[1].split("\n  required:", 1)[0]
+    # The python-skill / cargo-test rows derive every column from one scalar
+    # (needs.<job>.result), so a per-OS header is a false promise. After the
+    # fix the table headers must not be the bare OS triplet.
+    assert "| Linux | macOS | Windows |" not in summary, (
+        "divergence table headers `Linux | macOS | Windows` imply per-OS data, "
+        "but the values come from a single aggregate result scalar; drop the "
+        "per-OS column headers (the data is matrix-aggregate, not per-leg)"
+    )

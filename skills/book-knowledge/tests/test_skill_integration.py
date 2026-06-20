@@ -10,7 +10,6 @@ from scripts.workspace import init_workspace, WorkspaceLayout
 from scripts.ingest_pdf import ingest_pdf
 from scripts.ledger import append_claim
 from scripts.verify_claim import verify_claim
-from scripts.project_graph import project_graph
 from scripts.validate_shacl import validate_shacl
 from scripts.run_competency_queries import run_competency_queries
 from scripts.wiki_index_regen import wiki_index_regen
@@ -33,7 +32,8 @@ def _claim(cid: str, locator: str) -> dict:
 def test_full_ingest_to_release_gate(tmp_path):
     workspace = init_workspace(tmp_path / "book")
     layout = WorkspaceLayout(workspace)
-    shutil.copy(ASSETS / "shapes.ttl", layout.shapes)
+    # (No shapes.ttl copy: validate_shacl is cozo-only — it validates the ledger
+    # projection, not a SHACL graph over the TriG.)
 
     ingest_pdf(Path("tests/fixtures/small.pdf"), workspace)
 
@@ -48,7 +48,6 @@ def test_full_ingest_to_release_gate(tmp_path):
     assert r2.ok is True
     assert r3.ok is False
 
-    project_graph(layout)
     wiki_index_regen(layout)
 
     shacl = validate_shacl(layout)

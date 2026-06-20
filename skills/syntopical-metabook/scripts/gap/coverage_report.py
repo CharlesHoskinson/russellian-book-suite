@@ -1,16 +1,28 @@
 """REQ-GAP-1: compute per-thesis-node coverage and write a gap report."""
 from __future__ import annotations
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from sibling_skills import load_skill_api
+from typing import Optional
 from scripts.provenance import provenance_footer
 
 
+@dataclass
+class _VerifiedFilter:
+    """Minimal ClaimFilter-compatible object for querying verified claims."""
+    state: Optional[str] = "verified"
+    tags: Optional[list] = None
+    topics: Optional[list] = None
+    source_ids: Optional[list] = None
+
+
 def _load_book_knowledge():
+    from sibling_skills import load_skill_api
     return load_skill_api("book-knowledge", expected_major=0)
 
 
 def _load_book_thesis():
+    from sibling_skills import load_skill_api
     return load_skill_api("book-thesis", expected_major=0)
 
 
@@ -18,7 +30,7 @@ def build_coverage_report(workspace_root: Path, chapter_id: str,
                           required_per_node: int = 3) -> Path:
     bk = _load_book_knowledge()
     bt = _load_book_thesis()
-    verified = bk.query_claims({"state": "verified"}, workspace_root)
+    verified = bk.query_claims(_VerifiedFilter(), workspace_root)
     tree = bt.read_thesis_tree(chapter_id, workspace_root)
     scored: list[tuple[str, float, int]] = []  # (node_id, score, n_supporting)
     for n in tree.nodes:

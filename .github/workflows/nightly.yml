@@ -1,0 +1,268 @@
+name: nightly
+on:
+  schedule:
+    - cron: '0 7 * * *'   # 07:00 UTC daily
+  workflow_dispatch:
+
+# Least privilege at the workflow default; issues:write is granted only to the
+# alert-on-failure job, so the many code-executing matrix jobs stay read-only.
+permissions:
+  contents: read
+
+# A manual dispatch overlapping the 07:00 schedule would run two full nightly
+# suites (incl. Windows + ARM) at once; serialize instead.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      # See ci.yml lint job for the cache-nix-action rationale.
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+          restore-prefixes-first-match: nix-shell-${{ runner.os }}-
+          gc-max-store-size-linux: 8G
+          purge: true
+          purge-prefixes: nix-shell-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+      - name: flake check
+        run: nix flake check
+      - name: build preflight package
+        run: nix build .#preflight
+      - name: run preflight in fresh shell
+        run: nix develop -c make preflight
+
+  # aarch64-linux is in the flake's systems list; this is the only leg that
+  # builds it. ARM runners are free for public repos (GA 2025-08).
+  flake-check-arm:
+    name: flake check (aarch64-linux)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-shell-arm-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+          restore-prefixes-first-match: nix-shell-arm-
+          gc-max-store-size-linux: 8G
+          purge: true
+          purge-prefixes: nix-shell-arm-
+          purge-created: 0
+          purge-primary-key: never
+      - run: nix flake check -L
+
+  # Best-effort darwin coverage (5.7): macOS nix builds are slower and occasionally
+  # flaky on hosted runners, so this leg is advisory (continue-on-error) — it
+  # surfaces darwin-specific breakage without gating the nightly.
+  flake-check-darwin:
+    name: flake check (aarch64-darwin, best-effort)
+    runs-on: macos-15
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - run: nix flake check -L
+
+  # Both nightly matrices come from .github/ci/skills-matrix.json — the same
+  # registry the PR-time matrix uses (REQ-CI-045), so the nightly can never
+  # again drift out of sync with the skill list (the static copy here was
+  # missing feynman-style, halmos, iacr-review, and paragraph-weaver).
+  compute-matrix:
+    name: compute nightly matrices
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      windows_matrix: ${{ steps.canary.outputs.windows_matrix }}
+      compat_matrix: ${{ steps.compat.outputs.compat_matrix }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: windows-canary matrix (all runnable skills, windows-2022)
+        id: canary
+        run: python3 -m ci.compute_matrix --profile windows-canary --output-prefix windows_
+      - name: python-compat matrix (all runnable skills, ubuntu x py3.11/3.12)
+        id: compat
+        run: python3 -m ci.compute_matrix --profile python-compat --python-versions 3.11,3.12 --output-prefix compat_
+
+  # Run the full Windows test suite (no -m filter) once daily. Catches
+  # under-tagging of the windows_canary marker within 24h. The PR-time
+  # CI matrix only runs marker-tagged tests on Windows; this nightly job
+  # is the safety net. Smoke-only entries run install+import on Windows, so
+  # a bump that only breaks the Windows install is caught nightly too.
+  windows-full-canary:
+    name: windows full suite (catches under-tagging)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    needs: [compute-matrix]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.compute-matrix.outputs.windows_matrix) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: "3.13"
+          skill-path: skills/${{ matrix.skill }}
+          extra: ${{ matrix.extra }}
+          constraints: ${{ matrix.constraints }}
+      - name: symlink siblings
+        if: matrix.siblings != ''
+        uses: ./.github/actions/symlink-siblings
+        with:
+          siblings: ${{ matrix.siblings }}
+      # spaCy wheel + HF model with restore/save-on-warm-success caching
+      # (REQ-CI-047); no-ops for skills with neither model registered. The
+      # unfiltered Windows legs must not red on environment, only on
+      # under-tagging — the drift this job exists to catch.
+      - name: setup models (spaCy / HF as registered)
+        uses: ./.github/actions/setup-models
+        with:
+          spacy: ${{ matrix.spacy }}
+          hf-model: ${{ matrix.hf_model }}
+      - name: import smoke
+        if: matrix.smoke == 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
+      - name: pytest (unfiltered)
+        if: matrix.smoke != 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        env:
+          # hf_model legs only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.hf_model != '' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.hf_model != '' && '1' || '0' }}
+        run: python -m pytest tests/ -q --tb=short ${{ matrix.pytest_deselect }}
+
+  # py3.11/3.12 compatibility legs (moved from ci-legacy on its retirement).
+  # Skills declare requires-python >=3.11; PR-time CI tests 3.13 only, so this
+  # nightly job is the only signal for the older interpreters. Linux-only;
+  # constraints files are dropped by the python-compat profile (they are
+  # generated under 3.13).
+  python-compat:
+    name: python-compat (${{ matrix.skill }} / py${{ matrix.python_version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: [compute-matrix]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.compute-matrix.outputs.compat_matrix) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: ${{ matrix.python_version }}
+          skill-path: skills/${{ matrix.skill }}
+          extra: ${{ matrix.extra }}
+      - name: symlink siblings
+        if: matrix.siblings != ''
+        uses: ./.github/actions/symlink-siblings
+        with:
+          siblings: ${{ matrix.siblings }}
+      - name: setup models (spaCy / HF as registered)
+        uses: ./.github/actions/setup-models
+        with:
+          spacy: ${{ matrix.spacy }}
+          hf-model: ${{ matrix.hf_model }}
+      - name: import smoke
+        if: matrix.smoke == 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
+      - name: pytest
+        if: matrix.smoke != 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        env:
+          HF_HOME: ${{ matrix.hf_model != '' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.hf_model != '' && '1' || '0' }}
+        run: |
+          # shellcheck disable=SC2086
+          if [ -n "${{ matrix.pytest_workers }}" ]; then
+            python -m pytest tests/ -q --tb=short -n ${{ matrix.pytest_workers }} ${{ matrix.pytest_deselect }}
+          else
+            python -m pytest tests/ -q --tb=short ${{ matrix.pytest_deselect }}
+          fi
+
+  # End-to-end book-thesis pipeline on the worked example (moved from
+  # ci-legacy on its retirement). Not covered by preflight, which smokes the
+  # bermuda *verifier*, not the book-thesis compile/datalog chain.
+  bermuda-example-pipeline:
+    name: bermuda example pipeline (compile_thesis + datalog)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/setup-book-python
+        with:
+          python-version: "3.13"
+          skill-path: skills/book-thesis
+      - name: compile_thesis
+        run: python skills/book-thesis/scripts/compile_thesis.py examples/bermuda-manual bermuda-manual
+      - name: consistency_cozo
+        run: python skills/book-thesis/scripts/consistency_cozo.py examples/bermuda-manual
+      - name: upload qa reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bermuda-qa-reports
+          path: |
+            examples/bermuda-manual/qa/defects.json
+            examples/bermuda-manual/qa/supports-defects.json
+            examples/bermuda-manual/qa/datalog-defects.json
+          if-no-files-found: warn
+
+  # (cljs tests run per-verifier at PR time in ci.yml's cljs-test matrix —
+  # the bermuda-only nightly job was retired when that landed.)
+
+  # P2-nightly-alerting-and-drift: a red scheduled run used to fail silently.
+  # On failure, open (or update) a single dedup-by-title tracking issue so the
+  # regression is actionable. Runs only on schedule (not on manual dispatch or
+  # self-edit pushes) to avoid issue spam during workflow iteration.
+  alert-on-failure:
+    needs: [drift-check, flake-check-arm, windows-full-canary, python-compat, bermuda-example-pipeline]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write   # P2-nightly-alerting-and-drift: open/update a tracking issue on red
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const title = 'nightly failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled \`nightly\` run failed.`,
+              ``,
+              `- Run: ${runUrl}`,
+              `- Triggered: ${context.eventName} @ ${new Date().toISOString()}`,
+              ``,
+              `Investigate the failing job (flake check / preflight / aarch64 flake check / windows canary`,
+              `/ python-compat / bermuda pipeline / cljs test) and close this issue`,
+              `once green. This issue is updated, not duplicated, on subsequent`,
+              `failures.`,
+            ].join('\n');
+            const existing = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
+            });
+            const hit = existing.data.items.find((i) => i.title === title);
+            if (hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: hit.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['ci-failure'],
+              });
+            }

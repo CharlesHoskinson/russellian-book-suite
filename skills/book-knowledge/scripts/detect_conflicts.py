@@ -64,14 +64,23 @@ def detect_conflicts(layout: WorkspaceLayout) -> list[dict]:
             for c in conflicts:
                 fh.write(json.dumps(c, sort_keys=True) + "\n")
 
-        conflicting_ids: set[str] = set()
+        # Map each claim to the set of claims it conflicts with, so the
+        # transition carries `conflicts_with` — that field is what project_graph
+        # projects to tbf:conflictsWith and contradiction_scan.rq selects on.
+        partners: dict[str, set[str]] = {}
         for c in conflicts:
-            conflicting_ids.update(c["claims"])
-        for claim_id in sorted(conflicting_ids):
+            x, y = c["claims"]
+            partners.setdefault(x, set()).add(y)
+            partners.setdefault(y, set()).add(x)
+        latest = {r["claim_id"]: r for r in read_claims(layout)}
+        for claim_id in sorted(partners):
+            existing = set(latest.get(claim_id, {}).get("conflicts_with", []))
+            merged = sorted(existing | partners[claim_id])
             transition_status(
                 layout, claim_id, "disputed",
                 cause_class="detect_conflicts",
                 note="Antonym-pair conflict detected with another claim.",
+                extra_fields={"conflicts_with": merged},
             )
 
     return conflicts

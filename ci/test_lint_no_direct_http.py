@@ -1,20 +1,30 @@
-"""Smoke test for the import-linter contract (NFR-4).
+"""Tests for the NFR-4 boundary: no direct HTTP outside scrapling-fetch.
 
-The contract currently has empty source_modules because skill packages are not
-yet importable as top-level Python packages from the repo root.  The test
-verifies the config is syntactically valid so it will wire cleanly when Phase 4
-adds proper package roots.
+The `.import-linter` contract cannot walk the real import graph from the repo
+root (the `scripts` package name collides across skills), so enforcement lives in
+ci/lint_no_direct_http.py, which AST-scans every skill's source tree. These tests
+exercise that real scan — they would fail if a forbidden import were introduced —
+plus a smoke check that the .import-linter config still parses and documents the
+same forbidden module list.
 
-Invoke via:  ci/.venv/Scripts/python.exe -m pytest ci/test_lint_no_direct_http.py -v
+Invoke via:  python -m pytest ci/test_lint_no_direct_http.py -v   (from the repo root)
 """
 import configparser
+import textwrap
 from pathlib import Path
+
+from ci.lint_no_direct_http import (
+    ALLOWED_BROWSER_AUTOMATION,
+    FORBIDDEN_MODULES,
+    _imports_in,
+    find_violations,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_import_linter_config_parses():
-    """The .import-linter config must be syntactically valid INI."""
+    """The .import-linter config must remain syntactically valid INI."""
     cfg = REPO_ROOT / "ci" / ".import-linter"
     p = configparser.ConfigParser(allow_no_value=True)
     p.read(cfg)
@@ -25,7 +35,8 @@ def test_import_linter_config_parses():
 
 
 def test_forbidden_modules_listed():
-    """The forbidden_modules entry must name the five HTTP libraries."""
+    """The .import-linter forbidden_modules text must name the HTTP libraries the
+    real scanner enforces (kept in sync as documentation)."""
     cfg = REPO_ROOT / "ci" / ".import-linter"
     p = configparser.ConfigParser(allow_no_value=True)
     p.read(cfg)
@@ -34,3 +45,91 @@ def test_forbidden_modules_listed():
     listed = {tok.strip() for tok in raw.split() if tok.strip() and not tok.startswith("#")}
     for lib in ("requests", "httpx", "urllib3", "aiohttp", "playwright"):
         assert lib in listed, f"Expected {lib!r} in forbidden_modules, got: {listed}"
+
+
+def test_repo_has_no_direct_http_outside_scrapling_fetch():
+    """The actual enforcement: scanning the real skill trees must find zero
+    forbidden HTTP/browser imports (modulo the enumerated browser allowlist)."""
+    violations = find_violations()
+    assert violations == [], f"NFR-4 violated: {violations}"
+
+
+def test_scanner_flags_a_synthetic_violation(tmp_path):
+    """If a non-scrapling-fetch skill imports a forbidden HTTP lib, the scanner
+    must report it — proving the guard is not vacuous."""
+    skills = tmp_path / "skills"
+    (skills / "book-knowledge" / "scripts").mkdir(parents=True)
+    offender = skills / "book-knowledge" / "scripts" / "fetch.py"
+    offender.write_text("import requests\n", encoding="utf-8")
+    violations = find_violations(skills_dir=skills, repo_root=tmp_path)
+    assert ("skills/book-knowledge/scripts/fetch.py", "requests") in violations
+
+
+def test_scanner_skips_vendored_dirs(tmp_path):
+    """A forbidden import inside a .venv/site-packages tree must be ignored."""
+    skills = tmp_path / "skills"
+    vendored = skills / "book-knowledge" / "scripts" / ".venv" / "lib"
+    vendored.mkdir(parents=True)
+    (vendored / "vendored.py").write_text("import httpx\n", encoding="utf-8")
+    assert find_violations(skills_dir=skills, repo_root=tmp_path) == []
+
+
+def test_scanner_allows_browser_automation_for_allowlisted_path(tmp_path):
+    """A playwright import in an allowlisted book-compose path is permitted, but the
+    same import elsewhere is not."""
+    skills = tmp_path / "skills"
+    bc = skills / "book-compose" / "scripts"
+    bc.mkdir(parents=True)
+    # Not on the allowlist within this synthetic tree -> flagged.
+    (bc / "elsewhere.py").write_text("import playwright\n", encoding="utf-8")
+    found = find_violations(skills_dir=skills, repo_root=tmp_path)
+    assert ("skills/book-compose/scripts/elsewhere.py", "playwright") in found
+
+
+def test_scanner_ignores_scrapling_fetch_itself():
+    """scrapling-fetch is the sanctioned HTTP surface — it must never appear in
+    the violation list even though it imports the forbidden libs."""
+    violations = find_violations()
+    assert not any(p.startswith("skills/scrapling-fetch/") for p, _ in violations)
+
+
+def test_browser_allowlist_paths_exist():
+    """The enumerated browser-automation exceptions must point at real files so the
+    allowlist cannot silently rot into a blanket exemption."""
+    for rel in ALLOWED_BROWSER_AUTOMATION:
+        assert (REPO_ROOT / rel).is_file(), f"allowlisted path missing: {rel}"
+
+
+def test_imports_in_skips_relative_imports():
+    src = textwrap.dedent(
+        """
+        from . import sibling
+        from .pkg import thing
+        import os
+        """
+    )
+    found = _imports_in(src)
+    assert "os" in found
+    assert "sibling" not in found and "pkg" not in found
+
+
+def test_forbidden_modules_cover_http_and_browser():
+    assert {"requests", "httpx", "urllib3", "aiohttp"} <= FORBIDDEN_MODULES
+    assert {"playwright", "patchright"} <= FORBIDDEN_MODULES
+
+
+def test_imports_in_detects_dunder_import():
+    """5.10: __import__("requests") is caught by the static scan."""
+    assert "requests" in _imports_in('__import__("requests")')
+
+
+def test_imports_in_detects_importlib_import_module():
+    """5.10: importlib.import_module("httpx") is caught."""
+    src = "import importlib\nx = importlib.import_module('httpx')\n"
+    assert "httpx" in _imports_in(src)
+
+
+def test_imports_in_ignores_nonliteral_dynamic_import():
+    """A variable target is out of scope for the static scanner (no false hit)."""
+    src = "name = 'requests'\n__import__(name)\n"
+    assert "requests" not in _imports_in(src)

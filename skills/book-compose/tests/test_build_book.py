@@ -11,19 +11,16 @@ import pytest
 import yaml
 
 from scripts.build_book import build_book, BookBuildError, _autodetect_latest_versions
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed_minimal_book(tmp_path: Path) -> Path:
     """Two-chapter workspace, both with valid releases."""
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
 
     contracts_dir = workspace / "chapters" / "contracts"
     contracts_dir.mkdir(parents=True, exist_ok=True)
@@ -63,7 +60,6 @@ def _seed_minimal_book(tmp_path: Path) -> Path:
             "claim_slice_count": 1, "shacl_conforms": True, "competency_clean": True,
         }), encoding="utf-8")
 
-    project_graph_mod.project_graph(layout)
     return workspace
 
 
@@ -160,6 +156,53 @@ def test_autodetect_versions_picks_latest(tmp_path):
     workspace = _seed_minimal_book(tmp_path)
     versions = _autodetect_latest_versions(workspace)
     assert versions == {"ch-01": "v1", "ch-02": "v1"}
+
+
+def test_autodetect_picks_highest_version_not_newest_mtime(tmp_path):
+    import os
+    import time
+    workspace = _seed_minimal_book(tmp_path)
+    releases = workspace / "chapters" / "releases"
+    # Create a newer semantic version (v2) for ch-01, then make the OLD v1 dir
+    # the most-recently-modified so an mtime-based sort would wrongly pick v1.
+    v1 = releases / "ch-01-v1"
+    v2 = releases / "ch-01-v2"
+    shutil.copytree(v1, v2)
+    future = time.time() + 1000
+    os.utime(v1, (future, future))  # v1 now newest by mtime
+    versions = _autodetect_latest_versions(workspace)
+    assert versions["ch-01"] == "v2"
+
+
+def test_manuscript_synthesizes_heading_when_no_h1(tmp_path):
+    workspace = _seed_minimal_book(tmp_path)
+    # Replace ch-02's draft with one that has no H1 (opens with ## ).
+    ch2 = workspace / "chapters" / "releases" / "ch-02-v1" / "draft.md"
+    ch2.write_text("## Subsection only\n\nNo top-level heading here.\n", encoding="utf-8")
+    book_dir = build_book(
+        workspace, version="1.0.0",
+        chapter_versions={"ch-01": "v1", "ch-02": "v1"},
+        book_title="Test Book", book_id="test-book",
+    )
+    manuscript = (book_dir / "manuscript.md").read_text(encoding="utf-8")
+    # A synthesized chapter heading must be present for ch-02.
+    assert "# Chapter 2: Body" in manuscript
+
+
+def test_manuscript_strips_orphan_citation_tokens(tmp_path):
+    workspace = _seed_minimal_book(tmp_path)
+    ch1 = workspace / "chapters" / "releases" / "ch-01-v1" / "draft.md"
+    ch1.write_text("# Intro\n\nA fact with a leaked token [clm-2026-000001] here.\n",
+                   encoding="utf-8")
+    book_dir = build_book(
+        workspace, version="1.0.0",
+        chapter_versions={"ch-01": "v1", "ch-02": "v1"},
+        book_title="Test Book", book_id="test-book",
+    )
+    manuscript = (book_dir / "manuscript.md").read_text(encoding="utf-8")
+    html = (book_dir / "manuscript.html").read_text(encoding="utf-8")
+    assert "[clm-2026-000001]" not in manuscript
+    assert "[clm-2026-000001]" not in html
 
 
 def test_build_book_fails_when_preflight_fails(tmp_path):

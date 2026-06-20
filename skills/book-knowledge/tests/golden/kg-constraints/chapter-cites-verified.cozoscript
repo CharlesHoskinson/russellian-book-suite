@@ -1,0 +1,1 @@
+?[focus_node, path_node, message] := *chapter_section{id: focus, uses_claim_id: claim_id}, *claim{id: claim_id, status: status}, !is_null(status), status != "verified", focus_node = focus, path_node = "", message = "Chapter sections must only cite verified claims."

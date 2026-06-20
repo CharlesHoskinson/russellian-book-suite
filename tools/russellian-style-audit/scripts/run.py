@@ -21,8 +21,27 @@ from scripts.health_check import run_all_health_checks
 from scripts.report import render_health_check_md, render_summary_md, render_readme_md, render_lint_report_md, render_expansion_md
 
 
-_AUDIT_BUNDLE_ROOT = _REPO_ROOT / "docs" / "audits" / "2026-05-21-russellian-style"
+# Base directory holding all audit bundles. The per-run bundle is nested under a
+# batch-scoped subdirectory (see _bundle_root) so successive runs do not clobber each
+# other's reports.
+_AUDIT_BUNDLE_BASE = _REPO_ROOT / "docs" / "audits" / "russellian-style"
 _AUDIT_FIXTURES = _AUDIT_ROOT / "tests" / "fixtures"
+
+
+def _bundle_root(batch_id: str) -> Path:
+    """Per-batch bundle root. Incorporating batch_id keeps each run's README /
+    health-check / samples isolated instead of overwriting a shared fixed path
+    (finding audit-bundle-path-not-batch-scoped)."""
+    return _AUDIT_BUNDLE_BASE / batch_id
+
+
+def _samples_exit_code(per_mode_rows, *, strict: bool) -> int:
+    """Exit code contribution from the sample-lint stage. Under --strict, any FAIL
+    verdict gates the run with a nonzero exit so CI/operators can act on the lint
+    result rather than only the health check (finding audit-exit-ignores-sample-failures)."""
+    if strict and any(row["verdict"] == "FAIL" for row in per_mode_rows):
+        return 1
+    return 0
 
 
 def _verdict_from_results(results) -> str:
@@ -38,13 +57,22 @@ def main() -> int:
     parser.add_argument("--batch-id", required=True)
     parser.add_argument("--auto-accept", action="store_true")
     parser.add_argument("--skip-expansion", action="store_true")
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="Exit nonzero if any generated sample's lint verdict is FAIL (gates CI on the lint result).",
+    )
+    parser.add_argument(
+        "--promote", action="store_true",
+        help="Append verified entries into the committed russellian-style corpus assets. "
+             "Without this flag the expansion is staged into the batch run dir only.",
+    )
     args = parser.parse_args()
 
-    bundle = _AUDIT_BUNDLE_ROOT
+    bundle = _bundle_root(args.batch_id)
     bundle.mkdir(parents=True, exist_ok=True)
     samples_dir = bundle / "samples"
     samples_dir.mkdir(exist_ok=True)
-    run_dir = bundle / "runs" / args.batch_id
+    run_dir = bundle / "runs" / args.batch_id  # intermediate candidates/verified/staged outputs
 
     # Stage 1 — health check
     results = run_all_health_checks(fixtures_dir=_AUDIT_FIXTURES)
@@ -89,12 +117,17 @@ def main() -> int:
                 n=50,
                 run_dir=run_dir,
                 operator_decision_fn=gate,
+                promote=args.promote,
             )
-            expansion_verdict = (
-                f"PASS (appended {result['n_verified']} entries)"
-                if result["appended"]
-                else f"HALTED ({result['halt_reason']})"
-            )
+            if result["appended"]:
+                expansion_verdict = f"PASS (appended {result['n_verified']} entries)"
+            elif result.get("staged"):
+                expansion_verdict = (
+                    f"STAGED ({result['n_verified']} entries in {run_dir}; "
+                    "re-run with --promote to write the committed corpus)"
+                )
+            else:
+                expansion_verdict = f"HALTED ({result['halt_reason']})"
             (bundle / "expansion.md").write_text(render_expansion_md(
                 batch_id=args.batch_id,
                 n_candidates=result["n_candidates"],
@@ -146,7 +179,10 @@ def main() -> int:
     ), encoding="utf-8")
 
     print(f"Audit bundle written to {bundle}")
-    return 0
+    exit_code = _samples_exit_code(per_mode_rows, strict=args.strict)
+    if exit_code:
+        print(f"Sample lint FAILED in {samples_pass_count}/3 modes (--strict).")
+    return exit_code
 
 
 if __name__ == "__main__":

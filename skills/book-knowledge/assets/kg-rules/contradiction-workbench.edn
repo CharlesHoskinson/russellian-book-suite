@@ -1,0 +1,10 @@
+;; contradiction-workbench — symbolic checks over normalized helper relations.
+;;
+;; The deterministic parser projects helper rows; this EDN declaration compiles
+;; to CozoScript rules for symbolic quantity and interval checks plus conflict
+;; candidates routed to the optional NLI seam.
+(defrules :contradiction-workbench
+  :outputs [:quantity-clash
+            :interval-inconsistency
+            :candidate-pairs]
+  :tolerance 1.0e-6)

@@ -11,8 +11,11 @@ containing `[^name]: definition` blocks; this script:
 5. replaces the `## Notes` block with a `<section class="footnotes">...<ol>...</ol></section>` block.
 """
 from __future__ import annotations
+import logging
 import re
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 
 CHAPTER_RE = re.compile(r"^(# Chapter (\d+):.*)$", re.MULTILINE)
@@ -70,6 +73,9 @@ def _process_chapter(body: str, chapter_num: int) -> str:
     items = []
     for name in order:
         seen[name]
+        if name not in definitions:
+            # Surface the gap instead of silently emitting a placeholder (4.4).
+            _log.warning("footnote [^%s] in chapter %d has no definition", name, chapter_num)
         text = definitions.get(name, f"<em>(definition for {name} missing)</em>")
         items.append(
             f'<li id="fn-ch{chapter_num:02d}-{name}">'

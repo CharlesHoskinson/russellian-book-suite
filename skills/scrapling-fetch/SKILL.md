@@ -28,6 +28,7 @@ You are the suite's network boundary. Every outbound HTTP call from any other sk
 | "get this paper's metadata" | `references/adapter-authoring.md` | `adapters/arxiv.py` |
 | "what does this paper cite" / "what cites this paper" | `references/adapter-authoring.md` | `adapters/openalex.py` (preferred), `adapters/semantic_scholar.py` (fallback) |
 | "download this PDF" | `references/scrapling-tuning.md` | `download.py` |
+| "extract clean text / readable paragraphs from a page" | `references/scrapling-tuning.md` | `extract.py` |
 
 ## Public surface
 

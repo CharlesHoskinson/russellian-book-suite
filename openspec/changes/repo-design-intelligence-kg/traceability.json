@@ -1,0 +1,245 @@
+{
+  "version": 1,
+  "links": [
+    {
+      "requirement_id": "REQ-KG-047",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/assets/kg-schema.edn"
+    },
+    {
+      "requirement_id": "REQ-KG-047",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_kg_schema.py::test_design_intelligence_entities_carry_source_provenance"
+    },
+    {
+      "requirement_id": "REQ-KG-047",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-048",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/project_design_kg.py"
+    },
+    {
+      "requirement_id": "REQ-KG-048",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_project_design_kg.py::test_project_design_requirements_is_read_only_and_idempotent"
+    },
+    {
+      "requirement_id": "REQ-KG-048",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-049",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/project_design_kg.py"
+    },
+    {
+      "requirement_id": "REQ-KG-049",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_project_design_kg.py::test_ambiguous_symbol_links_are_evidence_only"
+    },
+    {
+      "requirement_id": "REQ-KG-049",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-050",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/project_design_kg.py"
+    },
+    {
+      "requirement_id": "REQ-KG-050",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_project_design_kg.py::test_project_tests_and_ci_is_read_only_and_idempotent"
+    },
+    {
+      "requirement_id": "REQ-KG-050",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-051",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/design_kg_queries.py"
+    },
+    {
+      "requirement_id": "REQ-KG-051",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_design_kg_queries.py::test_query_pack_declares_expected_names"
+    },
+    {
+      "requirement_id": "REQ-KG-051",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-052",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/design_kg_queries.py"
+    },
+    {
+      "requirement_id": "REQ-KG-052",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_design_kg_queries.py::test_fixture_queries_return_source_backed_rows"
+    },
+    {
+      "requirement_id": "REQ-KG-052",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-053",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/project_design_kg.py"
+    },
+    {
+      "requirement_id": "REQ-KG-053",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_project_design_kg.py::test_project_traceability_links_is_idempotent"
+    },
+    {
+      "requirement_id": "REQ-KG-053",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-054",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/build_design_kg_audit.py"
+    },
+    {
+      "requirement_id": "REQ-KG-054",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_design_kg_audit.py::test_build_design_kg_audit_writes_reproducible_artifact"
+    },
+    {
+      "requirement_id": "REQ-KG-054",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-055",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/project_design_kg.py"
+    },
+    {
+      "requirement_id": "REQ-KG-055",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_project_design_kg.py::test_ambiguous_symbol_links_are_evidence_only"
+    },
+    {
+      "requirement_id": "REQ-KG-055",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    },
+    {
+      "requirement_id": "REQ-KG-056",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/build_design_kg_audit.py"
+    },
+    {
+      "requirement_id": "REQ-KG-056",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_design_kg_audit.py::test_build_design_kg_audit_writes_reproducible_artifact"
+    },
+    {
+      "requirement_id": "REQ-KG-056",
+      "capability": "homoiconic-kg",
+      "requirement_source": "openspec/changes/repo-design-intelligence-kg/specs/homoiconic-kg/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:tools-test"
+    }
+  ]
+}

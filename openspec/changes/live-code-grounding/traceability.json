@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "links": [
+    {
+      "requirement_id": "REQ-DRAFT-013",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-compose/scripts/draft_chapter.py"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-013",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-compose/tests/test_live_code_grounding.py::test_software_chapter_surfaces_code_grounding"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-013",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-014",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-compose/scripts/draft_chapter.py"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-014",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-compose/tests/test_live_code_grounding.py::test_only_canonical_links_surfaced"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-014",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-015",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-compose/scripts/draft_chapter.py"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-015",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-compose/tests/test_live_code_grounding.py::test_load_bearing_claim_paired_with_symbol"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-015",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-016",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-compose/scripts/draft_chapter.py"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-016",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-compose/tests/test_live_code_grounding.py::test_grounding_read_only_deterministic"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-016",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-017",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-compose/scripts/draft_chapter.py"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-017",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-compose/tests/test_live_code_grounding.py::test_evidence_only_claim_not_grounded"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-017",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-018",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-compose/scripts/draft_chapter.py"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-018",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-compose/tests/test_live_code_grounding.py::test_non_software_chapter_omits_section"
+    },
+    {
+      "requirement_id": "REQ-DRAFT-018",
+      "capability": "claim-first-drafting",
+      "requirement_source": "openspec/changes/live-code-grounding/specs/claim-first-drafting/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    }
+  ]
+}

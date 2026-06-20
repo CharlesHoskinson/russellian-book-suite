@@ -1,23 +1,71 @@
 {
   "version": "0.1.0",
   "hedge_terms": [
-    "might", "may", "could", "seems", "appears", "perhaps", "possibly",
-    "generally", "often", "usually", "typically", "frequently", "sometimes",
-    "somewhat", "rather", "quite", "fairly", "relatively",
-    "arguably", "presumably", "supposedly", "ostensibly",
-    "tend to", "tends to", "tended to",
-    "in some cases", "in many cases", "for the most part",
-    "should probably", "would likely", "could potentially"
+    "might",
+    "may",
+    "could",
+    "seems",
+    "appears",
+    "perhaps",
+    "possibly",
+    "generally",
+    "often",
+    "usually",
+    "typically",
+    "frequently",
+    "sometimes",
+    "somewhat",
+    "rather",
+    "quite",
+    "fairly",
+    "relatively",
+    "arguably",
+    "presumably",
+    "supposedly",
+    "ostensibly",
+    "tend to",
+    "tends to",
+    "tended to",
+    "in some cases",
+    "in many cases",
+    "for the most part",
+    "should probably",
+    "would likely",
+    "could potentially"
   ],
-  "passive_auxiliaries": ["be", "is", "am", "are", "was", "were", "been", "being"],
+  "passive_auxiliaries": [
+    "be",
+    "is",
+    "am",
+    "are",
+    "was",
+    "were",
+    "been",
+    "being"
+  ],
   "modifier_budget_ratio": 0.25,
   "max_sentence_word_count": 30,
-  "parallel_structure_anchors": ["imperative_verb", "gerund", "noun_phrase", "interrogative"],
+  "parallel_structure_anchors": [
+    "imperative_verb",
+    "gerund",
+    "noun_phrase",
+    "interrogative"
+  ],
   "negative_trigger_keywords": [
-    "marketing", "launch announcement", "pitch", "tagline",
-    "fiction", "novel", "story", "poem",
-    "casual", "slack message", "DM", "tweet",
-    "persuasive essay", "op-ed"
+    "marketing",
+    "launch announcement",
+    "pitch",
+    "tagline",
+    "fiction",
+    "novel",
+    "story",
+    "poem",
+    "casual",
+    "slack message",
+    "DM",
+    "tweet",
+    "persuasive essay",
+    "op-ed"
   ],
   "listicle_patterns": [
     "rests on \\d+ premise",
@@ -50,10 +98,21 @@
       "this_is_min": 3,
       "abstract_subject_min_run": 4,
       "abstract_subject_stoplist": [
-        "system", "protocol", "ledger", "truth", "freedom",
-        "pipeline", "result", "process", "thing", "framework",
-        "approach", "principle"
-      ]
+        "system",
+        "protocol",
+        "ledger",
+        "truth",
+        "freedom",
+        "pipeline",
+        "result",
+        "process",
+        "thing",
+        "framework",
+        "approach",
+        "principle"
+      ],
+      "antithesis_closer_min": 3,
+      "repeated_antithesis_min_count": 2
     }
   }
 }

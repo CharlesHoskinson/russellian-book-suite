@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "chapter-id": {
+      "type": "string"
+    },
+    "cited-spans": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "claim-id": {
+            "type": "string"
+          },
+          "span-id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "span-id",
+          "claim-id"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "code-links": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "claim-id": {
+            "type": "string"
+          },
+          "code-id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim-id",
+          "code-id"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "contradiction-alerts": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "draft-atomic-facts": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "claim_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "novel_draft_claim": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "claim_id",
+          "novel_draft_claim"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "proof-traces": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "prose": {
+      "type": "string"
+    },
+    "schema": {
+      "const": "kg-prose-side-products/v1"
+    },
+    "selected-claims": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "claim-id": {
+            "type": "string"
+          },
+          "source-span-ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim-id"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "task-id": {
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "writer-assertions": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "asserts_claim": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "citation_check_status": {
+            "enum": [
+              "full",
+              "partial",
+              "none",
+              null
+            ]
+          },
+          "cites_span": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "sentence_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "asserts_claim",
+          "cites_span",
+          "sentence_text"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "task-id",
+    "chapter-id",
+    "prose",
+    "selected-claims",
+    "cited-spans",
+    "contradiction-alerts",
+    "warnings",
+    "proof-traces",
+    "code-links",
+    "writer-assertions",
+    "draft-atomic-facts"
+  ],
+  "type": "object"
+}

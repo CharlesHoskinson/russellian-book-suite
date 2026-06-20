@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from ._positions_io import Position, read_positions
 from ._stance import Stance
+from .._staleness import check_positions_fresh
 
 
 _STANCE_GLYPH = {
@@ -69,6 +70,7 @@ def _render_one(rule_id: str, rows: list[Position]) -> str:
 
 
 def render_per_rule(positions_path: Path, out_dir: Path) -> int:
+    check_positions_fresh(positions_path)
     rows = read_positions(positions_path)
     grouped: dict[str, list[Position]] = defaultdict(list)
     for p in rows:

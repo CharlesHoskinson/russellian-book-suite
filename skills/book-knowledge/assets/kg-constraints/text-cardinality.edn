@@ -1,0 +1,27 @@
+;; text-cardinality — a claim must have at least one canonical-text value
+;; (REQ-KG-003 / REQ-KG-012).
+;;
+;; Booklogic port of the schema:text minCount constraint in assets/shapes.ttl:
+;;   sh:path schema:text ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string.
+;;
+;; minCount >= 1 lowers to a NEGATION: a claim is a violation when NO claim row
+;; with that id carries a non-null canonical-text. Both :not triples share the
+;; entity var ?c2 so they collapse to one negated group; ?focus is bound by the
+;; positive :where, while ?text is FREE — it appears only in the :not. The
+;; compiler lifts a free-var negation group into a named ``<name>_present_<n>``
+;; helper rule guarded by !is_null(text), then negates it over ?focus. This is
+;; required because a plain inline ``not *claim{id: focus, canonical_text: text}``
+;; would bind ?text to a NULL cell and wrongly exclude the absent-value row (see
+;; scripts/booklogic_kg._compile_constraint_negations). An empty-string value is
+;; non-null, so it conforms — matching SHACL minCount "a value EXISTS".
+;;
+;; MESSAGE NOTE: pyshacl auto-generates the minCount message ("Less than 1
+;; values ..."); EXACT pyshacl-message parity is a P2.3 concern. The human
+;; message below is clear and stable for P2.2.
+(defconstraint :text-cardinality
+  :message "Claim must have a canonical-text value (minCount 1)."
+  :path "https://schema.org/text"
+  :component "http://www.w3.org/ns/shacl#MinCountConstraintComponent"
+  :where [[?c :claim/id ?focus]]
+  :not   [[?c2 :claim/id ?focus]
+          [?c2 :claim/canonical-text ?text]])

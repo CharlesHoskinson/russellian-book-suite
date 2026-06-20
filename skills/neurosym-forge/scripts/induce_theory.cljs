@@ -21,6 +21,7 @@
    (REQ-INDUCE-056) are wired in follow-on commits."
   (:require [cljs.reader :as edn]
             [clojure.string :as str]
+            [_induction-grammar :as grammar]
             ["fs" :as fs]
             ["path" :as path]))
 
@@ -134,7 +135,7 @@
         (mapv (fn [[[p1 p2] support]]
                 (let [edn-str (str "(defconstraint :induced/" p1 "-" p2 "\n"
                                    "  :backend :z3\n"
-                                   "  :assert (implies (:" p1 " ?d) (:" p2 " ?d))\n"
+                                   "  :assert (=> (:" p1 " ?d) (:" p2 " ?d))\n"
                                    "  :on-unsat {:defect :D-induced-h :severity :advisory\n"
                                    "             :message \"Horn-body co-occurrence: " p1 " → " p2 "\"})")]
                   {:id (str "horn-" p1 "-" p2)
@@ -151,31 +152,49 @@
 
 ;; ----- Source 2: Popper-style typed search (REQ-INDUCE-051(b)) -----
 
+(defn- return-inner-sort
+  "Strip a one-layer container wrapper from a return sort, mirroring booklogic
+   return-inner-sort. A scalar keyword passes through; [:vector T] / [:set T]
+   yields the inner sort T."
+  [ret]
+  (if (and (vector? ret) (#{:vector :set} (first ret)))
+    (second ret)
+    ret))
+
 (defn popper-search
   "Typed top-down enumeration up to 4 literals per rule.
    For each pair of :real-returning predicates over the same binding sort,
-   emit (approx= (:P ?d) (:Q ?d) :tolerance ε); Phase X fills ε."
+   emit (approx= (:P ?d) (:Q ?d) :tolerance ε); Phase X fills ε.
+   Container returns [:vector :real] / [:set :real] count as real-valued."
   [schema]
   (let [preds (:predicates schema)
-        real-preds (filter (fn [[_ sig]] (= (:return sig) :real)) preds)
+        real-preds (filter (fn [[_ sig]] (= (return-inner-sort (:return sig)) :real)) preds)
         by-sort (reduce (fn [acc [pname sig]]
                           (update acc (vec (or (:arg-sorts sig) []))
                                   (fnil conj []) (name pname)))
                         {}
                         (mapv (fn [[k v]] [k v]) real-preds))
         cap (per-source-cap)]
-    (loop [groups (vals by-sort)
+    (loop [groups (seq by-sort)
            out []]
       (cond
         (empty? groups) (vec out)
         (>= (count out) cap) (vec out)
+        ;; Parity with Python popper_search: skip predicates with no
+        ;; :arg-sorts (grouped under the empty key) and groups of fewer
+        ;; than two predicates. Without the (seq sort-key) guard the cljs
+        ;; and Python implementations produce different candidate sets.
+        (let [[sort-key names0] (first groups)]
+          (or (empty? sort-key) (< (count names0) 2)))
+        (recur (rest groups) out)
         :else
-        (let [names (sort (first groups))
+        (let [[_sort-key names0] (first groups)
+              names (sort names0)
               pairs (for [i (range (count names))
                           j (range (inc i) (count names))]
                       [(nth names i) (nth names j)])
               new-cands (for [[p1 p2] pairs
-                              :let [edn-str (str "(defconstraint :induced/" p1 "~" p2 "\n"
+                              :let [edn-str (str "(defconstraint :induced/" p1 "-approx-" p2 "\n"
                                                  "  :backend :z3\n"
                                                  "  :assert (approx= (:" p1 " ?d) (:" p2 " ?d) :tolerance 0.05)\n"
                                                  "  :on-unsat {:defect :D-induced-p :severity :advisory\n"
@@ -208,7 +227,7 @@
           cited (vec (sort (distinct (map :claim-id cluster))))
           edn-str (str "(defconstraint :induced/llm-" pred "\n"
                        "  :backend :z3\n"
-                       "  :assert (positive (:" pred " ?d))\n"
+                       "  :assert (> (:" pred " ?d) 0)\n"
                        "  :on-unsat {:defect :D-induced-l :severity :advisory\n"
                        "             :message \"LLM-proposed: " pred " > 0\"})")]
       {:id (str "llm-" pred)
@@ -359,6 +378,30 @@
                      :corpus-size corpus-size
                      :candidates queue})))
 
+;; ----- grammar gate (REQ-INDUCE-040) -----
+
+(defn grammar-gate
+  "Gate each candidate through the grammar enforcer before persistence.
+   Conforming candidates are returned as survivors; non-conforming ones
+   are moved to rejected with the enforcer's grammar-fail tag as the
+   :rejection-reason. This is the FIRST gate before any solver call —
+   non-conforming forms never reach Z3."
+  [candidates schema]
+  (reduce (fn [{:keys [survivors rejected]} c]
+            (let [form (try (edn/read-string (:edn c)) (catch :default _ nil))
+                  result (if (nil? form)
+                           {:ok false :tag :grammar-fail/non-edn}
+                           (grammar/grammar-conforming? form schema))]
+              (if (:ok result)
+                {:survivors (conj survivors c) :rejected rejected}
+                {:survivors survivors
+                 :rejected (conj rejected
+                                 (-> c
+                                     (assoc :status :rejected)
+                                     (assoc :rejection-reason (:tag result))))})))
+          {:survivors [] :rejected []}
+          candidates))
+
 ;; ----- main -----
 
 (defn -main
@@ -377,7 +420,13 @@
                 :spent-usd (:spent-usd llm-result)
                 :halted? (:halted? llm-result)}
         all (vec (concat horn-cands popper-cands llm-cands))
-        {:keys [survivors rejected]} (dedup-with-rejection-log all)]
+        {:keys [survivors rejected]} (dedup-with-rejection-log all)
+        ;; Grammar gate (REQ-INDUCE-040): every surviving candidate is
+        ;; gated before persistence; non-conforming forms are rejected
+        ;; with the grammar-fail tag rather than persisted.
+        gated (grammar-gate survivors schema)
+        survivors (:survivors gated)
+        rejected (vec (concat rejected (:rejected gated)))]
     (persist-queue project-root survivors rejected (count atoms))
     (persist-budget project-root budget)
     (println (str "[induce-theory] " (count survivors) " candidates, "
@@ -386,15 +435,18 @@
                   (if-let [l (:limit-usd budget)] (str "$" l) "unbounded")))))
 
 ;; When invoked as `nbb <file> <args>`, nbb runs the file top-to-bottom and
-;; does NOT auto-call -main. Inspect argv: if argv[2] is a file path matching
-;; this script, drop the leading runtime args and invoke -main with the rest.
+;; does NOT auto-call -main. Scan argv for the entry that is this script's
+;; path (it can appear after runtime flags like `--classpath scripts`, so a
+;; fixed argv index is brittle), then invoke -main with everything after it.
 ;; When invoked as `nbb -m induce-theory <args>`, nbb's main resolver calls
-;; -main directly, so this branch SHOULD NOT also fire — argv[2] is "-m" or
-;; the namespace name, not a file path.
+;; -main directly and no argv entry ends in induce_theory.cljs, so this
+;; branch does NOT also fire.
 (let [argv (vec (.-argv js/process))
-      script-arg (get argv 2)
-      is-file-mode? (and script-arg
-                         (or (.endsWith script-arg "induce_theory.cljs")
-                             (.endsWith script-arg "induce_theory.cljc")))]
-  (when is-file-mode?
-    (apply -main (drop 3 argv))))
+      script-idx (->> (map-indexed vector argv)
+                      (some (fn [[i a]]
+                              (when (and (string? a)
+                                         (or (.endsWith a "induce_theory.cljs")
+                                             (.endsWith a "induce_theory.cljc")))
+                                i))))]
+  (when script-idx
+    (apply -main (drop (inc script-idx) argv))))

@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import secrets
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import jsonschema
@@ -42,12 +44,23 @@ def read_counter_claims(workspace_root: Path) -> list[dict]:
     return read_jsonl(_path(workspace_root))
 
 
-def next_counter_claim_id(workspace_root: Path) -> str:
-    """Generate cc-YYYY-NNNNNN; NN is hex random for collision tolerance."""
-    import secrets
-    from datetime import datetime, timezone
+def next_counter_claim_id(workspace_root: Path,
+                          reserved: set[str] | None = None) -> str:
+    """Generate a fresh cc-YYYY-XXXXXX id that does not collide.
+
+    Checks the generated id against ids already in the counter-claim ledger and
+    against `reserved` (ids minted earlier in the same batch but not yet
+    written), regenerating on collision. Without this, two counter-claims could
+    share an id and be conflated under latest-per-id dedup in propagation.
+    """
     year = datetime.now(timezone.utc).year
-    return f"cc-{year}-{secrets.token_hex(3)}"
+    taken = {r["id"] for r in read_counter_claims(workspace_root) if "id" in r}
+    if reserved:
+        taken |= reserved
+    while True:
+        candidate = f"cc-{year}-{secrets.token_hex(3)}"
+        if candidate not in taken:
+            return candidate
 
 
 def _main(argv: list[str]) -> int:

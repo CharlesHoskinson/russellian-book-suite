@@ -290,6 +290,70 @@ def test_d11_failed_entailment_picked_up_from_entailment_results_json(stage_rele
     assert summary["by_class"].get("D11") == 2
 
 
+def test_d11_binds_explicit_claim_id_from_entailment_entry(stage_release):
+    # The entailment producer addresses paragraphs/supports-nodes by human
+    # slugs, not clm tokens, so regex recovery yields no claim_id. When the
+    # entry carries an explicit claim_id it must be bound onto the D11 defect
+    # so propose_writeback can drive the unsupported_claim transition.
+    workspace, version = stage_release("smoke_clean.md", "smoke_clean.html")
+    _write_qa_json(workspace, "entailment-results.json", {
+        "results": [
+            {
+                "paragraph_id": "ch-05-p12",
+                "supports": "history-shapes-government",
+                "verdict": "contradicts",
+                "claim_id": "clm-2026-000123",
+            },
+        ],
+    })
+    defects, _summary = lint_artifact(workspace, version)
+    d11 = [d for d in defects if d.class_ == "D11"]
+    assert len(d11) == 1
+    assert d11[0].claim_id == "clm-2026-000123"
+
+
+def test_d11_bound_claim_drives_unsupported_claim_transition(stage_release):
+    # End-to-end: a D11 carrying an explicit claim_id whose ledger status is
+    # "verified" must produce the documented unsupported_claim transition,
+    # which it cannot do without the bound claim_id (propose_writeback drops
+    # defects lacking one).
+    from scripts.transition_rules import map_ticket_to_proposed_transition
+
+    workspace, version = stage_release("smoke_clean.md", "smoke_clean.html")
+    claims_dir = workspace / "claims"
+    claims_dir.mkdir(parents=True, exist_ok=True)
+    (claims_dir / "ledger.jsonl").write_text(
+        json.dumps({"claim_id": "clm-2026-000123", "status": "verified"}) + "\n",
+        encoding="utf-8",
+    )
+    _write_qa_json(workspace, "entailment-results.json", {
+        "results": [
+            {
+                "paragraph_id": "ch-05-p12",
+                "supports": "history-shapes-government",
+                "verdict": "contradicts",
+                "claim_id": "clm-2026-000123",
+            },
+        ],
+    })
+    defects, _summary = lint_artifact(workspace, version)
+    d11 = [d for d in defects if d.class_ == "D11"][0]
+    assert d11.claim_id == "clm-2026-000123"
+    assert d11.claim_current_status == "verified"
+
+    ticket = {
+        "class": d11.class_,
+        "claim_id": d11.claim_id,
+        "claim_current_status": d11.claim_current_status,
+        "id": d11.id,
+    }
+    transition = map_ticket_to_proposed_transition(ticket)
+    assert transition is not None
+    assert transition["claim_id"] == "clm-2026-000123"
+    assert transition["from"] == "verified"
+    assert transition["to"] == "disputed"
+
+
 def test_d12_unadvanced_sub_argument_picked_up(stage_release):
     workspace, version = stage_release("smoke_clean.md", "smoke_clean.html")
     _write_qa_json(workspace, "supports-defects.json", {
@@ -390,3 +454,22 @@ def test_d13_disabled_explicitly(tmp_path: Path) -> None:
         "explanation": "contradiction",
     }), encoding="utf-8")
     assert lint_d13_verification_unsat(tmp_path) == []
+
+
+# 5.1: gate exit-code coverage for the CLI entry point.
+def test_main_exits_1_on_critical_defect(stage_release):
+    import json as _json
+    from scripts.lint_artifact import main
+    workspace, version = stage_release("d1_clean.md")
+    (workspace / "qa").mkdir(exist_ok=True)
+    (workspace / "qa" / "datalog-defects.json").write_text(
+        _json.dumps({"defects": [{"class": "D10", "severity": "critical",
+                                  "detail": "transitive contradiction"}]}),
+        encoding="utf-8")
+    assert main(["lint_artifact", str(workspace), version]) == 1
+
+
+def test_main_exits_0_when_clean(stage_release):
+    from scripts.lint_artifact import main
+    workspace, version = stage_release("d1_clean.md")
+    assert main(["lint_artifact", str(workspace), version]) == 0

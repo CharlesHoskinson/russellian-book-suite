@@ -11,9 +11,12 @@ dependencies = [
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
     "rdflib>=7.0,<9.0",
-    "pyshacl>=0.26,<1.0",
     "spacy>=3.7,<4.0",
     "playwright>=1.45,<2.0",
+    # P5.1: query_chapter_evidence reads the claim ledger via book-knowledge's Cozo
+    # store (project_ledger_cozo + a defquery), not by parsing the TriG dataset.
+    "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
 ]
 
 [project.optional-dependencies]
@@ -23,12 +26,11 @@ ci = [
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
     "rdflib>=7.0,<9.0",
-    "pyshacl>=0.26,<1.0",
     "spacy>=3.7,<4.0",
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
 dev = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
 ]
 
 [tool.setuptools]
@@ -42,5 +44,4 @@ markers = [
 addopts = "-v"
 filterwarnings = [
     "ignore::DeprecationWarning:rdflib.*",
-    "ignore::DeprecationWarning:pyshacl.*",
 ]

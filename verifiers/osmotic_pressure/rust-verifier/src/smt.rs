@@ -19,7 +19,7 @@
 //! explanation names which subject(s) drove the outcome — a single
 //! intractable subject no longer poisons evidence from the rest.
 
-use crate::ir::{Atom, ClaimId, CorpusDefect, Error, Verdict};
+use crate::ir::{Atom, Claim, ClaimId, CorpusDefect, Error, Verdict};
 
 #[cfg(feature = "smt")]
 use std::collections::BTreeMap;
@@ -219,6 +219,9 @@ pub fn check_all(formulas: &[(ClaimId, Atom)]) -> Result<Verdict, Error> {
         }
     }
     verdict.corpus_defects = corpus_defects;
+    // H-03: carry the asserted claims out so lib.rs's kg block ingests
+    // real claims instead of an empty slice (claim_count was always 0).
+    verdict.verified = collect_verified(formulas);
     Ok(verdict)
 }
 
@@ -421,10 +424,19 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
         }
         let predicate = match atom.get(":predicate") {
             Some(Edn::Key(k)) => k.clone(),
+            // The contract permits a string-form predicate atom; accept
+            // it alongside the keyword form (mirrors adsc/epidemiology).
+            // Without this arm a string predicate falls through to
+            // `_ => continue`, the atom is silently skipped, the
+            // partition is under-constrained, and a real contradiction
+            // comes out a false `:sat`. The value flows through
+            // `canonical_var_name` below just like the keyword form.
+            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let subject = match atom.get(":subject") {
             Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
             _ => continue,
         };
         let var_name = crate::canonical::canonical_var_name(&predicate, &subject);
@@ -490,11 +502,23 @@ fn bind_atoms(solver: &Solver, atoms: &[(ClaimId, Atom)]) -> Result<Vec<ClaimId>
                     z3_var.eq(&Int::from_i64(n_i64))
                 }
             }
+            // The fixed 1e6 scale is a known soundness limitation: values
+            // with more than ~6 fractional digits are rounded. Overflow of
+            // the scaled numerator past i64 is rejected rather than letting
+            // an `as i64` cast saturate to i64::MAX and silently corrupt
+            // the encoded value.
             Edn::Double(_) => {
                 let v = value.to_float().unwrap_or(0.0);
                 let z3_var = Real::new_const(var_name.as_str());
                 let scale: i64 = 1_000_000;
-                let numerator = (v * scale as f64).round() as i64;
+                let scaled = (v * scale as f64).round();
+                if !scaled.is_finite() || scaled > i64::MAX as f64 || scaled < i64::MIN as f64 {
+                    return Err(Error::Smt(format!(
+                        "double value {v} out of range for the fixed 1e6-scale \
+                         rational encoding (scaled numerator overflows i64)"
+                    )));
+                }
+                let numerator = scaled as i64;
                 let lit = Real::from_rational_str(&numerator.to_string(), &scale.to_string())
                     .ok_or_else(|| {
                         Error::Smt(format!("from_rational_str({numerator}, {scale}) failed"))
@@ -529,6 +553,46 @@ fn atom_subject(atom: &Atom) -> Option<String> {
         Some(Edn::Str(s)) => Some(s.trim_start_matches(':').to_string()),
         _ => None,
     }
+}
+
+/// H-03: the claims the kg layer should ingest — the `:expression`
+/// atoms that carry a bindable `:predicate`, `:subject`, and `:value`
+/// (the same structural gate `bind_atoms` applies before asserting an
+/// atom into the solver).
+///
+/// Computed once as a pure function of the parsed `formulas` rather than
+/// threaded out of every partition's `bind_atoms` call: the partitioned
+/// engine binds each atom in BOTH its per-subject partition and the
+/// corpus partition, so collecting from the bind walk would double-count.
+/// This pure pass counts each asserted claim exactly once.
+///
+/// Atoms have no `:source` key in the IR (only
+/// :id/:kind/:predicate/:subject/:value), so `source` is empty; only the
+/// claim id and count matter to the kg `claim {id, source}` relation.
+#[cfg(feature = "smt")]
+fn collect_verified(formulas: &[(ClaimId, Atom)]) -> Vec<Claim> {
+    use edn_rs::Edn;
+    let mut out: Vec<Claim> = Vec::with_capacity(formulas.len());
+    for (id, atom) in formulas {
+        let kind = match atom.get(":kind") {
+            Some(Edn::Key(k)) => k.clone(),
+            Some(Edn::Str(s)) => s.clone(),
+            _ => String::new(),
+        };
+        if kind != ":expression" {
+            continue;
+        }
+        let has_predicate = matches!(atom.get(":predicate"), Some(Edn::Key(_) | Edn::Str(_)));
+        let has_subject = matches!(atom.get(":subject"), Some(Edn::Key(_) | Edn::Str(_)));
+        let has_value = atom.get(":value").is_some();
+        if has_predicate && has_subject && has_value {
+            out.push(Claim {
+                id: id.clone(),
+                source: String::new(),
+            });
+        }
+    }
+    out
 }
 
 /// Collapse N per-subject verdicts + 1 shared verdict into a single
@@ -993,5 +1057,42 @@ mod tests {
         // A's :sat did not get swallowed — the explanation does NOT
         // include A (only the :unknown subjects are named).
         assert!(!v.explanation.contains("A: sat"));
+    }
+
+    // The contract permits a STRING-form `:predicate` atom (not just a
+    // `:`-keyword). `bind_atoms` must bind it; otherwise the atom falls
+    // through `_ => continue`, the partition is under-constrained, and a
+    // real contradiction comes out a false `:sat`.
+    //
+    // Two atoms pin the same string predicate/subject pair to two
+    // distinct integers. If the string-form arm binds them, the
+    // conjunction on the shared Z3 symbol `some-string-pred_s` is
+    // `:unsat`. Without the arm both atoms are skipped and Z3 reports
+    // `:sat`.
+    #[test]
+    fn string_form_predicate_binds_and_contradiction_is_unsat() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let prev = std::env::var("VERIFIER_SOLVER_TIMEOUT_MS").ok();
+        unsafe {
+            std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", "30000");
+        }
+        let edn = r#"{:version 1 :atoms [
+            {:id "s1" :kind :expression :predicate "some-string-pred" :subject "s" :value 5}
+            {:id "s2" :kind :expression :predicate "some-string-pred" :subject "s" :value 6}
+        ]}"#;
+        let formulas = parse_formulas(edn).expect("parse_formulas");
+        let verdict = check_all(&formulas).expect("check_all");
+        unsafe {
+            match prev {
+                Some(v) => std::env::set_var("VERIFIER_SOLVER_TIMEOUT_MS", v),
+                None => std::env::remove_var("VERIFIER_SOLVER_TIMEOUT_MS"),
+            }
+        }
+        assert_eq!(
+            verdict.status, "unsat",
+            "a string-form predicate atom must bind; the contradiction \
+             5 != 6 on `some-string-pred_s` must be unsat; got {}",
+            verdict.status,
+        );
     }
 }

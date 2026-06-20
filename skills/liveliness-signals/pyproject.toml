@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "liveliness-signals"
+version = "0.1.0"
+description = "Advisory positive prose signals + corpus profiler for the HFR v2 suite"
+requires-python = ">=3.11"
+dependencies = ["spacy>=3.7,<4.0"]
+
+[project.optional-dependencies]
+ci = ["spacy>=3.7,<4.0", "pyyaml>=6.0,<7.0", "jsonschema>=4.21,<5.0", "pytest>=8.0,<10.0", "click>=8", "typer>=0.9"]
+dev = ["pytest>=8.0,<10.0", "pyyaml>=6.0,<7.0", "click>=8", "typer>=0.9"]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "windows_canary: platform-sensitive test that must run on Windows",
+  "needs_model: test requires the spaCy en_core_web_sm model",
+]
+addopts = "-q"

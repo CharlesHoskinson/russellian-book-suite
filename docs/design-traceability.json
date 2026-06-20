@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "links": [
+    {
+      "decision_source": "docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md",
+      "decision_line": 229,
+      "kind": "decision-constrains-code",
+      "target_type": "code-path",
+      "target": "scripts_detect_conflicts_detect_conflicts"
+    },
+    {
+      "decision_source": "docs/superpowers/specs/2026-06-03-carve-completion-design.md",
+      "decision_line": 16,
+      "kind": "decision-constrains-code",
+      "target_type": "code-path",
+      "target": "sibling_skills_loader_load_skill_api"
+    }
+  ]
+}

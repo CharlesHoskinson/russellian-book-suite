@@ -1,0 +1,75 @@
+{
+  "chapter-id": "ch-01",
+  "chapter-uri": "chapter:ch-01",
+  "code-links": {
+    "clm-2026-000001": [
+      {
+        "code-id": "code-projector"
+      }
+    ]
+  },
+  "dominant-communities": [
+    {
+      "community-id": "community-method",
+      "score": 0.91
+    }
+  ],
+  "flags": [],
+  "load-bearing-claims": [
+    {
+      "claim-id": "clm-2026-000001",
+      "confidence": 0.95,
+      "source-span-ids": [
+        "span-verified-1"
+      ],
+      "status": "verified",
+      "text": "Claim-first retrieval improves attribution review."
+    },
+    {
+      "claim-id": "clm-2026-000002",
+      "confidence": 0.55,
+      "source-span-ids": [
+        "span-disputed-1"
+      ],
+      "status": "disputed",
+      "text": "The flat list baseline preserves fewer anchors."
+    },
+    {
+      "claim-id": "clm-2026-000003",
+      "confidence": 0.7,
+      "source-span-ids": [
+        "span-failed-1"
+      ],
+      "status": "verified",
+      "text": "The unsupported draft sentence overstates the evidence."
+    }
+  ],
+  "schema": "chapter-retrieval-bundle/v1",
+  "source-span-anchors": [
+    {
+      "claim-id": "clm-2026-000001",
+      "doc-id": "doc-001",
+      "locator-text": "Claim-first retrieval improves attribution review.",
+      "node-id": "node-001",
+      "page-index": 1,
+      "span-id": "span-verified-1"
+    },
+    {
+      "claim-id": "clm-2026-000002",
+      "doc-id": "doc-002",
+      "locator-text": "The flat list baseline preserves fewer anchors.",
+      "node-id": "node-002",
+      "page-index": 1,
+      "span-id": "span-disputed-1"
+    },
+    {
+      "claim-id": "clm-2026-000003",
+      "doc-id": "doc-003",
+      "locator-text": "The cited source only says the draft sentence was weakly supported.",
+      "node-id": "node-003",
+      "page-index": 1,
+      "span-id": "span-failed-1"
+    }
+  ],
+  "unresolved-rebuttals": []
+}

@@ -72,14 +72,33 @@ def run_sentinel(
         return SentinelOutcome("reject", "locator-not-found", {"locator": content_locator(candidate["paragraph_text"])})
     corrected = found_line if abs(found_line - candidate["line_hint"]) > 50 else None
 
-    # Check 4: dedup against existing index and batch
+    # Check 4: dedup against existing index and batch on TWO independent keys, so a
+    # paragraph already in the corpus is caught no matter which fields the stored entry
+    # carries:
+    #   (a) canonical locator = content_locator(paragraph_text). Entries appended by the
+    #       pipeline persist that exact key under "content_locator" (see append_to_index),
+    #       so we compare directly with NO re-derivation and NO fallback to rhetorical_move
+    #       (a lesson string is not a paragraph prefix; that only produced phantom keys).
+    #   (b) (source, line_hint) position key. The 50 committed seed entries predate the
+    #       content_locator field and carry only id/source/line_hint/rhetorical_move/tags;
+    #       they would otherwise be undedupable (finding sentinel-seed-entries-have-no-locator).
+    #       Both seeds and candidates always carry source+line_hint, so this protects the
+    #       pre-seeded corpus today without needing offline source text to backfill.
     idx = read_index(existing_index_path)
     existing_locators = {
-        content_locator(e.get("content_locator") or e.get("rhetorical_move", "")) for e in idx["paragraphs"]
+        e["content_locator"] for e in idx["paragraphs"] if e.get("content_locator")
+    }
+    existing_positions = {
+        (e["source"], e["line_hint"])
+        for e in idx["paragraphs"]
+        if e.get("source") is not None and e.get("line_hint") is not None
     }
     cand_locator = content_locator(candidate["paragraph_text"])
+    cand_position = (candidate["source_id"], candidate["line_hint"])
     if cand_locator in existing_locators or cand_locator in batch_seen_locators:
         return SentinelOutcome("reject", "duplicate", {"locator": cand_locator})
+    if cand_position in existing_positions:
+        return SentinelOutcome("reject", "duplicate", {"position": list(cand_position)})
 
     # Check 5: rhetorical_move_tag in controlled vocabulary
     vocabulary = _load_vocabulary(vocabulary_path)

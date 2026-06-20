@@ -9,6 +9,9 @@ from scripts.exceptions import (
     NotAPdf, OfflineMiss, ArxivIdNotFound,
 )
 from scripts.adapters import arxiv, openalex, semantic_scholar, doi
+from scripts.extract import (
+    extract_paragraphs, html_to_markdown, markdown_to_paragraphs, Extraction,
+)
 
 __all__ = [
     "fetch", "Page",
@@ -16,4 +19,5 @@ __all__ = [
     "FetchFailed", "RateLimitExceeded", "BlockedRequest",
     "NotAPdf", "OfflineMiss", "ArxivIdNotFound",
     "arxiv", "openalex", "semantic_scholar", "doi",
+    "extract_paragraphs", "html_to_markdown", "markdown_to_paragraphs", "Extraction",
 ]

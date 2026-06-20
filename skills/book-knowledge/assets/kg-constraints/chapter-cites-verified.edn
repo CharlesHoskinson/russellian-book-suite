@@ -1,0 +1,33 @@
+;; chapter-cites-verified — a chapter section must only cite VERIFIED claims
+;; (REQ-KG-003 / REQ-KG-012).
+;;
+;; Booklogic port of the tbf:ChapterSectionShape sh:sparql constraint in
+;; assets/shapes.ttl:
+;;   SELECT $this ?claim WHERE {
+;;     $this tbf:usesClaim ?claim .
+;;     ?claim tbf:status ?status .
+;;     FILTER (?status != "verified")
+;;   }
+;;
+;; The :where binds the section id (?focus), joins its :uses-claim-id to a
+;; claim's id, and reads that claim's status; the :filter fires when the cited
+;; claim's status is NOT "verified". ?focus is bound positive and is the
+;; violation focus node. A section citing a verified claim conforms; a section
+;; citing a proposed/disputed/etc. claim fires.
+;;
+;; The :message and :path are taken EXACTLY from the sh:sparql shape and the C0.2
+;; golden (tests/golden/kg/shacl_report_violating.json): the sh:sparql node has
+;; an sh:message but no sh:path, so pyshacl reports an empty path "".
+;;
+;; DATA SOURCE NOTE: no production projector emits chapter-section rows yet
+;; (project_ledger loads :chapter-section empty, like :chapter-wiki-ref), so this
+;; constraint clears on the bermuda workspace. The violating parity test loads
+;; synthetic rows directly. A real chapter-section projector is future work.
+(defconstraint :chapter-cites-verified
+  :message "Chapter sections must only cite verified claims."
+  :path ""
+  :where [[?s :chapter-section/id ?focus]
+          [?s :chapter-section/uses-claim-id ?claim-id]
+          [?c :claim/id ?claim-id]
+          [?c :claim/status ?status]]
+  :filter [[!= ?status "verified"]])

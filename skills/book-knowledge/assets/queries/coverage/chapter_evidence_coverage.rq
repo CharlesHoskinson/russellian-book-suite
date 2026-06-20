@@ -1,8 +1,0 @@
-PREFIX tbf: <https://example.org/book-knowledge#>
-
-SELECT ?chapter (COUNT(DISTINCT ?claim) AS ?verified_count) WHERE {
-  ?chapter a tbf:Chapter .
-  ?claim tbf:supportsChapter ?chapter ;
-         tbf:status "verified" .
-}
-GROUP BY ?chapter

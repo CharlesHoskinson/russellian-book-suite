@@ -17,7 +17,7 @@ Cited claims: <claim_id list>
 Forecast density: <verified claims per 1000 words>
 ```
 
-The "Depends on" line names earlier sections. The "Establishes" line lists what the next sections may assume. The "Cited claims" line names entries from `query_chapter_evidence(workspace, chapter_id)`. The "Forecast density" line predicts the section's contribution to the chapter-wide evidence density.
+The "Depends on" line names earlier sections. The "Establishes" line lists what the next sections may assume. The "Cited claims" line names anchored support claims from the chapter bundle scaffold. The "Forecast density" line predicts the section's contribution to the chapter-wide evidence density.
 
 ## Sideways-drift detection
 
@@ -76,7 +76,7 @@ After the outline is written, drafting halts. The user is shown:
 1. The outline file path.
 2. The section-by-section evidence-density forecast.
 3. The must-include coverage map.
-4. The unallocated verified claims (those returned by `query_chapter_evidence` but not assigned to any section).
+4. The unallocated anchored support claims from the chapter bundle scaffold.
 
 The user replies with `approve`, `revise <instruction>`, or `abort`. Only `approve` advances the pipeline to Stage 4. `revise` regenerates the outline with the named instruction; the gate then re-fires. `abort` stops the pipeline without writing further artifacts.
 

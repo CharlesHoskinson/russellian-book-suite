@@ -1,4 +1,15 @@
-"""Run SPARQL competency queries against the workspace dataset."""
+"""Run competency queries against the workspace (Cozo, REQ-KG-006).
+
+The eight homoiconic booklogic EDN ports (``assets/kg-queries/<name>.edn``) are
+compiled to CozoScript and run over a projection of the claim ledger into an
+in-memory Cozo store. The legacy SPARQL ``.rq`` path was removed in P5.4a-2.
+
+Each query returns the same shape — a list of row tuples (cells stringified) — so
+the defeasible / BLOCKING gate is uniform. A query's class
+(``coverage``/``consistency``/``defeasible``) and, for defeasible queries, its
+``severity`` + ``exception_queries`` come from ``assets/kg-queries/_meta.yaml``
+(the manifest that replaced the old ``queries/<class>/`` tree + its _meta.yaml).
+"""
 from __future__ import annotations
 
 import sys
@@ -6,91 +17,112 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from rdflib import Dataset
 
 from .workspace import WorkspaceLayout
 
 _ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
-
-QUERY_CLASSES = ("coverage", "consistency", "defeasible")
+_SCHEMA_PATH = _ASSETS_ROOT / "kg-schema.edn"
+_EDN_QUERIES_DIR = _ASSETS_ROOT / "kg-queries"
 
 # When False, defeasible query fires are recorded as warnings but never escalate
 # to failure. When True, severity=critical defeasible fires hard-gate the run.
-# Promoted to True after the bermuda Phase 4 run validated no false positives
-# on a clean ledger (commit history in bermuda/fix-the-book branch).
 BLOCKING_DEFEASIBLE = True
 
 
+def _load_manifest() -> dict:
+    """Per-query class/severity manifest (assets/kg-queries/_meta.yaml)."""
+    path = _EDN_QUERIES_DIR / "_meta.yaml"
+    if not path.exists():
+        return {}
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
 def discover_queries(assets_root: Path) -> list[tuple[str, str, Path]]:
-    """Returns (class, name, path) for every .rq under assets/queries/."""
-    base = assets_root / "queries"
+    """Return (class, name, edn_path) for every ``kg-queries/<name>.edn``.
+
+    The class comes from ``kg-queries/_meta.yaml`` (default ``coverage``); manifest
+    helper files (``_meta.yaml`` etc., ``_``-prefixed) are skipped.
+    """
+    edn_dir = assets_root / "kg-queries"
+    manifest = {}
+    meta_path = edn_dir / "_meta.yaml"
+    if meta_path.exists():
+        manifest = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
     out: list[tuple[str, str, Path]] = []
-    for cls in QUERY_CLASSES:
-        cls_dir = base / cls
-        if not cls_dir.exists():
+    for f in sorted(edn_dir.glob("*.edn")):
+        if f.stem.startswith("_"):
             continue
-        for f in sorted(cls_dir.glob("*.rq")):
-            out.append((cls, f.stem, f))
-    # Back-compat: flat .rq files at the top of queries/.
-    for f in sorted(base.glob("*.rq")):
-        out.append(("coverage", f.stem, f))
+        entry = manifest.get(f.stem)
+        # Fail LOUD on a missing/incomplete manifest entry rather than silently
+        # defaulting the class (which could downgrade a future blocking query to a
+        # non-gating one). Every query MUST declare its class; a defeasible one MUST
+        # also declare a severity (checked in run_competency_queries).
+        if not entry or "class" not in entry:
+            raise ValueError(
+                f"competency query {f.stem!r} has no 'class' in kg-queries/_meta.yaml"
+            )
+        out.append((entry["class"], f.stem, f))
     return out
 
 
-def _load_dataset(layout: WorkspaceLayout) -> Dataset:
-    ds = Dataset(default_union=True)
-    if layout.dataset.exists() and layout.dataset.stat().st_size > 0:
-        ds.parse(layout.dataset, format="trig")
-    return ds
+def _rows_str(rows) -> list[tuple]:
+    """Stringify cells (None -> "") so the per-query result shape is stable."""
+    return [
+        tuple(str(v) if v is not None else "" for v in row) for row in rows
+    ]
 
 
-def _load_defeasible_meta(assets_root: Path) -> dict:
-    """Return the parsed _meta.yaml for defeasible queries, or {} if absent."""
-    meta_path = assets_root / "queries" / "defeasible" / "_meta.yaml"
-    if not meta_path.exists():
-        return {}
-    return yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+def _run_queries(
+    layout: WorkspaceLayout, queries: list[tuple[str, str, Path]]
+) -> dict[str, list[tuple]]:
+    """Run the EDN ports over a Cozo projection of the ledger.
+
+    Builds one in-memory Cozo store from ``kg-schema.edn``, projects the claim
+    ledger into it, then runs each ``<name>.edn`` through the EDN seam
+    ``store.query_edn`` (compiled to CozoScript internally). Rows are stringified
+    through :func:`_rows_str`.
+    """
+    from .cozo_store import CozoStore  # local: keep pycozo cost off import
+    from .project_ledger_cozo import project_ledger
+
+    store = CozoStore.in_memory(schema_path=_SCHEMA_PATH)
+    project_ledger(layout, store)
+
+    findings: dict[str, list[tuple]] = {}
+    for _cls, name, edn_path in queries:
+        findings[name] = _rows_str(store.query_edn(edn_path.read_text(encoding="utf-8")))
+    return findings
 
 
 def run_competency_queries(layout: WorkspaceLayout) -> dict:
     """Execute all competency queries and return results.
 
-    Return shape
-    ------------
-    A dict with one key per query name (list of row tuples) plus a
-    ``"warnings"`` key holding a list of defeasible-fire dicts::
-
-        {
-            "unsupported_claims": [...],
-            "rebuttal-presence": [...],   # still present for back-compat
-            ...
-            "warnings": [
-                {"query": "rebuttal-presence", "severity": "critical", "bindings": [...]},
-                ...
-            ],
-        }
-
-    Defeasible fires are non-blocking by default (``BLOCKING_DEFEASIBLE = False``).
-    When ``BLOCKING_DEFEASIBLE`` is ``True`` and a defeasible query with
-    ``severity == "critical"`` returns rows, the function raises ``RuntimeError``.
+    Return shape: a dict with one key per query name (list of row tuples) plus a
+    ``"warnings"`` key holding a list of defeasible-fire dicts. Defeasible fires are
+    blocking by default (``BLOCKING_DEFEASIBLE = True``): a defeasible query with
+    ``severity == "critical"`` that returns rows raises ``RuntimeError``.
     """
-    ds = _load_dataset(layout)
-    meta = _load_defeasible_meta(_ASSETS_ROOT)
+    manifest = _load_manifest()
+    queries = discover_queries(_ASSETS_ROOT)
+    per_query = _run_queries(layout, queries)
 
     findings: dict[str, list[tuple]] = {}
     warnings: list[dict] = []
     hard_failures: list[dict] = []
 
-    for cls, name, query_path in discover_queries(_ASSETS_ROOT):
-        rows = [
-            tuple(str(v) if v is not None else "" for v in row)
-            for row in ds.query(query_path.read_text(encoding="utf-8"))
-        ]
+    for cls, name, _edn_path in queries:
+        rows = per_query[name]
         findings[name] = rows
 
         if cls == "defeasible" and rows:
-            severity = (meta.get(name) or {}).get("severity", "minor")
-            exc = (meta.get(name) or {}).get("exception_queries", [])
+            entry = manifest.get(name) or {}
+            severity = entry.get("severity")
+            if severity is None:
+                # No silent downgrade to "minor": a defeasible query must declare it.
+                raise ValueError(
+                    f"defeasible query {name!r} missing 'severity' in kg-queries/_meta.yaml"
+                )
+            exc = entry.get("exception_queries", [])
             if exc:
                 raise NotImplementedError(
                     f"Defeasible query {name!r} declares exception_queries={exc} but the "
@@ -137,7 +169,11 @@ def main(argv: list[str]) -> int:
         print("usage: run_competency_queries.py <workspace-dir>", file=sys.stderr)
         return 2
     layout = WorkspaceLayout(Path(argv[1]))
-    findings = run_competency_queries(layout)
+    try:
+        findings = run_competency_queries(layout)
+    except RuntimeError as e:
+        print(f"GATE FAILED: {e}", file=sys.stderr)
+        return 3
     for name, rows in findings.items():
         if name == "warnings":
             print(f"warnings: {len(rows)} defeasible fire(s)")

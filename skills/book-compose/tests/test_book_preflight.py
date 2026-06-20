@@ -9,18 +9,15 @@ import shutil
 import yaml
 
 from scripts.book_preflight import book_preflight, BookPreflightResult
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed_workspace_with_chapter(tmp_path: Path, chapter_id: str, version: str) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
     ledger_mod.append_claim(layout, {
         "claim_id": "clm-2026-000001",
         "canonical_text": "claim canonical",
@@ -31,7 +28,6 @@ def _seed_workspace_with_chapter(tmp_path: Path, chapter_id: str, version: str) 
         "supports_chapters": [chapter_id],
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     })
-    project_graph_mod.project_graph(layout)
 
     contracts = workspace / "chapters" / "contracts"
     contracts.mkdir(parents=True, exist_ok=True)
@@ -92,3 +88,28 @@ def test_preflight_includes_shacl_status(tmp_path):
     result = book_preflight(workspace, {"ch-01": "v1"})
     assert result.shacl_conforms is True
     assert result.unsupported_claims == 0
+
+
+def test_preflight_fails_when_chapter_manifest_marked_non_conforming(tmp_path):
+    workspace = _seed_workspace_with_chapter(tmp_path, "ch-01", "v1")
+    manifest_path = (workspace / "chapters" / "releases" / "ch-01-v1" / "manifest.yaml")
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    manifest["shacl_conforms"] = False
+    manifest_path.write_text(yaml.safe_dump(manifest), encoding="utf-8")
+
+    result = book_preflight(workspace, {"ch-01": "v1"})
+    # The current workspace still conforms, but the chapter bundle is stamped
+    # non-conforming and must not pass preflight.
+    assert result.passes is False
+    assert "ch-01" in result.missing_releases
+
+
+def test_preflight_fails_when_chapter_manifest_competency_unclean(tmp_path):
+    workspace = _seed_workspace_with_chapter(tmp_path, "ch-01", "v1")
+    manifest_path = (workspace / "chapters" / "releases" / "ch-01-v1" / "manifest.yaml")
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    manifest["competency_clean"] = False
+    manifest_path.write_text(yaml.safe_dump(manifest), encoding="utf-8")
+
+    result = book_preflight(workspace, {"ch-01": "v1"})
+    assert result.passes is False

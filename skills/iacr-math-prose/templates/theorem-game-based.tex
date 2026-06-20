@@ -1,0 +1,87 @@
+% =============================================================================
+% Template: theorem-game-based.tex
+% Skill:    iacr-math-prose
+%
+% Use for: a theorem + proof in the game-based style (Shoup 2004,
+%          Bellare--Rogaway 2006). A finite sequence G_0, G_1, ..., G_k of
+%          games, each step bounded by an epsilon_i, terminated by a final
+%          summation.
+%
+% Invariants (do not delete):
+%   - G_0 matches the security definition exactly.
+%   - Every transition G_i -> G_{i+1} has a stated epsilon_i bound.
+%   - Every epsilon_i is justified (assumption, info-theoretic, or syntactic).
+%   - Query counts (q_S, q_H, q_D, ...) appear in the final bound.
+%   - The summation step is explicit; no "by inspection".
+%   - The theorem statement carries the reduction time bound t_B.
+%
+% See:
+%   - references/proof-style-game-based.md (worked example: PRF from DDH)
+%   - references/theorem-statement-style.md
+% =============================================================================
+
+\begin{theorem}[\TODO{Security claim, e.g. EUF-CMA security of $\Sig$}]
+\label{thm:\TODO{short-label}}
+Let $\TODO{\Sig}$ be the \TODO{primitive name, e.g. signature scheme} of
+\cref{constr:\TODO{construction-label}}.
+Let $\TODO{H}: \TODO{\{0,1\}^*} \to \TODO{\Z_p}$ be modelled as a random oracle
+with DST $\TODO{\texttt{"PROJECT-v1-role"}}$.
+Under the \TODO{q-SDH / DDH / LWE / ...} assumption in \TODO{$G$ / setting},
+$\TODO{\Sig}$ is \TODO{EUF-CMA / IND-CCA / ...} secure.
+Concretely, for every PPT adversary $A$ running in time $t_A$ and making at most
+$\TODO{q_S}$ signing queries and $\TODO{q_H}$ hash queries,
+\[
+  \TODO{\Adv}^{\TODO{\textsf{EUF-CMA}}}_{\TODO{\Sig}, A}(\secparam)
+  \;\leq\;
+  \TODO{q_S \cdot \Adv^{\textsf{q-SDH}}_{G, B}(\secparam) + q_H^2 / 2^\secparam},
+\]
+where $B$ runs in time $\TODO{t_A + O(q_S \cdot T_\textsf{exp})}$ and
+$T_\textsf{exp}$ is the cost of one exponentiation in $\TODO{G}$.
+\end{theorem}
+
+\begin{proof}
+We define a sequence of games
+$G_0, G_1, \ldots, G_{\TODO{k}}$ and bound the change between successive games.
+
+\paragraph{Game $G_0$ (real \TODO{notion} game).}
+The challenger \TODO{describes the real experiment verbatim from the security
+definition, e.g. samples $(\pk, \sk) \samples \Setup(1^\secparam)$, gives $\pk$
+to $A$, answers $A$'s signing queries with $\Sign(\sk, \cdot)$, and outputs 1
+iff $A$'s forgery verifies and the message was not queried}.
+
+\paragraph{Game $G_1$ (\TODO{one-line label for the change}).}
+\TODO{Describe one change relative to $G_0$, e.g. the challenger replaces the
+hash $H(x_i)$ on the $i$-th distinct query with a uniformly random $h_i \in
+\Z_p$, stored in a lazy table.}
+\TODO{Justify the bound, e.g. ``By the random-oracle model, the views are
+identically distributed:''}
+\[
+  \Pr[G_0 \Rightarrow 1] \;=\; \Pr[G_1 \Rightarrow 1].
+\]
+
+\paragraph{Game $G_2$ (\TODO{one-line label}).}
+\TODO{Describe the change.}
+\TODO{Justify, e.g. ``a distinguisher between $G_1$ and $G_2$ yields a q-SDH
+solver $B$ that, given the q-SDH challenge $(g, g^x, g^{x^2}, \ldots, g^{x^q})$,
+simulates $G_1$ or $G_2$ as appropriate.''}
+\[
+  \left| \Pr[G_1 \Rightarrow 1] - \Pr[G_2 \Rightarrow 1] \right|
+  \;\leq\; \TODO{\Adv^{\textsf{q-SDH}}_{G, B}(\secparam)}.
+\]
+
+% Add more \paragraph{Game $G_i$ ...} blocks as needed.
+
+\paragraph{Game $G_{\TODO{k}}$ (\TODO{final, information-theoretic bound}).}
+\TODO{Argue that in $G_k$ the adversary's advantage is zero or bounded
+information-theoretically, e.g. ``the forgery is statistically independent of
+$A$'s view, so $\Pr[G_k \Rightarrow 1] \leq 1 / p$.''}
+
+\paragraph{Summing.}
+By the triangle inequality,
+\[
+  \TODO{\Adv}^{\TODO{\textsf{EUF-CMA}}}_{\TODO{\Sig}, A}(\secparam)
+  \;=\; \left| \Pr[G_0 \Rightarrow 1] - \Pr[G_{\TODO{k}} \Rightarrow 1] \right|
+  \;\leq\; \TODO{\sum_{i=0}^{k-1} \varepsilon_i}
+  \;=\; \TODO{\text{final concrete bound}}. \qed
+\]
+\end{proof}

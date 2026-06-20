@@ -177,7 +177,7 @@ def query_claims(filter_: ClaimFilter, workspace_root: Path) -> list[ClaimRecord
 
         # Derive source_id and locator from first source_span
         spans = rec.get("source_spans") or []
-        source_id = spans[0]["doc_id"] if spans else ""
+        source_id = spans[0].get("doc_id", "") if spans else ""
         locator = spans[0].get("locator_text", "") if spans else ""
 
         record = ClaimRecord(

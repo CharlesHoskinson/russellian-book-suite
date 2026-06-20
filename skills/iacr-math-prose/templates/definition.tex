@@ -1,0 +1,62 @@
+% =============================================================================
+% Template: definition.tex
+% Skill:    iacr-math-prose
+%
+% Use for: introducing a new primitive interface, a security notion, or a
+%          hardness assumption. The statement is italicised by amsthm; the
+%          body is plain.
+%
+% Invariants (do not delete):
+%   - Every set, group, and field is typed at first use.
+%   - The security parameter is the project-wide letter (lambda or n).
+%   - The DST, if any hash is invoked, is explicit and ciphersuite-prefixed.
+%   - The probability bound, if quoted, uses concrete inequalities (no `approx`).
+%   - Cross-reference via \cref{def:<short-name>}.
+%
+% See:
+%   - references/notation-discipline.md
+%   - references/theorem-statement-style.md (for security-notion definitions)
+% =============================================================================
+
+\begin{definition}[\TODO{Short name of the notion, e.g. EUF-CMA security}]
+\label{def:\TODO{short-label-here}}
+A \TODO{primitive name, e.g. signature scheme}
+$\TODO{\Sig} = (\TODO{\Setup}, \TODO{\Sign}, \TODO{\Verify})$
+is \emph{\TODO{verbal name of the property, e.g. existentially unforgeable under
+chosen-message attack}} if for every PPT adversary $A$,
+\[
+  \TODO{\Adv}^{\TODO{\textsf{NOTION}}}_{\TODO{\Sig}, A}(\secparam)
+  \;\leq\; \TODO{\negl(\secparam)}.
+\]
+The advantage is defined as
+$\TODO{\Adv}^{\TODO{\textsf{NOTION}}}_{\TODO{\Sig}, A}(\secparam)
+ := \Pr[\TODO{\Expt}^{\TODO{\textsf{NOTION}}}_{\TODO{\Sig}, A}(\secparam) = 1]$,
+where $\TODO{\Expt}$ proceeds as follows.
+\begin{enumerate}
+  \item \TODO{Step 1 of the experiment, e.g. $(\pk, \sk) \samples \Setup(1^\secparam)$.}
+  \item \TODO{Step 2, e.g. $A$ is given $\pk$ and access to a signing oracle.}
+  \item \TODO{Step 3, e.g. $A$ outputs $(m^*, \sigma^*)$.}
+  \item \TODO{Final step, e.g. output $1$ iff $\Verify(\pk, m^*, \sigma^*) = 1$ and $m^* \notin Q$.}
+\end{enumerate}
+\end{definition}
+
+% -----------------------------------------------------------------------------
+% Variant: hardness assumption (no advantage definition; the assumption IS the
+% advantage being negligible).
+% -----------------------------------------------------------------------------
+
+\begin{definition}[\TODO{q-SDH assumption / DDH assumption / LWE assumption}]
+\label{def:\TODO{assumption-label}}
+Let $\TODO{G}$ be \TODO{a cyclic group of prime order $p$ with generator $g$}.
+The \emph{\TODO{decisional Diffie--Hellman (DDH)}} assumption in $\TODO{G}$
+states that for every PPT distinguisher $D$,
+\[
+  \TODO{\Adv}^{\textsf{DDH}}_{\TODO{G}, D}(\secparam)
+  := \left| \Pr[D(g, g^a, g^b, g^{ab}) = 1] - \Pr[D(g, g^a, g^b, g^c) = 1] \right|
+  \;\leq\; \negl(\secparam),
+\]
+where the probabilities are over $a, b, c \samples \Z_p$ and the coins of $D$.
+
+\TODO{Citation: e.g., Boneh, ``The Decision Diffie-Hellman Problem'',
+ANTS 1998, Definition 1.}
+\end{definition}

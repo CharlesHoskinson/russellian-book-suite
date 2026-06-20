@@ -1,0 +1,16 @@
+;; argumentation-grounded — grounded acceptability over existing graph facts.
+;;
+;; This rule declaration is compiled by booklogic_kg.compile_argumentation_rules
+;; into a stratified Cozo program. Conflict attacks are directional as stored in
+;; :claim-conflict. Only open counter-claims are external standing attackers.
+(defrules :argumentation-grounded
+  :outputs [:attacked
+            :defended
+            :undefeated-attacker
+            :grounded-accepted
+            :grounded-rejected
+            :labels
+            :warnings]
+  :attack-model {:conflict-directional true
+                 :open-counter-claims :standing-external}
+  :support-edge [:claim-implies :paragraph-supports])

@@ -5,7 +5,8 @@ Reads:
   <workspace>/syntopical/governance-config.edn      (auto-created if absent)
   <workspace>/knowledge/claims/ledger.jsonl
   <workspace>/rules/booklogic/induced-theory.prov.edn
-  <workspace>/rules/constraints.edn                 (Phase 4 follow-up; optional)
+  <workspace>/rules/constraints.edn                 (compiled, preferred)
+  <workspace>/rules/booklogic/constraints.edn        (source fallback)
 
 Writes:
   <workspace>/syntopical/positions.edn
@@ -21,6 +22,7 @@ from ._schools import load_schools_dir
 from ._config import load_or_create_config
 from ._stance import derive_stance, RuleEvidence
 from ._positions_io import Position, write_positions
+from ._constraints import load_constraints
 
 
 def _claim_doc_index(ledger_path: Path) -> dict[str, list[str]]:
@@ -64,6 +66,28 @@ def _str_vec(s: str) -> list[str]:
     return [m.strip('"') for m in re.findall(r'"[^"]*"', s)]
 
 
+def _emit_rows(rule_id, source, evidence, schools, config, induction_prov):
+    rows = []
+    for school in schools:
+        stance = derive_stance(school, evidence, config)
+        declared = (rule_id in school.canonical_asserts
+                    or rule_id in school.canonical_rejects)
+        rows.append(Position(
+            rule_id=rule_id,
+            rule_form="",
+            source=source,
+            school=school.slug,
+            stance=stance,
+            supporting_atoms=list(evidence.supporting_atoms),
+            supporting_docs=list(evidence.supporting_docs),
+            contradicting_atoms=list(evidence.contradicting_atoms),
+            contradicting_docs=list(evidence.contradicting_docs),
+            declared_by_charter=declared,
+            induction_prov=induction_prov,
+        ))
+    return rows
+
+
 def build_positions(workspace: Path, generated_at: str | None = None) -> Path:
     workspace = Path(workspace).resolve()
     syntopical = workspace / "syntopical"
@@ -77,38 +101,47 @@ def build_positions(workspace: Path, generated_at: str | None = None) -> Path:
     if generated_at is None:
         generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+    constraints_path = workspace / "rules" / "constraints.edn"
+    if not constraints_path.exists():
+        constraints_path = workspace / "rules" / "booklogic" / "constraints.edn"
+    constraints = load_constraints(constraints_path)
+
     positions: list[Position] = []
     for rule_id, prov_data in prov.items():
         supporting_docs = list(dict.fromkeys(prov_data["docs"]))
         contradicting_docs = list(dict.fromkeys(
             [d for atom in prov_data["contras"] for d in claim_docs.get(atom, [])]
         ))
-        supporting_atoms = list(prov_data["atoms"])
-        contradicting_atoms = list(prov_data["contras"])
-
-        evidence_base = RuleEvidence(
+        evidence = RuleEvidence(
             rule_id=rule_id,
             supporting_docs=supporting_docs,
             contradicting_docs=contradicting_docs,
-            supporting_atoms=supporting_atoms,
-            contradicting_atoms=contradicting_atoms,
+            supporting_atoms=list(prov_data["atoms"]),
+            contradicting_atoms=list(prov_data["contras"]),
         )
-        for school in schools:
-            stance = derive_stance(school, evidence_base, config)
-            declared = rule_id in school.canonical_asserts or rule_id in school.canonical_rejects
-            positions.append(Position(
-                rule_id=rule_id,
-                rule_form="",  # filled in by a later PR for induced rules
-                source="induced",
-                school=school.slug,
-                stance=stance,
-                supporting_atoms=supporting_atoms,
-                supporting_docs=supporting_docs,
-                contradicting_atoms=contradicting_atoms,
-                contradicting_docs=contradicting_docs,
-                declared_by_charter=declared,
-                induction_prov=f"induced-theory.prov.edn#{rule_id}",
-            ))
+        positions += _emit_rows(
+            rule_id, "induced", evidence, schools, config,
+            f"induced-theory.prov.edn#{rule_id}")
+
+    for cid, cdata in constraints.items():
+        track = cdata.get("track")
+        track_claim = track.lstrip(":") if track else None
+        if track_claim and track_claim in claim_docs:
+            supporting_atoms = [track_claim]
+            supporting_docs = list(dict.fromkeys(claim_docs[track_claim]))
+        else:
+            supporting_atoms = []
+            supporting_docs = []
+        evidence = RuleEvidence(
+            rule_id=cid,
+            supporting_docs=supporting_docs,
+            contradicting_docs=[],
+            supporting_atoms=supporting_atoms,
+            contradicting_atoms=[],
+        )
+        positions += _emit_rows(
+            cid, "defconstraint", evidence, schools, config,
+            f"constraints.edn#{cid}")
 
     out_path = syntopical / "positions.edn"
     write_positions(out_path, positions, generated_at=generated_at)

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "build-voice-corpus"
+version = "0.1.0"
+description = "Ingest @charleshoskinsoncrypto videos into a Hoskinson voice corpus"
+requires-python = ">=3.11"
+dependencies = [
+  "yt-dlp>=2024.0",
+  "pyyaml>=6.0,<7.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-cov"]
+api = ["anthropic>=0.69"]
+
+[tool.setuptools]
+packages = ["scripts"]

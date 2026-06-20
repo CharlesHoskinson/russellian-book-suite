@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "links": [
+    {
+      "requirement_id": "REQ-EVAL-008",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/live_eval_gate.py"
+    },
+    {
+      "requirement_id": "REQ-EVAL-008",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_live_eval_gate.py::test_live_eval_runs_over_real_build"
+    },
+    {
+      "requirement_id": "REQ-EVAL-008",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-EVAL-009",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/live_eval_gate.py"
+    },
+    {
+      "requirement_id": "REQ-EVAL-009",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_live_eval_gate.py::test_build_report_per_chapter_and_aggregate"
+    },
+    {
+      "requirement_id": "REQ-EVAL-009",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-EVAL-010",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/live_eval_gate.py"
+    },
+    {
+      "requirement_id": "REQ-EVAL-010",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_live_eval_gate.py::test_comparative_metric_reports_delta"
+    },
+    {
+      "requirement_id": "REQ-EVAL-010",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-EVAL-011",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/live_eval_gate.py"
+    },
+    {
+      "requirement_id": "REQ-EVAL-011",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_live_eval_gate.py::test_absent_gold_reports_unscored"
+    },
+    {
+      "requirement_id": "REQ-EVAL-011",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-EVAL-012",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/live_eval_gate.py"
+    },
+    {
+      "requirement_id": "REQ-EVAL-012",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_live_eval_gate.py::test_advisory_default_and_gated_subset"
+    },
+    {
+      "requirement_id": "REQ-EVAL-012",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    },
+    {
+      "requirement_id": "REQ-EVAL-013",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-implemented-by",
+      "target_type": "code-path",
+      "target": "skills/book-knowledge/scripts/live_eval_gate.py"
+    },
+    {
+      "requirement_id": "REQ-EVAL-013",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-covered-by",
+      "target_type": "test-case",
+      "target": "skills/book-knowledge/tests/test_live_eval_gate.py::test_read_only_and_deterministic"
+    },
+    {
+      "requirement_id": "REQ-EVAL-013",
+      "capability": "kg-prose-eval",
+      "requirement_source": "openspec/changes/live-eval-gate/specs/kg-prose-eval/spec.md",
+      "kind": "requirement-gated-by",
+      "target_type": "ci-job",
+      "target": ".github/workflows/ci.yml:python-skill-matrix"
+    }
+  ]
+}

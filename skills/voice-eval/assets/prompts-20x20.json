@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "prompts": [
+    {"id": "T01", "topic": "Why a SNARK's verifier stays cheap while its prover does all the work", "register": "technical-exposition"},
+    {"id": "T02", "topic": "What a commitment scheme hides and what it binds", "register": "technical-exposition"},
+    {"id": "T03", "topic": "How an extended UTXO model carries state without global mutable storage", "register": "technical-exposition"},
+    {"id": "T04", "topic": "The role of the Fiat-Shamir transform in making an interactive proof non-interactive", "register": "technical-exposition"},
+    {"id": "T05", "topic": "Why finality in a longest-chain protocol is probabilistic, not absolute", "register": "technical-exposition"},
+    {"id": "T06", "topic": "What a trusted setup ceremony actually distributes and why one honest party suffices", "register": "technical-exposition"},
+    {"id": "T07", "topic": "How recursion lets one proof attest to the verification of another", "register": "technical-exposition"},
+    {"id": "N01", "topic": "The first time a cryptographic idea changed how you saw trust", "register": "narrative-editorial"},
+    {"id": "N02", "topic": "What a decade of building decentralized systems teaches about patience", "register": "narrative-editorial"},
+    {"id": "N03", "topic": "Why the hardest part of governance is not the code", "register": "narrative-editorial"},
+    {"id": "N04", "topic": "A small protocol decision whose consequences took years to surface", "register": "narrative-editorial"},
+    {"id": "N05", "topic": "What open-source contributors owe each other and what they do not", "register": "narrative-editorial"},
+    {"id": "N06", "topic": "The difference between a community and an audience", "register": "narrative-editorial"},
+    {"id": "N07", "topic": "Why you keep explaining the same foundational idea in new words", "register": "narrative-editorial"},
+    {"id": "P01", "topic": "Why 'just trust the validators' is a failure of nerve, not a design", "register": "polemic"},
+    {"id": "P02", "topic": "The case against treating regulation as the enemy of decentralization", "register": "polemic"},
+    {"id": "P03", "topic": "Why most tokenomics are astrology with a spreadsheet", "register": "polemic"},
+    {"id": "P04", "topic": "The myth that throughput alone measures a blockchain's worth", "register": "polemic"},
+    {"id": "P05", "topic": "Why 'move fast and break things' is malpractice for money", "register": "polemic"},
+    {"id": "P06", "topic": "The comfortable lie that formal verification is too expensive to bother with", "register": "polemic"}
+  ]
+}

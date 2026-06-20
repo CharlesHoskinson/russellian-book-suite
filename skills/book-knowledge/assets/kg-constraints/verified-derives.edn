@@ -1,0 +1,31 @@
+;; verified-derives — a verified claim must derive from at least one source-span
+;; (REQ-KG-003 / REQ-KG-012).
+;;
+;; Booklogic port of the tbf:ClaimShape sh:sparql constraint in
+;; assets/shapes.ttl:
+;;   SELECT $this WHERE {
+;;     $this tbf:status "verified" .
+;;     FILTER NOT EXISTS { $this prov:wasDerivedFrom ?src . }
+;;   }
+;;
+;; The :where binds the claim id (?focus) and pins status = "verified"; the :not
+;; negates a source-span joined on the claim id (the relational form of
+;; ?claim prov:wasDerivedFrom ?src). ?focus is bound positive and threaded into
+;; the negation, so this is a safe inline Cozo negation. A verified claim with no
+;; source-span fires; a proposed claim is out of scope; a verified claim with a
+;; span conforms.
+;;
+;; The :message and :path are taken EXACTLY from the sh:sparql shape and the C0.2
+;; golden (tests/golden/kg/shacl_report_violating.json): the sh:sparql node has
+;; an sh:message but no sh:path, so pyshacl reports an empty path "".
+;;
+;; DIVERGENCE (mirrors assets/kg-queries/unsupported_claims.edn): the .rq negates
+;; prov:wasDerivedFrom, which the RDF projector emits for BOTH source spans and
+;; derived_from claim refs; this port negates only the source-span back-ref.
+;; Reconcile at P5 cutover.
+(defconstraint :verified-derives
+  :message "Verified claims must derive from at least one source-span entity."
+  :path ""
+  :where [[?c :claim/id ?focus]
+          [?c :claim/status "verified"]]
+  :not   [[?s :source-span/claim-id ?focus]])

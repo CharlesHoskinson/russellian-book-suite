@@ -1,0 +1,85 @@
+"""Advisory liveliness scoring harness. Never gates (REQ-LIVE-004)."""
+from __future__ import annotations
+import json
+import sys
+from pathlib import Path
+
+from scripts.text_util import iter_sentences
+
+# Each signal is (name, callable(sentences, register, profile) -> dict).
+# Scorers are appended in later tasks.
+SIGNALS: list = []
+
+from scripts import signal_cadence
+SIGNALS.append(("cadence", signal_cadence.score))
+
+from scripts import signal_curiosity
+SIGNALS.append(("curiosity", signal_curiosity.score))
+
+from scripts import signal_novelty
+SIGNALS.append(("novelty_continuity", signal_novelty.score))
+
+from scripts import signal_worked_case
+SIGNALS.append(("worked_case", signal_worked_case.score))
+
+from scripts import signal_verb_energy
+SIGNALS.append(("verb_energy", signal_verb_energy.score))
+
+from scripts import signal_sv_distance
+SIGNALS.append(("sv_distance", signal_sv_distance.score))
+
+from scripts import signal_concrete
+SIGNALS.append(("concrete_anchor", signal_concrete.score))
+
+from scripts import signal_analogy
+SIGNALS.append(("analogy_mapping", signal_analogy.score))
+
+
+def _load_profile_safe(profile):
+    if profile is not None:
+        return profile
+    try:
+        import skill_api
+        return skill_api.load_profile()
+    except Exception:
+        return None
+
+
+def score_passage(text: str, register: str = "narrative-editorial", profile=None) -> dict:
+    profile = _load_profile_safe(profile)
+    sents = iter_sentences(text)
+    signals = {}
+    for name, fn in SIGNALS:
+        try:
+            signals[name] = fn(sents, register, profile)
+        except Exception as exc:  # advisory: a scorer error must not break the report
+            signals[name] = {"signal": name, "score": None, "error": str(exc)}
+    return {"register": register, "n_sentences": len(sents), "signals": signals}
+
+
+def main(argv: list[str]) -> int:
+    rest = argv[1:]
+    reg = "narrative-editorial"
+    args: list[str] = []
+    i = 0
+    while i < len(rest):
+        a = rest[i]
+        if a == "--register" and i + 1 < len(rest):
+            reg = rest[i + 1]
+            i += 2
+            continue
+        if a.startswith("--"):
+            i += 1
+            continue
+        args.append(a)
+        i += 1
+    if not args:
+        print("usage: score.py [--register REG] <markdown-file>", file=sys.stderr)
+        return 2
+    text = Path(args[0]).read_text(encoding="utf-8")
+    print(json.dumps(score_passage(text, register=reg), indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

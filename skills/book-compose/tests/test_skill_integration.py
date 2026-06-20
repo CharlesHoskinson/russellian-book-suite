@@ -1,6 +1,6 @@
 import pytest
 
-pytestmark = pytest.mark.windows_canary
+pytestmark = [pytest.mark.windows_canary, pytest.mark.needs_spacy_model]
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,18 +11,15 @@ from scripts.preflight import preflight
 from scripts.query_chapter_evidence import query_chapter_evidence
 from scripts.chapter_contract_check import check_draft
 from scripts.build_release_bundle import build_release_bundle
-from scripts.sibling_skills import book_knowledge_root, load_book_knowledge_module
+from scripts.sibling_skills import load_book_knowledge_module
 
 
 def _seed(tmp_path: Path) -> Path:
     workspace_mod = load_book_knowledge_module("workspace")
     ledger_mod = load_book_knowledge_module("ledger")
-    project_graph_mod = load_book_knowledge_module("project_graph")
 
-    bk = book_knowledge_root()
     workspace = workspace_mod.init_workspace(tmp_path / "book")
     layout = workspace_mod.WorkspaceLayout(workspace)
-    shutil.copy(bk / "assets" / "shapes.ttl", layout.shapes)
 
     for i in range(3):
         ledger_mod.append_claim(layout, {
@@ -35,7 +32,6 @@ def _seed(tmp_path: Path) -> Path:
             "supports_chapters": ["ch-03"],
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         })
-    project_graph_mod.project_graph(layout)
 
     drafts = workspace / "chapters" / "drafts" / "ch-03"
     drafts.mkdir(parents=True, exist_ok=True)

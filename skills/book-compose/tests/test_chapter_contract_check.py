@@ -1,6 +1,6 @@
 import pytest
 
-pytestmark = pytest.mark.windows_canary
+pytestmark = [pytest.mark.windows_canary, pytest.mark.needs_spacy_model]
 
 from scripts.chapter_contract_check import check_draft
 

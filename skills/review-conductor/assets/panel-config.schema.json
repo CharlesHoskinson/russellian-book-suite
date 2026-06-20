@@ -9,7 +9,7 @@
     "panel_id": {"type": "string", "minLength": 1},
     "artifact_scope": {
       "type": "string",
-      "enum": ["chapter", "readme", "intro", "abstract", "marketing"]
+      "enum": ["chapter", "readme", "intro", "abstract", "marketing", "documentation"]
     },
     "description": {"type": "string"},
     "personas": {

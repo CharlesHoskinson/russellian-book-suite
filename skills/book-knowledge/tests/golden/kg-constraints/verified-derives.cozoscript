@@ -1,0 +1,1 @@
+?[focus_node, path_node, message] := *claim{id: focus, status: "verified"}, not *source_span{claim_id: focus}, focus_node = focus, path_node = "", message = "Verified claims must derive from at least one source-span entity."

@@ -3,37 +3,154 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
-  pull-requests: write   # for the ci-budget job to comment
 
+# cancel-in-progress protects RUNNING main builds, but GitHub keeps at most
+# one QUEUED run per concurrency group: rapid sequential merges supersede
+# queued main runs, which then show as 'cancelled'. That is by design — the
+# newest run validates the cumulative tree. Expect cancelled main runs after
+# merge bursts; only the latest one needs to be green.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
-  # sccache temporarily disabled (opendal/ghac ConfigInvalid under cache contention
-  # from Swatinem + magic-nix-cache). Re-enable per-job by setting RUSTC_WRAPPER +
-  # SCCACHE_GHA_ENABLED alongside the sccache-action step once contention is fixed.
+  # sccache temporarily disabled (opendal/ghac ConfigInvalid under cache
+  # contention, observed under the retired magic-nix-cache). Re-enable
+  # per-job by setting RUSTC_WRAPPER + SCCACHE_GHA_ENABLED alongside the
+  # sccache-action step once contention is fixed.
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Always-run lint gate (no rust gate, no `needs`). Pure-Python PRs skip the
+  # rust-gated `preflight` job, so without this job the pure gates would
+  # never run at PR time on a pure-Python change (the root cause of the
+  # red-since-PR-122 incident). The gates are flake checks (nix/checks.nix,
+  # nix/treefmt.nix): one definition serves CI, `nix flake check` locally,
+  # and the hook layer (nix/hooks.nix pins hook commands to the same store
+  # paths). There is no second step list to drift against the flake checks.
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      # magic-nix-cache is deprecated (free tier EOL 2025-02; current builds
+      # ride a reverse-engineered cache API). cache-nix-action stores
+      # /nix/store in the regular Actions cache with GC-before-save.
+      # lint and preflight share the default-shell closure, hence one
+      # `nix-shell-` key class for both. The store save runs post-job gated
+      # on success(): a failed build never persists its store (by design).
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+          restore-prefixes-first-match: nix-shell-${{ runner.os }}-
+          gc-max-store-size-linux: 8G
+          purge: true
+          purge-prefixes: nix-shell-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+      - name: flake checks (treefmt + clj-kondo + invariant linters + required-name)
+        run: nix flake check -L
+
+  # Always-run actionlint on every PR/push (P2-actionlint-and-legacy): any
+  # change to .github/workflows is linted at PR time and feeds the
+  # ci-required aggregator. Pinned-tarball install with SHA verification.
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: ensure shellcheck (actionlint shells out to it for SC* checks)
+        run: |
+          # actionlint only runs its embedded shellcheck rules (e.g. SC2086) when
+          # the shellcheck binary is on PATH; install it if the runner lacks it (5.8).
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y shellcheck
+          fi
+          shellcheck --version
+      - name: install actionlint (pinned tarball + SHA verification)
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+        run: |
+          BASE="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          TARBALL="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          for i in 1 2 3; do
+            curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}" \
+              && curl -fsSL "${BASE}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o checksums.txt \
+              && break
+            echo "download attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+          grep "${TARBALL}" checksums.txt | sha256sum -c -
+          tar -xzf "${TARBALL}" actionlint
+          mv actionlint /usr/local/bin/
+      - name: run actionlint (.github/workflows/**)
+        run: actionlint -color
+
+  # tools/build-voice-corpus is a tool, not a skill, so the skills-matrix never
+  # covered it — its 14 test files ran nowhere and its deps got no Dependabot
+  # bumps. Pure-Python and fast, so it runs always (like lint/actionlint) and
+  # feeds the ci-required gate. This also runs the design-KG fixture and
+  # determinism checks: they are cheap, do not require graphify, and guard the
+  # schema/projector/query contract even when a PR touches only docs/OpenSpec.
+  tools-test:
+    name: tools + design KG
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.13'
+      - name: install + test build-voice-corpus
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "tools/build-voice-corpus[test]"
+          python -m pytest tools/build-voice-corpus/tests -q
+      - name: test root tools/ (5.2 canonical-writer coverage)
+        run: |
+          # Root tools/ scripts had no CI coverage. test_run_bermuda imports
+          # book-knowledge's scripts, so install it (+ pyyaml for the yaml tools).
+          python -m pip install pyyaml
+          python -m pip install -e "skills/book-knowledge"
+          python -m pytest tools/tests -q
+      - name: design KG deterministic contract
+        run: |
+          python -m pytest \
+            skills/book-knowledge/tests/test_design_kg_audit.py \
+            skills/book-knowledge/tests/test_design_kg_queries.py \
+            skills/book-knowledge/tests/test_project_design_kg.py \
+            skills/book-knowledge/tests/test_design_kg_fixture.py \
+            skills/book-knowledge/tests/test_kg_schema.py \
+            skills/book-knowledge/tests/test_cozo_store_contract.py \
+            -q
+
   # Detect whether the PR diff touches anything that could affect the Rust
-  # verifiers or the Nix preflight. Pure-Python PRs skip those jobs (they
-  # always pass on pure-Python changes). Pushes to main always run them.
+  # verifiers / Nix preflight. Pure-Python PRs skip the rust-gated jobs;
+  # pushes to main always run them. (The python-skill matrix has its own
+  # finer-grained gate: the compute-matrix job below.)
   changes:
     name: detect rust/nix changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
+            # rust gates cargo-test (verifier crate compilation only). The old
+            # filter included skills/** and interpreted-language globs, which
+            # made every python PR pay 4 cargo jobs for crates it cannot affect.
             rust:
               - 'verifiers/**'
               - '**/*.rs'
@@ -41,14 +158,37 @@ jobs:
               - '**/Cargo.lock'
               - 'flake.nix'
               - 'flake.lock'
+              - 'nix/**'
               - 'Makefile'
               - '.github/workflows/ci.yml'
-              - '.github/actions/setup-book-python/**'
+
+  # Dynamic python-skill matrix (REQ-CI-046). The skill registry lives in
+  # .github/ci/skills-matrix.json; ci/compute_matrix.py scopes PR runs to the
+  # skills the diff touches (shared-path hits and push/merge_group run the
+  # full matrix). Fail-closed: a selection error fails this job, which fails
+  # ci-required (it is in the require_success set).
+  compute-matrix:
+    name: compute python matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.compute.outputs.matrix }}
+      any_selected: ${{ steps.compute.outputs.any_selected }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0   # compute_matrix diffs against origin/<base>
+      - name: compute matrix from skills-matrix.json
+        id: compute
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 -m ci.compute_matrix --profile pr
 
   # Python-only skills don't need Nix — they run under standard setup-python.
-  # The setup-book-python composite action handles pip + venv per skill; the
-  # matrix.include lines override `extra` and add sibling-skill symlinks /
-  # pytest deselect arguments where individual skills need them.
+  # The setup-book-python composite action handles pip + venv per skill.
+  # Per-skill configuration (extras, siblings, deselects, models) lives in
+  # .github/ci/skills-matrix.json; compute-matrix turns it into include rows.
   #
   # The matrix runs on three OSes (REQ-CI-040). `fail-fast: false` is
   # mandatory so the divergence-summary aggregator (REQ-CI-042) sees every
@@ -56,70 +196,63 @@ jobs:
   python-skill-matrix:
     name: python-skill (${{ matrix.skill }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    needs: [compute-matrix]
+    if: needs.compute-matrix.outputs.any_selected == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-latest, windows-2022]
-        skill:
-          - book-qa
-          - book-thesis
-          - book-knowledge
-          - book-review
-          - book-compose
-          - russellian-style
-          - review-conductor
-          - neurosym-forge
-        include:
-          # book-compose needs sibling skills symlinked under ~/.claude/skills/
-          - skill: book-compose
-            siblings: book-knowledge russellian-style book-review review-conductor
-            pytest-deselect: "--deselect tests/test_sibling_skills.py::test_sibling_python_uses_skill_venv"
-          # neurosym-forge needs both [dev] (pytest + z3-solver + numpy + xdist) and
-          # [semantic] (sentence-transformers) to cover the full test surface
-          # including the semantic-index tests. xdist parallelisation cuts the
-          # Windows wall-time roughly in half.
-          - skill: neurosym-forge
-            extra: dev,semantic
-            pytest-workers: auto
+      matrix: ${{ fromJSON(needs.compute-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: ./.github/actions/setup-book-python
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python_version }}
           skill-path: skills/${{ matrix.skill }}
-          extra: ${{ matrix.extra || 'ci' }}
-      # Portable symlink: `ln -sfn` requires Developer Mode (or admin) on
-      # Windows. The Node `fs.symlinkSync` path works uniformly across
-      # ubuntu/macos/windows runners.
+          extra: ${{ matrix.extra }}
+          constraints: ${{ matrix.constraints }}
       - name: symlink siblings
         if: matrix.siblings != ''
-        uses: actions/github-script@v8
+        uses: ./.github/actions/symlink-siblings
         with:
-          script: |
-            const { mkdirSync, symlinkSync, existsSync, rmSync } = require('fs');
-            const { join } = require('path');
-            const home = process.env.HOME || process.env.USERPROFILE;
-            const target = join(home, '.claude', 'skills');
-            mkdirSync(target, { recursive: true });
-            const cwd = process.cwd();
-            const raw = `${{ matrix.siblings }}`;
-            for (const s of raw.split(/\s+/).filter(Boolean)) {
-              const link = join(target, s);
-              if (existsSync(link)) rmSync(link, { recursive: true, force: true });
-              symlinkSync(join(cwd, 'skills', s), link, 'dir');
-            }
-      - name: pytest
+          siblings: ${{ matrix.siblings }}
+      # spaCy wheel + HF model with restore/save-on-warm-success caching
+      # (REQ-CI-047); no-ops for skills with neither model registered.
+      - name: setup models (spaCy / HF as registered)
+        uses: ./.github/actions/setup-models
+        with:
+          spacy: ${{ matrix.spacy }}
+          hf-model: ${{ matrix.hf_model }}
+      # Install + import smoke for the coverage-gap skills (P2-matrix-coverage-gaps).
+      # The setup-book-python step above already installed the base package;
+      # importing skill_api proves the dependency pins resolve and the public
+      # surface imports cleanly. A broken Dependabot bump now reddens this leg.
+      - name: import smoke
+        if: matrix.smoke == 'import'
         working-directory: skills/${{ matrix.skill }}
         shell: bash
+        run: python -c "import skill_api; print('import OK', skill_api.API_VERSION)"
+      - name: pytest
+        if: matrix.smoke != 'import'
+        working-directory: skills/${{ matrix.skill }}
+        shell: bash
+        env:
+          # hf_model legs only: read the warmed model cache, never the network.
+          HF_HOME: ${{ matrix.hf_model != '' && format('{0}/hf-cache', github.workspace) || format('{0}/hf-unused', runner.temp) }}
+          HF_HUB_OFFLINE: ${{ matrix.hf_model != '' && '1' || '0' }}
         run: |
           marker_filter=""
           if [ "${{ runner.os }}" = "Windows" ]; then
             marker_filter="-m windows_canary"
           fi
-          if [ -n "${{ matrix.pytest-workers }}" ]; then
-            python -m pytest tests/ -q --tb=short $marker_filter -n ${{ matrix.pytest-workers }} ${{ matrix.pytest-deselect }}
+          # $marker_filter and the deselect/workers expansions are deliberately
+          # unquoted: each must word-split into separate argv tokens (e.g.
+          # `-m windows_canary`, `--deselect <id>`). Empty values expand to no
+          # args. SC2086 is intentional here.
+          # shellcheck disable=SC2086
+          if [ -n "${{ matrix.pytest_workers }}" ]; then
+            python -m pytest tests/ -q --tb=short $marker_filter -n ${{ matrix.pytest_workers }} ${{ matrix.pytest_deselect }}
           else
-            python -m pytest tests/ -q --tb=short $marker_filter ${{ matrix.pytest-deselect }}
+            python -m pytest tests/ -q --tb=short $marker_filter ${{ matrix.pytest_deselect }}
           fi
 
   # Single Nix-using job runs the full Makefile preflight chain. Originally
@@ -130,95 +263,158 @@ jobs:
   # Make's preflight target chains the sub-steps in dependency order.
   preflight:
     name: nix preflight (lint + bake + regression + verifiers)
-    needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
+    needs: [changes, compute-matrix]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true' || needs.compute-matrix.outputs.any_selected == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v22
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-shell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+          restore-prefixes-first-match: nix-shell-${{ runner.os }}-
+          gc-max-store-size-linux: 8G
+          purge: true
+          purge-prefixes: nix-shell-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: |
             verifiers/bermuda/rust-verifier
             verifiers/osmotic_pressure/rust-verifier
       - run: nix develop -c make preflight
 
-  # Per-verifier cargo test on Linux + macOS (REQ-CI-041). Windows is
-  # deliberately skipped — the z3 crate's pkg-config probe doesn't reliably
-  # find a Windows-native libz3, so cargo test on windows-2022 would surface
-  # link errors that have nothing to do with the code under test. The
-  # WSL-fallback runbook in `docs/operations/ci-platforms.md` covers
-  # Windows contributors who need cargo signal locally.
+  # Per-verifier cargo test on Linux + macOS (REQ-CI-041). Toolchain and z3
+  # come from the flake's rust shell — the same z3 the devShell provides, so
+  # the smt feature links against one pinned solver everywhere. Windows is
+  # deliberately skipped (see docs/operations/ci-platforms.md: no reliable
+  # Windows-native libz3; WSL fallback runbook covers local cargo signal).
   cargo-test:
     name: cargo-test (${{ matrix.verifier }} / ${{ matrix.os }})
     needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest]
-        verifier: [bermuda, osmotic_pressure]
+        os: [ubuntu-24.04, macos-15]
+        # All four verifiers expose the smt feature and inline #[cfg(test)]
+        # unit tests. adsc-clinical and epidemiology are cdylib-only (no tests/
+        # dir) but their unit tests still run under `cargo test`; previously
+        # they were built/tested by no CI job while Dependabot bumped them.
+        verifier: [adsc-clinical, bermuda, epidemiology, osmotic_pressure]
     steps:
-      - uses: actions/checkout@v4
-      - name: install libz3 (linux)
-        if: matrix.os == 'ubuntu-24.04'
-        run: sudo apt-get update && sudo apt-get install -y libz3-dev
-      - name: install libz3 (macos)
-        if: matrix.os == 'macos-latest'
-        run: brew install z3
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-rust-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+          restore-prefixes-first-match: nix-rust-${{ runner.os }}-
+          gc-max-store-size-linux: 6G
+          gc-max-store-size-macos: 6G
+          purge: true
+          purge-prefixes: nix-rust-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+      # Linux-only: the macOS target-dir caches (~310MB each) were quota
+      # pressure for marginal wall-time; crates.io re-downloads are fast.
+      - if: runner.os == 'Linux'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: verifiers/${{ matrix.verifier }}/rust-verifier
+          # No rustup on the runner — rust-cache probes `rustc -vV` for its
+          # key and hard-throws if it is off PATH. Route its commands through
+          # the flake shell so it sees the same toolchain the cargo step uses.
+          cmd-format: "nix develop .#rust -c {0}"
       - name: cargo test
-        run: cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
+        run: nix develop .#rust -c cargo test --features smt --manifest-path verifiers/${{ matrix.verifier }}/rust-verifier/Cargo.toml
+
+  # Per-verifier ClojureScript test (shadow-cljs compile test + node run), gated
+  # like cargo-test on verifier/rust changes. Moved here from the nightly's
+  # bermuda-only cljs-bermuda-test: running all four at PR time is what catches a
+  # cljs->Rust bridge regression in any verifier. The epi/osmotic bridge break
+  # shipped precisely because only bermuda's cljs ran in CI.
+  cljs-test:
+    name: cljs-test (${{ matrix.verifier }})
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        verifier: [adsc-clinical, bermuda, epidemiology, osmotic_pressure]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: verifiers/${{ matrix.verifier }}/package-lock.json
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: npm ci (strict lockfile install)
+        working-directory: verifiers/${{ matrix.verifier }}
+        run: |
+          for i in 1 2 3; do
+            npm ci --no-audit --no-fund && break
+            echo "npm ci attempt $i failed; retrying in $((i * 5))s" >&2
+            sleep $((i * 5))
+          done
+      - name: shadow-cljs compile + node test
+        working-directory: verifiers/${{ matrix.verifier }}
+        run: |
+          npx shadow-cljs compile test
+          node cljs-orchestrator/dist/test.js
 
   # Divergence summary (REQ-CI-042). Runs regardless of upstream status so
   # the summary is published even on red runs. Emits a markdown table to
-  # $GITHUB_STEP_SUMMARY naming each matrix job's aggregate result and
-  # calling out per-OS divergence visible from the PR's checks page
-  # without expanding any per-job logs.
+  # $GITHUB_STEP_SUMMARY with each matrix job's *aggregate* result. The
+  # `needs.<job>.result` value is a single matrix-wide scalar — GitHub does
+  # not expose per-OS leg results to a downstream job — so the table is
+  # deliberately NOT broken out by OS (that would fan one scalar into three
+  # identical columns and misreport which leg actually broke). When the
+  # aggregate is `failure`, expand the run page to see which leg is red.
   ci-divergence-summary:
     name: ci divergence summary
     needs:
       - python-skill-matrix
       - cargo-test
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: always()
     steps:
-      - uses: actions/checkout@v4
-      - name: emit per-OS divergence table
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: emit matrix-aggregate result table
         env:
           PYTHON_SKILL_RESULT: ${{ needs.python-skill-matrix.result }}
           CARGO_TEST_RESULT: ${{ needs.cargo-test.result }}
         run: |
+          render() {
+            case "$1" in
+              success)   echo "pass" ;;
+              failure)   echo "see legs (red — expand run page)" ;;
+              skipped)   echo "skip" ;;
+              cancelled) echo "cancel" ;;
+              *)         echo "$1" ;;
+            esac
+          }
           {
-            echo "## Per-OS CI divergence"
+            echo "## CI matrix-aggregate results"
             echo
-            echo "Aggregate result per matrix job. Individual matrix legs"
-            echo "(per-OS, per-skill) are visible on the run page; this"
-            echo "table is the at-a-glance summary."
+            echo "One aggregate result per matrix job (matrix-wide, NOT"
+            echo "per-OS). Per-leg (per-OS, per-skill) status is on the run"
+            echo "page; a \`see legs\` result means at least one leg is red."
             echo
-            echo "| Job | Linux | macOS | Windows |"
-            echo "|---|---|---|---|"
-            case "$PYTHON_SKILL_RESULT" in
-              success)   ps_l="pass"; ps_m="pass"; ps_w="pass" ;;
-              failure)   ps_l="see legs"; ps_m="see legs"; ps_w="see legs" ;;
-              skipped)   ps_l="skip"; ps_m="skip"; ps_w="skip" ;;
-              cancelled) ps_l="cancel"; ps_m="cancel"; ps_w="cancel" ;;
-              *)         ps_l="$PYTHON_SKILL_RESULT"; ps_m="$PYTHON_SKILL_RESULT"; ps_w="$PYTHON_SKILL_RESULT" ;;
-            esac
-            case "$CARGO_TEST_RESULT" in
-              success)   ct_l="pass"; ct_m="pass" ;;
-              failure)   ct_l="see legs"; ct_m="see legs" ;;
-              skipped)   ct_l="skip"; ct_m="skip" ;;
-              cancelled) ct_l="cancel"; ct_m="cancel" ;;
-              *)         ct_l="$CARGO_TEST_RESULT"; ct_m="$CARGO_TEST_RESULT" ;;
-            esac
-            echo "| python-skill | $ps_l | $ps_m | $ps_w |"
-            echo "| cargo-test | $ct_l | $ct_m | n/a (REQ-CI-044: WSL fallback) |"
+            echo "| Job | OS coverage | Aggregate result |"
+            echo "|---|---|---|"
+            echo "| python-skill | Linux + macOS + Windows | $(render "$PYTHON_SKILL_RESULT") |"
+            echo "| cargo-test | Linux + macOS (Windows: WSL fallback) | $(render "$CARGO_TEST_RESULT") |"
             echo
             echo "See \`docs/operations/ci-platforms.md\` for the libz3"
             echo "matrix, the Windows-cargo skip rationale, and the"
@@ -226,19 +422,63 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   required:
-    name: ci required ✓
+    name: ci-required
     needs:
+      - lint
+      - actionlint
+      - tools-test
+      - compute-matrix
       - preflight
       - python-skill-matrix
       - cargo-test
+      - cljs-test
       - ci-divergence-summary
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: always()
     steps:
+      # Fail-closed aggregation. Always-run jobs (lint, actionlint,
+      # ci-divergence-summary) MUST be 'success' — a 'skipped' there means the
+      # gate did not actually run and is now treated as a failure. Change-scoped
+      # jobs (preflight, cargo-test, python-skill-matrix) are legitimately
+      # 'skipped' when the PR diff does not touch their inputs, so they accept
+      # 'success' OR 'skipped' but never 'failure'/'cancelled'.
       - name: aggregate
+        env:
+          LINT: ${{ needs.lint.result }}
+          ACTIONLINT: ${{ needs.actionlint.result }}
+          TOOLS_TEST: ${{ needs.tools-test.result }}
+          COMPUTE_MATRIX: ${{ needs.compute-matrix.result }}
+          PYTHON_SKILL: ${{ needs.python-skill-matrix.result }}
+          DIVERGENCE: ${{ needs.ci-divergence-summary.result }}
+          PREFLIGHT: ${{ needs.preflight.result }}
+          CARGO_TEST: ${{ needs.cargo-test.result }}
+          CLJS_TEST: ${{ needs.cljs-test.result }}
         run: |
-          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] ||
-             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
-            echo "one or more required jobs failed"
+          fail=0
+          require_success() {
+            if [ "$2" != "success" ]; then
+              echo "always-run job '$1' is '$2' (expected success)"
+              fail=1
+            fi
+          }
+          require_not_failed() {
+            if [ "$2" != "success" ] && [ "$2" != "skipped" ]; then
+              echo "change-scoped job '$1' is '$2' (expected success or skipped)"
+              fail=1
+            fi
+          }
+          require_success lint "$LINT"
+          require_success actionlint "$ACTIONLINT"
+          require_success tools-test "$TOOLS_TEST"
+          require_success compute-matrix "$COMPUTE_MATRIX"
+          require_success ci-divergence-summary "$DIVERGENCE"
+          require_not_failed python-skill-matrix "$PYTHON_SKILL"
+          require_not_failed preflight "$PREFLIGHT"
+          require_not_failed cargo-test "$CARGO_TEST"
+          require_not_failed cljs-test "$CLJS_TEST"
+          if [ "$fail" -ne 0 ]; then
+            echo "ci-required: one or more required jobs did not pass"
             exit 1
           fi
+          echo "ci-required: all required jobs passed"

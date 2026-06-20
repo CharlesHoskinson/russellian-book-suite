@@ -1,9 +1,13 @@
-# Top-level Makefile. The CI workflow and `make preflight` execute the same
-# step list. Every shell line is the unit of comparison against
-# scripts/ci-steps.txt — keep them aligned (the flake-drift check enforces).
+# Top-level Makefile. Pure gates live in flake checks (`make lint` is an
+# alias for the same `nix flake check` CI runs). preflight chains the
+# sandbox-unsafe suites: cargo builds and npm ci cannot run inside the
+# nix sandbox, so they stay Make verbs under `nix develop`.
 
 .PHONY: preflight lint scaffold-bake regression nextest smoke-bermuda smoke-osmotic clean install-hooks readme-lint
 
+# `lint` (nix flake check) is included so that a green local `make preflight`
+# is a true superset of the CI gates — previously a pure-Python or formatting
+# change could pass `make preflight` and still red the always-on `lint` job.
 preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
 
 # `nextest` is not part of preflight because there is no top-level cargo
@@ -11,13 +15,7 @@ preflight: lint scaffold-bake regression smoke-bermuda smoke-osmotic
 # Rust unit tests worth running outside its smoke chain.
 
 lint:
-	clj-kondo --lint $$(git ls-files '*.clj' '*.cljs' '*.cljc' '*.edn') --fail-level error
-	ruff check .
-	cargo fmt --check --manifest-path verifiers/bermuda/rust-verifier/Cargo.toml
-	cargo fmt --check --manifest-path verifiers/osmotic_pressure/rust-verifier/Cargo.toml
-	nixpkgs-fmt --check $$(git ls-files '*.nix')
-	pytest skills/neurosym-forge/tests/test_support_matrix.py -q
-	pytest skills/neurosym-forge/tests/test_induction_grammar_drift.py -q
+	nix flake check -L
 
 scaffold-bake:
 	pytest skills/neurosym-forge/tests/test_scaffold_bake.py -x
@@ -35,21 +33,18 @@ smoke-osmotic:
 	make -C verifiers/osmotic_pressure ci
 
 clean:
-	cargo clean
+	# No root cargo workspace exists, so `cargo clean` here aborts the
+	# target before anything is removed; the per-verifier rm lines below
+	# do the real work.
 	rm -rf verifiers/*/rust-verifier/target
 	rm -rf verifiers/*/cljs-orchestrator/dist
 	rm -rf verifiers/*/cljs-orchestrator/.shadow-cljs
 	rm -rf verifiers/*/cljs-orchestrator/native
 
 install-hooks:
-	@command -v lefthook >/dev/null 2>&1 || { \
-		echo "ERROR: lefthook not found. Install it first:"; \
-		echo "  nix develop  # (recommended — lefthook is in flake.nix)"; \
-		echo "  OR: go install github.com/evilmartians/lefthook@latest"; \
-		exit 1; \
-	}
-	lefthook install
-	@echo "Pre-commit hooks installed. They will run on every git commit."
+	@echo "Hooks are installed by the dev shell (nix develop)."
+	@echo "lefthook.yml is generated from nix/hooks.nix — do not hand-edit."
+	nix develop -c true
 
 readme-lint:
 	nix develop -c bash -c 'cd tools/readme-lint && .venv/bin/python -m scripts.lint_readme'

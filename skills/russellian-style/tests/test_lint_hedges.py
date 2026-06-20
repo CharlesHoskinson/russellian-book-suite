@@ -18,6 +18,20 @@ def test_lint_hedges_detects_known_terms():
     assert "generally" in terms
 
 
+def test_lint_hedges_skips_contrastive_rather_than(tmp_path):
+    # "rather than" is contrastive and must not count as a hedge; a bare
+    # adverbial "rather" still does.
+    md = tmp_path / "rather.md"
+    md.write_text(
+        "The reasons are structural rather than incidental.\n\n"
+        "I would rather under-claim than feed either.\n\n"
+        "This proof is rather involved.\n",
+        encoding="utf-8",
+    )
+    terms = [f["term"] for f in lint_hedges(md)]
+    assert terms.count("rather") == 1  # only the bare adverbial one; both "... than" forms skipped
+
+
 def test_lint_hedges_records_line_numbers():
     findings = lint_hedges(Path("tests/fixtures/hedged_sample.md"))
     assert all(f["line"] >= 1 for f in findings)
@@ -63,3 +77,30 @@ def test_lint_hedges_still_catches_lowercase_may(tmp_path):
     f.write_text(text, encoding="utf-8")
     findings = lint_hedges(f)
     assert any(f["term"] == "may" for f in findings)
+
+
+def test_lint_hedges_col_on_continuation_line(tmp_path):
+    # A single sentence wrapped across two source lines, with the hedge on the
+    # second physical line. The reported line must be the hedge's physical line
+    # and col must be relative to that line, not a monotonic offset from the
+    # sentence's starting column.
+    text = "# Sample\n\nThe long opening clause carries on and on across the page,\nand it might fail.\n"
+    f = tmp_path / "wrap.md"
+    f.write_text(text, encoding="utf-8")
+    findings = lint_hedges(f)
+    might = [x for x in findings if x["term"] == "might"]
+    assert might, findings
+    h = might[0]
+    # "and it might fail." is source line 4; "might" starts at column 8.
+    assert h["line"] == 4, h
+    assert h["col"] == 8, h
+
+
+def test_lint_hedges_catches_capitalized_hedge_not_sentence_initial(tmp_path):
+    # A capitalized hedge that is NOT sentence-initial (here after a colon) is
+    # a genuine hedge, not a proper noun, and must not be skipped.
+    text = "# Sample\n\nThe rule is simple: May the build pass, the deploy proceeds."
+    f = tmp_path / "midcap.md"
+    f.write_text(text, encoding="utf-8")
+    findings = lint_hedges(f)
+    assert any(x["term"] == "may" for x in findings), findings

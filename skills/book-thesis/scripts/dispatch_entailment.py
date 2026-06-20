@@ -119,7 +119,7 @@ def scan_paragraphs(md: str) -> list[ParaRef]:
         cursor = start + len(block)
         stripped = block.strip()
         if any(s <= start < e for s, e in consumed) or not stripped \
-                or stripped.startswith(("#", "|", ">", "```", ":::", "---")):
+                or stripped.startswith(("#", "|", ">", "```", ":::", "---", "[^")):
             continue
         cm = COMMENT_RE.match(stripped)
         spans.append((start, cm.group("node") if cm else None,

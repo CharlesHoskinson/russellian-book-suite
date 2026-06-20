@@ -38,6 +38,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts._edn_reader import read_edn
 
 
@@ -178,47 +180,9 @@ def _extract_keyed_value(form, key_name: str):
     return None
 
 
-class _StubGrammarResult:
-    def __init__(self, ok: bool, tag: str | None = None) -> None:
-        self.ok = ok
-        self.tag = tag
-
-
-def _stub_grammar_conforming(candidate) -> _StubGrammarResult:
-    """Stub grammar enforcer.
-
-    Extracts the rule's `:on-unsat` defect id, walks the `:assert` AST,
-    and rejects with `:grammar-fail/circular-definition` if any node
-    matches the defect id (the rule "refers to itself").
-    """
-    assert_form = _extract_keyed_value(candidate, "assert")
-    on_unsat = _extract_keyed_value(candidate, "on-unsat")
-    defect_id = None
-    if isinstance(on_unsat, dict):
-        for k, v in on_unsat.items():
-            k_name = getattr(k, "name", str(k))
-            if k_name == "defect":
-                defect_id = v
-                break
-    if defect_id is not None and assert_form is not None:
-        if _contains_term(assert_form, defect_id):
-            return _StubGrammarResult(
-                ok=False, tag=":grammar-fail/circular-definition"
-            )
-    return _StubGrammarResult(ok=True)
-
-
-def _contains_term(form, target) -> bool:
-    """Recursively check whether `form` contains `target` as a subterm."""
-    if _terms_equal(form, target):
-        return True
-    if isinstance(form, list):
-        return any(_contains_term(x, target) for x in form)
-    if isinstance(form, dict):
-        for k, v in form.items():
-            if _contains_term(k, target) or _contains_term(v, target):
-                return True
-    return False
+# The circular-definition gate now lives in production
+# (`_induction_grammar.cljs`); `test_proof_level_confabulation_rejected`
+# binds to it directly via nbb rather than a test-local stub.
 
 
 class _StubHoldoutResult:
@@ -334,35 +298,99 @@ def test_outcome_driven_constraint_violation_rejected():
     assert result.reason == ":trivial-tautology"
 
 
+def test_real_validator_module_is_bound_and_discriminating():
+    """tautology-circular-only-in-test-stubs: the tautology gate must
+    exist in production (`scripts._induction_validator`), not only as a
+    test-local stub. Assert the module is importable AND discriminating
+    (accepts a non-trivial rule, rejects a tautology) so the test is not
+    satisfied by a degenerate always-reject."""
+    assert _has_module("scripts._induction_validator"), (
+        "scripts._induction_validator must exist in production"
+    )
+    from scripts._induction_validator import validate  # type: ignore
+
+    tautology = read_edn(
+        (FIXTURES / "tautology_candidate.edn").read_text(encoding="utf-8")
+    )
+    non_trivial = read_edn(
+        "(defconstraint :c :backend :z3 :assert (>= (:r0 ?d) 0) "
+        ":on-unsat {:defect :D :severity :low})"
+    )
+    assert validate(tautology).rejected is True
+    assert validate(tautology).reason == ":trivial-tautology"
+    assert validate(non_trivial).rejected is False
+
+
 # ---------------------------------------------------------------------------
 # REQ-TEST-042 — Proof-Level Confabulation
 # ---------------------------------------------------------------------------
 
 
+def _grammar_conforming_via_nbb(form_edn: str, schema_edn: str) -> dict:
+    """Run the cljs `_induction_grammar.cljs` enforcer over a candidate by
+    writing the eval expression to a temp .cljs file under the scripts
+    dir and shelling into nbb.
+
+    The enforcer is a ClojureScript module with no Python surface, so the
+    test binds to it via nbb (the structurally-correct binding) rather
+    than an importlib spec probe that can never resolve a .cljs file.
+    A file argument (not `nbb -e <expr>`) sidesteps the Windows cmd.exe
+    redirection issue with operators containing `>`."""
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+
+    nbb = shutil.which("nbb")
+    assert nbb is not None
+    scripts_dir = Path(__file__).resolve().parents[1] / "scripts"
+    expr = (
+        "(require '[_induction-grammar :as g]) "
+        f"(println (g/grammar-conforming-json {json.dumps(form_edn)} "
+        f"{json.dumps(schema_edn)}))"
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".cljs", dir=str(scripts_dir), delete=False, encoding="utf-8"
+    ) as fh:
+        fh.write(expr)
+        script = fh.name
+    try:
+        result = subprocess.run(
+            [nbb, "--classpath", str(scripts_dir), script],
+            capture_output=True, text=True, check=False, timeout=60,
+        )
+    finally:
+        os.unlink(script)
+    assert result.returncode == 0, f"nbb failed: {result.stderr!r}"
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
 def test_proof_level_confabulation_rejected():
     """REQ-TEST-042: grammar enforcer rejects circular `:assert` references.
 
-    Mitigation under test: Phase V's grammar enforcer walks the
-    `:assert` AST and rejects with
-    `:grammar-fail/circular-definition` when any node matches the
-    rule's own `:on-unsat` defect id. A rule that references its own
-    defect "proves itself" without ever touching the atomspace; the AST
-    walker catches the cycle before the candidate reaches the
-    validator.
-    """
-    candidate = read_edn(
-        (FIXTURES / "circular_candidate.edn").read_text(encoding="utf-8")
-    )
+    Mitigation under test: the grammar enforcer walks the `:assert` AST
+    and rejects with `:grammar-fail/circular-definition` when any node
+    matches the rule's own `:on-unsat` defect id. A rule that references
+    its own defect "proves itself" without ever touching the atomspace.
 
-    if _has_module("scripts._induction_grammar"):
-        from scripts._induction_grammar import grammar_conforming  # type: ignore
+    The enforcer is ClojureScript (`_induction_grammar.cljs`), so the
+    test shells into nbb against the real gate. It skips when nbb is not
+    on PATH (the static `find_spec` probe could never bind a .cljs file —
+    that was the confabulation-test-module-mismatch defect)."""
+    import shutil
 
-        result = grammar_conforming(candidate)
-    else:
-        result = _stub_grammar_conforming(candidate)
+    if not shutil.which("nbb"):
+        pytest.skip("nbb not available on PATH; cljs grammar gate needs nbb")
 
-    assert result.ok is False
-    assert result.tag == ":grammar-fail/circular-definition"
+    form = (FIXTURES / "circular_candidate.edn").read_text(encoding="utf-8")
+    # Schema declaring the predicate the circular fixture references so the
+    # gate reaches the circular-definition check rather than tripping on
+    # :grammar-fail/unknown-predicate first.
+    schema = "{:predicates {:defect-id {:arg-sorts [:s] :return :int}} :sorts [:s]}"
+
+    result = _grammar_conforming_via_nbb(form, schema)
+    assert result["ok"] is False
+    assert result.get("tag") == "grammar-fail/circular-definition"
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +426,129 @@ def test_memorization_vs_induction_rejected():
     assert result.failing_folds, "expected at least one held-out fold to fail"
     # fold_4 carries the negative-r0 documents; it must be among the failures.
     assert 4 in result.failing_folds
+
+
+def test_run_rejects_memorizing_candidate_end_to_end(tmp_path):
+    """holdout-validation-not-wired: a candidate that fits the training
+    documents but fails a held-out document fold must be routed into the
+    rejected list with reason :memorization by the production `run()`
+    path, not accepted as a survivor.
+
+    We seed a corpus where predicate `flag` is positive in four documents
+    but negative in a fifth (held-out) document. The Stub LLM proposer
+    emits `(> (:flag ?d) 0)`, which the orchestrator must reject across
+    the document folds."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts import _induction_orchestrator as orch
+    from scripts._edn_reader import Keyword
+    from scripts._edn_writer import write_edn
+
+    rules = tmp_path / "rules"
+    rules.mkdir(parents=True)
+    schema = {
+        Keyword("version"): 1,
+        Keyword("sorts"): [Keyword("disease")],
+        Keyword("predicates"): {
+            Keyword("flag"): {
+                Keyword("arg-sorts"): [Keyword("disease")],
+                Keyword("return"): Keyword("real"),
+            }
+        },
+    }
+    (rules / "booklogic-schema.edn").write_text(
+        write_edn(schema, pretty=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    atom_rows = []
+    for i, doc in enumerate(["d1", "d2", "d3", "d4"]):
+        atom_rows.append((f"c{i}", doc, 5.0))
+    atom_rows.append(("c-neg", "d5", -1.0))  # held-out fold dips negative
+    atomspace = {
+        Keyword("version"): 1,
+        Keyword("atoms"): [
+            {
+                Keyword("claim-id"): cid,
+                Keyword("document"): doc,
+                Keyword("predicate"): Keyword("flag"),
+                Keyword("subject"): Keyword("s"),
+                Keyword("value"): val,
+            }
+            for cid, doc, val in atom_rows
+        ],
+    }
+    (rules / "atomspace.edn").write_text(
+        write_edn(atomspace, pretty=True) + "\n", encoding="utf-8", newline="\n"
+    )
+
+    rc = orch.main([str(tmp_path)])
+    assert rc == 0
+
+    payload = read_edn_file_local(tmp_path / "work" / "induction" / "candidates.edn")
+    cands = payload[Keyword("candidates")]
+    memo_rejected = [
+        c
+        for c in cands
+        if c.get(Keyword("rejection-reason")) == Keyword("memorization")
+    ]
+    assert memo_rejected, (
+        "the memorizing (> (:flag ?d) 0) candidate must be rejected with "
+        ":memorization end-to-end"
+    )
+    # The flag candidate must NOT survive as :pending.
+    pending_flag = [
+        c
+        for c in cands
+        if c.get(Keyword("status")) == Keyword("pending")
+        and "flag" in str(c.get(Keyword("canonical-form")))
+        and ">" in str(c.get(Keyword("canonical-form")))
+    ]
+    assert not pending_flag, "memorizing flag rule must not be accepted"
+
+
+def read_edn_file_local(path: Path):
+    from scripts._io import read_edn_file
+
+    return read_edn_file(path)
+
+
+def test_holdout_evaluates_the_candidates_own_predicate():
+    """holdout-ignores-candidate: validate_with_holdout must evaluate the
+    candidate's parsed :assert, not a hard-coded `r0` predicate.
+
+    Two candidates over the SAME folds must give DIFFERENT verdicts when
+    they assert different things. We build folds whose `r0` is always
+    non-negative but whose `coverage` dips negative in one fold:
+
+      - `(>= (:r0 ?d) 0)`       passes every fold  -> accepted
+      - `(>= (:coverage ?d) 0)` fails the dip fold -> rejected
+
+    If the function ignored its candidate (hard-coded r0), both would be
+    accepted and this test would fail."""
+    from scripts._induction_orchestrator import validate_with_holdout
+
+    folds = [
+        [{"r0": 3, "coverage": 1}, {"r0": 7, "coverage": 2}],
+        [{"r0": 0, "coverage": 5}, {"r0": 5, "coverage": 1}],
+        [{"r0": 4, "coverage": -1}, {"r0": 2, "coverage": -3}],  # coverage dips
+    ]
+
+    r0_form = read_edn(
+        "(defconstraint :c :backend :z3 :assert (>= (:r0 ?d) 0) "
+        ":on-unsat {:defect :D :severity :low})"
+    )
+    cov_form = read_edn(
+        "(defconstraint :c :backend :z3 :assert (>= (:coverage ?d) 0) "
+        ":on-unsat {:defect :D :severity :low})"
+    )
+
+    r0_result = validate_with_holdout(r0_form, folds)
+    cov_result = validate_with_holdout(cov_form, folds)
+
+    assert r0_result.rejected is False, "r0 is non-negative on every fold"
+    assert cov_result.rejected is True, "coverage dips negative in fold 2"
+    assert cov_result.reason == ":memorization"
+    assert 2 in cov_result.failing_folds
 
 
 # ---------------------------------------------------------------------------

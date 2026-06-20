@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 from .counter_claims import append_counter_claim, next_counter_claim_id
-from .ledger import read_claims
+from .ledger import append_claim, read_claims
 from .workspace import WorkspaceLayout
 
 PROMPT_TEMPLATE = """\
@@ -82,8 +82,33 @@ def generate_for_claim(workspace_root: Path, claim_id: str,
         raise ValueError(f"claim not found: {claim_id}")
     prompt = prompt_for_claim(target)
     raw = llm_call(prompt)
-    rivals = json.loads(_strip_code_fence(raw))
-    for rival in rivals:
+    # The LLM boundary is untrusted: validate JSON-ness and shape before
+    # indexing into rivals, so malformed output fails loud and specific instead
+    # of as a raw JSONDecodeError/KeyError/TypeError downstream. Tolerate
+    # markdown code fences (gemma-style output) before parsing.
+    try:
+        rivals = json.loads(_strip_code_fence(raw))
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"counter-claim LLM output for {claim_id} is not valid JSON: {e}"
+        ) from e
+    if not isinstance(rivals, list):
+        raise ValueError(
+            f"counter-claim LLM output for {claim_id} must be a JSON array of "
+            f"objects, got {type(rivals).__name__}"
+        )
+    for i, rival in enumerate(rivals):
+        if not isinstance(rival, dict):
+            raise ValueError(
+                f"counter-claim LLM output for {claim_id}: item {i} must be a "
+                f"JSON object, got {type(rival).__name__}"
+            )
+        missing = [k for k in ("text", "disagreement_vector") if k not in rival]
+        if missing:
+            raise ValueError(
+                f"counter-claim LLM output for {claim_id}: item {i} missing "
+                f"required key(s) {missing}"
+            )
         rival["disagreement_vector"] = _normalize_disagreement_vector(
             rival.get("disagreement_vector")
         )
@@ -91,7 +116,7 @@ def generate_for_claim(workspace_root: Path, claim_id: str,
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     new_ids: list[str] = []
     for rival in rivals:
-        cc_id = next_counter_claim_id(workspace_root)
+        cc_id = next_counter_claim_id(workspace_root, reserved=set(new_ids))
         rec = {
             "id": cc_id,
             "target_claim_id": claim_id,
@@ -105,13 +130,14 @@ def generate_for_claim(workspace_root: Path, claim_id: str,
         append_counter_claim(workspace_root, rec)
         new_ids.append(cc_id)
     # Append an updated claim record carrying the new counter_claim_ids so the
-    # next ledger read picks them up. Preserves append-only ledger semantics.
+    # next ledger read picks them up. Route through append_claim so the schema
+    # validator runs before the write — preserves append-only ledger semantics
+    # and the schema-discipline invariant.
     layout = WorkspaceLayout(workspace_root)
     updated = dict(target)
     existing = list(updated.get("counter_claim_ids", []))
     updated["counter_claim_ids"] = existing + new_ids
-    with layout.ledger.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(updated, sort_keys=True) + "\n")
+    append_claim(layout, updated)
     return new_ids
 
 
@@ -131,79 +157,39 @@ def generate_for_all_load_bearing(workspace_root: Path,
     return out
 
 
-def _main(argv: list[str]) -> int:
+def pending_load_bearing(workspace_root: Path) -> list[dict]:
+    """Latest load-bearing claim records that still have no counter-claims."""
+    layout = WorkspaceLayout(workspace_root)
+    latest: dict[str, dict] = {}
+    for r in read_claims(layout):
+        latest[r["claim_id"]] = r
+    return [rec for rec in latest.values()
+            if rec.get("load_bearing") and not rec.get("counter_claim_ids")]
+
+
+def main(argv: list[str]) -> int:
+    """Emit the abduction prompts for every load-bearing claim awaiting rivals.
+
+    Counter-claim generation needs an LLM, which this skill does not bundle: the
+    driving agent supplies the `llm_call` and feeds responses back through
+    generate_for_claim (see the Bundle C runbook). This CLI does the offline half
+    of that loop — it lists the pending claims and prints the exact prompt to run
+    for each, so the documented command performs real, observable work.
+    """
     parser = argparse.ArgumentParser(
         prog="python -m scripts.generate_counter_claims",
-        description="Generate abductive counter-claims for load-bearing claims.",
+        description="Print abduction prompts for load-bearing claims lacking counter-claims.",
     )
     parser.add_argument("workspace", type=Path, help="Workspace root.")
-    parser.add_argument(
-        "--claim-id",
-        default=None,
-        help="Generate counter-claims for a single claim ID only. "
-             "Omit to process all load-bearing claims without existing counter-claims.",
-    )
-    parser.add_argument(
-        "--llm-backend",
-        choices=["subagent", "ollama"],
-        default="subagent",
-        help=(
-            "Backend capability matrix: "
-            "subagent — UNSUPPORTED on this CLI; the controlling agent must inject "
-            "llm_call directly via generate_for_claim / generate_for_all_load_bearing. "
-            "Exits with code 2 and a clear message. "
-            "ollama — SELF_EXECUTABLE; calls llm_infra in-process and writes counter-claims."
-        ),
-    )
-    parser.add_argument(
-        "--model",
-        default="gemma4:31b",
-        help="Ollama model (only used when --llm-backend=ollama).",
-    )
-    parser.add_argument(
-        "--num-predict",
-        type=int,
-        default=None,
-        help="Caps Ollama output tokens (only used when --llm-backend=ollama). "
-             "None = use frontmatter or default.",
-    )
     args = parser.parse_args(argv)
-
-    if args.llm_backend == "subagent":
-        # Backend matrix: subagent is unsupported on this skill's CLI.
-        # The subagent path expects the controlling agent to inject llm_call directly
-        # via the library API (generate_for_claim / generate_for_all_load_bearing).
-        # Use --llm-backend ollama for script-driven local dispatch.
-        print(
-            "[generate_counter_claims] --llm-backend subagent is unsupported on this skill. "
-            "The subagent path expects the controlling agent to inject llm_call directly via "
-            "the library API (generate_for_claim / generate_for_all_load_bearing). "
-            "Use --llm-backend ollama for script-driven local dispatch.",
-            file=sys.stderr,
-        )
-        return 2
-
-    # --llm-backend ollama (self_executable)
-    # Import lazily — keeps the subagent path free of llm_infra dependency at import time.
-    if args.num_predict is not None:
-        from llm_infra import make_ollama_call
-        llm_call = make_ollama_call(model=args.model, num_predict=args.num_predict)
-    else:
-        from scripts.production_llm import default_llm_call
-        llm_call = default_llm_call(model=args.model)
-
-    workspace = args.workspace.resolve()
-    if args.claim_id:
-        new_ids = generate_for_claim(workspace, args.claim_id, llm_call)
-        print(f"generated {len(new_ids)} counter-claim(s) for {args.claim_id}: {new_ids}")
-    else:
-        result = generate_for_all_load_bearing(workspace, llm_call)
-        total = sum(len(v) for v in result.values())
-        print(f"generated {total} counter-claim(s) across {len(result)} claim(s)")
-        for cid, ids in result.items():
-            print(f"  {cid}: {ids}")
+    pending = pending_load_bearing(args.workspace.resolve())
+    for rec in pending:
+        print(f"### {rec['claim_id']}")
+        print(prompt_for_claim(rec))
+        print()
+    print(f"pending load-bearing claims: {len(pending)}", file=sys.stderr)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(_main(sys.argv[1:]))
+    raise SystemExit(main(sys.argv[1:]))

@@ -1,0 +1,36 @@
+;; confidence-present — a claim must have a confidence value (minCount 1)
+;; (REQ-KG-012). P2.4 closure of the external-audit gap: the EDN->Cozo port
+;; carried tbf:confidence's range arms (confidence-range / confidence-range-low)
+;; but NOT its sh:minCount 1, so under KG_BACKEND=cozo a confidence-less claim
+;; CONFORMED while pyshacl flagged it.
+;;
+;; WRONG-TYPED confidence — a DELIBERATE contract divergence, not equivalence:
+;; :confidence is a typed Float? column, so a non-decimal value cannot load —
+;; CozoStore.load raises a QueryException (verified in
+;; tests/test_presence_ports.py::test_wrong_typed_confidence_raises_on_load). The
+;; rdflib/pyshacl path instead reports an sh:datatype ShaclReport violation. So the
+;; two engines do NOT agree on a wrong-typed value: Cozo CRASHES at load, rdflib
+;; REPORTS. This is acceptable because only synthetic/corrupt or hand-edited ledger
+;; data can reach it (claim-record.schema.json types confidence as a number on
+;; every real write), but the P5.3 cutover gate must record it, not treat datatype
+;; as silently "ported". Hence no datatype constraint here.
+;;
+;; Booklogic port of the tbf:confidence minCount constraint in assets/shapes.ttl:
+;;   sh:path tbf:confidence ; sh:minCount 1 .
+;;
+;; minCount >= 1 lowers to a NEGATION (see status-present / text-cardinality): a
+;; claim is a violation when NO claim row with that id carries a non-null
+;; confidence. ?focus is bound by :where; ?conf is FREE, so the compiler lifts the
+;; group into a ``confidence_present_<n>`` helper rule guarded by !is_null(conf)
+;; and negates it over ?focus.
+;;
+;; :component disambiguates the rdflib message-remap: confidence-present and
+;; confidence-range(-low) share the tbf:confidence path but carry distinct
+;; authored messages (audit I-2).
+(defconstraint :confidence-present
+  :message "Claim must have a confidence value (minCount 1)."
+  :path "https://example.org/book-knowledge#confidence"
+  :component "http://www.w3.org/ns/shacl#MinCountConstraintComponent"
+  :where [[?c :claim/id ?focus]]
+  :not   [[?c2 :claim/id ?focus]
+          [?c2 :claim/confidence ?conf]])

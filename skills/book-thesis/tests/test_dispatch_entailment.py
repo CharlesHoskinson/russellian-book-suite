@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from dispatch_entailment import write_payloads  # noqa: E402
+from dispatch_entailment import write_payloads, scan_paragraphs  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 THESIS_TTL = FIXTURES / "datalog_thesis.ttl"
@@ -43,6 +43,18 @@ def _build_workspace(tmp_path: Path) -> Path:
     (tmp_path / "claims").mkdir()
     shutil.copy(LEDGER_JSONL, tmp_path / "claims" / "ledger.jsonl")
     return tmp_path
+
+
+def test_scan_paragraphs_skips_footnote_definitions() -> None:
+    md = (
+        "# Chapter 1\n\n"
+        "<!-- supports: first-leg -->\n"
+        "A genuine paragraph with enough words to count as prose.\n\n"
+        "[^a]: A footnote definition that must not be scanned as a paragraph.\n"
+    )
+    texts = [p.text for p in scan_paragraphs(md)]
+    assert any("genuine paragraph" in t for t in texts)
+    assert not any(t.lstrip().startswith("[^a]") for t in texts)
 
 
 def test_emits_one_payload_per_paragraph(tmp_path: Path) -> None:

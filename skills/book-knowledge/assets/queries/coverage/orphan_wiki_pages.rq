@@ -1,7 +1,0 @@
-PREFIX tbf: <https://example.org/book-knowledge#>
-
-SELECT ?page WHERE {
-  ?page a tbf:WikiPage .
-  FILTER NOT EXISTS { ?claim tbf:hasSourceSpan ?page . }
-  FILTER NOT EXISTS { ?chapter tbf:referencesPage ?page . }
-}

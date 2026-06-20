@@ -14,6 +14,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _FORGE_SCRIPTS_DIR = str(_REPO_ROOT / "skills" / "neurosym-forge" / "scripts")
 
 # Extend this package's search path so `from scripts._edn_reader import ...`
-# finds forge's modules. Guard against double-insertion.
+# finds forge's modules. Append (not insert(0)) so book-knowledge's own modules
+# always take precedence on a name collision; forge is only the fallback. Guard
+# against double-insertion.
 if _FORGE_SCRIPTS_DIR not in __path__:
-    __path__.insert(0, _FORGE_SCRIPTS_DIR)
+    __path__.append(_FORGE_SCRIPTS_DIR)

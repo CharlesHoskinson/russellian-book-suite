@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "verification-artifact",
+  "type": "object",
+  "required": [
+    "id",
+    "obligation_id",
+    "artifact_path",
+    "checker_kind",
+    "checked_at",
+    "status"
+  ],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "obligation_id": {"type": "string", "minLength": 1},
+    "artifact_path": {"type": "string", "minLength": 1},
+    "checker_kind": {"enum": ["z3", "cvc5", "lean", "units", "stats-report"]},
+    "checked_at": {"type": "string", "minLength": 1},
+    "status": {"const": "discharged"}
+  },
+  "additionalProperties": false
+}

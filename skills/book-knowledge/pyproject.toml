@@ -9,26 +9,30 @@ description = "Local-only epistemic compiler for the book-knowledge Claude Code 
 requires-python = ">=3.11"
 dependencies = [
     "pdfplumber>=0.11,<1.0",
-    "markdown-it-py>=3.0,<4.0",
+    "markdown-it-py>=3.0,<5.0",
     "rdflib>=7.0,<9.0",
-    "pyshacl>=0.26,<1.0",
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
+    "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
 ]
 
 [project.optional-dependencies]
 ci = [
     "pdfplumber>=0.11,<1.0",
-    "markdown-it-py>=3.0,<4.0",
+    "markdown-it-py>=3.0,<5.0",
     "rdflib>=7.0,<9.0",
-    "pyshacl>=0.26,<1.0",
     "pyyaml>=6.0,<7.0",
     "jsonschema>=4.21,<5.0",
-    "pytest>=8.0,<9.0",
+    "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
+    "pytest>=8.0,<10.0",
 ]
 dev = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
     "reportlab>=4.0,<5.0",
+    "edn_format>=0.7,<1.0",
+    "pycozo[embedded]>=0.7,<1.0",
 ]
 
 [tool.setuptools]
@@ -42,5 +46,4 @@ markers = [
 addopts = "-v"
 filterwarnings = [
     "ignore::DeprecationWarning:rdflib.*",
-    "ignore::DeprecationWarning:pyshacl.*",
 ]

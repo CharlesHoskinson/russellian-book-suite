@@ -1,0 +1,28 @@
+# Competency-query manifest (P5.4a-2). Replaces the class encoded by the deleted
+# assets/queries/<class>/ .rq directory tree and the defeasible severities that
+# lived in assets/queries/defeasible/_meta.yaml. run_competency_queries discovers
+# the EDN ports (kg-queries/<name>.edn) and reads this for each query's class
+# (coverage | consistency | defeasible) and, for defeasible queries, its severity
+# and exception_queries (the BLOCKING_DEFEASIBLE gate keys off severity=critical).
+contradiction_scan:
+  class: consistency
+chapter_evidence_coverage:
+  class: coverage
+orphan_wiki_pages:
+  class: coverage
+stale_after_source_refresh:
+  class: coverage
+unsupported_claims:
+  class: coverage
+rebuttal-presence:
+  class: defeasible
+  severity: critical
+  exception_queries: []
+contested-rebuttal-window:
+  class: defeasible
+  severity: important
+  exception_queries: []
+posterior-floor:
+  class: defeasible
+  severity: critical
+  exception_queries: []

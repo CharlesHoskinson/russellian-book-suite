@@ -4,7 +4,7 @@ This file orients any AI agent working in this repo. Read it first.
 
 ## What this repo is
 
-A family of seven core Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts (`book-knowledge`, `russellian-style`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`), plus an optional eighth verifier-scaffolder skill `neurosym-forge`. See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
+A family of nine core Claude Code skills that produces non-fiction books from a local claim-ledger and chapter contracts (`book-knowledge`, `russellian-style`, `feynman-style`, `halmos`, `book-compose`, `book-review`, `review-conductor`, `book-qa`, `book-thesis`), plus an optional verifier-scaffolder skill `neurosym-forge`, a standalone paragraph-threading skill `paragraph-weaver`, a standalone IACR writing aid `iacr-math-prose`, a standalone IACR review aid `iacr-review` (EC22 rubric, ten-persona dispatch, consolidation ledger), a standalone three-pass voice review `triadic-voice`, and the support skills `scrapling-fetch` (the sanctioned HTTP fetch surface) and `syntopical-metabook` (cross-source synthesis). See `README.md` for the architecture diagram and skill table. Source of truth for design decisions: `docs/specs/`; source of truth for operator workflows: `docs/operations/`.
 
 ## Per-skill conventions
 
@@ -51,7 +51,7 @@ Per the user's `~/.claude/CLAUDE.md`:
 - All schema changes touch BOTH the JSON Schema in `assets/` AND the validator in `scripts/`
 - New optional fields with defaults are backward-compatible; required fields require migration
 - The state machine for `tbf:status` is enforced in `claim_validator.VALID_TRANSITIONS`. Five states: `proposed`, `verified`, `disputed`, `superseded`, `refuted`. `superseded` and `refuted` are terminal.
-- The SHACL `shapes.ttl` `sh:in` list must match the schema enum exactly. Off-by-one is a silent SHACL failure.
+- The EDN status enum, `kg-schema.edn`, `kg-constraints/status-enum.edn`, and `claim_validator.VALID_TRANSITIONS` must stay in lockstep. Off-by-one state drift is a silent gate failure.
 
 ## Documentation contracts
 

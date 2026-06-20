@@ -1,0 +1,10 @@
+;; Single authored source of the claim status vocabulary.
+;; Feeds scripts/claim_validator.py (VALID_STATES + VALID_TRANSITIONS) and,
+;; post-P5, the SHACL/constraint status enum. Edit the states or the transition
+;; matrix HERE ONLY -- every consumer derives from this file.
+{:states [:proposed :verified :disputed :superseded :refuted]
+ :transitions {:proposed #{:verified :disputed :superseded}
+               :verified #{:disputed :superseded}
+               :disputed #{:verified :superseded :refuted}
+               :superseded #{}
+               :refuted #{}}}

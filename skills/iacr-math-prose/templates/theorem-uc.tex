@@ -1,0 +1,117 @@
+% =============================================================================
+% Template: theorem-uc.tex
+% Skill:    iacr-math-prose
+%
+% Use for: a theorem + proof in the UC simulation-based style (Canetti 2001,
+%          revised 2020 ePrint 2000/067). Defines ideal functionality F,
+%          real protocol pi, simulator S; shows IDEAL ~_c REAL for every
+%          environment Z.
+%
+% Invariants (do not delete):
+%   - F is in a labelled figure environment (framed box), not in prose.
+%   - pi is in a construction block, with one phase per party role.
+%   - S is in pseudocode or a construction block.
+%   - Corruption model is explicit (static / adaptive, semi-honest / malicious).
+%   - Hybrid model is explicit (e.g., F_CRS-hybrid, F_RO-hybrid).
+%   - UC framework citation: Canetti 2001 (FOCS) or Canetti 2020 (ePrint 2000/067).
+%   - The indistinguishability argument reduces to a stated assumption.
+%
+% See:
+%   - references/proof-style-uc.md (worked example: commitment from CRS)
+%   - references/theorem-statement-style.md
+% =============================================================================
+
+% --- 1. Ideal functionality ---------------------------------------------------
+\begin{figure}[t]
+\begin{framed}
+\textbf{Functionality $\TODO{\F_\textsf{Target}}$.}
+$\TODO{\F_\textsf{Target}}$ proceeds as follows, parameterised by parties
+$\TODO{P_1, \ldots, P_n}$ and adversary $\Sim$.
+\begin{itemize}
+  \item \textbf{Inputs.}
+        \TODO{State precisely what messages F accepts and from whom.}
+  \item \textbf{Internal state.}
+        \TODO{State the recorded data, session map, corruption set.}
+  \item \textbf{Outputs.}
+        \TODO{State precisely what messages F emits and to whom.}
+  \item \textbf{Corruption.}
+        \TODO{State the corruption model and simulator interface.}
+\end{itemize}
+\end{framed}
+\caption{\TODO{Ideal functionality F.}}
+\label{fig:\TODO{f-target}}
+\end{figure}
+
+% --- 2. Real protocol ---------------------------------------------------------
+\begin{construction}[\TODO{$\pi_\textsf{Target}$ in the hybrid model}]
+\label{constr:\TODO{pi-target}}
+Let \TODO{state the cryptographic primitives invoked.}
+
+\textbf{Setup.}
+\TODO{State what the hybrid functionalities provide.}
+
+\textbf{Phase 1 (party $P_i$).}
+\begin{itemize}
+  \item \TODO{Step 1.}
+  \item \TODO{Step 2.}
+\end{itemize}
+
+\textbf{Phase 2 (party $P_j$).}
+\begin{itemize}
+  \item \TODO{Step 1.}
+\end{itemize}
+\end{construction}
+
+% --- 3. Simulator -------------------------------------------------------------
+\paragraph{Simulator $\Sim$.}
+On behalf of the corrupted parties, $\Sim$ proceeds as follows.
+\begin{itemize}
+  \item \TODO{Setup-phase action.}
+  \item \textbf{On message from $\F_\textsf{Target}$.} \TODO{Action.}
+  \item \textbf{On message from corrupted party (i.e., from $Z$).} \TODO{Action.}
+\end{itemize}
+
+% --- 4. Theorem and proof -----------------------------------------------------
+\begin{theorem}[UC security of $\TODO{\pi_\textsf{Target}}$]
+\label{thm:\TODO{pi-target-uc}}
+In the $\TODO{\F_\textsf{Hybrid}}$-hybrid model, the protocol
+$\TODO{\pi_\textsf{Target}}$ of \cref{constr:\TODO{pi-target}} UC-realises the
+ideal functionality $\TODO{\F_\textsf{Target}}$ (\cref{fig:\TODO{f-target}})
+against a \TODO{static, malicious} PPT adversary corrupting any
+\TODO{strict subset of the parties}, assuming \TODO{stated assumption}.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Fix a PPT environment $Z$ and a PPT adversary $A$. We show
+$\textsf{IDEAL}_{\TODO{\F_\textsf{Target}}, \Sim, Z}
+\approxc
+\textsf{REAL}_{\TODO{\pi_\textsf{Target}}, A, Z}$
+in the $\TODO{\F_\textsf{Hybrid}}$-hybrid model.
+
+\paragraph{Case 1: \TODO{first corruption pattern}.}
+\TODO{Describe $Z$'s REAL-world view.}
+\TODO{Describe $Z$'s IDEAL-world view as simulated by $\Sim$.}
+If $Z$ distinguishes the two views with non-negligible probability $\delta$,
+we build a PPT \TODO{assumption-breaker} $B$ with
+\[
+  \TODO{\Adv}^{\TODO{\textsf{ASSUMPTION}}}_{B}(\secparam) \;\geq\; \delta,
+\]
+contradicting the assumption.
+
+\paragraph{Case 2: \TODO{second corruption pattern}.}
+\TODO{Argument; often a perfect or statistical indistinguishability case.}
+
+Combining the cases,
+\[
+  \left| \Pr[Z(\textsf{REAL}) = 1] - \Pr[Z(\textsf{IDEAL}) = 1] \right|
+  \;\leq\; \TODO{\Adv^{\textsf{ASSUMPTION}}_{B}(\secparam) + \negl(\secparam)}.
+  \qed
+\]
+\end{proof}
+
+% Cite the UC framework version explicitly in the surrounding text:
+%
+%   "We work in the UC framework of Canetti
+%   (FOCS 2001, latest revision ePrint 2000/067)."
+%
+% For GUC (global UC) extensions, cite Canetti--Dodis--Pass--Walfish, TCC 2007.

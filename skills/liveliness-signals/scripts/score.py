@@ -31,6 +31,9 @@ SIGNALS.append(("sv_distance", signal_sv_distance.score))
 from scripts import signal_concrete
 SIGNALS.append(("concrete_anchor", signal_concrete.score))
 
+from scripts import signal_analogy
+SIGNALS.append(("analogy_mapping", signal_analogy.score))
+
 
 def _load_profile_safe(profile):
     if profile is not None:

@@ -9,3 +9,6 @@ if str(_SKILL_ROOT) not in sys.path:
     sys.path.insert(0, str(_SKILL_ROOT))
 
 __all__ = ["API_VERSION"]
+
+from scripts.brief import build_generation_brief  # noqa: E402
+__all__.append("build_generation_brief")

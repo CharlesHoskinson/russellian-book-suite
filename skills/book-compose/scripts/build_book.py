@@ -217,7 +217,6 @@ def build_book(workspace: Path, version: str,
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
-    import sys
 
     parser = argparse.ArgumentParser(
         prog="build_book",

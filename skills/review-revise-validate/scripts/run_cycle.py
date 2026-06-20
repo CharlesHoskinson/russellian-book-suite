@@ -178,7 +178,7 @@ def run_cycle(
                    output_dir=workspace_dir, chapter_id=chapter_id, model=model)
 
     if skip_revalidate:
-        print(f"[run_cycle] EARLY EXIT: --skip-revalidate requested", file=sys.stderr)
+        print("[run_cycle] EARLY EXIT: --skip-revalidate requested", file=sys.stderr)
         return 0
 
     # Stage 5: panel-after + aggregate-after

@@ -106,6 +106,61 @@
         }
       }
     },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "claim_id"],
+        "properties": {
+          "type": {"type": "string"},
+          "claim_id": {"type": "string"},
+          "attacker_id": {"type": ["string", "null"]},
+          "related_id": {"type": ["string", "null"]},
+          "support_id": {"type": ["string", "null"]},
+          "justification": {"type": "object"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "contradiction-alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_ids"],
+        "properties": {
+          "type": {"type": ["string", "null"]},
+          "rule": {"type": ["string", "null"]},
+          "claim_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 2
+          },
+          "severity": {"type": ["string", "null"]},
+          "evidence": {"type": "object"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "effective-confidence-threshold": {"type": "number"},
+    "effective-confidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "effective"],
+        "properties": {
+          "id": {"type": ["string", "null"]},
+          "claim_id": {"type": "string"},
+          "prior": {"type": ["number", "null"]},
+          "posterior": {"type": ["number", "null"]},
+          "effective": {"type": "number"},
+          "freshness_factor": {"type": ["number", "null"]},
+          "support_erosion_reason": {"type": "array"},
+          "support_erosion_reason_json": {"type": ["string", "null"]},
+          "as_of": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    },
     "flags": {
       "type": "object",
       "properties": {

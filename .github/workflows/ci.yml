@@ -97,9 +97,11 @@ jobs:
   # tools/build-voice-corpus is a tool, not a skill, so the skills-matrix never
   # covered it — its 14 test files ran nowhere and its deps got no Dependabot
   # bumps. Pure-Python and fast, so it runs always (like lint/actionlint) and
-  # feeds the ci-required gate.
+  # feeds the ci-required gate. This also runs the design-KG fixture and
+  # determinism checks: they are cheap, do not require graphify, and guard the
+  # schema/projector/query contract even when a PR touches only docs/OpenSpec.
   tools-test:
-    name: tools (build-voice-corpus + root)
+    name: tools + design KG
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -119,6 +121,16 @@ jobs:
           python -m pip install pyyaml
           python -m pip install -e "skills/book-knowledge"
           python -m pytest tools/tests -q
+      - name: design KG deterministic contract
+        run: |
+          python -m pytest \
+            skills/book-knowledge/tests/test_design_kg_audit.py \
+            skills/book-knowledge/tests/test_design_kg_queries.py \
+            skills/book-knowledge/tests/test_project_design_kg.py \
+            skills/book-knowledge/tests/test_design_kg_fixture.py \
+            skills/book-knowledge/tests/test_kg_schema.py \
+            skills/book-knowledge/tests/test_cozo_store_contract.py \
+            -q
 
   # Detect whether the PR diff touches anything that could affect the Rust
   # verifiers / Nix preflight. Pure-Python PRs skip the rust-gated jobs;

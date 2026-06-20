@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "id": "fixture_module",
+      "label": "fixture.py",
+      "file_type": "python",
+      "source_file": "src/fixture.py",
+      "source_location": "L1",
+      "_origin": "fixture"
+    },
+    {
+      "id": "fixture_entrypoint",
+      "label": "fixture_entrypoint()",
+      "file_type": "python",
+      "source_file": "src/fixture.py",
+      "source_location": "L1",
+      "_origin": "fixture"
+    }
+  ],
+  "links": [
+    {
+      "source": "fixture_module",
+      "target": "fixture_entrypoint",
+      "relation": "contains",
+      "confidence": 1.0,
+      "weight": 1.0
+    }
+  ]
+}

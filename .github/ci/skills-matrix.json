@@ -26,6 +26,7 @@
     { "skill": "feynman-style", "spacy": true },
     { "skill": "halmos" },
     { "skill": "iacr-review" },
+    { "skill": "liveliness-signals" },
     { "skill": "review-conductor" },
     {
       "skill": "neurosym-forge",

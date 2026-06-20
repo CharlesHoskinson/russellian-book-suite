@@ -1,0 +1,39 @@
+# Keep graphify focused on code, CI, and operator docs.
+# Generated outputs and prose corpora drown out the architecture graph.
+
+graphify-out/
+
+# Local environments and tool caches.
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.cache/
+node_modules/
+ms-playwright/
+
+# Large source corpora and generated audit/eval artifacts.
+skills/russellian-style/assets/hoskinson-corpus/
+skills/russellian-style/assets/russell-corpus/
+skills/feynman-style/assets/feynman-delta-profile.json
+docs/audits/
+docs/eval/
+docs/plans/
+docs/superpowers/plans/
+docs/superpowers/research/
+docs/superpowers/specs/
+openspec/changes/archive/
+docs/eval/kg-prose/_runs/
+examples/*/book/releases/
+examples/*/graph/reports/
+examples/*/claims/snapshots/
+examples/*/qa/swarm-findings.json
+examples/*/qa/defects.json
+examples/*/qa/*.json
+
+# Vendored or generated build outputs.
+verifiers/*/rust-verifier/target/
+verifiers/*/cljs-orchestrator/dist/
+verifiers/*/cljs-orchestrator/.shadow-cljs/
+verifiers/*/cljs-orchestrator/native/

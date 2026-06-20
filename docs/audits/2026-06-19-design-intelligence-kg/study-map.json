@@ -1,0 +1,428 @@
+{
+  "agent_workflow": [
+    "Start with active_coverage_gaps before archived_coverage_gaps.",
+    "Inspect each example source_path/source_line before changing code.",
+    "Promote evidence-only links only when exact identifiers, paths, or reviewed design evidence support them.",
+    "For archived-only gaps, prefer documenting historical status over implementing stale requirements."
+  ],
+  "priorities": [
+    {
+      "active_coverage_gaps": 0,
+      "ambiguous_evidence_links": 12,
+      "archived_coverage_gaps": 41,
+      "capability": "homoiconic-kg",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 65,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "claim"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 65,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "claim"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 145,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 145,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 145,
+          "source_path": "openspec/specs/homoiconic-kg/spec.md",
+          "witness": "status"
+        }
+      ],
+      "missing": {
+        "ci": 41,
+        "implementation": 35,
+        "test": 41
+      },
+      "priority_score": 53,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "reviewable_evidence_links": 0,
+      "stale_evidence_links": 12
+    },
+    {
+      "active_coverage_gaps": 0,
+      "ambiguous_evidence_links": 24,
+      "archived_coverage_gaps": 9,
+      "capability": "proof-obligations",
+      "examples": [
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        },
+        {
+          "archived": false,
+          "kind": "ambiguous-evidence",
+          "link_kind": "requirement-implemented-by",
+          "provenance": "deterministic:ambiguous-symbol",
+          "source_line": 34,
+          "source_path": "openspec/specs/proof-obligations/spec.md",
+          "witness": "status"
+        }
+      ],
+      "missing": {
+        "ci": 9,
+        "implementation": 7,
+        "test": 9
+      },
+      "priority_score": 33,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "reviewable_evidence_links": 0,
+      "stale_evidence_links": 24
+    },
+    {
+      "active_coverage_gaps": 0,
+      "ambiguous_evidence_links": 0,
+      "archived_coverage_gaps": 14,
+      "capability": "attributed-generation",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-001",
+          "source_line": 27,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-002",
+          "source_line": 42,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-003",
+          "source_line": 56,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-004",
+          "source_line": 71,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ATTR-005",
+          "source_line": 87,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-writer-assertion-contract/specs/attributed-generation/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 14,
+        "implementation": 14,
+        "test": 14
+      },
+      "priority_score": 14,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "reviewable_evidence_links": 0,
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "ambiguous_evidence_links": 0,
+      "archived_coverage_gaps": 8,
+      "capability": "chapter-retrieval",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-001",
+          "source_line": 23,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-002",
+          "source_line": 39,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-003",
+          "source_line": 54,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-004",
+          "source_line": 65,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-CHAP-005",
+          "source_line": 81,
+          "source_path": "openspec/changes/archive/2026-06-17-kg-chapter-retrieval-bundles/specs/chapter-retrieval/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 8,
+        "implementation": 8,
+        "test": 8
+      },
+      "priority_score": 8,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "reviewable_evidence_links": 0,
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "ambiguous_evidence_links": 0,
+      "archived_coverage_gaps": 7,
+      "capability": "argumentation",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-001",
+          "source_line": 27,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-002",
+          "source_line": 44,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-003",
+          "source_line": 59,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-004",
+          "source_line": 73,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-ARG-005",
+          "source_line": 88,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-argumentation-layer/specs/argumentation/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 7,
+        "implementation": 7,
+        "test": 7
+      },
+      "priority_score": 7,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "reviewable_evidence_links": 0,
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "ambiguous_evidence_links": 0,
+      "archived_coverage_gaps": 7,
+      "capability": "kg-prose-eval",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-001",
+          "source_line": 24,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-002",
+          "source_line": 46,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-003",
+          "source_line": 69,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-004",
+          "source_line": 84,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-EVAL-005",
+          "source_line": 95,
+          "source_path": "openspec/changes/archive/2026-06-18-kg-prose-eval-harness/specs/kg-prose-eval/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 7,
+        "implementation": 7,
+        "test": 7
+      },
+      "priority_score": 7,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "reviewable_evidence_links": 0,
+      "stale_evidence_links": 0
+    },
+    {
+      "active_coverage_gaps": 0,
+      "ambiguous_evidence_links": 0,
+      "archived_coverage_gaps": 6,
+      "capability": "claim-first-drafting",
+      "examples": [
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-001",
+          "source_line": 23,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-002",
+          "source_line": 38,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-003",
+          "source_line": 53,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-004",
+          "source_line": 68,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        },
+        {
+          "archived": true,
+          "kind": "coverage-gap",
+          "missing": "implementation,test,ci",
+          "requirement_id": "REQ-DRAFT-005",
+          "source_line": 84,
+          "source_path": "openspec/changes/archive/2026-06-18-live-chapter-bundle-input/specs/claim-first-drafting/spec.md"
+        }
+      ],
+      "missing": {
+        "ci": 6,
+        "implementation": 6,
+        "test": 6
+      },
+      "priority_score": 6,
+      "recommended_action": "confirm archived requirements are historical, then keep them out of active design gates",
+      "reviewable_evidence_links": 0,
+      "stale_evidence_links": 0
+    }
+  ],
+  "summary": {
+    "active_coverage_gaps": 0,
+    "ambiguous_evidence_links": 36,
+    "archived_coverage_gaps": 92,
+    "capability_count": 7,
+    "reviewable_evidence_links": 0,
+    "stale_evidence_links": 36,
+    "top_priority": "homoiconic-kg"
+  }
+}

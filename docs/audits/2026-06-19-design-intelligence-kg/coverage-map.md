@@ -136,7 +136,7 @@ communities, so hit counts are conservative.
 
 - nodes: 49
 - coverage flag: sample-covered-or-low-node-count
-- promoted sample hits: 0
+- promoted sample hits: 1
 - evidence-only sample hits: 1
 - sample: apply_writeback(), _main(), _operator(), Apply proposed transitions emitted by book-qa proposal writers., _antonym_overlap(), detect_conflicts(), _main(), Pairwise contradiction detection across verified claims.  Heuristic: two claims
 
@@ -688,7 +688,7 @@ communities, so hit counts are conservative.
 
 - nodes: 24
 - coverage flag: sample-covered-or-low-node-count
-- promoted sample hits: 0
+- promoted sample hits: 1
 - evidence-only sample hits: 1
 - sample: IncompatibleSkillApiVersion, load_skill_api(), Path, Load a sibling skill's public ``skill_api`` from another skill's process.  Sibli, Make ``scripts`` resolve to ``root/scripts`` for the duration of the block., Wraps a sibling api module so every call runs with the sibling's scripts active., Load sibling skill ``name``'s skill_api and return a swap-wrapped proxy.      ``, _sibling_scripts()
 

@@ -63,6 +63,7 @@ _BACKTICK_TOKEN = re.compile(r"`([^`]+)`")
 _CODE_PATH_SUFFIXES = {".clj", ".cljs", ".py", ".rs", ".yaml", ".yml"}
 _TRACEABILITY_MANIFEST_NAMES = {"traceability.json", "design-traceability.json"}
 _REVIEWED_TRACE_TARGETS = {
+    "decision-constrains-code": "code-path",
     "requirement-implemented-by": "code-path",
     "requirement-covered-by": "test-case",
     "requirement-gated-by": "ci-job",
@@ -1165,6 +1166,13 @@ def _requirement_key(row: dict) -> tuple[str, str, str]:
     )
 
 
+def _decision_key(row: dict) -> tuple[str, int]:
+    return (
+        str(row.get("source_path") or ""),
+        int(row.get("source_line") or 0),
+    )
+
+
 def _manifest_requirement(
     entry: dict, requirements_by_key: dict[tuple[str, str, str], dict]
 ) -> dict:
@@ -1181,6 +1189,50 @@ def _manifest_requirement(
             f"{key[1]} in {key[2] or '<missing source>'}"
         )
     return requirement
+
+
+def _manifest_decision(
+    entry: dict, decisions_by_key: dict[tuple[str, int], dict]
+) -> dict:
+    source_path = _normalise_path(entry.get("decision_source")) or ""
+    try:
+        source_line = int(entry.get("decision_line") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "traceability manifest decision_line must be an integer"
+        ) from exc
+    key = (source_path, source_line)
+    decision = decisions_by_key.get(key)
+    if decision is None:
+        raise ValueError(
+            "traceability manifest references unknown design decision "
+            f"{source_path or '<missing source>'}:{source_line or '<missing line>'}"
+        )
+    return decision
+
+
+def _manifest_source(
+    entry: dict,
+    *,
+    requirements_by_key: dict[tuple[str, str, str], dict],
+    decisions_by_key: dict[tuple[str, int], dict],
+) -> dict:
+    has_requirement = any(
+        entry.get(key) is not None
+        for key in ("capability", "requirement_id", "requirement_source")
+    )
+    has_decision = any(
+        entry.get(key) is not None
+        for key in ("decision_source", "decision_line")
+    )
+    if has_requirement and has_decision:
+        raise ValueError(
+            "traceability manifest link must reference either a requirement "
+            "or a design decision, not both"
+        )
+    if has_decision:
+        return _manifest_decision(entry, decisions_by_key)
+    return _manifest_requirement(entry, requirements_by_key)
 
 
 def _test_selectors(tests: list[dict]) -> dict[str, dict]:
@@ -1270,6 +1322,7 @@ def _reviewed_traceability_links(
     root: Path,
     *,
     requirements: list[dict],
+    decisions: list[dict],
     tests: list[dict],
     jobs: list[dict],
     nodes: list[dict],
@@ -1278,6 +1331,7 @@ def _reviewed_traceability_links(
     requirements_by_key = {
         _requirement_key(requirement): requirement for requirement in requirements
     }
+    decisions_by_key = {_decision_key(decision): decision for decision in decisions}
     tests_by_selector = _test_selectors(tests)
     jobs_by_selector = _ci_job_selectors(jobs)
     links: list[dict] = []
@@ -1298,14 +1352,18 @@ def _reviewed_traceability_links(
         for entry in entries:
             if not isinstance(entry, dict):
                 raise ValueError(f"traceability manifest link is not an object {source_path}")
-            requirement = _manifest_requirement(entry, requirements_by_key)
+            source = _manifest_source(
+                entry,
+                requirements_by_key=requirements_by_key,
+                decisions_by_key=decisions_by_key,
+            )
             target = str(entry.get("target") or "").strip()
             if not target:
                 raise ValueError("traceability manifest link has no target")
             links.append(
                 _trace_row(
                     kind=str(entry.get("kind") or ""),
-                    from_id=requirement["id"],
+                    from_id=source["id"],
                     to_id=_reviewed_target_id(
                         entry,
                         tests_by_selector=tests_by_selector,
@@ -1360,6 +1418,7 @@ def extract_traceability_links(root: Path) -> list[dict]:
         _reviewed_traceability_links(
             root,
             requirements=requirements,
+            decisions=decisions,
             tests=tests,
             jobs=jobs,
             nodes=nodes,

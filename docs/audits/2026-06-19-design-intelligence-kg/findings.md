@@ -3,9 +3,9 @@
 ## Important findings
 
 - coverage-gaps: 92 requirements lack at least one promoted implementation, test, or CI link.
-- stale-docs: 38 evidence-only links need review before promotion.
+- stale-docs: 36 evidence-only candidates remain (0 reviewable, 36 ambiguous-symbol).
 - untested-god-nodes: 0 high-rank graphify nodes lack promoted test links.
-- promoted traceability links: 189 of 231 total traceability links.
+- promoted traceability links: 191 of 233 total traceability links.
 
 ## coverage-gaps
 
@@ -55,12 +55,8 @@ Total rows: 92
 
 ## stale-docs
 
-Total rows: 38
+Total rows: 36
 
-- `docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md:229`
-  `{"from_id": "design-doc:docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md:229:non-goal:replacing-the-antonym-pair-detect-conflicts-py-bundle-c-runs-alongside-it-abductive-counter-claims-are-a-strictly-broader-detector", "kind": "evidence-only-link", "link_kind": "decision-constrains-code", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 229, "source_path": "docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md", "to_id": "scripts_detect_conflicts_detect_conflicts", "witness": "detect_conflicts"}`
-- `docs/superpowers/specs/2026-06-03-carve-completion-design.md:16`
-  `{"from_id": "design-doc:docs/superpowers/specs/2026-06-03-carve-completion-design.md:16:decision:193-fix-move-the-from-sibling-skills-import-load-skill-api-imports-inside-the-consuming-functions-in-the-six-scripts-import-skill-api-becomes-sibling-free-again-matching-the-smoke-gate-s-contract-and-the-suite-s-graceful-degradation-pattern-no-ci-changes", "kind": "evidence-only-link", "link_kind": "decision-constrains-code", "provenance": "deterministic:lexical-symbol", "query": "stale-docs", "source_line": 16, "source_path": "docs/superpowers/specs/2026-06-03-carve-completion-design.md", "to_id": "sibling_skills_loader_load_skill_api", "witness": "load_skill_api"}`
 - `openspec/specs/homoiconic-kg/spec.md:65`
   `{"from_id": "openspec:homoiconic-kg:REQ-KG-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 65, "source_path": "openspec/specs/homoiconic-kg/spec.md", "to_id": "substrate_conformance_contradiction_scan_basic_relations_claim", "witness": "claim"}`
 - `openspec/specs/homoiconic-kg/spec.md:65`
@@ -97,7 +93,11 @@ Total rows: 38
   `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_proof_obligation_schema_properties_status", "witness": "status"}`
 - `openspec/specs/proof-obligations/spec.md:34`
   `{"from_id": "openspec:proof-obligations:REQ-PROOF-001", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 34, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_verification_artifact_schema_properties_status", "witness": "status"}`
-- omitted rows: 18
+- `openspec/specs/proof-obligations/spec.md:51`
+  `{"from_id": "openspec:proof-obligations:REQ-PROOF-002", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 51, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_chapter_retrieval_bundle_schema_properties_status", "witness": "status"}`
+- `openspec/specs/proof-obligations/spec.md:51`
+  `{"from_id": "openspec:proof-obligations:REQ-PROOF-002", "kind": "evidence-only-link", "link_kind": "requirement-implemented-by", "provenance": "deterministic:ambiguous-symbol", "query": "stale-docs", "source_line": 51, "source_path": "openspec/specs/proof-obligations/spec.md", "to_id": "assets_claim_record_schema_properties_status", "witness": "status"}`
+- omitted rows: 16
 
 ## untested-god-nodes
 

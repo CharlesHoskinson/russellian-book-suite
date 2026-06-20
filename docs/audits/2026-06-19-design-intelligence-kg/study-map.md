@@ -5,13 +5,13 @@ agents that need to improve design, utility, or traceability.
 
 ## Summary
 
-- capabilities with work: 9
+- capabilities with work: 7
 - active coverage gaps: 0
 - archived coverage gaps: 92
-- stale evidence links: 38
-- reviewable evidence links: 2
+- stale evidence links: 36
+- reviewable evidence links: 0
 - ambiguous evidence links: 36
-- top priority: 2026-05-11-bundle-c-closed-loop-ledger-design.md
+- top priority: homoiconic-kg
 
 ## Agent Workflow
 
@@ -21,32 +21,6 @@ agents that need to improve design, utility, or traceability.
 - For archived-only gaps, prefer documenting historical status over implementing stale requirements.
 
 ## Priorities
-
-### 2026-05-11-bundle-c-closed-loop-ledger-design.md
-
-- priority score: 100
-- active coverage gaps: 0
-- archived coverage gaps: 0
-- stale evidence links: 1
-- reviewable evidence links: 1
-- ambiguous evidence links: 0
-- missing implementation/test/ci: 0/0/0
-- recommended action: review evidence-only links and promote only exact, source-backed matches
-
-- example: stale-evidence docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md:229
-
-### 2026-06-03-carve-completion-design.md
-
-- priority score: 100
-- active coverage gaps: 0
-- archived coverage gaps: 0
-- stale evidence links: 1
-- reviewable evidence links: 1
-- ambiguous evidence links: 0
-- missing implementation/test/ci: 0/0/0
-- recommended action: review evidence-only links and promote only exact, source-backed matches
-
-- example: stale-evidence docs/superpowers/specs/2026-06-03-carve-completion-design.md:16
 
 ### homoiconic-kg
 

@@ -690,6 +690,13 @@ def _write_findings(
     query_outputs: dict[str, list[dict[str, Any]]],
     counts: dict[str, int],
 ) -> None:
+    stale_rows = query_outputs["stale-docs"]
+    ambiguous_stale = sum(
+        1
+        for row in stale_rows
+        if row.get("provenance") == "deterministic:ambiguous-symbol"
+    )
+    reviewable_stale = len(stale_rows) - ambiguous_stale
     lines = [
         "# Design KG findings",
         "",
@@ -700,8 +707,8 @@ def _write_findings(
             "lack at least one promoted implementation, test, or CI link."
         ),
         (
-            f"- stale-docs: {len(query_outputs['stale-docs'])} evidence-only "
-            "links need review before promotion."
+            f"- stale-docs: {len(stale_rows)} evidence-only candidates remain "
+            f"({reviewable_stale} reviewable, {ambiguous_stale} ambiguous-symbol)."
         ),
         (
             f"- untested-god-nodes: {len(query_outputs['untested-god-nodes'])} "

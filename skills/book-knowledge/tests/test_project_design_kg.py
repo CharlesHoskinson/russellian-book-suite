@@ -1060,6 +1060,87 @@ def test_reviewed_traceability_manifest_promotes_explicit_links(
     ]
 
 
+def test_reviewed_traceability_manifest_promotes_design_decision_links(
+    tmp_path: Path,
+) -> None:
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "design.md").write_text(
+        "\n".join(
+            [
+                "# Fixture design",
+                "",
+                "## Decision: keep fixture stable",
+                "",
+                "The fixture constrains `src/impl.py`.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    graph_dir = tmp_path / "graphify"
+    graph_dir.mkdir()
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "impl.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (graph_dir / "graph.json").write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {
+                        "id": "impl_module",
+                        "label": "impl.py",
+                        "source_file": "src/impl.py",
+                    }
+                ],
+                "links": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (docs_dir / "traceability.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "links": [
+                    {
+                        "decision_source": "docs/design.md",
+                        "decision_line": 3,
+                        "kind": "decision-constrains-code",
+                        "target_type": "code-path",
+                        "target": "src/impl.py",
+                    }
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    reviewed = [
+        row
+        for row in extract_traceability_links(tmp_path)
+        if row["provenance"] == "reviewed:traceability-manifest"
+    ]
+
+    assert reviewed == [
+        {
+            "id": (
+                "trace:decision-constrains-code:design-doc:docs/design.md:3:"
+                "decision:keep-fixture-stable->impl_module:src-impl-py"
+            ),
+            "from_id": "design-doc:docs/design.md:3:decision:keep-fixture-stable",
+            "to_id": "impl_module",
+            "kind": "decision-constrains-code",
+            "confidence": 1.0,
+            "witness": "src/impl.py",
+            "provenance": "reviewed:traceability-manifest",
+            "promoted": True,
+            "source_path": "docs/traceability.json",
+            "source_line": 9,
+        }
+    ]
+
+
 def test_ambiguous_symbol_links_are_evidence_only(tmp_path: Path) -> None:
     spec_dir = tmp_path / "openspec" / "specs" / "ambiguous"
     spec_dir.mkdir(parents=True)

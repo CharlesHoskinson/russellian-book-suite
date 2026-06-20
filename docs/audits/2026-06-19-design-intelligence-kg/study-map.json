@@ -8,58 +8,6 @@
   "priorities": [
     {
       "active_coverage_gaps": 0,
-      "ambiguous_evidence_links": 0,
-      "archived_coverage_gaps": 0,
-      "capability": "2026-05-11-bundle-c-closed-loop-ledger-design.md",
-      "examples": [
-        {
-          "archived": false,
-          "kind": "stale-evidence",
-          "link_kind": "decision-constrains-code",
-          "provenance": "deterministic:lexical-symbol",
-          "source_line": 229,
-          "source_path": "docs/specs/2026-05-11-bundle-c-closed-loop-ledger-design.md",
-          "witness": "detect_conflicts"
-        }
-      ],
-      "missing": {
-        "ci": 0,
-        "implementation": 0,
-        "test": 0
-      },
-      "priority_score": 100,
-      "recommended_action": "review evidence-only links and promote only exact, source-backed matches",
-      "reviewable_evidence_links": 1,
-      "stale_evidence_links": 1
-    },
-    {
-      "active_coverage_gaps": 0,
-      "ambiguous_evidence_links": 0,
-      "archived_coverage_gaps": 0,
-      "capability": "2026-06-03-carve-completion-design.md",
-      "examples": [
-        {
-          "archived": false,
-          "kind": "stale-evidence",
-          "link_kind": "decision-constrains-code",
-          "provenance": "deterministic:lexical-symbol",
-          "source_line": 16,
-          "source_path": "docs/superpowers/specs/2026-06-03-carve-completion-design.md",
-          "witness": "load_skill_api"
-        }
-      ],
-      "missing": {
-        "ci": 0,
-        "implementation": 0,
-        "test": 0
-      },
-      "priority_score": 100,
-      "recommended_action": "review evidence-only links and promote only exact, source-backed matches",
-      "reviewable_evidence_links": 1,
-      "stale_evidence_links": 1
-    },
-    {
-      "active_coverage_gaps": 0,
       "ambiguous_evidence_links": 12,
       "archived_coverage_gaps": 41,
       "capability": "homoiconic-kg",
@@ -472,9 +420,9 @@
     "active_coverage_gaps": 0,
     "ambiguous_evidence_links": 36,
     "archived_coverage_gaps": 92,
-    "capability_count": 9,
-    "reviewable_evidence_links": 2,
-    "stale_evidence_links": 38,
-    "top_priority": "2026-05-11-bundle-c-closed-loop-ledger-design.md"
+    "capability_count": 7,
+    "reviewable_evidence_links": 0,
+    "stale_evidence_links": 36,
+    "top_priority": "homoiconic-kg"
   }
 }

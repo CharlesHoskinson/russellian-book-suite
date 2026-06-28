@@ -23,7 +23,7 @@ runs:
     - name: restore spaCy model wheel cache
       if: inputs.spacy == 'true'
       id: restore-spacy
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: spacy-wheel
         key: spacy-model-en_core_web_sm-3.8.0
@@ -55,7 +55,7 @@ runs:
         python -m pip install --no-deps "$WHEEL"
     - name: save spaCy model wheel cache
       if: inputs.spacy == 'true' && steps.restore-spacy.outputs.cache-hit != 'true'
-      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: spacy-wheel
         key: spacy-model-en_core_web_sm-3.8.0
@@ -74,7 +74,7 @@ runs:
     - name: restore HF model cache
       if: inputs.hf-model != ''
       id: restore-hf
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: hf-cache
         key: ${{ steps.hf-key.outputs.key }}
@@ -101,7 +101,7 @@ runs:
         retry python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['HF_MODEL'])"
     - name: save HF model cache
       if: inputs.hf-model != '' && steps.restore-hf.outputs.cache-hit != 'true'
-      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: hf-cache
         key: ${{ steps.hf-key.outputs.key }}

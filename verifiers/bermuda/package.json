@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "shadow-cljs":  "^3.4.11",
-    "@napi-rs/cli": "^3.7.2",
-    "nbb":          "^1.4.208"
+    "@napi-rs/cli": "^3.7.3",
+    "nbb":          "^1.5.211"
   }
 }

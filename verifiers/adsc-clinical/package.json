@@ -13,8 +13,8 @@
     "test:booklogic":     "nbb -m adsc-clinical.booklogic-test"
   },
   "devDependencies": {
-    "shadow-cljs": "^3.4.11",
-    "@napi-rs/cli": "^3.7.2",
-    "nbb": "^1.4.208"
+    "shadow-cljs": "^3.4.12",
+    "@napi-rs/cli": "^3.8.2",
+    "nbb": "^1.5.211"
   }
 }

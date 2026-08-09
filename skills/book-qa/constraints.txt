@@ -10,8 +10,8 @@
 # regenerate this file:  pip install -e skills/book-qa[ci] && pip freeze --exclude-editable
 colorama==0.4.6
 iniconfig==2.3.0
-packaging==26.2
+packaging==26.3
 pluggy==1.6.0
 Pygments==2.20.0
-pytest==9.1.0
+pytest==9.1.1
 PyYAML==6.0.3

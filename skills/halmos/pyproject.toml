@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=82.0.1"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,8 +10,8 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-ci = ["pytest>=9.1.0,<10.0"]
-dev = ["pytest>=9.1.0,<10.0"]
+ci = ["pytest>=9.1.1,<10.0"]
+dev = ["pytest>=9.1.1,<10.0"]
 
 [tool.setuptools]
 packages = ["scripts"]
